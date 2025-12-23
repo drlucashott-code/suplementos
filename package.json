@@ -1,0 +1,33 @@
+{
+  "name": "suplementos",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "update:amazon": "ts-node scripts/updateAmazonPrices.ts",
+    "update:ml": "ts-node scripts/updateMercadoLivrePrices.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.1",
+    "next": "16.0.10",
+    "prisma": "6.19.1",
+    "react": "19.2.1",
+    "react-dom": "19.2.1",
+    "react-hot-toast": "^2.6.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/node": "^20.11.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "16.0.10",
+    "tailwindcss": "^4.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.0"
+  }
+}

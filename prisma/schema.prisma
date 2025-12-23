@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/* =======================
+   ENUMS
+   ======================= */
+
+enum Store {
+  AMAZON
+  MERCADO_LIVRE
+}
+
+enum CreatineForm {
+  POWDER
+  CAPSULE
+  GUMMY
+}
+
+/* =======================
+   PRODUCT
+   ======================= */
+model Product {
+  id            String   @id @default(cuid())
+
+  category      String
+  name          String
+  brand         String
+  flavor        String?
+  imageUrl      String
+  weightInGrams Int
+
+  creatineInfo  CreatineInfo?
+  offers        Offer[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+/* =======================
+   CREATINE INFO
+   ======================= */
+model CreatineInfo {
+  id            String       @id @default(cuid())
+  productId     String       @unique
+  product       Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  form          CreatineForm
+  purityPercent Float
+
+  @@index([form])
+}
+
+/* =======================
+   OFFER (Amazon / ML)
+   ======================= */
+model Offer {
+  id           String   @id @default(cuid())
+
+  productId    String
+  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  store        Store
+  externalId   String   // ASIN ou MLB123...
+  price        Float
+  affiliateUrl String
+
+  createdAt    DateTime @default(now())
+
+  @@index([productId])
+  @@index([store])
+  @@unique([store, externalId])
+}
