@@ -30,6 +30,11 @@ jobs:
         run: node --loader ts-node/esm scripts/updateAmazonPrices.ts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          AMAZON_ACCESS_KEY: ${{ secrets.AMAZON_ACCESS_KEY }}
+          AMAZON_SECRET_KEY: ${{ secrets.AMAZON_SECRET_KEY }}
+          AMAZON_ASSOCIATE_TAG: ${{ secrets.AMAZON_ASSOCIATE_TAG }}
+          AMAZON_REGION: ${{ secrets.AMAZON_REGION }}
+          AMAZON_HOST: ${{ secrets.AMAZON_HOST }}
 
       - name: Run Mercado Livre price update
         run: node --loader ts-node/esm scripts/updateMercadoLivrePrices.ts
