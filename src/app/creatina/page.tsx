@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { ProductList } from "./ProductList";
 import { PriceSlider } from "./PriceSlider";
+import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
+import { DesktopFiltersSidebar } from "./DesktopFiltersSidebar";
 import { CreatineForm, Store } from "@prisma/client";
 import { calculateCreatineStats } from "@/lib/calculateCreatineStats";
-import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
 
 type SearchParams = {
   brand?: string;
@@ -33,6 +34,9 @@ export default async function CreatinaPage({
     ? Number(params.priceMax)
     : undefined;
 
+  /* =========================
+     BUSCA PRODUTOS
+     ========================= */
   const products = await prisma.product.findMany({
     where: {
       category: "creatina",
@@ -52,20 +56,24 @@ export default async function CreatinaPage({
     },
   });
 
+  /* =========================
+     PROCESSA + FILTRA
+     ========================= */
   const rankedProducts = products
     .map((product) => {
       if (!product.creatineInfo) return null;
 
       const validOffers = product.offers.filter(
-        (o) =>
-          o.price > 0 &&
-          !!o.affiliateUrl &&
+        (offer) =>
+          offer.price > 0 &&
+          !!offer.affiliateUrl &&
           (selectedStores.length === 0 ||
-            selectedStores.includes(o.store))
+            selectedStores.includes(offer.store))
       );
 
       if (!validOffers.length) return null;
 
+      // menor preço ENTRE AS LOJAS SELECIONADAS
       const bestOffer = validOffers.reduce((a, b) =>
         b.price < a.price ? b : a
       );
@@ -85,6 +93,7 @@ export default async function CreatinaPage({
       });
 
       const doses = stats.doses;
+
       const doseBucket =
         doses < 50
           ? "<50"
@@ -109,9 +118,10 @@ export default async function CreatinaPage({
         form: product.creatineInfo.form,
         price: bestOffer.price,
         affiliateUrl: bestOffer.affiliateUrl,
-        store: bestOffer.store,
+        store: bestOffer.store, // 🔴 ISSO DEFINE O BOTÃO
         doses,
         pricePerDose: stats.pricePerDose!,
+        hasCarbohydrate: false,
       };
     })
     .filter(Boolean)
@@ -119,6 +129,9 @@ export default async function CreatinaPage({
       (a, b) => a!.pricePerDose - b!.pricePerDose
     );
 
+  /* =========================
+     FILTROS DISPONÍVEIS
+     ========================= */
   const brands = await prisma.product.findMany({
     where: { category: "creatina" },
     distinct: ["brand"],
@@ -134,28 +147,38 @@ export default async function CreatinaPage({
     select: { flavor: true },
   });
 
+  /* =========================
+     RENDER
+     ========================= */
   return (
     <main className="max-w-7xl mx-auto p-4 sm:p-6">
+      {/* MOBILE FILTERS */}
       <MobileFiltersDrawer
         brands={brands.map((b) => b.brand)}
-        flavors={flavors
-          .map((f) => f.flavor!)
-          .sort()}
+        flavors={flavors.map((f) => f.flavor!).sort()}
       />
 
       <h1 className="text-2xl sm:text-3xl font-bold mb-2 text-center">
         Creatina com melhor custo-benefício
       </h1>
 
-      <p className="text-gray-700 mb-6">
-        Comparação baseada no menor preço por dose entre os produtos mais bem avaliados na Amazon e no Mercado Livre.
+      <p className="text-gray-700 mb-6 text-center">
+        Comparação baseada no menor preço por dose entre os
+        produtos mais bem avaliados na Amazon e no Mercado Livre.
       </p>
 
       <div className="flex flex-col lg:flex-row gap-6">
-        <aside className="hidden lg:block lg:w-64 border rounded-xl p-4 h-fit">
+        {/* DESKTOP FILTERS */}
+        <aside className="hidden lg:flex flex-col gap-4 w-64">
+          <DesktopFiltersSidebar
+            brands={brands.map((b) => b.brand)}
+            flavors={flavors.map((f) => f.flavor!).sort()}
+          />
+
           <PriceSlider />
         </aside>
 
+        {/* LISTA */}
         <ProductList products={rankedProducts as any} />
       </div>
     </main>
