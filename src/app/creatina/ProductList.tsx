@@ -16,7 +16,6 @@ type Product = {
 
   pricePerDose: number;
   doses: number;
-  hasCarbohydrate: boolean;
 };
 
 export function ProductList({ products }: { products: Product[] }) {
@@ -25,7 +24,8 @@ export function ProductList({ products }: { products: Product[] }) {
       {products.map((product, index) => {
         const isBest = index === 0;
 
-        const centsPerDose = Math.round(product.pricePerDose * 100);
+        // ✅ SEM ARREDONDAR (apenas remove casas decimais)
+        const centsPerDose = Math.floor(product.pricePerDose * 100);
 
         const buyLabel =
           product.store === Store.AMAZON
@@ -46,7 +46,7 @@ export function ProductList({ products }: { products: Product[] }) {
               className={`relative rounded-2xl p-6 transition shadow-sm hidden lg:flex gap-6 items-center
                 ${
                   isBest
-                    ? "border-2 border-green-600 bg-green-50"
+                    ? "border-2 border-green-600 bg-green-100"
                     : "border border-gray-200 bg-white"
                 }
               `}
@@ -70,17 +70,16 @@ export function ProductList({ products }: { products: Product[] }) {
                   {product.name}
                 </h2>
 
-                <p className="text-lg font-semibold text-green-700 mb-2">
+                <p className="text-lg font-semibold text-green-800 mb-2">
                   Preço por dose (3g):{" "}
                   <span className="text-2xl font-bold">
                     {centsPerDose} centavos
                   </span>
                 </p>
 
-                <div className="text-sm text-gray-700 space-y-1">
+                <div className="text-sm text-gray-800 space-y-1">
                   <div>
-                    <strong>Preço total:</strong> R${" "}
-                    {product.price.toFixed(2)}
+                    <strong>Preço total:</strong> R$ {product.price.toFixed(2)}
                   </div>
 
                   <div>
@@ -101,12 +100,6 @@ export function ProductList({ products }: { products: Product[] }) {
                       ? "Gummy"
                       : "Pó"}
                   </div>
-
-                  {product.hasCarbohydrate && (
-                    <div className="text-xs text-orange-700 font-medium mt-1">
-                      Contém carboidrato
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -124,10 +117,7 @@ export function ProductList({ products }: { products: Product[] }) {
                MOBILE
                ========================= */}
             <div className="lg:hidden">
-              <MobileProductCard
-                product={product}
-                isBest={isBest}
-              />
+              <MobileProductCard product={product} isBest={isBest} />
             </div>
           </div>
         );
