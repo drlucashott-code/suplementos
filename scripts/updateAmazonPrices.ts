@@ -6,11 +6,12 @@ import { PrismaClient, Store } from "@prisma/client";
 const prisma = new PrismaClient();
 
 /* ======================
-   ENV CHECK
+   ENV CHECK (PADRONIZADO)
 ====================== */
 const AMAZON_ACCESS_KEY = process.env.AMAZON_ACCESS_KEY;
 const AMAZON_SECRET_KEY = process.env.AMAZON_SECRET_KEY;
-const AMAZON_ASSOCIATE_TAG = process.env.AMAZON_ASSOCIATE_TAG;
+const AMAZON_PARTNER_TAG = process.env.AMAZON_PARTNER_TAG;
+
 const AMAZON_HOST = process.env.AMAZON_HOST ?? "webservices.amazon.com.br";
 const AMAZON_REGION = process.env.AMAZON_REGION ?? "us-east-1";
 const AMAZON_SERVICE = "ProductAdvertisingAPI";
@@ -18,12 +19,12 @@ const AMAZON_SERVICE = "ProductAdvertisingAPI";
 if (
   !AMAZON_ACCESS_KEY ||
   !AMAZON_SECRET_KEY ||
-  !AMAZON_ASSOCIATE_TAG
+  !AMAZON_PARTNER_TAG
 ) {
   console.error("ENV DEBUG:", {
     AMAZON_ACCESS_KEY: !!AMAZON_ACCESS_KEY,
     AMAZON_SECRET_KEY: !!AMAZON_SECRET_KEY,
-    AMAZON_ASSOCIATE_TAG: !!AMAZON_ASSOCIATE_TAG,
+    AMAZON_PARTNER_TAG: !!AMAZON_PARTNER_TAG,
     AMAZON_HOST,
     AMAZON_REGION,
   });
@@ -36,7 +37,7 @@ if (
 ====================== */
 const ACCESS_KEY = AMAZON_ACCESS_KEY!;
 const SECRET_KEY = AMAZON_SECRET_KEY!;
-const ASSOCIATE_TAG = AMAZON_ASSOCIATE_TAG!;
+const PARTNER_TAG = AMAZON_PARTNER_TAG!;
 const HOST = AMAZON_HOST!;
 const REGION = AMAZON_REGION!;
 
@@ -70,7 +71,7 @@ async function fetchAmazonPrice(asin: string): Promise<number | null> {
   const payload = JSON.stringify({
     ItemIds: [asin],
     Resources: ["Offers.Listings.Price"],
-    PartnerTag: ASSOCIATE_TAG,
+    PartnerTag: PARTNER_TAG,
     PartnerType: "Associates",
     Marketplace: "www.amazon.com.br",
   });
@@ -187,7 +188,7 @@ async function updateAmazonPrices() {
       where: { id: offer.id },
       data: {
         price,
-        affiliateUrl: `https://www.amazon.com.br/dp/${offer.externalId}?tag=${ASSOCIATE_TAG}`,
+        affiliateUrl: `https://www.amazon.com.br/dp/${offer.externalId}?tag=${PARTNER_TAG}`,
       },
     });
 
