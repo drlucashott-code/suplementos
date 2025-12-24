@@ -1,6 +1,7 @@
 "use client";
 
 import { CreatineForm, Store } from "@prisma/client";
+import { MobileProductCard } from "./MobileProductCard";
 
 type Product = {
   id: string;
@@ -18,19 +19,13 @@ type Product = {
   hasCarbohydrate: boolean;
 };
 
-export function ProductList({
-  products,
-}: {
-  products: Product[];
-}) {
+export function ProductList({ products }: { products: Product[] }) {
   return (
     <section className="flex-1 space-y-6">
       {products.map((product, index) => {
         const isBest = index === 0;
 
-        const centsPerDose = Math.round(
-          product.pricePerDose * 100
-        );
+        const centsPerDose = Math.round(product.pricePerDose * 100);
 
         const buyLabel =
           product.store === Store.AMAZON
@@ -43,27 +38,25 @@ export function ProductList({
             : "bg-yellow-500 hover:bg-yellow-600";
 
         return (
-          <div
-            key={product.id}
-            className={`relative rounded-2xl p-6 transition shadow-sm
-              ${
-                isBest
-                  ? "border-2 border-green-600 bg-green-50"
-                  : "border border-gray-200 bg-white"
-              }
-            `}
-          >
-            {/* SELO MELHOR */}
-            {isBest && (
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-green-600 text-white text-xs font-semibold px-4 py-1 rounded-full shadow">
-                Melhor custo-benefício
-              </div>
-            )}
-
+          <div key={product.id}>
             {/* =========================
                DESKTOP
                ========================= */}
-            <div className="hidden lg:flex gap-6 items-center">
+            <div
+              className={`relative rounded-2xl p-6 transition shadow-sm hidden lg:flex gap-6 items-center
+                ${
+                  isBest
+                    ? "border-2 border-green-600 bg-green-50"
+                    : "border border-gray-200 bg-white"
+                }
+              `}
+            >
+              {isBest && (
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-green-600 text-white text-xs font-semibold px-4 py-1 rounded-full shadow">
+                  Melhor custo-benefício
+                </div>
+              )}
+
               {product.imageUrl && (
                 <img
                   src={product.imageUrl}
@@ -86,8 +79,8 @@ export function ProductList({
 
                 <div className="text-sm text-gray-700 space-y-1">
                   <div>
-                    <strong>Preço total:</strong>{" "}
-                    R$ {product.price.toFixed(2)}
+                    <strong>Preço total:</strong> R${" "}
+                    {product.price.toFixed(2)}
                   </div>
 
                   <div>
@@ -128,73 +121,13 @@ export function ProductList({
             </div>
 
             {/* =========================
-               MOBILE (Amazon-style)
+               MOBILE
                ========================= */}
             <div className="lg:hidden">
-              <div className="flex gap-4 items-start">
-                {product.imageUrl && (
-                  <img
-                    src={product.imageUrl}
-                    alt={product.name}
-                    className="w-40 h-40 object-contain flex-shrink-0"
-                  />
-                )}
-
-                <div className="flex-1">
-                  <h2 className="font-semibold text-base mb-1 line-clamp-2">
-                    {product.name}
-                  </h2>
-
-                  <p className="text-green-700 font-semibold mb-2">
-                    Preço por dose (3g):{" "}
-                    <span className="font-bold">
-                      {centsPerDose} centavos
-                    </span>
-                  </p>
-
-                  <div className="text-sm text-gray-800 space-y-1">
-                    <div>
-                      <strong>Preço total:</strong>{" "}
-                      R$ {product.price.toFixed(2)}
-                    </div>
-
-                    <div>
-                      <strong>Rendimento:</strong>{" "}
-                      {Math.floor(product.doses)} doses
-                    </div>
-
-                    <div>
-                      <strong>Sabor:</strong>{" "}
-                      {product.flavor ?? "Sem sabor"}
-                    </div>
-
-                    <div>
-                      <strong>Apresentação:</strong>{" "}
-                      {product.form === CreatineForm.CAPSULE
-                        ? "Cápsula"
-                        : product.form === CreatineForm.GUMMY
-                        ? "Gummy"
-                        : "Pó"}
-                    </div>
-
-                    {product.hasCarbohydrate && (
-                      <div className="text-xs text-orange-700 font-medium mt-1">
-                        Contém carboidrato
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* BOTÃO SEMPRE EMBAIXO */}
-              <a
-                href={product.affiliateUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`mt-4 block w-full text-center text-white px-6 py-3 rounded-xl font-semibold transition shadow-sm ${buyColor}`}
-              >
-                {buyLabel}
-              </a>
+              <MobileProductCard
+                product={product}
+                isBest={isBest}
+              />
             </div>
           </div>
         );

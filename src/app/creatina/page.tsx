@@ -84,7 +84,6 @@ export default async function CreatinaPage({
         price: bestOffer.price,
       });
 
-      // filtro de doses
       const doses = stats.doses;
       const doseBucket =
         doses < 50
@@ -144,13 +143,12 @@ export default async function CreatinaPage({
           .sort()}
       />
 
-      <h1 className="text-2xl sm:text-3xl font-bold mb-2">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-2 text-center">
         Creatina com melhor custo-benefício
       </h1>
 
       <p className="text-gray-700 mb-6">
-        Comparação baseada em dose diária de 3g de creatina
-        ativa
+        Comparação baseada no menor preço por dose entre os produtos mais bem avaliados na Amazon e no Mercado Livre.
       </p>
 
       <div className="flex flex-col lg:flex-row gap-6">
