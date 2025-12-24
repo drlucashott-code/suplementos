@@ -49,6 +49,7 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
       <button
         onClick={() => setOpen(true)}
         className="fixed bottom-4 right-4 z-40 sm:hidden bg-white text-black p-4 rounded-full shadow-lg border"
+        aria-label="Abrir filtros"
       >
         ☰
       </button>

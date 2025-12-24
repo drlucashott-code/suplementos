@@ -119,7 +119,7 @@ export function DesktopFiltersSidebar({ brands, flavors }: Props) {
 
       {/* DOSES */}
       <div>
-        <p className="font-medium text-sm mb-2">Rendimento (doses)</p>
+        <p className="font-medium text-sm mb-2">Doses</p>
         {DOSE_BUCKETS.map((bucket) => (
           <label key={bucket} className="flex gap-2 text-sm">
             <input
