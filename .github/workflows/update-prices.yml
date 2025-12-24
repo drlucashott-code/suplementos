@@ -2,8 +2,11 @@ name: Update Prices (Amazon + Mercado Livre)
 
 on:
   schedule:
-    # Todos os dias às 06:00 UTC (03:00 no Brasil)
-    - cron: "0 6 * * *"
+    # 3x ao dia:
+    # 06:00 UTC (03:00 Brasil)
+    # 14:00 UTC (11:00 Brasil)
+    # 22:00 UTC (19:00 Brasil)
+    - cron: "0 6,14,22 * * *"
   workflow_dispatch:
 
 jobs:
@@ -24,11 +27,11 @@ jobs:
         run: npm ci
 
       - name: Run Amazon price update
-        run: npm run update:amazon
+        run: node --loader ts-node/esm scripts/updateAmazonPrices.ts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Run Mercado Livre price update
-        run: npm run update:ml
+        run: node --loader ts-node/esm scripts/updateMercadoLivrePrices.ts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
