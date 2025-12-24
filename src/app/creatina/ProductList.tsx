@@ -55,7 +55,7 @@ export function ProductList({
           >
             {/* SELO MELHOR */}
             {isBest && (
-              <div className="absolute -top-3 left-6 bg-green-600 text-white text-xs font-semibold px-4 py-1 rounded-full shadow">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-green-600 text-white text-xs font-semibold px-4 py-1 rounded-full shadow">
                 Melhor custo-benefício
               </div>
             )}
