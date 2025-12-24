@@ -31,17 +31,12 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-          # Padrão AMAZON_*
+          # AMAZON PA-API (PADRÃO USADO NO SCRIPT)
           AMAZON_ACCESS_KEY: ${{ secrets.AMAZON_ACCESS_KEY }}
           AMAZON_SECRET_KEY: ${{ secrets.AMAZON_SECRET_KEY }}
-          AMAZON_ASSOCIATE_TAG: ${{ secrets.AMAZON_ASSOCIATE_TAG }}
+          AMAZON_PARTNER_TAG: ${{ secrets.AMAZON_PARTNER_TAG }}
           AMAZON_REGION: ${{ secrets.AMAZON_REGION }}
           AMAZON_HOST: ${{ secrets.AMAZON_HOST }}
-
-          # Padrão AWS_* (compatibilidade total)
-          AWS_ACCESS_KEY_ID: ${{ secrets.AMAZON_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AMAZON_SECRET_KEY }}
-          AWS_REGION: ${{ secrets.AMAZON_REGION }}
 
       - name: Run Mercado Livre price update
         run: node --loader ts-node/esm scripts/updateMercadoLivrePrices.ts
