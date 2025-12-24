@@ -13,8 +13,9 @@ type Product = {
   affiliateUrl: string;
   store: Store;
 
-  pricePerDose: number; // em reais
+  pricePerDose: number;
   doses: number;
+  hasCarbohydrate: boolean;
 };
 
 export function ProductList({
@@ -52,15 +53,17 @@ export function ProductList({
               }
             `}
           >
-            {/* SELO */}
+            {/* SELO MELHOR */}
             {isBest && (
               <div className="absolute -top-3 left-6 bg-green-600 text-white text-xs font-semibold px-4 py-1 rounded-full shadow">
                 Melhor custo-benefício
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row gap-6 items-center">
-              {/* IMAGEM */}
+            {/* =========================
+               DESKTOP
+               ========================= */}
+            <div className="hidden lg:flex gap-6 items-center">
               {product.imageUrl && (
                 <img
                   src={product.imageUrl}
@@ -69,8 +72,7 @@ export function ProductList({
                 />
               )}
 
-              {/* CONTEÚDO */}
-              <div className="flex-1 w-full">
+              <div className="flex-1">
                 <h2 className="font-semibold text-xl mb-3">
                   {product.name}
                 </h2>
@@ -100,29 +102,96 @@ export function ProductList({
 
                   <div>
                     <strong>Apresentação:</strong>{" "}
-                    {product.form === "POWDER"
-                      ? "Pó"
-                      : product.form === "CAPSULE"
+                    {product.form === CreatineForm.CAPSULE
                       ? "Cápsula"
-                      : product.form === "GUMMY"
+                      : product.form === CreatineForm.GUMMY
                       ? "Gummy"
-                      : "-"}
+                      : "Pó"}
                   </div>
-                </div>
 
-                {isBest && (
-                  <p className="text-xs text-green-700 mt-2">
-                    Menor custo por dose entre os produtos analisados
-                  </p>
-                )}
+                  {product.hasCarbohydrate && (
+                    <div className="text-xs text-orange-700 font-medium mt-1">
+                      Contém carboidrato
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* CTA */}
               <a
                 href={product.affiliateUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`w-52 text-center text-white px-6 py-3 rounded-xl font-semibold transition shadow-sm ${buyColor}`}
+              >
+                {buyLabel}
+              </a>
+            </div>
+
+            {/* =========================
+               MOBILE (Amazon-style)
+               ========================= */}
+            <div className="lg:hidden">
+              <div className="flex gap-4 items-start">
+                {product.imageUrl && (
+                  <img
+                    src={product.imageUrl}
+                    alt={product.name}
+                    className="w-40 h-40 object-contain flex-shrink-0"
+                  />
+                )}
+
+                <div className="flex-1">
+                  <h2 className="font-semibold text-base mb-1 line-clamp-2">
+                    {product.name}
+                  </h2>
+
+                  <p className="text-green-700 font-semibold mb-2">
+                    Preço por dose (3g):{" "}
+                    <span className="font-bold">
+                      {centsPerDose} centavos
+                    </span>
+                  </p>
+
+                  <div className="text-sm text-gray-800 space-y-1">
+                    <div>
+                      <strong>Preço total:</strong>{" "}
+                      R$ {product.price.toFixed(2)}
+                    </div>
+
+                    <div>
+                      <strong>Rendimento:</strong>{" "}
+                      {Math.floor(product.doses)} doses
+                    </div>
+
+                    <div>
+                      <strong>Sabor:</strong>{" "}
+                      {product.flavor ?? "Sem sabor"}
+                    </div>
+
+                    <div>
+                      <strong>Apresentação:</strong>{" "}
+                      {product.form === CreatineForm.CAPSULE
+                        ? "Cápsula"
+                        : product.form === CreatineForm.GUMMY
+                        ? "Gummy"
+                        : "Pó"}
+                    </div>
+
+                    {product.hasCarbohydrate && (
+                      <div className="text-xs text-orange-700 font-medium mt-1">
+                        Contém carboidrato
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* BOTÃO SEMPRE EMBAIXO */}
+              <a
+                href={product.affiliateUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`mt-4 block w-full text-center text-white px-6 py-3 rounded-xl font-semibold transition shadow-sm ${buyColor}`}
               >
                 {buyLabel}
               </a>

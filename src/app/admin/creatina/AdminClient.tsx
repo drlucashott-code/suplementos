@@ -32,6 +32,26 @@ export default function AdminClient({ products }: Props) {
     );
   }, [products, search]);
 
+  function getUnitLabels(form: CreatineForm) {
+    switch (form) {
+      case CreatineForm.POWDER:
+        return {
+          total: "Peso total (g)",
+          perDose: "Peso da dose (g)",
+        };
+      case CreatineForm.CAPSULE:
+        return {
+          total: "Total de cápsulas",
+          perDose: "Cápsulas por dose",
+        };
+      case CreatineForm.GUMMY:
+        return {
+          total: "Total de gummies",
+          perDose: "Gummies por dose",
+        };
+    }
+  }
+
   return (
     <main className="max-w-5xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">
@@ -61,24 +81,8 @@ export default function AdminClient({ products }: Props) {
 
         <input
           name="flavor"
-          placeholder="Sabor"
+          placeholder="Sabor (opcional)"
           className={input}
-        />
-
-        <input
-          type="number"
-          name="weightInGrams"
-          placeholder="Peso (g)"
-          className={input}
-          required
-        />
-
-        <input
-          type="number"
-          name="purityPercent"
-          placeholder="Pureza (%)"
-          className={input}
-          required
         />
 
         <select
@@ -96,6 +100,25 @@ export default function AdminClient({ products }: Props) {
             Gummy
           </option>
         </select>
+
+        {/* UNIDADES */}
+        <input
+          name="totalUnits"
+          type="number"
+          step="0.01"
+          placeholder="Peso total (g) / cápsulas / gummies"
+          className={input}
+          required
+        />
+
+        <input
+          name="unitsPerDose"
+          type="number"
+          step="0.01"
+          placeholder="Peso da dose (g) / cápsulas por dose"
+          className={input}
+          required
+        />
 
         <input
           name="imageUrl"
@@ -197,13 +220,20 @@ export default function AdminClient({ products }: Props) {
           </h2>
 
           {(() => {
-            const amazonOffer = editing.offers.find(
-              (o) => o.store === Store.AMAZON
-            );
+            const amazonOffer =
+              editing.offers.find(
+                (o) => o.store === Store.AMAZON
+              );
 
-            const mlOffer = editing.offers.find(
-              (o) =>
-                o.store === Store.MERCADO_LIVRE
+            const mlOffer =
+              editing.offers.find(
+                (o) =>
+                  o.store ===
+                  Store.MERCADO_LIVRE
+              );
+
+            const labels = getUnitLabels(
+              editing.creatineInfo!.form
             );
 
             return (
@@ -237,25 +267,6 @@ export default function AdminClient({ products }: Props) {
                   className={input}
                 />
 
-                <input
-                  type="number"
-                  name="weightInGrams"
-                  defaultValue={
-                    editing.weightInGrams
-                  }
-                  className={input}
-                />
-
-                <input
-                  type="number"
-                  name="purityPercent"
-                  defaultValue={
-                    editing.creatineInfo
-                      ?.purityPercent
-                  }
-                  className={input}
-                />
-
                 <select
                   name="form"
                   defaultValue={
@@ -275,15 +286,37 @@ export default function AdminClient({ products }: Props) {
                 </select>
 
                 <input
+                  name="totalUnits"
+                  type="number"
+                  step="0.01"
+                  defaultValue={
+                    editing.creatineInfo
+                      ?.totalUnits
+                  }
+                  placeholder={labels.total}
+                  className={input}
+                />
+
+                <input
+                  name="unitsPerDose"
+                  type="number"
+                  step="0.01"
+                  defaultValue={
+                    editing.creatineInfo
+                      ?.unitsPerDose
+                  }
+                  placeholder={labels.perDose}
+                  className={input}
+                />
+
+                <input
                   name="imageUrl"
                   defaultValue={editing.imageUrl}
                   className={input}
                 />
 
-                {/* AMAZON */}
                 <input
                   name="amazonAsin"
-                  placeholder="ASIN Amazon (opcional)"
                   defaultValue={
                     amazonOffer?.externalId ??
                     ""
@@ -291,10 +324,8 @@ export default function AdminClient({ products }: Props) {
                   className={input}
                 />
 
-                {/* MERCADO LIVRE */}
                 <input
                   name="mercadoLivreAffiliate"
-                  placeholder="Link afiliado Mercado Livre (opcional)"
                   defaultValue={
                     mlOffer?.affiliateUrl ?? ""
                   }

@@ -10,12 +10,12 @@ export type CreatineProduct = {
   brand: string;
   flavor: string | null;
   imageUrl: string;
-  weightInGrams: number;
   createdAt: Date;
 
   creatineInfo: {
     form: CreatineForm;
-    purityPercent: number;
+    totalUnits: number;
+    unitsPerDose: number;
   } | null;
 
   offers: {

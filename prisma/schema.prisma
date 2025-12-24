@@ -26,38 +26,45 @@ enum CreatineForm {
    PRODUCT
    ======================= */
 model Product {
-  id            String   @id @default(cuid())
+  id           String   @id @default(cuid())
 
-  category      String
-  name          String
-  brand         String
-  flavor        String?
-  imageUrl      String
-  weightInGrams Int
+  category     String
+  name         String
+  brand        String
+  flavor       String?
+  imageUrl     String
 
-  creatineInfo  CreatineInfo?
-  offers        Offer[]
+  creatineInfo CreatineInfo?
+  offers       Offer[]
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 /* =======================
-   CREATINE INFO
+   CREATINE INFO (FINAL)
    ======================= */
 model CreatineInfo {
-  id            String       @id @default(cuid())
-  productId     String       @unique
-  product       Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id         String       @id @default(cuid())
+  productId  String       @unique
+  product    Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  form          CreatineForm
-  purityPercent Float
+  form        CreatineForm
+
+  /*
+    Unidade principal:
+    - POWDER   → gramas
+    - CAPSULE → cápsulas
+    - GUMMY   → gummies
+  */
+  totalUnits   Float
+  unitsPerDose Float
 
   @@index([form])
 }
 
 /* =======================
-   OFFER (Amazon / ML)
+   OFFER (Amazon / Mercado Livre)
    ======================= */
 model Offer {
   id           String   @id @default(cuid())
@@ -66,7 +73,7 @@ model Offer {
   product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   store        Store
-  externalId   String   // ASIN ou MLB123...
+  externalId   String   // ASIN ou MLBxxxx
   price        Float
   affiliateUrl String
 
