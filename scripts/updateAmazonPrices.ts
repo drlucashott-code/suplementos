@@ -8,20 +8,37 @@ const prisma = new PrismaClient();
 /* ======================
    ENV CHECK
 ====================== */
+const AMAZON_ACCESS_KEY = process.env.AMAZON_ACCESS_KEY;
+const AMAZON_SECRET_KEY = process.env.AMAZON_SECRET_KEY;
+const AMAZON_ASSOCIATE_TAG = process.env.AMAZON_ASSOCIATE_TAG;
+const AMAZON_HOST = process.env.AMAZON_HOST ?? "webservices.amazon.com.br";
+const AMAZON_REGION = process.env.AMAZON_REGION ?? "us-east-1";
+const AMAZON_SERVICE = "ProductAdvertisingAPI";
+
 if (
-  !process.env.AMAZON_ACCESS_KEY ||
-  !process.env.AMAZON_SECRET_KEY ||
-  !process.env.AMAZON_PARTNER_TAG
+  !AMAZON_ACCESS_KEY ||
+  !AMAZON_SECRET_KEY ||
+  !AMAZON_ASSOCIATE_TAG
 ) {
+  console.error("ENV DEBUG:", {
+    AMAZON_ACCESS_KEY: !!AMAZON_ACCESS_KEY,
+    AMAZON_SECRET_KEY: !!AMAZON_SECRET_KEY,
+    AMAZON_ASSOCIATE_TAG: !!AMAZON_ASSOCIATE_TAG,
+    AMAZON_HOST,
+    AMAZON_REGION,
+  });
+
   throw new Error("Credenciais da Amazon não configuradas");
 }
 
-const AMAZON_ACCESS_KEY = process.env.AMAZON_ACCESS_KEY!;
-const AMAZON_SECRET_KEY = process.env.AMAZON_SECRET_KEY!;
-const AMAZON_PARTNER_TAG = process.env.AMAZON_PARTNER_TAG!;
-const AMAZON_HOST = "webservices.amazon.com.br";
-const AMAZON_REGION = "us-east-1";
-const AMAZON_SERVICE = "ProductAdvertisingAPI";
+/* ======================
+   NON-NULL ASSERTIONS
+====================== */
+const ACCESS_KEY = AMAZON_ACCESS_KEY!;
+const SECRET_KEY = AMAZON_SECRET_KEY!;
+const ASSOCIATE_TAG = AMAZON_ASSOCIATE_TAG!;
+const HOST = AMAZON_HOST!;
+const REGION = AMAZON_REGION!;
 
 /* ======================
    HELPERS AWS
@@ -53,7 +70,7 @@ async function fetchAmazonPrice(asin: string): Promise<number | null> {
   const payload = JSON.stringify({
     ItemIds: [asin],
     Resources: ["Offers.Listings.Price"],
-    PartnerTag: AMAZON_PARTNER_TAG,
+    PartnerTag: ASSOCIATE_TAG,
     PartnerType: "Associates",
     Marketplace: "www.amazon.com.br",
   });
@@ -65,7 +82,7 @@ async function fetchAmazonPrice(asin: string): Promise<number | null> {
   const canonicalHeaders =
     "content-encoding:amz-1.0\n" +
     "content-type:application/json; charset=utf-8\n" +
-    `host:${AMAZON_HOST}\n` +
+    `host:${HOST}\n` +
     `x-amz-date:${amzDate}\n`;
 
   const signedHeaders =
@@ -80,7 +97,7 @@ async function fetchAmazonPrice(asin: string): Promise<number | null> {
     sha256(payload);
 
   const credentialScope =
-    `${dateStamp}/${AMAZON_REGION}/${AMAZON_SERVICE}/aws4_request`;
+    `${dateStamp}/${REGION}/${AMAZON_SERVICE}/aws4_request`;
 
   const stringToSign =
     "AWS4-HMAC-SHA256\n" +
@@ -91,9 +108,9 @@ async function fetchAmazonPrice(asin: string): Promise<number | null> {
     sha256(canonicalRequest);
 
   const signingKey = getSignatureKey(
-    AMAZON_SECRET_KEY,
+    SECRET_KEY,
     dateStamp,
-    AMAZON_REGION,
+    REGION,
     AMAZON_SERVICE
   );
 
@@ -103,7 +120,7 @@ async function fetchAmazonPrice(asin: string): Promise<number | null> {
     .digest("hex");
 
   const options = {
-    hostname: AMAZON_HOST,
+    hostname: HOST,
     path: "/paapi5/getitems",
     method: "POST",
     headers: {
@@ -113,7 +130,7 @@ async function fetchAmazonPrice(asin: string): Promise<number | null> {
       "X-Amz-Target":
         "com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems",
       Authorization:
-        `AWS4-HMAC-SHA256 Credential=${AMAZON_ACCESS_KEY}/${credentialScope}, ` +
+        `AWS4-HMAC-SHA256 Credential=${ACCESS_KEY}/${credentialScope}, ` +
         `SignedHeaders=${signedHeaders}, Signature=${signature}`,
       "Content-Length": Buffer.byteLength(payload),
     },
@@ -170,7 +187,7 @@ async function updateAmazonPrices() {
       where: { id: offer.id },
       data: {
         price,
-        affiliateUrl: `https://www.amazon.com.br/dp/${offer.externalId}?tag=${AMAZON_PARTNER_TAG}`,
+        affiliateUrl: `https://www.amazon.com.br/dp/${offer.externalId}?tag=${ASSOCIATE_TAG}`,
       },
     });
 
