@@ -13,7 +13,7 @@ type Product = {
   affiliateUrl: string;
   store: Store;
 
-  pricePerDose: number;
+  pricePerDose: number; // EM REAIS
   doses: number;
 
   ratingAverage?: number | null;
@@ -26,14 +26,20 @@ export function MobileProductCard({
   product: Product;
   isBest?: boolean;
 }) {
-  // 🔎 preço por dose em centavos
-  const centsPerDose = Math.floor(product.pricePerDose * 100);
+  // valor em reais, já arredondado corretamente
+  const pricePerDose = Number(
+    product.pricePerDose.toFixed(2)
+  );
 
-  // 🎯 formatação inteligente
+  // decide como exibir
   const pricePerDoseLabel =
-    centsPerDose >= 100
-      ? `R$ ${(centsPerDose / 100).toFixed(2).replace(".", ",")}`
-      : `${centsPerDose} centavos`;
+    pricePerDose >= 1
+      ? `${pricePerDose
+          .toFixed(2)
+          .replace(".", ",")} reais`
+      : `${Math.round(
+          pricePerDose * 100
+        )} centavos`;
 
   const buyLabel =
     product.store === Store.AMAZON
@@ -55,7 +61,6 @@ export function MobileProductCard({
         }
       `}
     >
-      {/* BADGE MELHOR CUSTO */}
       {isBest && (
         <div className="absolute -top-2 right-2 bg-green-600 text-white text-[10px] font-semibold px-3 py-0.5 rounded-full shadow">
           Melhor custo-benefício

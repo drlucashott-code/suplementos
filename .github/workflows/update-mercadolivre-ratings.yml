@@ -2,11 +2,10 @@ name: Update Mercado Livre Ratings (Weekly)
 
 on:
   schedule:
-    # 🕒 Toda semana, domingo às 03:00 (UTC)
-    # No Brasil (UTC-3): domingo 00:00
+    # 🕒 Domingo às 03:00 UTC (00:00 horário de Brasília)
     - cron: "0 3 * * 0"
 
-  # Permite rodar manualmente pelo GitHub
+  # Permite rodar manualmente pelo GitHub (botão "Run workflow")
   workflow_dispatch:
 
 jobs:
@@ -29,6 +28,6 @@ jobs:
         run: npx prisma generate
 
       - name: ⭐ Update Mercado Livre ratings (HTML-only)
-        run: npx ts-node scripts/updateMercadoLivreRatings.ts
+        run: node --loader ts-node/esm scripts/updateMercadoLivreRatings.ts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
