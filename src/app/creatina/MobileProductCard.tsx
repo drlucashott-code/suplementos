@@ -26,10 +26,14 @@ export function MobileProductCard({
   product: Product;
   isBest?: boolean;
 }) {
-  // 🔎 DEBUG DEFINITIVO
-  console.log("RATING DEBUG:", product.ratingAverage);
-
+  // 🔎 preço por dose em centavos
   const centsPerDose = Math.floor(product.pricePerDose * 100);
+
+  // 🎯 formatação inteligente
+  const pricePerDoseLabel =
+    centsPerDose >= 100
+      ? `R$ ${(centsPerDose / 100).toFixed(2).replace(".", ",")}`
+      : `${centsPerDose} centavos`;
 
   const buyLabel =
     product.store === Store.AMAZON
@@ -64,7 +68,6 @@ export function MobileProductCard({
           {product.name}
         </h2>
 
-        {/* ⭐ NOTA (somente se existir) */}
         {product.ratingAverage !== null &&
           product.ratingAverage !== undefined && (
             <div className="flex items-center gap-1 text-sm font-semibold text-yellow-600 shrink-0">
@@ -114,7 +117,7 @@ export function MobileProductCard({
           <p className="relative inline-block mt-1">
             <span className="absolute inset-y-0 -inset-x-2 bg-green-300 rounded" />
             <span className="relative font-semibold">
-              Preço por dose (3g): {centsPerDose} centavos
+              Preço por dose (3g): {pricePerDoseLabel}
             </span>
           </p>
         </div>
