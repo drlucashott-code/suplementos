@@ -122,7 +122,7 @@ export function MobileProductCard({
           <p className="relative inline-block mt-1">
             <span className="absolute inset-y-0 -inset-x-2 bg-green-300 rounded" />
             <span className="relative font-semibold">
-              Preço por dose (3g): {pricePerDoseLabel}
+              Preço por dose: {pricePerDoseLabel}
             </span>
           </p>
         </div>

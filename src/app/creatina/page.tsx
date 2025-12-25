@@ -173,12 +173,14 @@ export default async function CreatinaPage({
       />
 
       <h1 className="text-2xl sm:text-3xl font-bold mb-2 text-center">
-        Creatina com melhor custo-benefício
+        Creatina: melhor custo-benefício
       </h1>
 
-      <p className="text-gray-700 mb-6 text-center">
-        Comparação baseada no menor preço por dose entre os
-        produtos mais bem avaliados na Amazon e no Mercado Livre.
+      {/* TEXTO EXPLICATIVO (alinhado à esquerda) */}
+      <p className="text-gray-700 mb-6 max-w-4xl">
+        Comparação baseada no menor preço por dose, considerando
+        3 g de princípio ativo, entre os produtos mais bem
+        avaliados do mercado.
       </p>
 
       <div className="flex flex-col lg:flex-row gap-6">
