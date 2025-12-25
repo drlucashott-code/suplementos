@@ -1,29 +1,31 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export function PriceSlider() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [value, setValue] = useState(
-    Number(searchParams.get("priceMax")) || 200
-  );
+  const initial =
+    Number(searchParams.get("priceMax")) || 200;
 
-  useEffect(() => {
-    setValue(Number(searchParams.get("priceMax")) || 200);
-  }, [searchParams]);
+  const [value, setValue] = useState(initial);
 
   function updateUrl(newValue: number) {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(
+      searchParams.toString()
+    );
     params.set("priceMax", String(newValue));
     router.push(`/creatina?${params.toString()}`);
   }
 
   return (
     <div className="mt-6">
-      <p className="font-medium mb-2">Preço máximo</p>
+      <p className="font-medium mb-2">
+        Preço máximo
+      </p>
+
       <p className="text-sm text-gray-700 mb-1">
         Até <strong>R$ {value}</strong>
       </p>
@@ -34,11 +36,11 @@ export function PriceSlider() {
         max={200}
         step={5}
         value={value}
-        onChange={(e) => {
-          const v = Number(e.target.value);
-          setValue(v);
-          updateUrl(v);
-        }}
+        onChange={(e) =>
+          setValue(Number(e.target.value))
+        }
+        onMouseUp={() => updateUrl(value)}
+        onTouchEnd={() => updateUrl(value)}
         className="w-full accent-green-600"
       />
     </div>
