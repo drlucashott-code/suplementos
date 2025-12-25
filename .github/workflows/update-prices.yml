@@ -2,7 +2,7 @@ name: Update Prices (Amazon + Mercado Livre)
 
 on:
   schedule:
-    - cron: "0 6 * * *"   # 1x por dia
+    - cron: "0 6 * * *"   # 1x por dia (06:00 UTC)
   workflow_dispatch:
 
 jobs:
@@ -10,28 +10,53 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      # =========================
+      # CHECKOUT
+      # =========================
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      # =========================
+      # NODE
+      # =========================
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: "npm"
 
-      - run: npm ci
+      # =========================
+      # DEPENDÊNCIAS
+      # =========================
+      - name: Install dependencies
+        run: npm ci
 
-      - run: npx playwright install --with-deps chromium
-
+      # =========================
+      # AMAZON (API)
+      # =========================
       - name: Update Amazon prices
         run: node --loader ts-node/esm scripts/updateAmazonPrices.ts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
           AMAZON_ACCESS_KEY: ${{ secrets.AMAZON_ACCESS_KEY }}
           AMAZON_SECRET_KEY: ${{ secrets.AMAZON_SECRET_KEY }}
           AMAZON_PARTNER_TAG: ${{ secrets.AMAZON_PARTNER_TAG }}
           AMAZON_REGION: ${{ secrets.AMAZON_REGION }}
           AMAZON_HOST: ${{ secrets.AMAZON_HOST }}
 
-      - name: Update Mercado Livre prices (Browser)
-        run: node --loader ts-node/esm scripts/updateMercadoLivrePricesBrowser.ts
+      # =========================
+      # MERCADO LIVRE — PRICES
+      # =========================
+      - name: Update Mercado Livre prices (HTML)
+        run: node --loader ts-node/esm scripts/updateMercadoLivrePrices.ts
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      # =========================
+      # MERCADO LIVRE — RATINGS
+      # =========================
+      - name: Update Mercado Livre ratings (HTML)
+        run: node --loader ts-node/esm scripts/updateMercadoLivreRatings.ts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

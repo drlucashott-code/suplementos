@@ -4,6 +4,16 @@ import { PrismaClient, Store } from "@prisma/client";
 const prisma = new PrismaClient();
 
 /* =========================
+   UTIL
+========================= */
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) =>
+    setTimeout(resolve, ms)
+  );
+}
+
+/* =========================
    EXTRAÇÕES
 ========================= */
 
@@ -32,8 +42,10 @@ function extractPriceFromJsonLd(html: string): number | null {
         offers?.highPrice;
 
       if (typeof price === "number") return price;
-      if (typeof price === "string")
-        return Number(price.replace(",", "."));
+      if (typeof price === "string") {
+        const v = Number(price.replace(",", "."));
+        return isNaN(v) ? null : v;
+      }
     } catch {
       continue;
     }
@@ -104,10 +116,7 @@ async function fetchPriceByMLB(
     });
 
     console.log("📡 STATUS:", res.status);
-    console.log(
-      "📡 VIA:",
-      res.headers.get("via")
-    );
+    console.log("📡 VIA:", res.headers.get("via"));
     console.log(
       "📡 CONTENT-TYPE:",
       res.headers.get("content-type")
@@ -122,14 +131,9 @@ async function fetchPriceByMLB(
 
     console.log("📄 HTML length:", html.length);
 
-    if (
-      html.includes("captcha") ||
-      html.includes("robot") ||
-      html.includes("blocked") ||
-      html.length < 5000
-    ) {
+    if (html.length < 200_000) {
       console.warn(
-        "🚫 HTML suspeito (bloqueio provável)"
+        "🚫 HTML filtrado (payload reduzido)"
       );
     }
 
@@ -183,7 +187,7 @@ async function updateMercadoLivrePrices() {
   });
 
   console.log(
-    "🔄 Atualizando preços do Mercado Livre (diagnóstico)..."
+    "🔄 Atualizando preços do Mercado Livre"
   );
 
   const offers = await prisma.offer.findMany({
@@ -191,10 +195,14 @@ async function updateMercadoLivrePrices() {
       store: Store.MERCADO_LIVRE,
       affiliateUrl: { not: "" },
     },
-    take: 3, // 👈 limite para diagnóstico
+    take: process.env.GITHUB_ACTIONS
+      ? 3
+      : undefined,
   });
 
   console.log(`📦 Ofertas encontradas: ${offers.length}`);
+
+  let updated = 0;
 
   for (const offer of offers) {
     const price = await fetchPriceByMLB(
@@ -203,10 +211,17 @@ async function updateMercadoLivrePrices() {
 
     if (!price || isNaN(price)) {
       console.warn(
-        `⚠️ Preço não encontrado para ${offer.externalId}`
+        `⚠️ Preço indisponível (${offer.externalId}), mantendo valor atual`
       );
       continue;
     }
+
+    await prisma.offer.update({
+      where: { id: offer.id },
+      data: { price },
+    });
+
+    updated++;
 
     console.log(
       `✅ ${offer.externalId} — R$ ${price.toFixed(
@@ -214,11 +229,19 @@ async function updateMercadoLivrePrices() {
       )}`
     );
 
-    await new Promise((r) => setTimeout(r, 5000)); // delay maior
+    await sleep(
+      process.env.GITHUB_ACTIONS ? 5000 : 1200
+    );
   }
 
+  if (updated === 0) {
+    console.warn(
+      "⚠️ Nenhum preço atualizado. Pode ser necessário rodar localmente."
+    );
+  }
+
+  console.log(`🏁 Finalizado — atualizados: ${updated}`);
   await prisma.$disconnect();
-  console.log("🏁 Diagnóstico finalizado");
 }
 
 updateMercadoLivrePrices().catch(async (err) => {

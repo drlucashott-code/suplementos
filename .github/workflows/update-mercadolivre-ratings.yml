@@ -4,8 +4,6 @@ on:
   schedule:
     # 🕒 Domingo às 03:00 UTC (00:00 horário de Brasília)
     - cron: "0 3 * * 0"
-
-  # Permite rodar manualmente pelo GitHub (botão "Run workflow")
   workflow_dispatch:
 
 jobs:
@@ -13,20 +11,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # =========================
+      # CHECKOUT
+      # =========================
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
+      # =========================
+      # NODE
+      # =========================
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: 20
+          cache: "npm"
 
+      # =========================
+      # DEPENDÊNCIAS
+      # =========================
       - name: 📦 Install dependencies
-        run: npm install
+        run: npm ci
 
-      - name: ⚙️ Generate Prisma Client
-        run: npx prisma generate
-
+      # =========================
+      # MERCADO LIVRE — RATINGS
+      # =========================
       - name: ⭐ Update Mercado Livre ratings (HTML-only)
         run: node --loader ts-node/esm scripts/updateMercadoLivreRatings.ts
         env:
