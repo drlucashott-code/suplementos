@@ -4,7 +4,7 @@ import { PrismaClient, Store } from "@prisma/client";
 const prisma = new PrismaClient();
 
 /* =========================
-   EXTRAÇÕES DE PREÇO
+   EXTRAÇÕES
 ========================= */
 
 function extractPriceFromJsonLd(html: string): number | null {
@@ -32,10 +32,8 @@ function extractPriceFromJsonLd(html: string): number | null {
         offers?.highPrice;
 
       if (typeof price === "number") return price;
-      if (typeof price === "string") {
-        const v = Number(price.replace(",", "."));
-        return isNaN(v) ? null : v;
-      }
+      if (typeof price === "string")
+        return Number(price.replace(",", "."));
     } catch {
       continue;
     }
@@ -44,7 +42,9 @@ function extractPriceFromJsonLd(html: string): number | null {
   return null;
 }
 
-function extractPriceFromState(html: string): number | null {
+function extractPriceFromPreloadedState(
+  html: string
+): number | null {
   const match = html.match(
     /"price"\s*:\s*\{\s*"amount"\s*:\s*([\d.,]+)/i
   );
@@ -58,8 +58,24 @@ function extractPriceFromState(html: string): number | null {
   return isNaN(value) ? null : value;
 }
 
+function extractPriceByRegex(
+  html: string
+): number | null {
+  const match = html.match(
+    /"price"\s*:\s*([\d.,]+)/i
+  );
+
+  if (!match) return null;
+
+  const value = Number(
+    match[1].replace(/\./g, "").replace(",", ".")
+  );
+
+  return isNaN(value) ? null : value;
+}
+
 /* =========================
-   FETCH
+   FETCH + LOGS
 ========================= */
 
 async function fetchPriceByMLB(
@@ -67,30 +83,92 @@ async function fetchPriceByMLB(
 ): Promise<number | null> {
   const url = `https://www.mercadolivre.com.br/p/${mlb}`;
 
-  const controller = new AbortController();
-  setTimeout(() => controller.abort(), 8000);
+  console.log(`\n🔎 MLB ${mlb}`);
+  console.log(`🌐 URL: ${url}`);
 
-  const res = await fetch(url, {
-    signal: controller.signal,
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-        "AppleWebKit/537.36 (KHTML, like Gecko) " +
-        "Chrome/122.0.0.0 Safari/537.36",
-      "Accept-Language": "pt-BR,pt;q=0.9",
-      Accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-    },
-  });
+  try {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 8000);
 
-  if (!res.ok) return null;
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+          "AppleWebKit/537.36 (KHTML, like Gecko) " +
+          "Chrome/122.0.0.0 Safari/537.36",
+        "Accept-Language": "pt-BR,pt;q=0.9",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      },
+    });
 
-  const html = await res.text();
+    console.log("📡 STATUS:", res.status);
+    console.log(
+      "📡 VIA:",
+      res.headers.get("via")
+    );
+    console.log(
+      "📡 CONTENT-TYPE:",
+      res.headers.get("content-type")
+    );
 
-  return (
-    extractPriceFromJsonLd(html) ??
-    extractPriceFromState(html)
-  );
+    if (!res.ok) {
+      console.warn("❌ HTTP não OK");
+      return null;
+    }
+
+    const html = await res.text();
+
+    console.log("📄 HTML length:", html.length);
+
+    if (
+      html.includes("captcha") ||
+      html.includes("robot") ||
+      html.includes("blocked") ||
+      html.length < 5000
+    ) {
+      console.warn(
+        "🚫 HTML suspeito (bloqueio provável)"
+      );
+    }
+
+    const hasJsonLd = html.includes(
+      'type="application/ld+json"'
+    );
+
+    console.log(
+      "📦 JSON-LD:",
+      hasJsonLd ? "PRESENTE" : "AUSENTE"
+    );
+
+    const p1 = extractPriceFromJsonLd(html);
+    if (p1 !== null) {
+      console.log("💰 PRICE via JSON-LD");
+      return p1;
+    }
+
+    const p2 =
+      extractPriceFromPreloadedState(html);
+    if (p2 !== null) {
+      console.log("💰 PRICE via STATE");
+      return p2;
+    }
+
+    const p3 = extractPriceByRegex(html);
+    if (p3 !== null) {
+      console.log("💰 PRICE via REGEX");
+      return p3;
+    }
+
+    console.warn(
+      "❌ Nenhuma estratégia encontrou preço"
+    );
+    return null;
+  } catch (err) {
+    console.error("🔥 ERRO fetch:", err);
+    return null;
+  }
 }
 
 /* =========================
@@ -98,52 +176,53 @@ async function fetchPriceByMLB(
 ========================= */
 
 async function updateMercadoLivrePrices() {
-  console.log("🔄 Atualizando preços (Mercado Livre)");
+  console.log("🧪 Ambiente:", {
+    node: process.version,
+    platform: process.platform,
+    github: !!process.env.GITHUB_ACTIONS,
+  });
+
+  console.log(
+    "🔄 Atualizando preços do Mercado Livre (diagnóstico)..."
+  );
 
   const offers = await prisma.offer.findMany({
     where: {
       store: Store.MERCADO_LIVRE,
       affiliateUrl: { not: "" },
     },
+    take: 3, // 👈 limite para diagnóstico
   });
 
-  console.log(`📦 Ofertas: ${offers.length}`);
-
-  let updated = 0;
+  console.log(`📦 Ofertas encontradas: ${offers.length}`);
 
   for (const offer of offers) {
     const price = await fetchPriceByMLB(
       offer.externalId
     );
 
-    if (!price) {
-      console.log(
-        `— preço indisponível (${offer.externalId})`
+    if (!price || isNaN(price)) {
+      console.warn(
+        `⚠️ Preço não encontrado para ${offer.externalId}`
       );
       continue;
     }
 
-    await prisma.offer.update({
-      where: { id: offer.id },
-      data: { price },
-    });
-
-    updated++;
     console.log(
-      `✅ ${offer.externalId} → R$ ${price.toFixed(2)}`
+      `✅ ${offer.externalId} — R$ ${price.toFixed(
+        2
+      )}`
     );
 
-    await new Promise((r) =>
-      setTimeout(r, 1500)
-    );
+    await new Promise((r) => setTimeout(r, 5000)); // delay maior
   }
 
-  console.log(`🏁 Preços atualizados: ${updated}`);
   await prisma.$disconnect();
+  console.log("🏁 Diagnóstico finalizado");
 }
 
 updateMercadoLivrePrices().catch(async (err) => {
-  console.error("❌ Erro:", err);
+  console.error("❌ Erro geral:", err);
   await prisma.$disconnect();
   process.exit(0);
 });
