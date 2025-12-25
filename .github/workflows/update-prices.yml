@@ -2,11 +2,7 @@ name: Update Prices (Amazon + Mercado Livre)
 
 on:
   schedule:
-    # 3x ao dia
-    # 06:00 UTC (03:00 Brasil)
-    # 14:00 UTC (11:00 Brasil)
-    # 22:00 UTC (19:00 Brasil)
-    - cron: "0 6,14,22 * * *"
+    - cron: "0 6 * * *"   # 1x por dia
   workflow_dispatch:
 
 jobs:
@@ -14,36 +10,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: "npm"
 
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
 
-      # =========================
-      # AMAZON
-      # =========================
+      - run: npx playwright install --with-deps chromium
+
       - name: Update Amazon prices
         run: node --loader ts-node/esm scripts/updateAmazonPrices.ts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
           AMAZON_ACCESS_KEY: ${{ secrets.AMAZON_ACCESS_KEY }}
           AMAZON_SECRET_KEY: ${{ secrets.AMAZON_SECRET_KEY }}
           AMAZON_PARTNER_TAG: ${{ secrets.AMAZON_PARTNER_TAG }}
           AMAZON_REGION: ${{ secrets.AMAZON_REGION }}
           AMAZON_HOST: ${{ secrets.AMAZON_HOST }}
 
-      # =========================
-      # MERCADO LIVRE (SCRAPER)
-      # =========================
-      - name: Update Mercado Livre prices (HTML scraper)
-        run: node --loader ts-node/esm scripts/updateMercadoLivrePrices.ts
+      - name: Update Mercado Livre prices (Browser)
+        run: node --loader ts-node/esm scripts/updateMercadoLivrePricesBrowser.ts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
