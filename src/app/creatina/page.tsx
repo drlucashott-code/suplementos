@@ -73,7 +73,6 @@ export default async function CreatinaPage({
 
       if (!validOffers.length) return null;
 
-      // 💰 MELHOR PREÇO (qualquer loja)
       const bestOffer = validOffers.reduce((a, b) =>
         b.price < a.price ? b : a
       );
@@ -85,8 +84,7 @@ export default async function CreatinaPage({
         return null;
       }
 
-      // ⭐ NOTA SEMPRE DO MERCADO LIVRE (se existir)
-      const mercadoLivreOffer = validOffers.find(
+      const mercadoLivreOffer = product.offers.find(
         (offer) =>
           offer.store === Store.MERCADO_LIVRE &&
           offer.ratingAverage !== null &&
@@ -118,6 +116,12 @@ export default async function CreatinaPage({
         return null;
       }
 
+      // ✅ REGRA CORRETA PARA CARBOIDRATO
+      const hasCarbohydrate =
+        product.creatineInfo.form === CreatineForm.GUMMY ||
+        (product.creatineInfo.form === CreatineForm.POWDER &&
+          product.creatineInfo.unitsPerDose > 3);
+
       return {
         id: product.id,
         name: product.name,
@@ -125,7 +129,6 @@ export default async function CreatinaPage({
         flavor: product.flavor,
         form: product.creatineInfo.form,
 
-        // preço + botão
         price: bestOffer.price,
         affiliateUrl: bestOffer.affiliateUrl,
         store: bestOffer.store,
@@ -133,9 +136,10 @@ export default async function CreatinaPage({
         doses,
         pricePerDose: stats.pricePerDose!,
 
-        // ⭐ NOTA (independente da loja do preço)
         ratingAverage:
           mercadoLivreOffer?.ratingAverage ?? null,
+
+        hasCarbohydrate,
       };
     })
     .filter(Boolean)
@@ -166,7 +170,6 @@ export default async function CreatinaPage({
      ========================= */
   return (
     <main className="max-w-7xl mx-auto p-4 sm:p-6">
-      {/* MOBILE FILTERS */}
       <MobileFiltersDrawer
         brands={brands.map((b) => b.brand)}
         flavors={flavors.map((f) => f.flavor!).sort()}
@@ -176,25 +179,21 @@ export default async function CreatinaPage({
         Creatina: melhor custo-benefício
       </h1>
 
-      {/* TEXTO EXPLICATIVO (alinhado à esquerda) */}
-      <p className="text-gray-700 mb-6 max-w-4xl">
+      <p className="text-gray-700 mb-6 max-w-4xl text-left lg:text-justify">
         Comparação baseada no menor preço por dose, considerando
         3 g de princípio ativo, entre os produtos mais bem
         avaliados do mercado.
       </p>
 
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* DESKTOP FILTERS */}
         <aside className="hidden lg:flex flex-col gap-4 w-64">
           <DesktopFiltersSidebar
             brands={brands.map((b) => b.brand)}
             flavors={flavors.map((f) => f.flavor!).sort()}
           />
-
           <PriceSlider />
         </aside>
 
-        {/* LISTA */}
         <ProductList products={rankedProducts as any} />
       </div>
     </main>

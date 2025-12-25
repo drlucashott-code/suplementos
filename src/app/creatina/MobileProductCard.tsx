@@ -17,6 +17,7 @@ type Product = {
   doses: number;
 
   ratingAverage?: number | null;
+  hasCarbohydrate?: boolean;
 };
 
 export function MobileProductCard({
@@ -125,6 +126,22 @@ export function MobileProductCard({
               Preço por dose: {pricePerDoseLabel}
             </span>
           </p>
+
+          {/* TOOLTIP – CONTÉM CARBOIDRATO */}
+          {product.hasCarbohydrate && (
+            <div className="mt-1 text-[11px] text-amber-700 flex items-center gap-1">
+              <span>Contém carboidrato</span>
+
+              <span className="relative group cursor-help">
+                ⓘ
+                <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block bg-black text-white text-[11px] px-2 py-1 rounded max-w-[220px] text-center z-10">
+                  Este produto contém carboidratos devido a
+                  excipientes, adoçantes ou outros ingredientes
+                  além da creatina.
+                </span>
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
