@@ -110,3 +110,15 @@ model Offer {
   @@index([store])
   @@unique([store, externalId])
 }
+
+/* =======================
+   AMAZON IMPORT QUEUE
+   (Processada por script Node)
+======================= */
+model AmazonImportQueue {
+  id        String   @id @default(cuid())
+  asin      String
+  createdAt DateTime @default(now())
+
+  @@unique([asin])
+}

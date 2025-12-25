@@ -30,14 +30,12 @@ export default function AdminClient({ products }: Props) {
 
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
-  const [editingId, setEditingId] =
-    useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const input =
-    "w-full border rounded-md p-2 text-sm";
+  const input = "w-full border rounded-md p-2 text-sm";
 
   /* =======================
-     ORDENAÇÃO POR COLUNA
+     ORDENAÇÃO
      ======================= */
   function toggleOrder(by: Order["by"]) {
     setOrder((prev) => {
@@ -47,7 +45,6 @@ export default function AdminClient({ products }: Props) {
           dir: by === "createdAt" ? "desc" : "asc",
         };
       }
-
       return {
         by,
         dir: prev.dir === "asc" ? "desc" : "asc",
@@ -59,7 +56,6 @@ export default function AdminClient({ products }: Props) {
      FILTRO + ORDENAÇÃO
      ======================= */
   const filteredProducts = useMemo(() => {
-    // ✅ cópia defensiva — NÃO muta props
     let result = [...products];
 
     if (search.trim()) {
@@ -72,21 +68,44 @@ export default function AdminClient({ products }: Props) {
     }
 
     result.sort((a, b) => {
+      /* ---------- NOME ---------- */
       if (order.by === "name") {
         return order.dir === "asc"
           ? a.name.localeCompare(b.name, "pt-BR")
           : b.name.localeCompare(a.name, "pt-BR");
       }
 
+      /* ---------- SABOR ---------- */
       if (order.by === "flavor") {
         const fa = a.flavor ?? "";
         const fb = b.flavor ?? "";
-        return order.dir === "asc"
-          ? fa.localeCompare(fb, "pt-BR")
-          : fb.localeCompare(fa, "pt-BR");
+
+        // sem sabor sempre por último
+        if (fa === "" && fb !== "") return 1;
+        if (fa !== "" && fb === "") return -1;
+
+        const na = fa
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase();
+
+        const nb = fb
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase();
+
+        const cmp =
+          order.dir === "asc"
+            ? na.localeCompare(nb, "pt-BR")
+            : nb.localeCompare(na, "pt-BR");
+
+        if (cmp !== 0) return cmp;
+
+        // desempate por nome
+        return a.name.localeCompare(b.name, "pt-BR");
       }
 
-      // createdAt
+      /* ---------- DATA ---------- */
       return order.dir === "asc"
         ? new Date(a.createdAt).getTime() -
             new Date(b.createdAt).getTime()
@@ -106,10 +125,7 @@ export default function AdminClient({ products }: Props) {
 
   const paginatedProducts = useMemo(() => {
     const start = (page - 1) * ITEMS_PER_PAGE;
-    return filteredProducts.slice(
-      start,
-      start + ITEMS_PER_PAGE
-    );
+    return filteredProducts.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredProducts, page]);
 
   function confirmDelete() {
@@ -135,14 +151,14 @@ export default function AdminClient({ products }: Props) {
         className="w-full border rounded p-2 mb-6"
       />
 
-      {/* CADASTRO */}
+      {/* CADASTRO MANUAL */}
       <button
         onClick={() => setShowCreate((v) => !v)}
         className="mb-4 border px-4 py-2 rounded font-medium"
       >
         {showCreate
           ? "− Fechar cadastro"
-          : "➕ Adicionar produto"}
+          : "➕ Adicionar produto manualmente"}
       </button>
 
       {showCreate && (
@@ -202,60 +218,40 @@ export default function AdminClient({ products }: Props) {
               className="p-2 text-left cursor-pointer"
               onClick={() => toggleOrder("name")}
             >
-              Nome{" "}
-              {order.by === "name" &&
-                (order.dir === "asc" ? "▲" : "▼")}
+              Nome
             </th>
-
             <th
               className="p-2 text-left cursor-pointer"
               onClick={() => toggleOrder("flavor")}
             >
-              Sabor{" "}
-              {order.by === "flavor" &&
-                (order.dir === "asc" ? "▲" : "▼")}
+              Sabor
             </th>
-
             <th
               className="p-2 text-left cursor-pointer"
               onClick={() => toggleOrder("createdAt")}
             >
-              Adicionado em{" "}
-              {order.by === "createdAt" &&
-                (order.dir === "asc" ? "▲" : "▼")}
+              Adicionado em
             </th>
-
-            <th className="p-2 text-right">
-              Ações
-            </th>
+            <th className="p-2 text-right">Ações</th>
           </tr>
         </thead>
 
         <tbody>
           {paginatedProducts.map((p) => {
             const isEditing = editingId === p.id;
-            const amazonOffer =
-              p.offers.find(
-                (o) => o.store === "AMAZON"
-              );
 
             return (
               <React.Fragment key={p.id}>
                 <tr className="border-t">
                   <td className="p-2">{p.name}</td>
-                  <td className="p-2">
-                    {p.flavor ?? "Sem sabor"}
-                  </td>
+                  <td className="p-2">{p.flavor || "—"}</td>
                   <td className="p-2">
                     {new Date(p.createdAt).toLocaleDateString("pt-BR")}
                   </td>
-
                   <td className="p-2 text-right space-x-3">
                     <button
                       onClick={() =>
-                        setEditingId(
-                          isEditing ? null : p.id
-                        )
+                        setEditingId(isEditing ? null : p.id)
                       }
                       className="text-blue-600"
                     >
@@ -271,11 +267,7 @@ export default function AdminClient({ products }: Props) {
                         }
                       }}
                     >
-                      <input
-                        type="hidden"
-                        name="id"
-                        value={p.id}
-                      />
+                      <input type="hidden" name="id" value={p.id} />
                       <button className="text-red-600">
                         Excluir
                       </button>
@@ -329,12 +321,6 @@ export default function AdminClient({ products }: Props) {
                           className={input}
                         />
 
-                        <input
-                          name="amazonAsin"
-                          defaultValue={amazonOffer?.externalId ?? ""}
-                          className={input}
-                        />
-
                         <div className="flex gap-3">
                           <button className="bg-black text-white px-4 py-2 rounded">
                             Salvar
@@ -342,9 +328,7 @@ export default function AdminClient({ products }: Props) {
 
                           <button
                             type="button"
-                            onClick={() =>
-                              setEditingId(null)
-                            }
+                            onClick={() => setEditingId(null)}
                             className="border px-4 py-2 rounded"
                           >
                             Cancelar

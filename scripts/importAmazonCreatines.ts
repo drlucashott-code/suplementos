@@ -3,25 +3,31 @@ import fs from "fs";
 import path from "path";
 import paapi from "amazon-paapi";
 import { PrismaClient, CreatineForm, Store } from "@prisma/client";
+import { fileURLToPath } from "url";
 
 const prisma = new PrismaClient();
 
 /* =======================
+   PATHS (CORRIGIDO)
+======================= */
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const DATA_DIR = path.resolve(__dirname, "../data");
+const PENDENTES = path.join(DATA_DIR, "asins-pendentes.json");
+const PROCESSADOS = path.join(DATA_DIR, "asins-processados.json");
+const ERROS = path.join(DATA_DIR, "asins-erros.json");
+
+/* =======================
    TIPOS
 ======================= */
-
 type PendentesFile = {
   asins: string[];
 };
 
 type ProcessadoItem = {
   asin: string;
-  title: string;
   date: string;
-};
-
-type ProcessadosFile = {
-  items: ProcessadoItem[];
 };
 
 type ErroItem = {
@@ -30,38 +36,24 @@ type ErroItem = {
   date: string;
 };
 
-type ErrosFile = {
-  items: ErroItem[];
-};
-
-/* =======================
-   PATHS
-======================= */
-
-const DATA_DIR = path.resolve("data");
-
-const PENDENTES = path.join(DATA_DIR, "asins-pendentes.json");
-const PROCESSADOS = path.join(DATA_DIR, "asins-processados.json");
-const ERROS = path.join(DATA_DIR, "asins-erros.json");
-
 /* =======================
    AMAZON CONFIG
 ======================= */
-
 const commonParameters = {
   AccessKey: process.env.AMAZON_ACCESS_KEY!,
   SecretKey: process.env.AMAZON_SECRET_KEY!,
   PartnerTag: process.env.AMAZON_PARTNER_TAG!,
   PartnerType: "Associates",
-  Marketplace: process.env.AMAZON_MARKETPLACE || "www.amazon.com.br",
+  Marketplace:
+    process.env.AMAZON_MARKETPLACE || "www.amazon.com.br",
 };
 
 /* =======================
    HELPERS JSON
 ======================= */
-
 function readJSON<T>(file: string, fallback: T): T {
   if (!fs.existsSync(file)) {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, JSON.stringify(fallback, null, 2));
     return fallback;
   }
@@ -77,177 +69,131 @@ function writeJSON(file: string, data: any) {
 }
 
 /* =======================
-   PARSERS
+   HELPERS PRODUTO
 ======================= */
-
-function extractWeightInGrams(title: string, size?: string): number | null {
-  const source = `${title} ${size ?? ""}`.toLowerCase();
-
-  const kg = source.match(/(\d+(?:[.,]\d+)?)\s?kg/);
-  if (kg) return Math.round(parseFloat(kg[1].replace(",", ".")) * 1000);
-
-  const g = source.match(/(\d+)\s?g/);
-  if (g) return parseInt(g[1], 10);
-
-  return null;
-}
-
-function extractUnitsFromSize(size?: string): number | null {
-  if (!size) return null;
-  const m = size.match(/(\d+)/);
-  return m ? parseInt(m[1], 10) : null;
-}
-
 function extractPresentation(title: string): CreatineForm {
   const t = title.toLowerCase();
-  if (t.includes("gummy") || t.includes("gomas")) return CreatineForm.GUMMY;
-  if (t.includes("capsula") || t.includes("cápsula")) return CreatineForm.CAPSULE;
+  if (t.includes("capsul")) return CreatineForm.CAPSULE;
+  if (t.includes("gummy") || t.includes("gomas"))
+    return CreatineForm.GUMMY;
   return CreatineForm.POWDER;
 }
 
-function extractFlavor(item: any, title: string): string {
-  const attrs = item.VariationAttributes;
-  if (Array.isArray(attrs)) {
-    const flavor = attrs.find((a: any) => a.Name === "flavor_name");
-    if (flavor?.Value) return flavor.Value;
-  }
+function extractWeightInGrams(title: string): number {
+  const kg = title.match(/(\d+(?:[.,]\d+)?)\s?kg/i);
+  if (kg)
+    return Math.round(
+      parseFloat(kg[1].replace(",", ".")) * 1000
+    );
 
-  const t = title.toLowerCase();
-  if (t.includes("sem sabor") || t.includes("unflavored")) return "Sem sabor";
-  if (t.includes("morango")) return "Morango";
-  if (t.includes("chocolate")) return "Chocolate";
-  if (t.includes("baunilha")) return "Baunilha";
-  if (t.includes("uva")) return "Uva";
-  if (t.includes("limão")) return "Limão";
+  const g = title.match(/(\d+)\s?g/i);
+  if (g) return parseInt(g[1], 10);
 
-  return "Sem sabor";
-}
-
-/* =======================
-   NORMALIZAÇÃO
-======================= */
-
-function normalizeItem(item: any) {
-  const title = item.ItemInfo?.Title?.DisplayValue ?? "";
-  const brand =
-    item.ItemInfo?.ByLineInfo?.Brand?.DisplayValue ?? "Desconhecida";
-
-  const presentation = extractPresentation(title);
-  const isPure = /pure|pura|100%/i.test(title);
-
-  const size =
-    item.ItemInfo?.ProductInfo?.Size?.DisplayValue ??
-    item.VariationAttributes?.find((a: any) => a.Name === "size_name")?.Value ??
-    "";
-
-  let totalUnits = 0;
-  let unitsPerDose: number | null = null;
-
-  if (presentation === CreatineForm.POWDER) {
-    totalUnits = extractWeightInGrams(title, size) ?? 0;
-    if (isPure) unitsPerDose = 3;
-  } else {
-    totalUnits = extractUnitsFromSize(size) ?? 0;
-  }
-
-  const flavor = extractFlavor(item, title);
-
-  const name = [
-    "Creatina",
-    isPure ? "Pura" : null,
-    brand,
-    presentation === CreatineForm.POWDER
-      ? `${totalUnits}g`
-      : `${totalUnits} unidades`,
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return {
-    asin: item.ASIN,
-    title,
-    name,
-    brand,
-    flavor,
-    form: presentation,
-    totalUnits,
-    unitsPerDose,
-    imageUrl: item.Images?.Primary?.Large?.URL ?? "",
-    affiliateUrl: item.DetailPageURL,
-  };
+  return 0;
 }
 
 /* =======================
    MAIN
 ======================= */
-
 async function run() {
-  console.log("🚀 Importação Amazon — PRODUTOS\n");
+  console.log("🚀 Importação Amazon — Creatina\n");
 
-  const pendentes = readJSON<PendentesFile>(PENDENTES, { asins: [] });
-  const processados = readJSON<ProcessadosFile>(PROCESSADOS, { items: [] });
-  const erros = readJSON<ErrosFile>(ERROS, { items: [] });
+  const pendentes = readJSON<PendentesFile>(PENDENTES, {
+    asins: [],
+  });
+  const processados = readJSON<{ items: ProcessadoItem[] }>(
+    PROCESSADOS,
+    { items: [] }
+  );
+  const erros = readJSON<{ items: ErroItem[] }>(ERROS, {
+    items: [],
+  });
 
-  for (const asin of [...pendentes.asins]) {
-    console.log(`🔎 ASIN: ${asin}\n`);
+  if (!pendentes.asins.length) {
+    console.log("Nenhum ASIN pendente.");
+    return;
+  }
+
+  for (const asinBase of [...pendentes.asins]) {
+    console.log(`🔎 ASIN base: ${asinBase}`);
 
     try {
       let items: any[] = [];
 
       try {
-        const variations = await paapi.GetVariations(commonParameters, {
-          ASIN: asin,
-          Resources: [
-            "ItemInfo.Title",
-            "ItemInfo.ByLineInfo",
-            "ItemInfo.ProductInfo",
-            "Images.Primary.Large",
-          ],
-        });
+        const variations = await paapi.GetVariations(
+          commonParameters,
+          {
+            ASIN: asinBase,
+            Resources: [
+              "ItemInfo.Title",
+              "ItemInfo.ByLineInfo",
+              "Images.Primary.Large",
+            ],
+          }
+        );
 
-        items = variations?.VariationsResult?.Items ?? [];
+        items =
+          variations?.VariationsResult?.Items ?? [];
       } catch {
-        // ignora
+        // ignora e tenta fallback
       }
 
-      if (items.length === 0) {
-        const fallback = await paapi.GetItems(commonParameters, {
-          ItemIds: [asin],
-          Resources: [
-            "ItemInfo.Title",
-            "ItemInfo.ByLineInfo",
-            "ItemInfo.ProductInfo",
-            "Images.Primary.Large",
-          ],
-        });
+      if (!items.length) {
+        const fallback = await paapi.GetItems(
+          commonParameters,
+          {
+            ItemIds: [asinBase],
+            Resources: [
+              "ItemInfo.Title",
+              "ItemInfo.ByLineInfo",
+              "Images.Primary.Large",
+            ],
+          }
+        );
 
         items = fallback?.ItemsResult?.Items ?? [];
       }
 
       for (const item of items) {
+        const asin = item.ASIN;
+
         const exists = await prisma.offer.findFirst({
           where: {
             store: Store.AMAZON,
-            externalId: item.ASIN,
+            externalId: asin,
           },
         });
 
         if (exists) continue;
 
-        const data = normalizeItem(item);
+        const title =
+          item.ItemInfo?.Title?.DisplayValue ??
+          "Creatina";
+
+        const brand =
+          item.ItemInfo?.ByLineInfo?.Brand
+            ?.DisplayValue ?? "Desconhecida";
+
+        const form = extractPresentation(title);
+        const totalUnits =
+          form === CreatineForm.POWDER
+            ? extractWeightInGrams(title)
+            : 0;
 
         const product = await prisma.product.create({
           data: {
             category: "creatina",
-            name: data.name,
-            brand: data.brand,
-            flavor: data.flavor,
-            imageUrl: data.imageUrl,
+            name: title,
+            brand,
+            flavor: null,
+            imageUrl:
+              item.Images?.Primary?.Large?.URL ?? "",
             creatineInfo: {
               create: {
-                form: data.form,
-                totalUnits: data.totalUnits,
-                unitsPerDose: data.unitsPerDose ?? 0,
+                form,
+                totalUnits,
+                unitsPerDose: 0,
               },
             },
           },
@@ -257,42 +203,50 @@ async function run() {
           data: {
             productId: product.id,
             store: Store.AMAZON,
-            externalId: data.asin,
-            affiliateUrl: data.affiliateUrl,
+            externalId: asin,
+            affiliateUrl: item.DetailPageURL,
             price: 0,
           },
         });
+
+        console.log(`✅ Criado produto ${asin}`);
       }
 
       processados.items.push({
-        asin,
-        title: items[0]?.ItemInfo?.Title?.DisplayValue ?? "",
+        asin: asinBase,
         date: new Date().toISOString(),
       });
 
-      pendentes.asins = pendentes.asins.filter((a) => a !== asin);
+      pendentes.asins = pendentes.asins.filter(
+        (a) => a !== asinBase
+      );
+    } catch (e: any) {
+      console.error(
+        `❌ Erro no ASIN ${asinBase}:`,
+        e?.message
+      );
 
-      console.log("✅ Importado com sucesso\n");
-    } catch (err: any) {
       erros.items.push({
-        asin,
-        error: err?.message ?? "Erro desconhecido",
+        asin: asinBase,
+        error: e?.message ?? "Erro desconhecido",
         date: new Date().toISOString(),
       });
 
-      pendentes.asins = pendentes.asins.filter((a) => a !== asin);
-
-      console.error("❌ Erro ao importar:", err?.message, "\n");
+      pendentes.asins = pendentes.asins.filter(
+        (a) => a !== asinBase
+      );
     }
 
     writeJSON(PENDENTES, pendentes);
     writeJSON(PROCESSADOS, processados);
     writeJSON(ERROS, erros);
 
-    console.log("------------------------------------------------\n");
+    console.log("--------------------------------\n");
   }
 
   console.log("🏁 Importação finalizada");
 }
 
-run();
+run()
+  .catch(console.error)
+  .finally(() => prisma.$disconnect());
