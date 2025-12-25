@@ -4,13 +4,10 @@ import { PrismaClient, Store } from "@prisma/client";
 const prisma = new PrismaClient();
 
 /* =========================
-   EXTRAÇÃO DE NOTA (HTML)
-   SOMENTE MÉDIA
+   EXTRAÇÃO DE RATING
 ========================= */
 
-function extractRatingAverageFromHtml(
-  html: string
-): number | null {
+function extractRating(html: string): number | null {
   const match =
     html.match(/"rating_average"\s*:\s*([\d.]+)/i) ||
     html.match(/"average_rating"\s*:\s*([\d.]+)/i) ||
@@ -23,13 +20,17 @@ function extractRatingAverageFromHtml(
 }
 
 /* =========================
-   FETCH HTML
+   FETCH + LOGS
 ========================= */
 
-async function fetchHtmlByMLB(
+async function fetchRatingByMLB(
   mlb: string
-): Promise<string | null> {
+): Promise<number | null> {
   const url = `https://www.mercadolivre.com.br/p/${mlb}`;
+
+  console.log("\n==================================");
+  console.log(`🔎 MLB: ${mlb}`);
+  console.log(`🌐 URL: ${url}`);
 
   try {
     const controller = new AbortController();
@@ -48,9 +49,81 @@ async function fetchHtmlByMLB(
       },
     });
 
-    if (!res.ok) return null;
-    return await res.text();
-  } catch {
+    console.log("📡 STATUS:", res.status);
+    console.log(
+      "📡 VIA:",
+      res.headers.get("via")
+    );
+    console.log(
+      "📡 CONTENT-TYPE:",
+      res.headers.get("content-type")
+    );
+
+    if (!res.ok) {
+      console.warn("❌ HTTP não OK");
+      return null;
+    }
+
+    const html = await res.text();
+
+    console.log("📄 HTML length:", html.length);
+
+    // Verificações de bloqueio / payload incompleto
+    if (html.length < 20000) {
+      console.warn(
+        "🚫 HTML muito pequeno (bloqueio forte provável)"
+      );
+    }
+
+    if (
+      html.includes("captcha") ||
+      html.includes("robot") ||
+      html.includes("blocked")
+    ) {
+      console.warn(
+        "🚫 HTML contém termos de bloqueio"
+      );
+    }
+
+    const hasRatingKey =
+      html.includes("rating_average") ||
+      html.includes("average_rating") ||
+      html.includes('"rating"');
+
+    console.log(
+      "⭐ Chave de rating no HTML:",
+      hasRatingKey ? "SIM" : "NÃO"
+    );
+
+    const hasJsonLd = html.includes(
+      'type="application/ld+json"'
+    );
+
+    console.log(
+      "📦 JSON-LD:",
+      hasJsonLd ? "PRESENTE" : "AUSENTE"
+    );
+
+    if (!hasRatingKey) {
+      console.log(
+        "— HTML completo, mas rating NÃO entregue"
+      );
+      return null;
+    }
+
+    const rating = extractRating(html);
+
+    if (rating === null) {
+      console.warn(
+        "⚠️ Regex falhou apesar da chave existir"
+      );
+      return null;
+    }
+
+    console.log(`⭐ RATING EXTRAÍDO: ${rating}`);
+    return rating;
+  } catch (err) {
+    console.error("🔥 ERRO fetch:", err);
     return null;
   }
 }
@@ -59,9 +132,15 @@ async function fetchHtmlByMLB(
    SCRIPT PRINCIPAL
 ========================= */
 
-async function updateMercadoLivreRatings() {
+async function diagnosticMercadoLivreRatings() {
+  console.log("🧪 Ambiente:", {
+    node: process.version,
+    platform: process.platform,
+    github: !!process.env.GITHUB_ACTIONS,
+  });
+
   console.log(
-    "🔄 Atualizando NOTAS do Mercado Livre (HTML-only)..."
+    "🔄 Diagnóstico de RATING — Mercado Livre"
   );
 
   const offers = await prisma.offer.findMany({
@@ -69,57 +148,37 @@ async function updateMercadoLivreRatings() {
       store: Store.MERCADO_LIVRE,
       externalId: { not: "" },
     },
+    take: 3, // 👈 limite para diagnóstico
   });
 
-  console.log(`📦 Ofertas encontradas: ${offers.length}`);
-
-  let updated = 0;
+  console.log(`📦 Ofertas analisadas: ${offers.length}`);
 
   for (const offer of offers) {
-    console.log(`🔎 ${offer.externalId}`);
-
-    const html = await fetchHtmlByMLB(
+    const rating = await fetchRatingByMLB(
       offer.externalId
     );
 
-    if (!html) {
-      console.warn("⚠️ HTML não carregado");
-      continue;
+    if (rating === null) {
+      console.log(
+        `❌ Rating indisponível (${offer.externalId})`
+      );
+    } else {
+      console.log(
+        `✅ Rating OK (${offer.externalId}): ${rating}`
+      );
     }
 
-    const ratingAverage =
-      extractRatingAverageFromHtml(html);
-
-    if (ratingAverage === null) {
-      console.log("— nota não encontrada no HTML");
-      continue;
-    }
-
-    await prisma.offer.update({
-      where: { id: offer.id },
-      data: {
-        ratingAverage,
-        updatedAt: new Date(),
-      },
-    });
-
-    updated++;
-
-    console.log(`⭐ ${ratingAverage}`);
-
-    // delay amigável
-    await new Promise((r) => setTimeout(r, 1200));
+    await new Promise((r) =>
+      setTimeout(r, 5000)
+    );
   }
 
-  console.log(
-    `🏁 Finalizado — notas atualizadas: ${updated}`
-  );
-
   await prisma.$disconnect();
+  console.log("🏁 Diagnóstico finalizado");
 }
 
-updateMercadoLivreRatings().catch(async (err) => {
-  console.error("❌ Erro no script:", err);
+diagnosticMercadoLivreRatings().catch(async (err) => {
+  console.error("❌ Erro geral:", err);
   await prisma.$disconnect();
   process.exit(0);
 });
