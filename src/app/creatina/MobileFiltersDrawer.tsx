@@ -9,7 +9,10 @@ type Props = {
   flavors: string[];
 };
 
-export function MobileFiltersDrawer({ brands, flavors }: Props) {
+export function MobileFiltersDrawer({
+  brands,
+  flavors,
+}: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -19,14 +22,20 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
   const selectedFlavors =
     searchParams.get("flavor")?.split(",") ?? [];
   const selectedForms =
-    (searchParams.get("form")?.split(",") as CreatineForm[]) ?? [];
+    (searchParams.get("form")?.split(",") as CreatineForm[]) ??
+    [];
   const selectedStores =
-    (searchParams.get("store")?.split(",") as Store[]) ?? [];
+    (searchParams.get("store")?.split(",") as Store[]) ??
+    [];
   const selectedDoses =
     searchParams.get("doses")?.split(",") ?? [];
 
-  const priceMax =
+  const priceMaxFromUrl =
     Number(searchParams.get("priceMax")) || 200;
+
+  // 🔥 valor temporário do slider (fluido)
+  const [tempPrice, setTempPrice] =
+    useState(priceMaxFromUrl);
 
   function toggleParam(key: string, value: string) {
     const params = new URLSearchParams(
@@ -49,7 +58,7 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
     router.push(`/creatina?${params.toString()}`);
   }
 
-  function updatePrice(value: number) {
+  function applyPrice(value: number) {
     const params = new URLSearchParams(
       searchParams.toString()
     );
@@ -59,7 +68,7 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
 
   return (
     <>
-      {/* BOTÃO FLUTUANTE – ÍCONE ORIGINAL */}
+      {/* BOTÃO FLUTUANTE */}
       <button
         onClick={() => setOpen(true)}
         className="fixed bottom-4 right-4 z-40 sm:hidden bg-white text-black p-4 rounded-full shadow-lg border"
@@ -118,19 +127,27 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
           {/* LOJA */}
           <div>
             <p className="font-medium mb-2">Loja</p>
-            {[Store.AMAZON, Store.MERCADO_LIVRE].map((s) => (
+            {[
+              { value: Store.AMAZON, label: "Amazon" },
+              {
+                value: Store.MERCADO_LIVRE,
+                label: "Mercado Livre",
+              },
+            ].map((s) => (
               <label
-                key={s}
+                key={s.value}
                 className="flex items-center gap-2 text-sm mb-2"
               >
                 <input
                   type="checkbox"
-                  checked={selectedStores.includes(s)}
-                  onChange={() => toggleParam("store", s)}
+                  checked={selectedStores.includes(
+                    s.value
+                  )}
+                  onChange={() =>
+                    toggleParam("store", s.value)
+                  }
                 />
-                {s === Store.AMAZON
-                  ? "Amazon"
-                  : "Mercado Livre"}
+                {s.label}
               </label>
             ))}
           </div>
@@ -140,41 +157,70 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
             <p className="font-medium mb-2">
               Apresentação
             </p>
-            {[CreatineForm.CAPSULE, CreatineForm.GUMMY, CreatineForm.POWDER].map(
-              (f) => (
-                <label
-                  key={f}
-                  className="flex items-center gap-2 text-sm mb-2"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedForms.includes(f)}
-                    onChange={() => toggleParam("form", f)}
-                  />
-                  {f === CreatineForm.CAPSULE
-                    ? "Cápsula"
-                    : f === CreatineForm.GUMMY
-                    ? "Gummy"
-                    : "Pó"}
-                </label>
-              )
-            )}
+            {[
+              {
+                value: CreatineForm.CAPSULE,
+                label: "Cápsula",
+              },
+              {
+                value: CreatineForm.GUMMY,
+                label: "Gummy",
+              },
+              {
+                value: CreatineForm.POWDER,
+                label: "Pó",
+              },
+            ].map((f) => (
+              <label
+                key={f.value}
+                className="flex items-center gap-2 text-sm mb-2"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedForms.includes(
+                    f.value
+                  )}
+                  onChange={() =>
+                    toggleParam("form", f.value)
+                  }
+                />
+                {f.label}
+              </label>
+            ))}
           </div>
 
           {/* DOSES */}
           <div>
             <p className="font-medium mb-2">Doses</p>
-            {["<50", "51-100", "101-150", ">150"].map((d) => (
+            {[
+              { value: "<50", label: "< 50" },
+              {
+                value: "51-100",
+                label: "51 – 100",
+              },
+              {
+                value: "101-150",
+                label: "101 – 150",
+              },
+              {
+                value: ">150",
+                label: "> 150",
+              },
+            ].map((d) => (
               <label
-                key={d}
+                key={d.value}
                 className="flex items-center gap-2 text-sm mb-2"
               >
                 <input
                   type="checkbox"
-                  checked={selectedDoses.includes(d)}
-                  onChange={() => toggleParam("doses", d)}
+                  checked={selectedDoses.includes(
+                    d.value
+                  )}
+                  onChange={() =>
+                    toggleParam("doses", d.value)
+                  }
                 />
-                {d}
+                {d.label}
               </label>
             ))}
           </div>
@@ -182,15 +228,19 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
           {/* MARCA */}
           <div>
             <p className="font-medium mb-2">Marca</p>
-            {brands.map((b) => (
+            {[...brands].sort().map((b) => (
               <label
                 key={b}
                 className="flex items-center gap-2 text-sm mb-2"
               >
                 <input
                   type="checkbox"
-                  checked={selectedBrands.includes(b)}
-                  onChange={() => toggleParam("brand", b)}
+                  checked={selectedBrands.includes(
+                    b
+                  )}
+                  onChange={() =>
+                    toggleParam("brand", b)
+                  }
                 />
                 {b}
               </label>
@@ -200,41 +250,52 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
           {/* SABOR */}
           <div>
             <p className="font-medium mb-2">Sabor</p>
-            {flavors.map((f) => (
+            {[...flavors].sort().map((f) => (
               <label
                 key={f}
                 className="flex items-center gap-2 text-sm mb-2"
               >
                 <input
                   type="checkbox"
-                  checked={selectedFlavors.includes(f)}
-                  onChange={() => toggleParam("flavor", f)}
+                  checked={selectedFlavors.includes(
+                    f
+                  )}
+                  onChange={() =>
+                    toggleParam("flavor", f)
+                  }
                 />
                 {f}
               </label>
             ))}
           </div>
 
-          {/* PREÇO */}
+          {/* SLIDER DE PREÇO (FLUIDO) */}
           <div>
             <p className="font-medium mb-2">
               Preço máximo
             </p>
             <p className="text-sm mb-1">
-              Até <strong>R$ {priceMax}</strong>
+              Até <strong>R$ {tempPrice}</strong>
             </p>
+
             <input
               type="range"
               min={20}
               max={200}
-              step={5}
-              value={priceMax}
+              step={1} // 🔥 fluido
+              value={tempPrice}
               onChange={(e) =>
-                updatePrice(
+                setTempPrice(
                   Number(e.target.value)
                 )
               }
-              className="w-full accent-green-600"
+              onTouchEnd={() =>
+                applyPrice(tempPrice)
+              }
+              onMouseUp={() =>
+                applyPrice(tempPrice)
+              }
+              className="w-full accent-green-600 touch-pan-y"
             />
           </div>
         </div>
