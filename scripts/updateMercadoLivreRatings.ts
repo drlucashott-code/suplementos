@@ -15,7 +15,6 @@ function sleep(ms: number) {
 
 /* =========================
    EXTRAÇÃO DE RATING
-   (somente média)
 ========================= */
 
 function extractRatingAverageFromHtml(
@@ -33,16 +32,13 @@ function extractRatingAverageFromHtml(
 }
 
 /* =========================
-   FETCH + LOGS
+   FETCH
 ========================= */
 
-async function fetchRatingByMLB(
+async function fetchMLRating(
   mlb: string
 ): Promise<number | null> {
   const url = `https://www.mercadolivre.com.br/p/${mlb}`;
-
-  console.log(`\n🔎 MLB ${mlb}`);
-  console.log(`🌐 URL: ${url}`);
 
   try {
     const controller = new AbortController();
@@ -56,45 +52,14 @@ async function fetchRatingByMLB(
           "AppleWebKit/537.36 (KHTML, like Gecko) " +
           "Chrome/122.0.0.0 Safari/537.36",
         "Accept-Language": "pt-BR,pt;q=0.9",
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
       },
     });
 
-    console.log("📡 STATUS:", res.status);
-    console.log("📡 VIA:", res.headers.get("via"));
-    console.log(
-      "📡 CONTENT-TYPE:",
-      res.headers.get("content-type")
-    );
-
-    if (!res.ok) {
-      console.warn("❌ HTTP não OK");
-      return null;
-    }
+    if (!res.ok) return null;
 
     const html = await res.text();
-
-    console.log("📄 HTML length:", html.length);
-
-    if (html.length < 200_000) {
-      console.warn(
-        "🚫 HTML filtrado (payload reduzido)"
-      );
-    }
-
-    const rating =
-      extractRatingAverageFromHtml(html);
-
-    if (rating !== null) {
-      console.log("⭐ RATING encontrado:", rating);
-      return rating;
-    }
-
-    console.warn("❌ Rating não encontrado no HTML");
-    return null;
-  } catch (err) {
-    console.error("🔥 ERRO fetch:", err);
+    return extractRatingAverageFromHtml(html);
+  } catch {
     return null;
   }
 }
@@ -104,38 +69,43 @@ async function fetchRatingByMLB(
 ========================= */
 
 async function updateMercadoLivreRatings() {
-  console.log("🧪 Ambiente:", {
-    node: process.version,
-    platform: process.platform,
-    github: !!process.env.GITHUB_ACTIONS,
-  });
-
-  console.log(
-    "🔄 Atualizando ratings do Mercado Livre"
-  );
+  console.log("🔄 Atualizando ratings do Mercado Livre...");
 
   const offers = await prisma.offer.findMany({
     where: {
       store: Store.MERCADO_LIVRE,
       externalId: { not: "" },
     },
+    include: {
+      product: true,
+    },
+    orderBy: {
+      updatedAt: "asc", // rotação
+    },
     take: process.env.GITHUB_ACTIONS
       ? 3
       : undefined,
   });
 
-  console.log(`📦 Ofertas encontradas: ${offers.length}`);
+  if (offers.length === 0) {
+    console.log(
+      "⚠️ Nenhuma offer do Mercado Livre encontrada"
+    );
+    return;
+  }
 
   let updated = 0;
 
   for (const offer of offers) {
-    const rating = await fetchRatingByMLB(
+    console.log(`🔎 MLB ${offer.externalId}`);
+
+    const rating = await fetchMLRating(
       offer.externalId
     );
 
     if (rating === null) {
-      console.warn(
-        `⚠️ Rating indisponível (${offer.externalId}), mantendo valor atual`
+      console.log(
+        `⚠️ ${offer.product.name} — rating indisponível`
       );
       continue;
     }
@@ -151,7 +121,7 @@ async function updateMercadoLivreRatings() {
     updated++;
 
     console.log(
-      `✅ ${offer.externalId} — ⭐ ${rating}`
+      `✅ ${offer.product.name} — ⭐ ${rating}`
     );
 
     await sleep(
@@ -160,20 +130,17 @@ async function updateMercadoLivreRatings() {
   }
 
   if (updated === 0) {
-    console.warn(
-      "⚠️ Nenhum rating atualizado. Pode ser necessário rodar localmente."
+    console.log(
+      "⚠️ Nenhum rating atualizado nesta execução"
     );
   }
 
-  console.log(
-    `🏁 Finalizado — ratings atualizados: ${updated}`
-  );
-
+  console.log("🏁 Mercado Livre (ratings) atualizado");
   await prisma.$disconnect();
 }
 
 updateMercadoLivreRatings().catch(async (err) => {
-  console.error("❌ Erro geral:", err);
+  console.error(err);
   await prisma.$disconnect();
-  process.exit(0);
+  process.exit(1);
 });

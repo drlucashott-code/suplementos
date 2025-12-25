@@ -14,7 +14,7 @@ function sleep(ms: number) {
 }
 
 /* =========================
-   EXTRAÇÕES
+   EXTRAÇÃO DE PREÇO
 ========================= */
 
 function extractPriceFromJsonLd(html: string): number | null {
@@ -54,49 +54,14 @@ function extractPriceFromJsonLd(html: string): number | null {
   return null;
 }
 
-function extractPriceFromPreloadedState(
-  html: string
-): number | null {
-  const match = html.match(
-    /"price"\s*:\s*\{\s*"amount"\s*:\s*([\d.,]+)/i
-  );
-
-  if (!match) return null;
-
-  const value = Number(
-    match[1].replace(/\./g, "").replace(",", ".")
-  );
-
-  return isNaN(value) ? null : value;
-}
-
-function extractPriceByRegex(
-  html: string
-): number | null {
-  const match = html.match(
-    /"price"\s*:\s*([\d.,]+)/i
-  );
-
-  if (!match) return null;
-
-  const value = Number(
-    match[1].replace(/\./g, "").replace(",", ".")
-  );
-
-  return isNaN(value) ? null : value;
-}
-
 /* =========================
-   FETCH + LOGS
+   FETCH
 ========================= */
 
-async function fetchPriceByMLB(
+async function fetchMLPrice(
   mlb: string
 ): Promise<number | null> {
   const url = `https://www.mercadolivre.com.br/p/${mlb}`;
-
-  console.log(`\n🔎 MLB ${mlb}`);
-  console.log(`🌐 URL: ${url}`);
 
   try {
     const controller = new AbortController();
@@ -110,67 +75,14 @@ async function fetchPriceByMLB(
           "AppleWebKit/537.36 (KHTML, like Gecko) " +
           "Chrome/122.0.0.0 Safari/537.36",
         "Accept-Language": "pt-BR,pt;q=0.9",
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
       },
     });
 
-    console.log("📡 STATUS:", res.status);
-    console.log("📡 VIA:", res.headers.get("via"));
-    console.log(
-      "📡 CONTENT-TYPE:",
-      res.headers.get("content-type")
-    );
-
-    if (!res.ok) {
-      console.warn("❌ HTTP não OK");
-      return null;
-    }
+    if (!res.ok) return null;
 
     const html = await res.text();
-
-    console.log("📄 HTML length:", html.length);
-
-    if (html.length < 200_000) {
-      console.warn(
-        "🚫 HTML filtrado (payload reduzido)"
-      );
-    }
-
-    const hasJsonLd = html.includes(
-      'type="application/ld+json"'
-    );
-
-    console.log(
-      "📦 JSON-LD:",
-      hasJsonLd ? "PRESENTE" : "AUSENTE"
-    );
-
-    const p1 = extractPriceFromJsonLd(html);
-    if (p1 !== null) {
-      console.log("💰 PRICE via JSON-LD");
-      return p1;
-    }
-
-    const p2 =
-      extractPriceFromPreloadedState(html);
-    if (p2 !== null) {
-      console.log("💰 PRICE via STATE");
-      return p2;
-    }
-
-    const p3 = extractPriceByRegex(html);
-    if (p3 !== null) {
-      console.log("💰 PRICE via REGEX");
-      return p3;
-    }
-
-    console.warn(
-      "❌ Nenhuma estratégia encontrou preço"
-    );
-    return null;
-  } catch (err) {
-    console.error("🔥 ERRO fetch:", err);
+    return extractPriceFromJsonLd(html);
+  } catch {
     return null;
   }
 }
@@ -180,38 +92,39 @@ async function fetchPriceByMLB(
 ========================= */
 
 async function updateMercadoLivrePrices() {
-  console.log("🧪 Ambiente:", {
-    node: process.version,
-    platform: process.platform,
-    github: !!process.env.GITHUB_ACTIONS,
-  });
-
-  console.log(
-    "🔄 Atualizando preços do Mercado Livre"
-  );
+  console.log("🔄 Atualizando preços do Mercado Livre...");
 
   const offers = await prisma.offer.findMany({
     where: {
       store: Store.MERCADO_LIVRE,
-      affiliateUrl: { not: "" },
+      externalId: { not: "" },
     },
-    take: process.env.GITHUB_ACTIONS
-      ? 3
-      : undefined,
+    include: {
+      product: true,
+    },
+    orderBy: {
+      updatedAt: "asc",
+    },
+    take: process.env.GITHUB_ACTIONS ? 3 : undefined,
   });
 
-  console.log(`📦 Ofertas encontradas: ${offers.length}`);
-
-  let updated = 0;
+  if (offers.length === 0) {
+    console.log(
+      "⚠️ Nenhuma offer do Mercado Livre encontrada"
+    );
+    return;
+  }
 
   for (const offer of offers) {
-    const price = await fetchPriceByMLB(
+    console.log(`🔎 MLB ${offer.externalId}`);
+
+    const price = await fetchMLPrice(
       offer.externalId
     );
 
-    if (!price || isNaN(price)) {
-      console.warn(
-        `⚠️ Preço indisponível (${offer.externalId}), mantendo valor atual`
+    if (!price) {
+      console.log(
+        `⚠️ ${offer.product.name} — preço indisponível`
       );
       continue;
     }
@@ -221,10 +134,8 @@ async function updateMercadoLivrePrices() {
       data: { price },
     });
 
-    updated++;
-
     console.log(
-      `✅ ${offer.externalId} — R$ ${price.toFixed(
+      `✅ ${offer.product.name} — R$ ${price.toFixed(
         2
       )}`
     );
@@ -234,18 +145,12 @@ async function updateMercadoLivrePrices() {
     );
   }
 
-  if (updated === 0) {
-    console.warn(
-      "⚠️ Nenhum preço atualizado. Pode ser necessário rodar localmente."
-    );
-  }
-
-  console.log(`🏁 Finalizado — atualizados: ${updated}`);
+  console.log("🏁 Mercado Livre atualizado");
   await prisma.$disconnect();
 }
 
 updateMercadoLivrePrices().catch(async (err) => {
-  console.error("❌ Erro geral:", err);
+  console.error(err);
   await prisma.$disconnect();
-  process.exit(0);
+  process.exit(1);
 });
