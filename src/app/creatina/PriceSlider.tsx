@@ -10,13 +10,21 @@ export function PriceSlider() {
   const initial =
     Number(searchParams.get("priceMax")) || 200;
 
-  const [value, setValue] = useState(initial);
+  // valor realmente aplicado
+  const [committedValue, setCommittedValue] =
+    useState(initial);
 
-  function updateUrl(newValue: number) {
+  // valor enquanto arrasta
+  const [tempValue, setTempValue] =
+    useState(initial);
+
+  function applyValue(value: number) {
+    setCommittedValue(value);
+
     const params = new URLSearchParams(
       searchParams.toString()
     );
-    params.set("priceMax", String(newValue));
+    params.set("priceMax", String(value));
     router.push(`/creatina?${params.toString()}`);
   }
 
@@ -27,20 +35,20 @@ export function PriceSlider() {
       </p>
 
       <p className="text-sm text-gray-700 mb-1">
-        Até <strong>R$ {value}</strong>
+        Até <strong>R$ {tempValue}</strong>
       </p>
 
       <input
         type="range"
         min={20}
         max={200}
-        step={5}
-        value={value}
+        step={1} // 🔥 movimento suave
+        value={tempValue}
         onChange={(e) =>
-          setValue(Number(e.target.value))
+          setTempValue(Number(e.target.value))
         }
-        onMouseUp={() => updateUrl(value)}
-        onTouchEnd={() => updateUrl(value)}
+        onMouseUp={() => applyValue(tempValue)}
+        onTouchEnd={() => applyValue(tempValue)}
         className="w-full accent-green-600"
       />
     </div>
