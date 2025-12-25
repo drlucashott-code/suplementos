@@ -52,11 +52,3 @@ jobs:
         run: node --loader ts-node/esm scripts/updateMercadoLivrePrices.ts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
-      # =========================
-      # MERCADO LIVRE — RATINGS
-      # =========================
-      - name: Update Mercado Livre ratings (HTML)
-        run: node --loader ts-node/esm scripts/updateMercadoLivreRatings.ts
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
