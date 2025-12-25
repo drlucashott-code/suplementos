@@ -16,10 +16,15 @@ type Product = {
 
   pricePerDose: number;
   doses: number;
-  hasCarbohydrate?: boolean;
+
+  ratingAverage?: number | null;
 };
 
-export function ProductList({ products }: { products: Product[] }) {
+export function ProductList({
+  products,
+}: {
+  products: Product[];
+}) {
   return (
     <section className="flex-1 space-y-6">
       {products.map((product, index) => (

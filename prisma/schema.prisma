@@ -9,7 +9,7 @@ datasource db {
 
 /* =======================
    ENUMS
-   ======================= */
+======================= */
 
 enum Store {
   AMAZON
@@ -24,7 +24,7 @@ enum CreatineForm {
 
 /* =======================
    PRODUCT
-   ======================= */
+======================= */
 model Product {
   id           String   @id @default(cuid())
 
@@ -42,14 +42,14 @@ model Product {
 }
 
 /* =======================
-   CREATINE INFO (FINAL)
-   ======================= */
+   CREATINE INFO
+======================= */
 model CreatineInfo {
-  id         String       @id @default(cuid())
-  productId  String       @unique
-  product    Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id           String       @id @default(cuid())
+  productId    String       @unique
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  form        CreatineForm
+  form         CreatineForm
 
   /*
     Unidade principal:
@@ -65,7 +65,7 @@ model CreatineInfo {
 
 /* =======================
    OFFER (Amazon / Mercado Livre)
-   ======================= */
+======================= */
 model Offer {
   id           String   @id @default(cuid())
 
@@ -73,11 +73,17 @@ model Offer {
   product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   store        Store
-  externalId   String   // ASIN ou MLBxxxx
+  externalId   String   // ASIN (Amazon) ou MLBxxxx (Mercado Livre)
   price        Float
   affiliateUrl String
 
+  // ⭐ AVALIAÇÕES (Mercado Livre)
+  ratingAverage Float?
+  ratingCount   Int?
+
   createdAt    DateTime @default(now())
+  // ⚠️ IMPORTANTE: default para não quebrar migration
+  updatedAt    DateTime @default(now())
 
   @@index([productId])
   @@index([store])

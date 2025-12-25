@@ -15,6 +15,8 @@ type Product = {
 
   pricePerDose: number;
   doses: number;
+
+  ratingAverage?: number | null;
 };
 
 export function MobileProductCard({
@@ -24,7 +26,9 @@ export function MobileProductCard({
   product: Product;
   isBest?: boolean;
 }) {
-  // ✅ SEM ARREDONDAR
+  // 🔎 DEBUG DEFINITIVO
+  console.log("RATING DEBUG:", product.ratingAverage);
+
   const centsPerDose = Math.floor(product.pricePerDose * 100);
 
   const buyLabel =
@@ -47,15 +51,30 @@ export function MobileProductCard({
         }
       `}
     >
+      {/* BADGE MELHOR CUSTO */}
       {isBest && (
         <div className="absolute -top-2 right-2 bg-green-600 text-white text-[10px] font-semibold px-3 py-0.5 rounded-full shadow">
           Melhor custo-benefício
         </div>
       )}
 
-      <h2 className="font-semibold text-base leading-tight">
-        {product.name}
-      </h2>
+      {/* TÍTULO + NOTA */}
+      <div className="flex items-start justify-between gap-2">
+        <h2 className="font-semibold text-base leading-tight flex-1">
+          {product.name}
+        </h2>
+
+        {/* ⭐ NOTA (somente se existir) */}
+        {product.ratingAverage !== null &&
+          product.ratingAverage !== undefined && (
+            <div className="flex items-center gap-1 text-sm font-semibold text-yellow-600 shrink-0">
+              <span>⭐</span>
+              <span>
+                {product.ratingAverage.toFixed(1)}
+              </span>
+            </div>
+          )}
+      </div>
 
       <div className="flex gap-3 items-start">
         {product.imageUrl && (
@@ -82,15 +101,16 @@ export function MobileProductCard({
           </p>
 
           <p>
-            <strong>Rendimento:</strong>{" "}
-            {Math.floor(product.doses)} doses
+            <strong>Doses:</strong>{" "}
+            {Math.floor(product.doses)}
           </p>
 
           <p>
-            <strong>Preço:</strong> R$ {product.price.toFixed(2)}
+            <strong>Preço:</strong>{" "}
+            R$ {product.price.toFixed(2)}
           </p>
 
-          {/* destaque alinhado corretamente */}
+          {/* PREÇO POR DOSE */}
           <p className="relative inline-block mt-1">
             <span className="absolute inset-y-0 -inset-x-2 bg-green-300 rounded" />
             <span className="relative font-semibold">

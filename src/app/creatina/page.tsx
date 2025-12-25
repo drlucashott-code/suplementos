@@ -73,7 +73,7 @@ export default async function CreatinaPage({
 
       if (!validOffers.length) return null;
 
-      // menor preço ENTRE AS LOJAS SELECIONADAS
+      // 💰 MELHOR PREÇO (qualquer loja)
       const bestOffer = validOffers.reduce((a, b) =>
         b.price < a.price ? b : a
       );
@@ -84,6 +84,14 @@ export default async function CreatinaPage({
       ) {
         return null;
       }
+
+      // ⭐ NOTA SEMPRE DO MERCADO LIVRE (se existir)
+      const mercadoLivreOffer = validOffers.find(
+        (offer) =>
+          offer.store === Store.MERCADO_LIVRE &&
+          offer.ratingAverage !== null &&
+          offer.ratingAverage !== undefined
+      );
 
       const stats = calculateCreatineStats({
         form: product.creatineInfo.form,
@@ -116,12 +124,18 @@ export default async function CreatinaPage({
         imageUrl: product.imageUrl,
         flavor: product.flavor,
         form: product.creatineInfo.form,
+
+        // preço + botão
         price: bestOffer.price,
         affiliateUrl: bestOffer.affiliateUrl,
-        store: bestOffer.store, // 🔴 ISSO DEFINE O BOTÃO
+        store: bestOffer.store,
+
         doses,
         pricePerDose: stats.pricePerDose!,
-        hasCarbohydrate: false,
+
+        // ⭐ NOTA (independente da loja do preço)
+        ratingAverage:
+          mercadoLivreOffer?.ratingAverage ?? null,
       };
     })
     .filter(Boolean)
