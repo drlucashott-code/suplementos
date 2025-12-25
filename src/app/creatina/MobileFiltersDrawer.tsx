@@ -152,7 +152,7 @@ export function MobileFiltersDrawer({
 
       {/* DRAWER */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-50 sm:hidden bg-white rounded-t-2xl transition-transform duration-300 ${
+        className={`fixed bottom-0 left-0 right-0 z-50 sm:hidden bg-white rounded-t-2xl transition-transform duration-300 flex flex-col ${
           open ? "translate-y-0" : "translate-y-full"
         }`}
         style={{ height: "90vh" }}
@@ -170,8 +170,8 @@ export function MobileFiltersDrawer({
           </button>
         </div>
 
-        {/* CONTEÚDO */}
-        <div className="p-5 overflow-y-auto h-[calc(90vh-140px)] space-y-6">
+        {/* CONTEÚDO SCROLL */}
+        <div className="p-5 overflow-y-auto flex-1 space-y-6">
           {/* LOJA */}
           <div>
             <p className="font-medium mb-2">Loja</p>
@@ -347,7 +347,7 @@ export function MobileFiltersDrawer({
           </div>
         </div>
 
-        {/* FOOTER */}
+        {/* FOOTER FIXO */}
         <div className="p-4 border-t space-y-2">
           <button
             onClick={applyFilters}
