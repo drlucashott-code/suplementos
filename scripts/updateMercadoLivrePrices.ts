@@ -14,10 +14,12 @@ function sleep(ms: number) {
 }
 
 /* =========================
-   EXTRAÇÃO DE PREÇO
+   JSON-LD PRICE PARSER
 ========================= */
 
-function extractPriceFromJsonLd(html: string): number | null {
+function extractPriceFromJsonLd(
+  html: string
+): number | null {
   const scripts = html.match(
     /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi
   );
@@ -30,21 +32,35 @@ function extractPriceFromJsonLd(html: string): number | null {
         .replace(/<script[^>]*>/i, "")
         .replace(/<\/script>/i, "");
 
-      const data = JSON.parse(jsonText);
+      const parsed = JSON.parse(jsonText);
 
-      const offers = Array.isArray(data)
-        ? data.find((x) => x?.offers)?.offers
-        : data?.offers;
+      const candidates = Array.isArray(parsed)
+        ? parsed
+        : [parsed];
 
-      const price =
-        offers?.price ??
-        offers?.lowPrice ??
-        offers?.highPrice;
+      for (const data of candidates) {
+        const offers = Array.isArray(data?.offers)
+          ? data.offers
+          : [data?.offers];
 
-      if (typeof price === "number") return price;
-      if (typeof price === "string") {
-        const v = Number(price.replace(",", "."));
-        return isNaN(v) ? null : v;
+        for (const offer of offers) {
+          if (!offer) continue;
+
+          const price =
+            offer.price ??
+            offer.lowPrice ??
+            offer.highPrice ??
+            offer?.priceSpecification?.price;
+
+          if (typeof price === "number") return price;
+
+          if (typeof price === "string") {
+            const v = Number(
+              price.replace(".", "").replace(",", ".")
+            );
+            if (!isNaN(v)) return v;
+          }
+        }
       }
     } catch {
       continue;
@@ -55,17 +71,17 @@ function extractPriceFromJsonLd(html: string): number | null {
 }
 
 /* =========================
-   FETCH
+   FETCH ML PRICE
 ========================= */
 
-async function fetchMLPrice(
+async function fetchMLPriceOnce(
   mlb: string
 ): Promise<number | null> {
   const url = `https://www.mercadolivre.com.br/p/${mlb}`;
 
   try {
     const controller = new AbortController();
-    setTimeout(() => controller.abort(), 8000);
+    setTimeout(() => controller.abort(), 12000);
 
     const res = await fetch(url, {
       signal: controller.signal,
@@ -88,23 +104,41 @@ async function fetchMLPrice(
 }
 
 /* =========================
+   FETCH COM RETRY
+========================= */
+
+async function fetchMLPrice(
+  mlb: string,
+  retries = 3
+): Promise<number | null> {
+  for (let i = 0; i < retries; i++) {
+    const price = await fetchMLPriceOnce(mlb);
+    if (price !== null) return price;
+
+    if (i < retries - 1) {
+      console.log("⏳ Retry preço Mercado Livre...");
+      await sleep(2000);
+    }
+  }
+  return null;
+}
+
+/* =========================
    SCRIPT
 ========================= */
 
 async function updateMercadoLivrePrices() {
-  console.log("🔄 Atualizando preços do Mercado Livre...");
+  console.log(
+    "🔄 Atualizando preços do Mercado Livre...\n"
+  );
 
   const offers = await prisma.offer.findMany({
     where: {
       store: Store.MERCADO_LIVRE,
       externalId: { not: "" },
     },
-    include: {
-      product: true,
-    },
-    orderBy: {
-      updatedAt: "asc",
-    },
+    include: { product: true },
+    orderBy: { updatedAt: "asc" },
     take: process.env.GITHUB_ACTIONS ? 3 : undefined,
   });
 
@@ -122,9 +156,12 @@ async function updateMercadoLivrePrices() {
       offer.externalId
     );
 
-    if (!price) {
+    if (price === null) {
       console.log(
         `⚠️ ${offer.product.name} — preço indisponível`
+      );
+      await sleep(
+        process.env.GITHUB_ACTIONS ? 5000 : 1500
       );
       continue;
     }
@@ -141,11 +178,11 @@ async function updateMercadoLivrePrices() {
     );
 
     await sleep(
-      process.env.GITHUB_ACTIONS ? 5000 : 1200
+      process.env.GITHUB_ACTIONS ? 5000 : 1500
     );
   }
 
-  console.log("🏁 Mercado Livre atualizado");
+  console.log("\n🏁 Mercado Livre atualizado");
   await prisma.$disconnect();
 }
 

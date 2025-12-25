@@ -11,6 +11,9 @@ export default async function AdminCreatinaPage() {
     include: {
       creatineInfo: true,
       offers: {
+        where: {
+          store: "AMAZON", // 👈 Mercado Livre oculto no admin
+        },
         orderBy: { createdAt: "desc" },
       },
     },

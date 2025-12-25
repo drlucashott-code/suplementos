@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import { createCreatineAction } from "./actions";
+import { CreatineForm as CreatineFormEnum } from "@prisma/client";
 
 export function CreatineForm() {
-  const [purity, setPurity] = useState(100);
-
   return (
-    <form action={createCreatineAction}
+    <form
+      action={createCreatineAction}
       className="space-y-4"
     >
       {/* NOME */}
@@ -26,17 +25,51 @@ export function CreatineForm() {
         required
       />
 
-{/* SABOR */}
-<input
-  name="flavor"
-  placeholder="Sabor (opcional)"
-  className="w-full border p-2 rounded"
-/>
-
-      {/* ASIN */}
+      {/* SABOR */}
       <input
-        name="asin"
-        placeholder="ASIN"
+        name="flavor"
+        placeholder="Sabor (opcional)"
+        className="w-full border p-2 rounded"
+      />
+
+      {/* APRESENTAÇÃO */}
+      <div>
+        <label className="block text-sm font-medium mb-1">
+          Apresentação
+        </label>
+        <select
+          name="form"
+          defaultValue={CreatineFormEnum.POWDER}
+          className="w-full border p-2 rounded"
+        >
+          <option value={CreatineFormEnum.POWDER}>
+            Pó
+          </option>
+          <option value={CreatineFormEnum.CAPSULE}>
+            Cápsula
+          </option>
+          <option value={CreatineFormEnum.GUMMY}>
+            Gummy
+          </option>
+        </select>
+      </div>
+
+      {/* TOTAL */}
+      <input
+        name="totalUnits"
+        type="number"
+        step="0.01"
+        placeholder="Total (g / cápsulas / gummies)"
+        className="w-full border p-2 rounded"
+        required
+      />
+
+      {/* DOSE */}
+      <input
+        name="unitsPerDose"
+        type="number"
+        step="0.01"
+        placeholder="Dose (g / cápsulas / gummies)"
         className="w-full border p-2 rounded"
         required
       />
@@ -48,65 +81,12 @@ export function CreatineForm() {
         className="w-full border p-2 rounded"
       />
 
-      {/* PESO TOTAL */}
+      {/* AMAZON ASIN */}
       <input
-        name="weightInGrams"
-        type="number"
-        placeholder="Peso total do produto (g)"
+        name="amazonAsin"
+        placeholder="ASIN Amazon"
         className="w-full border p-2 rounded"
-        required
       />
-
-      {/* APRESENTAÇÃO */}
-      <div>
-        <label className="block text-sm font-medium mb-1">
-          Apresentação
-        </label>
-        <select
-          name="form"
-          className="w-full border p-2 rounded"
-        >
-          <option value="POWDER">Pó</option>
-          <option value="CAPSULE">Cápsula</option>
-          <option value="GUMMY">Gummy</option>
-        </select>
-      </div>
-
-      {/* PUREZA */}
-      <div>
-        <label className="block text-sm font-medium mb-1">
-          Pureza da creatina (%)
-        </label>
-
-        <input
-          name="purityPercent"
-          type="number"
-          min={1}
-          max={100}
-          step={1}
-          value={purity}
-          onChange={(e) =>
-            setPurity(Number(e.target.value))
-          }
-          className="w-full border p-2 rounded"
-          required
-        />
-
-        <p className="text-xs text-gray-600 mt-1">
-          100% = creatina pura • 50% = metade
-          creatina, metade carboidrato
-        </p>
-      </div>
-
-      {/* PREVIEW DIDÁTICO */}
-      <div className="bg-gray-50 border rounded p-3 text-sm">
-        <strong>Resumo:</strong>
-        <br />
-        Produto com{" "}
-        <strong>{purity}%</strong> de creatina
-        (o cálculo do ranking usará apenas a
-        creatina real).
-      </div>
 
       {/* BOTÃO */}
       <button

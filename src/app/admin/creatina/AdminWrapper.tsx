@@ -2,7 +2,7 @@ import AdminClient from "./AdminClient";
 import { CreatineForm, Store } from "@prisma/client";
 
 /* =======================
-   TIPAGEM DO PRODUTO
+   TIPAGEM DO PRODUTO (ADMIN)
    ======================= */
 export type CreatineProduct = {
   id: string;
@@ -18,6 +18,8 @@ export type CreatineProduct = {
     unitsPerDose: number;
   } | null;
 
+  // 🔒 Continua tipado como Store,
+  // mas a query garante que só venha AMAZON
   offers: {
     id: string;
     store: Store;

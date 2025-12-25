@@ -2,50 +2,29 @@
 
 import { PrismaClient, Store, CreatineForm } from "@prisma/client";
 import { extractAmazonASIN } from "@/lib/extractAmazonASIN";
-import { resolveMLBFromAffiliateUrl } from "@/lib/resolveMercadoLivreAffiliate";
 import { revalidatePath } from "next/cache";
+// import { resolveMLBFromAffiliateUrl } from "@/lib/resolveMercadoLivreAffiliate";
+// ↑ Mantido comentado para possível retomada futura
 
 const prisma = new PrismaClient();
 
 /* =========================
    CREATE
    ========================= */
-export async function createCreatineAction(
-  formData: FormData
-) {
+export async function createCreatineAction(formData: FormData) {
   const name = formData.get("name") as string;
   const brand = formData.get("brand") as string;
-  const flavor =
-    (formData.get("flavor") as string) || null;
-  const imageUrl =
-    (formData.get("imageUrl") as string) || "";
+  const flavor = (formData.get("flavor") as string) || null;
+  const imageUrl = (formData.get("imageUrl") as string) || "";
 
   const form = formData.get("form") as CreatineForm;
-
-  const totalUnits = Number(
-    formData.get("totalUnits")
-  );
-  const unitsPerDose = Number(
-    formData.get("unitsPerDose")
-  );
+  const totalUnits = Number(formData.get("totalUnits"));
+  const unitsPerDose = Number(formData.get("unitsPerDose"));
 
   const amazonAsinRaw =
-    (formData.get("amazonAsin") as string | null)
-      ?.trim() || null;
+    (formData.get("amazonAsin") as string | null)?.trim() || null;
 
-  const mlAffiliateUrl =
-    (formData.get(
-      "mercadoLivreAffiliate"
-    ) as string | null)?.trim() || null;
-
-  /* ---------- validação ---------- */
-  if (
-    !name ||
-    !brand ||
-    !form ||
-    totalUnits <= 0 ||
-    unitsPerDose <= 0
-  ) {
+  if (!name || !brand || !form || totalUnits <= 0) {
     throw new Error("Campos obrigatórios ausentes");
   }
 
@@ -61,91 +40,70 @@ export async function createCreatineAction(
         create: {
           form,
           totalUnits,
-          unitsPerDose,
+          unitsPerDose: unitsPerDose || 0,
         },
       },
     },
   });
 
-  /* ---------- oferta Amazon (opcional) ---------- */
+  /* ---------- AMAZON (única loja ativa no admin) ---------- */
   if (amazonAsinRaw) {
     const asin = extractAmazonASIN(amazonAsinRaw);
 
-    if (asin) {
-      await prisma.offer.create({
-        data: {
-          productId: product.id,
-          store: Store.AMAZON,
-          externalId: asin,
-          price: 0,
-          affiliateUrl: "",
-        },
-      });
+    if (!asin) {
+      throw new Error("ASIN inválido");
     }
-  }
 
-  /* ---------- oferta Mercado Livre (opcional) ---------- */
-  if (mlAffiliateUrl) {
-    const mlb =
-      await resolveMLBFromAffiliateUrl(
-        mlAffiliateUrl
-      );
+    const exists = await prisma.offer.findFirst({
+      where: {
+        store: Store.AMAZON,
+        externalId: asin,
+      },
+    });
+
+    if (exists) {
+      throw new Error("Este ASIN da Amazon já está cadastrado");
+    }
 
     await prisma.offer.create({
       data: {
         productId: product.id,
-        store: Store.MERCADO_LIVRE,
-        externalId: mlb,
-        affiliateUrl: mlAffiliateUrl,
+        store: Store.AMAZON,
+        externalId: asin,
+        affiliateUrl: "",
         price: 0,
       },
     });
   }
 
+  /*
+  ---------- MERCADO LIVRE ----------
+  DESATIVADO INTENCIONALMENTE NO ADMIN
+  Código preservado para possível retomada futura
+  */
+
   revalidatePath("/admin/creatina");
 }
 
 /* =========================
-   UPDATE — EDITA TUDO
+   UPDATE
    ========================= */
-export async function updateCreatineAction(
-  formData: FormData
-) {
+export async function updateCreatineAction(formData: FormData) {
   const id = formData.get("id") as string;
 
   const name = formData.get("name") as string;
   const brand = formData.get("brand") as string;
-  const flavor =
-    (formData.get("flavor") as string) || null;
-  const imageUrl =
-    (formData.get("imageUrl") as string) || "";
+  const flavor = (formData.get("flavor") as string) || null;
+  const imageUrl = (formData.get("imageUrl") as string) || "";
 
   const form = formData.get("form") as CreatineForm;
-
-  const totalUnits = Number(
-    formData.get("totalUnits")
-  );
-  const unitsPerDose = Number(
-    formData.get("unitsPerDose")
-  );
+  const totalUnits = Number(formData.get("totalUnits"));
+  const unitsPerDose = Number(formData.get("unitsPerDose"));
 
   const amazonAsinRaw =
-    (formData.get("amazonAsin") as string | null)
-      ?.trim() || null;
+    (formData.get("amazonAsin") as string | null)?.trim() || null;
 
-  const mlAffiliateUrl =
-    (formData.get(
-      "mercadoLivreAffiliate"
-    ) as string | null)?.trim() || null;
-
-  if (
-    !id ||
-    !name ||
-    !brand ||
-    !form ||
-    totalUnits <= 0 ||
-    unitsPerDose <= 0
-  ) {
+  if (!id || !name || !brand || !form || totalUnits <= 0) {
     throw new Error("Dados inválidos para edição");
   }
 
@@ -161,89 +119,48 @@ export async function updateCreatineAction(
         update: {
           form,
           totalUnits,
-          unitsPerDose,
+          unitsPerDose: unitsPerDose || 0,
         },
       },
     },
   });
 
   /* ---------- AMAZON ---------- */
-  const existingAmazonOffer =
-    await prisma.offer.findFirst({
-      where: {
-        productId: id,
-        store: Store.AMAZON,
-      },
-    });
+  const amazonOffer = await prisma.offer.findFirst({
+    where: {
+      productId: id,
+      store: Store.AMAZON,
+    },
+  });
 
   if (amazonAsinRaw) {
     const asin = extractAmazonASIN(amazonAsinRaw);
+    if (!asin) throw new Error("ASIN inválido");
 
-    if (asin) {
-      if (existingAmazonOffer) {
-        await prisma.offer.update({
-          where: { id: existingAmazonOffer.id },
-          data: {
-            externalId: asin,
-          },
-        });
-      } else {
-        await prisma.offer.create({
-          data: {
-            productId: id,
-            store: Store.AMAZON,
-            externalId: asin,
-            price: 0,
-            affiliateUrl: "",
-          },
-        });
-      }
-    }
-  } else if (existingAmazonOffer) {
-    await prisma.offer.delete({
-      where: { id: existingAmazonOffer.id },
-    });
-  }
-
-  /* ---------- MERCADO LIVRE ---------- */
-  const existingMLOffer =
-    await prisma.offer.findFirst({
-      where: {
-        productId: id,
-        store: Store.MERCADO_LIVRE,
-      },
-    });
-
-  if (mlAffiliateUrl) {
-    const mlb =
-      await resolveMLBFromAffiliateUrl(
-        mlAffiliateUrl
-      );
-
-    if (existingMLOffer) {
+    if (amazonOffer) {
       await prisma.offer.update({
-        where: { id: existingMLOffer.id },
-        data: {
-          externalId: mlb,
-          affiliateUrl: mlAffiliateUrl,
-        },
+        where: { id: amazonOffer.id },
+        data: { externalId: asin },
       });
     } else {
       await prisma.offer.create({
         data: {
           productId: id,
-          store: Store.MERCADO_LIVRE,
-          externalId: mlb,
-          affiliateUrl: mlAffiliateUrl,
+          store: Store.AMAZON,
+          externalId: asin,
+          affiliateUrl: "",
           price: 0,
         },
       });
     }
-  } else if (existingMLOffer) {
-    await prisma.offer.delete({
-      where: { id: existingMLOffer.id },
-    });
+  } else if (amazonOffer) {
+    await prisma.offer.delete({ where: { id: amazonOffer.id } });
   }
+
+  /*
+  ---------- MERCADO LIVRE ----------
+  DESATIVADO INTENCIONALMENTE NO ADMIN
+  */
 
   revalidatePath("/admin/creatina");
 }
@@ -251,9 +168,7 @@ export async function updateCreatineAction(
 /* =========================
    DELETE
    ========================= */
-export async function deleteCreatineAction(
-  formData: FormData
-) {
+export async function deleteCreatineAction(formData: FormData) {
   const id = formData.get("id") as string;
 
   if (!id) {

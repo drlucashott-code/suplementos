@@ -1,7 +1,7 @@
 "use client";
 
 import { MobileProductCard } from "./MobileProductCard";
-import { CreatineForm, Store } from "@prisma/client";
+import { CreatineForm } from "@prisma/client";
 
 type Product = {
   id: string;
@@ -12,12 +12,11 @@ type Product = {
 
   price: number;
   affiliateUrl: string;
-  store: Store;
 
   pricePerDose: number;
   doses: number;
 
-  ratingAverage?: number | null;
+  hasCarbohydrate?: boolean;
 };
 
 export function ProductList({

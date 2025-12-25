@@ -1,6 +1,6 @@
 "use client";
 
-import { CreatineForm, Store } from "@prisma/client";
+import { CreatineForm } from "@prisma/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -26,8 +26,6 @@ export function MobileFiltersDrawer({
     useState<string[]>([]);
   const [selectedForms, setSelectedForms] =
     useState<CreatineForm[]>([]);
-  const [selectedStores, setSelectedStores] =
-    useState<Store[]>([]);
   const [selectedDoses, setSelectedDoses] =
     useState<string[]>([]);
   const [tempPrice, setTempPrice] =
@@ -47,10 +45,6 @@ export function MobileFiltersDrawer({
     );
     setSelectedForms(
       (searchParams.get("form")?.split(",") as CreatineForm[]) ??
-        []
-    );
-    setSelectedStores(
-      (searchParams.get("store")?.split(",") as Store[]) ??
         []
     );
     setSelectedDoses(
@@ -88,8 +82,6 @@ export function MobileFiltersDrawer({
       params.set("flavor", selectedFlavors.join(","));
     if (selectedForms.length)
       params.set("form", selectedForms.join(","));
-    if (selectedStores.length)
-      params.set("store", selectedStores.join(","));
     if (selectedDoses.length)
       params.set("doses", selectedDoses.join(","));
 
@@ -106,7 +98,6 @@ export function MobileFiltersDrawer({
     setSelectedBrands([]);
     setSelectedFlavors([]);
     setSelectedForms([]);
-    setSelectedStores([]);
     setSelectedDoses([]);
     setTempPrice(200);
 
@@ -170,38 +161,8 @@ export function MobileFiltersDrawer({
           </button>
         </div>
 
-        {/* CONTEÚDO SCROLL */}
+        {/* CONTEÚDO */}
         <div className="p-5 overflow-y-auto flex-1 space-y-6">
-          {/* LOJA */}
-          <div>
-            <p className="font-medium mb-2">Loja</p>
-            {[Store.AMAZON, Store.MERCADO_LIVRE].map(
-              (s) => (
-                <label
-                  key={s}
-                  className="flex items-center gap-2 text-sm mb-2"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedStores.includes(
-                      s
-                    )}
-                    onChange={() =>
-                      toggle(
-                        s,
-                        selectedStores,
-                        setSelectedStores
-                      )
-                    }
-                  />
-                  {s === Store.AMAZON
-                    ? "Amazon"
-                    : "Mercado Livre"}
-                </label>
-              )
-            )}
-          </div>
-
           {/* APRESENTAÇÃO */}
           <div>
             <p className="font-medium mb-2">
@@ -347,7 +308,7 @@ export function MobileFiltersDrawer({
           </div>
         </div>
 
-        {/* FOOTER FIXO */}
+        {/* FOOTER */}
         <div className="p-4 border-t space-y-2">
           <button
             onClick={applyFilters}

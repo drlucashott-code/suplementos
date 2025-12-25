@@ -1,6 +1,6 @@
 "use client";
 
-import { CreatineForm, Store } from "@prisma/client";
+import { CreatineForm } from "@prisma/client";
 
 type Product = {
   id: string;
@@ -11,12 +11,10 @@ type Product = {
 
   price: number;
   affiliateUrl: string;
-  store: Store;
 
   pricePerDose: number; // EM REAIS
   doses: number;
 
-  ratingAverage?: number | null;
   hasCarbohydrate?: boolean;
 };
 
@@ -41,16 +39,6 @@ export function MobileProductCard({
           pricePerDose * 100
         )} centavos`;
 
-  const buyLabel =
-    product.store === Store.AMAZON
-      ? "Comprar na Amazon"
-      : "Comprar no Mercado Livre";
-
-  const buyColor =
-    product.store === Store.AMAZON
-      ? "bg-orange-500 hover:bg-orange-600"
-      : "bg-yellow-500 hover:bg-yellow-600";
-
   return (
     <div
       className={`rounded-xl border p-4 space-y-3 relative
@@ -67,7 +55,9 @@ export function MobileProductCard({
         if (target.tagName !== "SUMMARY") {
           document
             .querySelectorAll("details[open]")
-            .forEach((d) => d.removeAttribute("open"));
+            .forEach((d) =>
+              d.removeAttribute("open")
+            );
         }
       }}
     >
@@ -77,22 +67,10 @@ export function MobileProductCard({
         </div>
       )}
 
-      {/* TÍTULO + NOTA */}
-      <div className="flex items-start justify-between gap-2">
-        <h2 className="font-semibold text-base leading-tight flex-1">
-          {product.name}
-        </h2>
-
-        {product.ratingAverage !== null &&
-          product.ratingAverage !== undefined && (
-            <div className="flex items-center gap-1 text-sm font-semibold text-yellow-600 shrink-0">
-              <span>⭐</span>
-              <span>
-                {product.ratingAverage.toFixed(1)}
-              </span>
-            </div>
-          )}
-      </div>
+      {/* TÍTULO */}
+      <h2 className="font-semibold text-base leading-tight">
+        {product.name}
+      </h2>
 
       <div className="flex gap-3 items-start">
         {product.imageUrl && (
@@ -161,9 +139,9 @@ export function MobileProductCard({
         href={product.affiliateUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className={`block w-full text-center text-white text-sm font-semibold py-2 rounded-lg mt-2 ${buyColor}`}
+        className="block w-full text-center text-white text-sm font-semibold py-2 rounded-lg mt-2 bg-orange-500 hover:bg-orange-600"
       >
-        {buyLabel}
+        Comprar na Amazon
       </a>
     </div>
   );

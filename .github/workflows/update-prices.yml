@@ -1,8 +1,9 @@
-name: Update Prices (Amazon + Mercado Livre)
+name: Update Prices (Amazon)
 
 on:
   schedule:
-    - cron: "0 6 * * *"   # 1x por dia (06:00 UTC)
+    # 3x por dia
+    - cron: "0 6,14,22 * * *"
   workflow_dispatch:
 
 jobs:
@@ -44,11 +45,3 @@ jobs:
           AMAZON_PARTNER_TAG: ${{ secrets.AMAZON_PARTNER_TAG }}
           AMAZON_REGION: ${{ secrets.AMAZON_REGION }}
           AMAZON_HOST: ${{ secrets.AMAZON_HOST }}
-
-      # =========================
-      # MERCADO LIVRE — PRICES
-      # =========================
-      - name: Update Mercado Livre prices (HTML)
-        run: node --loader ts-node/esm scripts/updateMercadoLivrePrices.ts
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}

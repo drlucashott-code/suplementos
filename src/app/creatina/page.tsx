@@ -3,14 +3,13 @@ import { ProductList } from "./ProductList";
 import { PriceSlider } from "./PriceSlider";
 import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
 import { DesktopFiltersSidebar } from "./DesktopFiltersSidebar";
-import { CreatineForm, Store } from "@prisma/client";
+import { CreatineForm } from "@prisma/client";
 import { calculateCreatineStats } from "@/lib/calculateCreatineStats";
 
 type SearchParams = {
   brand?: string;
   form?: string;
   flavor?: string;
-  store?: string;
   priceMax?: string;
   doses?: string;
 };
@@ -26,8 +25,6 @@ export default async function CreatinaPage({
   const selectedForms =
     (params.form?.split(",") as CreatineForm[]) ?? [];
   const selectedFlavors = params.flavor?.split(",") ?? [];
-  const selectedStores =
-    (params.store?.split(",") as Store[]) ?? [];
   const selectedDoses = params.doses?.split(",") ?? [];
 
   const maxPrice = params.priceMax
@@ -36,6 +33,8 @@ export default async function CreatinaPage({
 
   /* =========================
      BUSCA PRODUTOS
+     (estrutura mantém compatibilidade com ML,
+      mas frontend usa apenas AMAZON)
      ========================= */
   const products = await prisma.product.findMany({
     where: {
@@ -52,7 +51,13 @@ export default async function CreatinaPage({
     },
     include: {
       creatineInfo: true,
-      offers: true,
+      offers: {
+        where: {
+          store: "AMAZON", // 👈 FONTE ÚNICA PÚBLICA
+          price: { gt: 0 },
+          affiliateUrl: { not: "" },
+        },
+      },
     },
   });
 
@@ -63,51 +68,21 @@ export default async function CreatinaPage({
     .map((product) => {
       if (!product.creatineInfo) return null;
 
-      const validOffers = product.offers.filter(
-        (offer) =>
-          offer.price > 0 &&
-          !!offer.affiliateUrl &&
-          (selectedStores.length === 0 ||
-            selectedStores.includes(offer.store))
-      );
-
-      if (!validOffers.length) return null;
-
-      /**
-       * ✅ REGRA DE ESCOLHA DA MELHOR OFERTA
-       * 1. Menor preço vence
-       * 2. Empate de preço → Amazon tem prioridade
-       */
-      const bestOffer = validOffers.reduce((a, b) => {
-        if (b.price < a.price) return b;
-        if (b.price > a.price) return a;
-
-        // empate de preço → Amazon ganha
-        if (a.store === Store.AMAZON) return a;
-        if (b.store === Store.AMAZON) return b;
-
-        return a;
-      });
+      const offer = product.offers[0];
+      if (!offer) return null;
 
       if (
         maxPrice !== undefined &&
-        bestOffer.price > maxPrice
+        offer.price > maxPrice
       ) {
         return null;
       }
-
-      const mercadoLivreOffer = product.offers.find(
-        (offer) =>
-          offer.store === Store.MERCADO_LIVRE &&
-          offer.ratingAverage !== null &&
-          offer.ratingAverage !== undefined
-      );
 
       const stats = calculateCreatineStats({
         form: product.creatineInfo.form,
         totalUnits: product.creatineInfo.totalUnits,
         unitsPerDose: product.creatineInfo.unitsPerDose,
-        price: bestOffer.price,
+        price: offer.price,
       });
 
       const doses = stats.doses;
@@ -141,15 +116,11 @@ export default async function CreatinaPage({
         flavor: product.flavor,
         form: product.creatineInfo.form,
 
-        price: bestOffer.price,
-        affiliateUrl: bestOffer.affiliateUrl,
-        store: bestOffer.store,
+        price: offer.price,
+        affiliateUrl: offer.affiliateUrl,
 
         doses,
         pricePerDose: stats.pricePerDose!,
-
-        ratingAverage:
-          mercadoLivreOffer?.ratingAverage ?? null,
 
         hasCarbohydrate,
       };
@@ -193,8 +164,8 @@ export default async function CreatinaPage({
 
       <p className="text-gray-700 mb-6 max-w-4xl text-left lg:text-justify">
         Comparação baseada no menor preço por dose,
-        considerando 3 g de princípio ativo, entre os
-        produtos mais bem avaliados do mercado.
+        considerando 3 g de princípio ativo, com
+        valores obtidos diretamente na Amazon.
       </p>
 
       <div className="flex flex-col lg:flex-row gap-6">

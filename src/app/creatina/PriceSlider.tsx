@@ -10,20 +10,15 @@ export function PriceSlider() {
   const initial =
     Number(searchParams.get("priceMax")) || 200;
 
-  // valor realmente aplicado
-  const [committedValue, setCommittedValue] =
-    useState(initial);
-
   // valor enquanto arrasta
   const [tempValue, setTempValue] =
     useState(initial);
 
   function applyValue(value: number) {
-    setCommittedValue(value);
-
     const params = new URLSearchParams(
       searchParams.toString()
     );
+
     params.set("priceMax", String(value));
     router.push(`/creatina?${params.toString()}`);
   }
@@ -42,7 +37,7 @@ export function PriceSlider() {
         type="range"
         min={20}
         max={200}
-        step={1} // 🔥 movimento suave
+        step={1}
         value={tempValue}
         onChange={(e) =>
           setTempValue(Number(e.target.value))

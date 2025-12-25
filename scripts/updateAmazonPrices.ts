@@ -6,7 +6,7 @@ import { PrismaClient, Store } from "@prisma/client";
 const prisma = new PrismaClient();
 
 /* ======================
-   ENV CHECK (PADRONIZADO)
+   ENV CHECK
 ====================== */
 const AMAZON_ACCESS_KEY = process.env.AMAZON_ACCESS_KEY;
 const AMAZON_SECRET_KEY = process.env.AMAZON_SECRET_KEY;
@@ -21,20 +21,9 @@ if (
   !AMAZON_SECRET_KEY ||
   !AMAZON_PARTNER_TAG
 ) {
-  console.error("ENV DEBUG:", {
-    AMAZON_ACCESS_KEY: !!AMAZON_ACCESS_KEY,
-    AMAZON_SECRET_KEY: !!AMAZON_SECRET_KEY,
-    AMAZON_PARTNER_TAG: !!AMAZON_PARTNER_TAG,
-    AMAZON_HOST,
-    AMAZON_REGION,
-  });
-
   throw new Error("Credenciais da Amazon não configuradas");
 }
 
-/* ======================
-   NON-NULL ASSERTIONS
-====================== */
 const ACCESS_KEY = AMAZON_ACCESS_KEY!;
 const SECRET_KEY = AMAZON_SECRET_KEY!;
 const PARTNER_TAG = AMAZON_PARTNER_TAG!;
@@ -42,7 +31,7 @@ const HOST = AMAZON_HOST!;
 const REGION = AMAZON_REGION!;
 
 /* ======================
-   HELPERS AWS
+   AWS HELPERS
 ====================== */
 function hmac(key: string | Buffer, data: string): Buffer {
   return crypto.createHmac("sha256", key).update(data).digest();
@@ -65,15 +54,20 @@ function getSignatureKey(
 }
 
 /* ======================
-   FETCH AMAZON PRICE
+   FETCH PRICE (1 TRY)
 ====================== */
-async function fetchAmazonPrice(asin: string): Promise<number | null> {
+async function fetchAmazonPrice(
+  asin: string
+): Promise<number | null> {
   const payload = JSON.stringify({
     ItemIds: [asin],
-    Resources: ["Offers.Listings.Price"],
+    Resources: [
+      "Offers.Listings.Price",
+      "Offers.Listings.Availability.Message",
+      "Offers.Listings.MerchantInfo",
+    ],
     PartnerTag: PARTNER_TAG,
     PartnerType: "Associates",
-    Marketplace: "www.amazon.com.br",
   });
 
   const now = new Date();
@@ -145,8 +139,9 @@ async function fetchAmazonPrice(asin: string): Promise<number | null> {
         try {
           const json = JSON.parse(data);
           const price =
-            json?.ItemsResult?.Items?.[0]?.Offers?.Listings?.[0]?.Price?.Amount;
-          resolve(price ?? null);
+            json?.ItemsResult?.Items?.[0]?.Offers?.Listings?.[0]?.Price
+              ?.Amount ?? null;
+          resolve(price);
         } catch {
           resolve(null);
         }
@@ -160,10 +155,29 @@ async function fetchAmazonPrice(asin: string): Promise<number | null> {
 }
 
 /* ======================
+   FETCH PRICE WITH RETRY
+====================== */
+async function fetchAmazonPriceWithRetry(
+  asin: string,
+  retries = 3
+): Promise<number | null> {
+  for (let i = 0; i < retries; i++) {
+    const price = await fetchAmazonPrice(asin);
+    if (price !== null) return price;
+
+    if (i < retries - 1) {
+      console.log("⏳ Retry preço...");
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+  }
+  return null;
+}
+
+/* ======================
    SCRIPT
 ====================== */
 async function updateAmazonPrices() {
-  console.log("🔄 Atualizando preços da Amazon...");
+  console.log("🔄 Atualizando preços da Amazon...\n");
 
   const offers = await prisma.offer.findMany({
     where: { store: Store.AMAZON },
@@ -178,9 +192,15 @@ async function updateAmazonPrices() {
   for (const offer of offers) {
     console.log(`🔎 ASIN ${offer.externalId}`);
 
-    const price = await fetchAmazonPrice(offer.externalId);
-    if (!price) {
-      console.log(`⚠️ Preço não encontrado para ${offer.externalId}`);
+    const price = await fetchAmazonPriceWithRetry(
+      offer.externalId
+    );
+
+    if (price === null) {
+      console.log(
+        `⚠️ Preço não encontrado para ${offer.externalId}`
+      );
+      await new Promise((r) => setTimeout(r, 1800));
       continue;
     }
 
@@ -192,10 +212,15 @@ async function updateAmazonPrices() {
       },
     });
 
-    console.log(`✅ ${offer.product.name} — R$ ${price}`);
+    console.log(
+      `✅ ${offer.product.name} — R$ ${price}`
+    );
+
+    // ⏱️ DELAY ANTI-THROTTLING
+    await new Promise((r) => setTimeout(r, 1800));
   }
 
-  console.log("🏁 Amazon atualizada");
+  console.log("\n🏁 Amazon atualizada");
   await prisma.$disconnect();
 }
 

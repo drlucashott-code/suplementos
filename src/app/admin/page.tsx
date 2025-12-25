@@ -3,13 +3,17 @@ import Link from "next/link";
 export default function AdminHomePage() {
   return (
     <main className="max-w-4xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">
+      <h1 className="text-2xl font-bold mb-2">
         Admin
       </h1>
 
       <p className="text-sm text-gray-600 mb-8">
-        Selecione a categoria para gerenciar os
-        produtos.
+        Selecione a categoria para gerenciar os produtos.
+        <br />
+        <span className="text-xs text-gray-500">
+          Obs.: no momento, os preços exibidos
+          publicamente são obtidos exclusivamente da Amazon.
+        </span>
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

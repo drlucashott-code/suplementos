@@ -11,6 +11,11 @@ datasource db {
    ENUMS
 ======================= */
 
+/*
+  AMAZON → fonte ativa e pública
+  MERCADO_LIVRE → mantido apenas internamente
+  (estrutura preservada para possível retomada futura)
+*/
 enum Store {
   AMAZON
   MERCADO_LIVRE
@@ -34,7 +39,10 @@ model Product {
   flavor       String?
   imageUrl     String
 
+  // Dados específicos da creatina (quando aplicável)
   creatineInfo CreatineInfo?
+
+  // Ofertas por loja (atualmente apenas AMAZON é usada publicamente)
   offers       Offer[]
 
   createdAt    DateTime @default(now())
@@ -52,7 +60,7 @@ model CreatineInfo {
   form         CreatineForm
 
   /*
-    Unidade principal:
+    Unidade principal por tipo:
     - POWDER   → gramas
     - CAPSULE → cápsulas
     - GUMMY   → gummies
@@ -64,7 +72,8 @@ model CreatineInfo {
 }
 
 /* =======================
-   OFFER (Amazon / Mercado Livre)
+   OFFER
+   (Amazon / Mercado Livre)
 ======================= */
 model Offer {
   id           String   @id @default(cuid())
@@ -72,17 +81,29 @@ model Offer {
   productId    String
   product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
+  /*
+    AMAZON → usada no frontend e rankings
+    MERCADO_LIVRE → mantida apenas para histórico/futuro uso
+  */
   store        Store
-  externalId   String   // ASIN (Amazon) ou MLBxxxx (Mercado Livre)
+
+  // ASIN (Amazon) ou MLBxxxx (Mercado Livre)
+  externalId   String
+
   price        Float
   affiliateUrl String
 
-  // ⭐ AVALIAÇÕES (Mercado Livre)
+  /*
+    Avaliações:
+    - Atualmente relevantes apenas para Mercado Livre
+    - Mantidas para compatibilidade futura
+  */
   ratingAverage Float?
   ratingCount   Int?
 
   createdAt    DateTime @default(now())
-  // ⚠️ IMPORTANTE: default para não quebrar migration
+
+  // ⚠️ Mantido default para evitar problemas em migrations
   updatedAt    DateTime @default(now())
 
   @@index([productId])

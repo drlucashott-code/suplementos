@@ -1,6 +1,6 @@
 "use client";
 
-import { Store, CreatineForm } from "@prisma/client";
+import { CreatineForm } from "@prisma/client";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type Props = {
@@ -49,21 +49,6 @@ export function DesktopFiltersSidebar({ brands, flavors }: Props) {
         >
           Limpar filtros
         </button>
-      </div>
-
-      {/* LOJA */}
-      <div>
-        <p className="font-medium text-sm mb-2">Loja</p>
-        {Object.values(Store).map((store) => (
-          <label key={store} className="flex gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={getSelected("store").includes(store)}
-              onChange={() => toggleParam("store", store)}
-            />
-            {store === Store.AMAZON ? "Amazon" : "Mercado Livre"}
-          </label>
-        ))}
       </div>
 
       {/* APRESENTAÇÃO */}
