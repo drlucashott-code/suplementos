@@ -73,9 +73,21 @@ export default async function CreatinaPage({
 
       if (!validOffers.length) return null;
 
-      const bestOffer = validOffers.reduce((a, b) =>
-        b.price < a.price ? b : a
-      );
+      /**
+       * ✅ REGRA DE ESCOLHA DA MELHOR OFERTA
+       * 1. Menor preço vence
+       * 2. Empate de preço → Amazon tem prioridade
+       */
+      const bestOffer = validOffers.reduce((a, b) => {
+        if (b.price < a.price) return b;
+        if (b.price > a.price) return a;
+
+        // empate de preço → Amazon ganha
+        if (a.store === Store.AMAZON) return a;
+        if (b.store === Store.AMAZON) return b;
+
+        return a;
+      });
 
       if (
         maxPrice !== undefined &&
@@ -116,7 +128,7 @@ export default async function CreatinaPage({
         return null;
       }
 
-      // ✅ REGRA CORRETA PARA CARBOIDRATO
+      // ✅ REGRA PARA CARBOIDRATO
       const hasCarbohydrate =
         product.creatineInfo.form === CreatineForm.GUMMY ||
         (product.creatineInfo.form === CreatineForm.POWDER &&
@@ -180,9 +192,9 @@ export default async function CreatinaPage({
       </h1>
 
       <p className="text-gray-700 mb-6 max-w-4xl text-left lg:text-justify">
-        Comparação baseada no menor preço por dose, considerando
-        3 g de princípio ativo, entre os produtos mais bem
-        avaliados do mercado.
+        Comparação baseada no menor preço por dose,
+        considerando 3 g de princípio ativo, entre os
+        produtos mais bem avaliados do mercado.
       </p>
 
       <div className="flex flex-col lg:flex-row gap-6">
