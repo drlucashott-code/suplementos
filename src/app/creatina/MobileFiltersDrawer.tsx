@@ -2,7 +2,7 @@
 
 import { CreatineForm, Store } from "@prisma/client";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type Props = {
   brands: string[];
@@ -17,53 +17,101 @@ export function MobileFiltersDrawer({
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
 
-  const selectedBrands =
-    searchParams.get("brand")?.split(",") ?? [];
-  const selectedFlavors =
-    searchParams.get("flavor")?.split(",") ?? [];
-  const selectedForms =
-    (searchParams.get("form")?.split(",") as CreatineForm[]) ??
-    [];
-  const selectedStores =
-    (searchParams.get("store")?.split(",") as Store[]) ??
-    [];
-  const selectedDoses =
-    searchParams.get("doses")?.split(",") ?? [];
-
-  const priceMaxFromUrl =
-    Number(searchParams.get("priceMax")) || 200;
-
-  // 🔥 valor temporário do slider (fluido)
+  /* =========================
+     ESTADO LOCAL (MOBILE)
+     ========================= */
+  const [selectedBrands, setSelectedBrands] =
+    useState<string[]>([]);
+  const [selectedFlavors, setSelectedFlavors] =
+    useState<string[]>([]);
+  const [selectedForms, setSelectedForms] =
+    useState<CreatineForm[]>([]);
+  const [selectedStores, setSelectedStores] =
+    useState<Store[]>([]);
+  const [selectedDoses, setSelectedDoses] =
+    useState<string[]>([]);
   const [tempPrice, setTempPrice] =
-    useState(priceMaxFromUrl);
+    useState<number>(200);
 
-  function toggleParam(key: string, value: string) {
-    const params = new URLSearchParams(
-      searchParams.toString()
+  /* =========================
+     SINCRONIZA COM URL AO ABRIR
+     ========================= */
+  useEffect(() => {
+    if (!open) return;
+
+    setSelectedBrands(
+      searchParams.get("brand")?.split(",") ?? []
     );
+    setSelectedFlavors(
+      searchParams.get("flavor")?.split(",") ?? []
+    );
+    setSelectedForms(
+      (searchParams.get("form")?.split(",") as CreatineForm[]) ??
+        []
+    );
+    setSelectedStores(
+      (searchParams.get("store")?.split(",") as Store[]) ??
+        []
+    );
+    setSelectedDoses(
+      searchParams.get("doses")?.split(",") ?? []
+    );
+    setTempPrice(
+      Number(searchParams.get("priceMax")) || 200
+    );
+  }, [open, searchParams]);
 
-    const current =
-      params.get(key)?.split(",") ?? [];
-
-    const next = current.includes(value)
-      ? current.filter((v) => v !== value)
-      : [...current, value];
-
-    if (next.length > 0) {
-      params.set(key, next.join(","));
-    } else {
-      params.delete(key);
-    }
-
-    router.push(`/creatina?${params.toString()}`);
+  /* =========================
+     HELPERS
+     ========================= */
+  function toggle<T>(
+    value: T,
+    list: T[],
+    setList: (v: T[]) => void
+  ) {
+    setList(
+      list.includes(value)
+        ? list.filter((v) => v !== value)
+        : [...list, value]
+    );
   }
 
-  function applyPrice(value: number) {
-    const params = new URLSearchParams(
-      searchParams.toString()
-    );
-    params.set("priceMax", String(value));
+  /* =========================
+     APLICAR FILTROS
+     ========================= */
+  function applyFilters() {
+    const params = new URLSearchParams();
+
+    if (selectedBrands.length)
+      params.set("brand", selectedBrands.join(","));
+    if (selectedFlavors.length)
+      params.set("flavor", selectedFlavors.join(","));
+    if (selectedForms.length)
+      params.set("form", selectedForms.join(","));
+    if (selectedStores.length)
+      params.set("store", selectedStores.join(","));
+    if (selectedDoses.length)
+      params.set("doses", selectedDoses.join(","));
+
+    params.set("priceMax", String(tempPrice));
+
     router.push(`/creatina?${params.toString()}`);
+    setOpen(false);
+  }
+
+  /* =========================
+     LIMPAR FILTROS
+     ========================= */
+  function clearFilters() {
+    setSelectedBrands([]);
+    setSelectedFlavors([]);
+    setSelectedForms([]);
+    setSelectedStores([]);
+    setSelectedDoses([]);
+    setTempPrice(200);
+
+    router.push("/creatina");
+    setOpen(false);
   }
 
   return (
@@ -123,33 +171,35 @@ export function MobileFiltersDrawer({
         </div>
 
         {/* CONTEÚDO */}
-        <div className="p-5 overflow-y-auto h-[calc(90vh-64px)] space-y-6">
+        <div className="p-5 overflow-y-auto h-[calc(90vh-140px)] space-y-6">
           {/* LOJA */}
           <div>
             <p className="font-medium mb-2">Loja</p>
-            {[
-              { value: Store.AMAZON, label: "Amazon" },
-              {
-                value: Store.MERCADO_LIVRE,
-                label: "Mercado Livre",
-              },
-            ].map((s) => (
-              <label
-                key={s.value}
-                className="flex items-center gap-2 text-sm mb-2"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedStores.includes(
-                    s.value
-                  )}
-                  onChange={() =>
-                    toggleParam("store", s.value)
-                  }
-                />
-                {s.label}
-              </label>
-            ))}
+            {[Store.AMAZON, Store.MERCADO_LIVRE].map(
+              (s) => (
+                <label
+                  key={s}
+                  className="flex items-center gap-2 text-sm mb-2"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedStores.includes(
+                      s
+                    )}
+                    onChange={() =>
+                      toggle(
+                        s,
+                        selectedStores,
+                        setSelectedStores
+                      )
+                    }
+                  />
+                  {s === Store.AMAZON
+                    ? "Amazon"
+                    : "Mercado Livre"}
+                </label>
+              )
+            )}
           </div>
 
           {/* APRESENTAÇÃO */}
@@ -181,7 +231,11 @@ export function MobileFiltersDrawer({
                     f.value
                   )}
                   onChange={() =>
-                    toggleParam("form", f.value)
+                    toggle(
+                      f.value,
+                      selectedForms,
+                      setSelectedForms
+                    )
                   }
                 />
                 {f.label}
@@ -192,37 +246,29 @@ export function MobileFiltersDrawer({
           {/* DOSES */}
           <div>
             <p className="font-medium mb-2">Doses</p>
-            {[
-              { value: "<50", label: "< 50" },
-              {
-                value: "51-100",
-                label: "51 – 100",
-              },
-              {
-                value: "101-150",
-                label: "101 – 150",
-              },
-              {
-                value: ">150",
-                label: "> 150",
-              },
-            ].map((d) => (
-              <label
-                key={d.value}
-                className="flex items-center gap-2 text-sm mb-2"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedDoses.includes(
-                    d.value
-                  )}
-                  onChange={() =>
-                    toggleParam("doses", d.value)
-                  }
-                />
-                {d.label}
-              </label>
-            ))}
+            {["<50", "51-100", "101-150", ">150"].map(
+              (d) => (
+                <label
+                  key={d}
+                  className="flex items-center gap-2 text-sm mb-2"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedDoses.includes(
+                      d
+                    )}
+                    onChange={() =>
+                      toggle(
+                        d,
+                        selectedDoses,
+                        setSelectedDoses
+                      )
+                    }
+                  />
+                  {d}
+                </label>
+              )
+            )}
           </div>
 
           {/* MARCA */}
@@ -239,7 +285,11 @@ export function MobileFiltersDrawer({
                     b
                   )}
                   onChange={() =>
-                    toggleParam("brand", b)
+                    toggle(
+                      b,
+                      selectedBrands,
+                      setSelectedBrands
+                    )
                   }
                 />
                 {b}
@@ -261,7 +311,11 @@ export function MobileFiltersDrawer({
                     f
                   )}
                   onChange={() =>
-                    toggleParam("flavor", f)
+                    toggle(
+                      f,
+                      selectedFlavors,
+                      setSelectedFlavors
+                    )
                   }
                 />
                 {f}
@@ -269,7 +323,7 @@ export function MobileFiltersDrawer({
             ))}
           </div>
 
-          {/* SLIDER DE PREÇO (FLUIDO) */}
+          {/* PREÇO */}
           <div>
             <p className="font-medium mb-2">
               Preço máximo
@@ -277,27 +331,37 @@ export function MobileFiltersDrawer({
             <p className="text-sm mb-1">
               Até <strong>R$ {tempPrice}</strong>
             </p>
-
             <input
               type="range"
               min={20}
               max={200}
-              step={1} // 🔥 fluido
+              step={1}
               value={tempPrice}
               onChange={(e) =>
                 setTempPrice(
                   Number(e.target.value)
                 )
               }
-              onTouchEnd={() =>
-                applyPrice(tempPrice)
-              }
-              onMouseUp={() =>
-                applyPrice(tempPrice)
-              }
               className="w-full accent-green-600 touch-pan-y"
             />
           </div>
+        </div>
+
+        {/* FOOTER */}
+        <div className="p-4 border-t space-y-2">
+          <button
+            onClick={applyFilters}
+            className="w-full bg-green-600 text-white font-semibold py-3 rounded-lg"
+          >
+            Aplicar filtros
+          </button>
+
+          <button
+            onClick={clearFilters}
+            className="w-full border border-gray-300 text-gray-700 font-medium py-2 rounded-lg"
+          >
+            Limpar filtros
+          </button>
         </div>
       </div>
     </>
