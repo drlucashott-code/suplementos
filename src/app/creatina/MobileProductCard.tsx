@@ -32,7 +32,6 @@ export function MobileProductCard({
     product.pricePerDose.toFixed(2)
   );
 
-  // decide como exibir
   const pricePerDoseLabel =
     pricePerDose >= 1
       ? `${pricePerDose
@@ -61,6 +60,16 @@ export function MobileProductCard({
             : "border-gray-200 bg-white"
         }
       `}
+      onClickCapture={(e) => {
+        const target = e.target as HTMLElement;
+
+        // se NÃO clicou no ícone ⓘ, fecha o tooltip
+        if (target.tagName !== "SUMMARY") {
+          document
+            .querySelectorAll("details[open]")
+            .forEach((d) => d.removeAttribute("open"));
+        }
+      }}
     >
       {isBest && (
         <div className="absolute -top-2 right-2 bg-green-600 text-white text-[10px] font-semibold px-3 py-0.5 rounded-full shadow">
@@ -127,19 +136,22 @@ export function MobileProductCard({
             </span>
           </p>
 
-          {/* TOOLTIP – CONTÉM CARBOIDRATO */}
+          {/* CONTÉM CARBOIDRATO */}
           {product.hasCarbohydrate && (
             <div className="mt-1 text-[11px] text-amber-700 flex items-center gap-1">
               <span>Contém carboidrato</span>
 
-              <span className="relative group cursor-help">
-                ⓘ
-                <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block bg-black text-white text-[11px] px-2 py-1 rounded max-w-[220px] text-center z-10">
+              <details className="relative">
+                <summary className="cursor-pointer select-none list-none inline">
+                  ⓘ
+                </summary>
+
+                <div className="absolute left-0 mt-1 bg-black text-white text-[11px] px-2 py-1 rounded max-w-[220px] z-10">
                   Este produto contém carboidratos devido a
                   excipientes, adoçantes ou outros ingredientes
                   além da creatina.
-                </span>
-              </span>
+                </div>
+              </details>
             </div>
           )}
         </div>
