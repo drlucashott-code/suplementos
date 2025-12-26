@@ -70,11 +70,11 @@ export function DesktopFiltersSidebar({ brands, flavors }: Props) {
         ))}
       </div>
 
-      {/* MARCA */}
+      {/* MARCA — AGORA ORDENADA */}
       <div>
         <p className="font-medium text-sm mb-2">Marca</p>
         <div className="space-y-1 max-h-40 overflow-auto">
-          {brands.map((brand) => (
+          {[...brands].sort().map((brand) => (
             <label key={brand} className="flex gap-2 text-sm">
               <input
                 type="checkbox"
@@ -90,7 +90,7 @@ export function DesktopFiltersSidebar({ brands, flavors }: Props) {
       {/* SABOR */}
       <div>
         <p className="font-medium text-sm mb-2">Sabor</p>
-        {flavors.map((flavor) => (
+        {[...flavors].sort().map((flavor) => (
           <label key={flavor} className="flex gap-2 text-sm">
             <input
               type="checkbox"

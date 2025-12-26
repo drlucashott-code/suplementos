@@ -154,10 +154,10 @@ export default async function CreatinaPage({
         </h1>
       </section>
 
-      <div className="max-w-7xl mx-auto p-4 sm:p-6">
-        {/* BLOCO INTRODUTÓRIO */}
-        <section className="space-y-1 mb-6">
-          {/* AGORA ALINHADOS À ESQUERDA */}
+      {/* CONTEÚDO */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        {/* TEXTO INTRODUTÓRIO — CENTRALIZADO NO EIXO */}
+        <section className="space-y-1 mb-6 mt-4 max-w-5xl mx-auto">
           <p className="text-sm text-gray-700">
             Categoria: <strong>Creatina</strong>
           </p>
@@ -171,7 +171,6 @@ export default async function CreatinaPage({
             creatina para você.
           </p>
 
-          {/* ENTENDA O CÁLCULO */}
           <details className="text-sm mt-2">
             <summary className="cursor-pointer text-green-700 font-medium">
               Entenda o cálculo
@@ -215,16 +214,23 @@ export default async function CreatinaPage({
           flavors={flavors.map((f) => f.flavor!).sort()}
         />
 
-        <div className="flex flex-col lg:flex-row gap-6 mt-4">
-          <aside className="hidden lg:flex flex-col gap-4 w-64">
+        {/* CONTEÚDO CENTRALIZADO DESKTOP */}
+        <div className="flex flex-col lg:flex-row gap-8 mt-6 justify-center">
+          {/* SIDEBAR */}
+          <aside className="hidden lg:block w-72 shrink-0">
             <DesktopFiltersSidebar
               brands={brands.map((b) => b.brand)}
               flavors={flavors.map((f) => f.flavor!).sort()}
             />
-            <PriceSlider />
+            <div className="mt-4">
+              <PriceSlider />
+            </div>
           </aside>
 
-          <ProductList products={rankedProducts as any} />
+          {/* LISTA DE PRODUTOS */}
+          <div className="w-full max-w-3xl">
+            <ProductList products={rankedProducts as any} />
+          </div>
         </div>
       </div>
     </main>
