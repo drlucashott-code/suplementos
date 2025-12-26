@@ -124,6 +124,9 @@ export default async function CreatinaPage({
       (a, b) => a!.pricePerDose - b!.pricePerDose
     );
 
+  /* =========================
+     FILTROS DISPONÍVEIS
+     ========================= */
   const brands = await prisma.product.findMany({
     where: { category: "creatina" },
     distinct: ["brand"],
@@ -154,16 +157,15 @@ export default async function CreatinaPage({
       <div className="max-w-7xl mx-auto p-4 sm:p-6">
         {/* BLOCO INTRODUTÓRIO */}
         <section className="space-y-1 mb-6">
-          {/* CENTRALIZADOS */}
-          <p className="text-sm text-gray-700 text-center">
+          {/* AGORA ALINHADOS À ESQUERDA */}
+          <p className="text-sm text-gray-700">
             Categoria: <strong>Creatina</strong>
           </p>
 
-          <p className="text-sm text-gray-700 text-center">
+          <p className="text-sm text-gray-700">
             Produtos vendidos pela Amazon
           </p>
 
-          {/* ALINHADO À ESQUERDA */}
           <p className="text-sm text-gray-700 mt-2">
             Navegue pelos filtros e encontre a melhor
             creatina para você.
@@ -177,9 +179,16 @@ export default async function CreatinaPage({
 
             <div className="mt-2 text-gray-700 space-y-2 max-w-3xl">
               <p>
-                A comparação é baseada no preço por
-                dose, considerando a dose diária de
-                3 g de creatina pura (princípio ativo).
+                A comparação é baseada no preço por dose,
+                considerando a dose diária de 3 g de
+                creatina pura (princípio ativo).
+              </p>
+
+              <p>
+                São considerados produtos vendidos pela
+                Amazon e que apresentam boas avaliações
+                dos consumidores, dentro das opções
+                disponíveis para a categoria.
               </p>
 
               <p>

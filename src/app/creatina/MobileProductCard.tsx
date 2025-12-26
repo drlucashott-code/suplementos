@@ -25,7 +25,6 @@ export function MobileProductCard({
   product: Product;
   isBest?: boolean;
 }) {
-  // valor em reais, já arredondado corretamente
   const pricePerDose = Number(
     product.pricePerDose.toFixed(2)
   );
@@ -50,8 +49,6 @@ export function MobileProductCard({
       `}
       onClickCapture={(e) => {
         const target = e.target as HTMLElement;
-
-        // se NÃO clicou no ícone ⓘ, fecha o tooltip
         if (target.tagName !== "SUMMARY") {
           document
             .querySelectorAll("details[open]")
@@ -67,7 +64,6 @@ export function MobileProductCard({
         </div>
       )}
 
-      {/* TÍTULO */}
       <h2 className="font-semibold text-base leading-tight">
         {product.name}
       </h2>
@@ -78,6 +74,7 @@ export function MobileProductCard({
             src={product.imageUrl}
             alt={product.name}
             className="w-24 h-24 object-contain flex-shrink-0"
+            loading="lazy"
           />
         )}
 
@@ -106,7 +103,6 @@ export function MobileProductCard({
             R$ {product.price.toFixed(2)}
           </p>
 
-          {/* PREÇO POR DOSE */}
           <p className="relative inline-block mt-1">
             <span className="absolute inset-y-0 -inset-x-2 bg-green-300 rounded" />
             <span className="relative font-semibold">
@@ -114,7 +110,6 @@ export function MobileProductCard({
             </span>
           </p>
 
-          {/* CONTÉM CARBOIDRATO */}
           {product.hasCarbohydrate && (
             <div className="mt-1 text-[11px] text-amber-700 flex items-center gap-1">
               <span>Contém carboidrato</span>
@@ -125,9 +120,9 @@ export function MobileProductCard({
                 </summary>
 
                 <div className="absolute left-0 mt-1 bg-black text-white text-[11px] px-2 py-1 rounded max-w-[220px] z-10">
-                  Este produto contém carboidratos devido a
-                  excipientes, adoçantes ou outros ingredientes
-                  além da creatina.
+                  Este produto contém carboidratos devido
+                  a excipientes, adoçantes ou outros
+                  ingredientes além da creatina.
                 </div>
               </details>
             </div>
@@ -139,7 +134,7 @@ export function MobileProductCard({
         href={product.affiliateUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="block w-full text-center text-white text-sm font-semibold py-2 rounded-lg mt-2 bg-orange-500 hover:bg-orange-600"
+        className="block w-full text-center text-white text-sm font-semibold py-2 rounded-lg mt-2 bg-orange-400 hover:bg-orange-500 transition-colors"
       >
         Comprar na Amazon
       </a>
