@@ -14,7 +14,19 @@ export function PriceSlider() {
   const [tempValue, setTempValue] =
     useState(initial);
 
+  function track(event: string, data?: object) {
+    if (typeof window !== "undefined" && "gtag" in window) {
+      // @ts-ignore
+      window.gtag("event", event, data);
+    }
+  }
+
   function applyValue(value: number) {
+    track("change_price_max", {
+      price_max: value,
+      device: "desktop",
+    });
+
     const params = new URLSearchParams(
       searchParams.toString()
     );

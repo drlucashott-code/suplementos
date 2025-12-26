@@ -18,9 +18,24 @@ export function DesktopFiltersSidebar({ brands, flavors }: Props) {
     return searchParams.get(param)?.split(",") ?? [];
   }
 
+  function track(event: string, data?: object) {
+    if (typeof window !== "undefined" && "gtag" in window) {
+      // @ts-ignore
+      window.gtag("event", event, data);
+    }
+  }
+
   function toggleParam(param: string, value: string) {
     const current = getSelected(param);
-    const next = current.includes(value)
+    const isRemoving = current.includes(value);
+
+    track("toggle_filter_desktop", {
+      filter_type: param,
+      filter_value: value,
+      action: isRemoving ? "remove" : "add",
+    });
+
+    const next = isRemoving
       ? current.filter((v) => v !== value)
       : [...current, value];
 
@@ -36,6 +51,7 @@ export function DesktopFiltersSidebar({ brands, flavors }: Props) {
   }
 
   function clearFilters() {
+    track("clear_filters_desktop");
     router.push("/creatina");
   }
 
@@ -70,7 +86,7 @@ export function DesktopFiltersSidebar({ brands, flavors }: Props) {
         ))}
       </div>
 
-      {/* MARCA — AGORA ORDENADA */}
+      {/* MARCA */}
       <div>
         <p className="font-medium text-sm mb-2">Marca</p>
         <div className="space-y-1 max-h-40 overflow-auto">
@@ -79,7 +95,9 @@ export function DesktopFiltersSidebar({ brands, flavors }: Props) {
               <input
                 type="checkbox"
                 checked={getSelected("brand").includes(brand)}
-                onChange={() => toggleParam("brand", brand)}
+                onChange={() =>
+                  toggleParam("brand", brand)
+                }
               />
               {brand}
             </label>
@@ -95,7 +113,9 @@ export function DesktopFiltersSidebar({ brands, flavors }: Props) {
             <input
               type="checkbox"
               checked={getSelected("flavor").includes(flavor)}
-              onChange={() => toggleParam("flavor", flavor)}
+              onChange={() =>
+                toggleParam("flavor", flavor)
+              }
             />
             {flavor}
           </label>
@@ -109,8 +129,12 @@ export function DesktopFiltersSidebar({ brands, flavors }: Props) {
           <label key={bucket} className="flex gap-2 text-sm">
             <input
               type="checkbox"
-              checked={getSelected("doses").includes(bucket)}
-              onChange={() => toggleParam("doses", bucket)}
+              checked={getSelected("doses").includes(
+                bucket
+              )}
+              onChange={() =>
+                toggleParam("doses", bucket)
+              }
             />
             {bucket}
           </label>

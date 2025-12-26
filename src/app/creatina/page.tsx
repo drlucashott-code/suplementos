@@ -37,13 +37,13 @@ export default async function CreatinaPage({
   const products = await prisma.product.findMany({
     where: {
       category: "creatina",
-      ...(selectedBrands.length && {
+      ...(selectedBrands.length > 0 && {
         brand: { in: selectedBrands },
       }),
-      ...(selectedFlavors.length && {
+      ...(selectedFlavors.length > 0 && {
         flavor: { in: selectedFlavors },
       }),
-      ...(selectedForms.length && {
+      ...(selectedForms.length > 0 && {
         creatineInfo: { form: { in: selectedForms } },
       }),
     },
@@ -55,6 +55,8 @@ export default async function CreatinaPage({
           price: { gt: 0 },
           affiliateUrl: { not: "" },
         },
+        orderBy: { price: "asc" },
+        take: 1,
       },
     },
   });
@@ -82,6 +84,8 @@ export default async function CreatinaPage({
         unitsPerDose: product.creatineInfo.unitsPerDose,
         price: offer.price,
       });
+
+      if (!stats.pricePerDose) return null;
 
       const doses = stats.doses;
 
@@ -115,7 +119,7 @@ export default async function CreatinaPage({
         price: offer.price,
         affiliateUrl: offer.affiliateUrl,
         doses,
-        pricePerDose: stats.pricePerDose!,
+        pricePerDose: stats.pricePerDose,
         hasCarbohydrate,
       };
     })
@@ -156,7 +160,7 @@ export default async function CreatinaPage({
 
       {/* CONTEÚDO */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        {/* TEXTO INTRODUTÓRIO — CENTRALIZADO NO EIXO */}
+        {/* TEXTO INTRODUTÓRIO */}
         <section className="space-y-1 mb-6 mt-4 max-w-5xl mx-auto">
           <p className="text-sm text-gray-700">
             Categoria: <strong>Creatina</strong>
@@ -208,13 +212,13 @@ export default async function CreatinaPage({
           </details>
         </section>
 
-        {/* FILTRO MOBILE */}
+        {/* FILTROS MOBILE */}
         <MobileFiltersDrawer
           brands={brands.map((b) => b.brand)}
           flavors={flavors.map((f) => f.flavor!).sort()}
         />
 
-        {/* CONTEÚDO CENTRALIZADO DESKTOP */}
+        {/* DESKTOP */}
         <div className="flex flex-col lg:flex-row gap-8 mt-6 justify-center">
           {/* SIDEBAR */}
           <aside className="hidden lg:block w-72 shrink-0">
@@ -222,12 +226,13 @@ export default async function CreatinaPage({
               brands={brands.map((b) => b.brand)}
               flavors={flavors.map((f) => f.flavor!).sort()}
             />
+
             <div className="mt-4">
               <PriceSlider />
             </div>
           </aside>
 
-          {/* LISTA DE PRODUTOS */}
+          {/* LISTA */}
           <div className="w-full max-w-3xl">
             <ProductList products={rankedProducts as any} />
           </div>

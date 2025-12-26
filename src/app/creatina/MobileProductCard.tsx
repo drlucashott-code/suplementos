@@ -38,6 +38,20 @@ export function MobileProductCard({
           pricePerDose * 100
         )} centavos`;
 
+  function handleBuyClick() {
+    if (typeof window !== "undefined" && "gtag" in window) {
+      // @ts-ignore
+      window.gtag("event", "click_comprar_amazon", {
+        product_name: product.name,
+        price: product.price,
+        price_per_dose: pricePerDose,
+        doses: Math.floor(product.doses),
+        form: product.form ?? "unknown",
+        is_best: isBest ?? false,
+      });
+    }
+  }
+
   return (
     <div
       className={`rounded-xl border p-4 space-y-3 relative
@@ -134,6 +148,7 @@ export function MobileProductCard({
         href={product.affiliateUrl}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={handleBuyClick}
         className="block w-full text-center text-white text-sm font-semibold py-2 rounded-lg mt-2 bg-orange-400 hover:bg-orange-500 transition-colors"
       >
         Comprar na Amazon

@@ -70,10 +70,25 @@ export function MobileFiltersDrawer({
     );
   }
 
+  function track(event: string, data?: object) {
+    if (typeof window !== "undefined" && "gtag" in window) {
+      // @ts-ignore
+      window.gtag("event", event, data);
+    }
+  }
+
   /* =========================
      APLICAR FILTROS
      ========================= */
   function applyFilters() {
+    track("apply_filters_mobile", {
+      brands: selectedBrands.join(",") || "all",
+      flavors: selectedFlavors.join(",") || "all",
+      forms: selectedForms.join(",") || "all",
+      doses: selectedDoses.join(",") || "all",
+      price_max: tempPrice,
+    });
+
     const params = new URLSearchParams();
 
     if (selectedBrands.length)
@@ -95,6 +110,8 @@ export function MobileFiltersDrawer({
      LIMPAR FILTROS
      ========================= */
   function clearFilters() {
+    track("clear_filters_mobile");
+
     setSelectedBrands([]);
     setSelectedFlavors([]);
     setSelectedForms([]);
@@ -109,7 +126,10 @@ export function MobileFiltersDrawer({
     <>
       {/* BOTÃO NO FLUXO DA PÁGINA */}
       <button
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          track("open_filters_mobile");
+          setOpen(true);
+        }}
         className="sm:hidden w-full bg-white text-black px-4 py-3 rounded-xl shadow border flex items-center justify-center gap-2"
       >
         <svg
