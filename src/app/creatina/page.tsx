@@ -3,7 +3,6 @@ import { ProductList } from "./ProductList";
 import { PriceSlider } from "./PriceSlider";
 import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
 import { DesktopFiltersSidebar } from "./DesktopFiltersSidebar";
-import { MobileStickySearch } from "./MobileStickySearch";
 import { CreatineForm } from "@prisma/client";
 import { calculateCreatineStats } from "@/lib/calculateCreatineStats";
 
@@ -13,7 +12,6 @@ type SearchParams = {
   flavor?: string;
   priceMax?: string;
   doses?: string;
-  q?: string;
 };
 
 export default async function CreatinaPage({
@@ -28,7 +26,6 @@ export default async function CreatinaPage({
     (params.form?.split(",") as CreatineForm[]) ?? [];
   const selectedFlavors = params.flavor?.split(",") ?? [];
   const selectedDoses = params.doses?.split(",") ?? [];
-  const searchQuery = params.q ?? "";
 
   const maxPrice = params.priceMax
     ? Number(params.priceMax)
@@ -36,28 +33,12 @@ export default async function CreatinaPage({
 
   /* =========================
      BUSCA PRODUTOS
+     (estrutura mantém compatibilidade com ML,
+      mas frontend usa apenas AMAZON)
      ========================= */
   const products = await prisma.product.findMany({
     where: {
       category: "creatina",
-
-      ...(searchQuery && {
-        OR: [
-          {
-            name: {
-              contains: searchQuery,
-              mode: "insensitive",
-            },
-          },
-          {
-            brand: {
-              contains: searchQuery,
-              mode: "insensitive",
-            },
-          },
-        ],
-      }),
-
       ...(selectedBrands.length && {
         brand: { in: selectedBrands },
       }),
@@ -72,7 +53,7 @@ export default async function CreatinaPage({
       creatineInfo: true,
       offers: {
         where: {
-          store: "AMAZON",
+          store: "AMAZON", // 👈 FONTE ÚNICA PÚBLICA
           price: { gt: 0 },
           affiliateUrl: { not: "" },
         },
@@ -122,6 +103,7 @@ export default async function CreatinaPage({
         return null;
       }
 
+      // ✅ REGRA PARA CARBOIDRATO
       const hasCarbohydrate =
         product.creatineInfo.form === CreatineForm.GUMMY ||
         (product.creatineInfo.form === CreatineForm.POWDER &&
@@ -170,52 +152,23 @@ export default async function CreatinaPage({
      RENDER
      ========================= */
   return (
-    <main className="max-w-6xl mx-auto px-4 sm:px-6">
-      {/* FILTROS MOBILE */}
+    <main className="max-w-7xl mx-auto p-4 sm:p-6">
       <MobileFiltersDrawer
         brands={brands.map((b) => b.brand)}
         flavors={flavors.map((f) => f.flavor!).sort()}
       />
 
-      {/* ===== TOPO MOBILE ===== */}
-      <header className="mb-6 space-y-4 text-center sm:hidden">
-        <h1 className="text-2xl font-bold leading-tight">
-          Creatinas com melhor custo-benefício
-        </h1>
+      <h1 className="text-2xl sm:text-3xl font-bold mb-2 text-center">
+        Creatina: melhor custo-benefício
+      </h1>
 
-        <p className="text-sm text-gray-600 px-4">
-          Ranking baseado no preço por dose (3 g),
-          com valores obtidos diretamente na Amazon.
-        </p>
+      <p className="text-gray-700 mb-6 max-w-4xl text-left lg:text-justify">
+        Comparação baseada no menor preço por dose,
+        considerando 3 g de princípio ativo, com
+        valores obtidos diretamente na Amazon.
+      </p>
 
-        <div className="flex justify-center items-center gap-2 text-[11px] text-gray-500">
-          <img
-            src="/amazon-logo.svg"
-            alt="Amazon"
-            className="h-4"
-          />
-          <span>Preços verificados na Amazon</span>
-        </div>
-      </header>
-
-      {/* ===== BUSCA STICKY MOBILE ===== */}
-      <MobileStickySearch />
-
-      {/* ===== TOPO DESKTOP ===== */}
-      <header className="hidden sm:block mb-8">
-        <h1 className="text-3xl font-bold mb-2 text-center">
-          Creatina: melhor custo-benefício
-        </h1>
-
-        <p className="text-gray-700 max-w-4xl mx-auto text-center">
-          Comparação baseada no menor preço por dose,
-          considerando 3 g de princípio ativo,
-          com valores obtidos diretamente na Amazon.
-        </p>
-      </header>
-
-      {/* ===== CONTEÚDO ===== */}
-      <div className="flex flex-col lg:flex-row gap-8 justify-center">
+      <div className="flex flex-col lg:flex-row gap-6">
         <aside className="hidden lg:flex flex-col gap-4 w-64">
           <DesktopFiltersSidebar
             brands={brands.map((b) => b.brand)}
