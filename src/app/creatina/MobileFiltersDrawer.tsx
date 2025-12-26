@@ -107,16 +107,15 @@ export function MobileFiltersDrawer({
 
   return (
     <>
-      {/* BOTÃO FLUTUANTE */}
+      {/* BOTÃO NO FLUXO DA PÁGINA */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-40 sm:hidden bg-white text-black p-4 rounded-full shadow-lg border"
-        aria-label="Abrir filtros"
+        className="sm:hidden w-full bg-white text-black px-4 py-3 rounded-xl shadow border flex items-center justify-center gap-2"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="22"
-          height="22"
+          width="20"
+          height="20"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -131,6 +130,10 @@ export function MobileFiltersDrawer({
           <circle cx="14" cy="12" r="2" />
           <circle cx="8" cy="18" r="2" />
         </svg>
+
+        <span className="font-medium text-sm">
+          Filtrar produtos
+        </span>
       </button>
 
       {/* OVERLAY */}
@@ -169,18 +172,9 @@ export function MobileFiltersDrawer({
               Apresentação
             </p>
             {[
-              {
-                value: CreatineForm.CAPSULE,
-                label: "Cápsula",
-              },
-              {
-                value: CreatineForm.GUMMY,
-                label: "Gummy",
-              },
-              {
-                value: CreatineForm.POWDER,
-                label: "Pó",
-              },
+              { value: CreatineForm.CAPSULE, label: "Cápsula" },
+              { value: CreatineForm.GUMMY, label: "Gummy" },
+              { value: CreatineForm.POWDER, label: "Pó" },
             ].map((f) => (
               <label
                 key={f.value}
@@ -188,9 +182,7 @@ export function MobileFiltersDrawer({
               >
                 <input
                   type="checkbox"
-                  checked={selectedForms.includes(
-                    f.value
-                  )}
+                  checked={selectedForms.includes(f.value)}
                   onChange={() =>
                     toggle(
                       f.value,
@@ -215,9 +207,7 @@ export function MobileFiltersDrawer({
                 >
                   <input
                     type="checkbox"
-                    checked={selectedDoses.includes(
-                      d
-                    )}
+                    checked={selectedDoses.includes(d)}
                     onChange={() =>
                       toggle(
                         d,
@@ -242,9 +232,7 @@ export function MobileFiltersDrawer({
               >
                 <input
                   type="checkbox"
-                  checked={selectedBrands.includes(
-                    b
-                  )}
+                  checked={selectedBrands.includes(b)}
                   onChange={() =>
                     toggle(
                       b,
@@ -268,9 +256,7 @@ export function MobileFiltersDrawer({
               >
                 <input
                   type="checkbox"
-                  checked={selectedFlavors.includes(
-                    f
-                  )}
+                  checked={selectedFlavors.includes(f)}
                   onChange={() =>
                     toggle(
                       f,
@@ -299,11 +285,9 @@ export function MobileFiltersDrawer({
               step={1}
               value={tempPrice}
               onChange={(e) =>
-                setTempPrice(
-                  Number(e.target.value)
-                )
+                setTempPrice(Number(e.target.value))
               }
-              className="w-full accent-green-600 touch-pan-y"
+              className="w-full accent-green-600"
             />
           </div>
         </div>
