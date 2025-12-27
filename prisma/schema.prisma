@@ -42,6 +42,9 @@ model Product {
   // Dados específicos da creatina (quando aplicável)
   creatineInfo CreatineInfo?
 
+  // Dados específicos do whey protein (quando aplicável)
+  wheyInfo     WheyInfo?
+
   // Ofertas por loja (atualmente apenas AMAZON é usada publicamente)
   offers       Offer[]
 
@@ -69,6 +72,33 @@ model CreatineInfo {
   unitsPerDose Float
 
   @@index([form])
+}
+
+/* =======================
+   WHEY INFO
+======================= */
+model WheyInfo {
+  id                    String   @id @default(cuid())
+  productId             String   @unique
+  product               Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  /*
+    Peso total do produto (em gramas)
+    Ex: 900g, 1000g, 1800g
+  */
+  totalWeightInGrams    Float
+
+  /*
+    Dose padrão utilizada na comparação
+    Ex: 30g
+  */
+  doseInGrams           Float
+
+  /*
+    Quantidade de proteína por dose
+    Ex: 24g, 25g, 27g
+  */
+  proteinPerDoseInGrams Float
 }
 
 /* =======================

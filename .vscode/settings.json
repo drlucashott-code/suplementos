@@ -1,0 +1,5 @@
+{
+  "typescript.tsserver.exclude": [
+    "**/.next/**"
+  ]
+}
