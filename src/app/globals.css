@@ -8,6 +8,7 @@
 /* Força modo claro em todos os dispositivos */
 html {
   color-scheme: light;
+  -webkit-text-size-adjust: 100%;
 }
 
 @theme inline {
