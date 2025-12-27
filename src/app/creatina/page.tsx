@@ -14,6 +14,11 @@ type SearchParams = {
   doses?: string;
 };
 
+type CompositionLabel =
+  | "FLAVOR_NO_CARB"
+  | "HAS_CARB"
+  | null;
+
 export default async function CreatinaPage({
   searchParams,
 }: {
@@ -105,10 +110,16 @@ export default async function CreatinaPage({
         return null;
       }
 
-      const hasCarbohydrate =
-        product.creatineInfo.form === CreatineForm.GUMMY ||
-        (product.creatineInfo.form === CreatineForm.POWDER &&
-          product.creatineInfo.unitsPerDose > 3);
+      let compositionLabel: CompositionLabel = null;
+      const units = product.creatineInfo.unitsPerDose;
+
+      if (units > 3 && units <= 4) {
+        compositionLabel = "FLAVOR_NO_CARB";
+      }
+
+      if (units > 4) {
+        compositionLabel = "HAS_CARB";
+      }
 
       return {
         id: product.id,
@@ -120,7 +131,7 @@ export default async function CreatinaPage({
         affiliateUrl: offer.affiliateUrl,
         doses,
         pricePerDose: stats.pricePerDose,
-        hasCarbohydrate,
+        compositionLabel,
       };
     })
     .filter(Boolean)
@@ -151,10 +162,10 @@ export default async function CreatinaPage({
      ========================= */
   return (
     <main>
-      {/* FAIXA PRETA */}
+      {/* FAIXA SUPERIOR */}
       <section className="bg-black text-white py-8 px-4">
         <h1 className="text-2xl sm:text-3xl font-bold text-center">
-          Calculadora de custo-benefício
+                    Calculadora de custo-benefício
         </h1>
       </section>
 
@@ -212,6 +223,7 @@ export default async function CreatinaPage({
           </details>
         </section>
 
+
         {/* FILTROS MOBILE */}
         <MobileFiltersDrawer
           brands={brands.map((b) => b.brand)}
@@ -239,3 +251,5 @@ export default async function CreatinaPage({
     </main>
   );
 }
+
+
