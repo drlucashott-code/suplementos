@@ -165,14 +165,14 @@ export default async function CreatinaPage({
       {/* FAIXA SUPERIOR */}
       <section className="bg-black text-white py-8 px-4">
         <h1 className="text-2xl sm:text-3xl font-bold text-center">
-                    Calculadora de custo-benefício
+          Calculadora de custo-benefício
         </h1>
       </section>
 
       {/* CONTEÚDO */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         {/* TEXTO INTRODUTÓRIO */}
-        <section className="space-y-1 mb-6 mt-4 max-w-5xl mx-auto text-gray-700 dark:text-gray-300">
+        <section className="space-y-1 mb-6 mt-4 max-w-5xl mx-auto text-[#171717]">
           <p className="text-sm">
             Categoria: <strong>Creatina</strong>
           </p>
@@ -187,7 +187,7 @@ export default async function CreatinaPage({
           </p>
 
           <details className="text-sm mt-2">
-            <summary className="cursor-pointer text-green-700 dark:text-green-400 font-medium">
+            <summary className="cursor-pointer text-green-700 font-medium">
               Entenda o cálculo
             </summary>
 
@@ -213,7 +213,7 @@ export default async function CreatinaPage({
                 doses.
               </p>
 
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-gray-500">
                 As recomendações de uso dos fabricantes
                 podem variar. O critério adotado neste
                 site é padronizado exclusivamente para
@@ -222,7 +222,6 @@ export default async function CreatinaPage({
             </div>
           </details>
         </section>
-
 
         {/* FILTROS MOBILE */}
         <MobileFiltersDrawer
@@ -251,5 +250,3 @@ export default async function CreatinaPage({
     </main>
   );
 }
-
-
