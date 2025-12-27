@@ -14,6 +14,11 @@ type SearchParams = {
   doses?: string;
 };
 
+type CompositionLabel =
+  | "FLAVOR_NO_CARB"
+  | "HAS_CARB"
+  | null;
+
 export default async function CreatinaPage({
   searchParams,
 }: {
@@ -62,7 +67,7 @@ export default async function CreatinaPage({
   });
 
   /* =========================
-     PROCESSA + FILTRA
+     PROCESSAMENTO
      ========================= */
   const rankedProducts = products
     .map((product) => {
@@ -105,10 +110,17 @@ export default async function CreatinaPage({
         return null;
       }
 
-      const hasCarbohydrate =
-        product.creatineInfo.form === CreatineForm.GUMMY ||
-        (product.creatineInfo.form === CreatineForm.POWDER &&
-          product.creatineInfo.unitsPerDose > 3);
+      let compositionLabel: CompositionLabel = null;
+
+      const units = product.creatineInfo.unitsPerDose;
+
+      if (units > 3 && units <= 4) {
+        compositionLabel = "FLAVOR_NO_CARB";
+      }
+
+      if (units > 4) {
+        compositionLabel = "HAS_CARB";
+      }
 
       return {
         id: product.id,
@@ -120,7 +132,7 @@ export default async function CreatinaPage({
         affiliateUrl: offer.affiliateUrl,
         doses,
         pricePerDose: stats.pricePerDose,
-        hasCarbohydrate,
+        compositionLabel,
       };
     })
     .filter(Boolean)
@@ -158,51 +170,40 @@ export default async function CreatinaPage({
         </h1>
       </section>
 
-      {/* CONTEÚDO */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        {/* TEXTO INTRODUTÓRIO */}
-        <section className="space-y-1 mb-6 mt-4 max-w-5xl mx-auto text-gray-700 dark:text-gray-300">
-          <p className="text-sm">
-            Categoria: <strong>Creatina</strong>
+        {/* TEXTO INTRODUTÓRIO (RESTAURADO) */}
+        <section className="mt-4 text-sm text-gray-700 dark:text-gray-200 space-y-1 max-w-5xl mx-auto">
+          <p>
+            Categoria: <strong>Creatina</strong> / Produtos
+            vendidos pela Amazon
           </p>
 
-          <p className="text-sm">
-            Produtos vendidos pela Amazon
-          </p>
-
-          <p className="text-sm mt-2">
+          <p>
             Navegue pelos filtros e encontre a melhor
             creatina para você.
           </p>
 
-          <details className="text-sm mt-2">
-            <summary className="cursor-pointer text-green-700 dark:text-green-400 font-medium">
+          <details className="mt-2">
+            <summary className="cursor-pointer text-green-600 dark:text-green-400 font-medium">
               Entenda o cálculo
             </summary>
 
-            <div className="mt-2 space-y-2 max-w-3xl">
+            <div className="mt-2 space-y-2">
               <p>
                 A comparação é baseada no preço por dose,
-                considerando a dose diária de 3 g de
-                creatina pura (princípio ativo).
+                considerando a dose diária padrão de{" "}
+                <strong>
+                  3 g de creatina pura (princípio ativo)
+                </strong>.
               </p>
 
               <p>
                 São considerados produtos vendidos pela
-                Amazon e que apresentam boas avaliações
-                dos consumidores, dentro das opções
-                disponíveis para a categoria.
+                Amazon, dentro das opções disponíveis
+                para a categoria.
               </p>
 
-              <p>
-                Para cada produto, utilizamos o preço
-                total informado na Amazon e a quantidade
-                total de creatina declarada pelo
-                fabricante para estimar o número de
-                doses.
-              </p>
-
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-gray-600 dark:text-gray-400">
                 As recomendações de uso dos fabricantes
                 podem variar. O critério adotado neste
                 site é padronizado exclusivamente para
@@ -225,7 +226,6 @@ export default async function CreatinaPage({
               brands={brands.map((b) => b.brand)}
               flavors={flavors.map((f) => f.flavor!).sort()}
             />
-
             <div className="mt-4">
               <PriceSlider />
             </div>
