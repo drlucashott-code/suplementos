@@ -40,7 +40,10 @@ function hmac(key: string | Buffer, data: string): Buffer {
 }
 
 function sha256(data: string): string {
-  return crypto.createHash("sha256").update(data).digest("hex");
+  return crypto
+    .createHash("sha256")
+    .update(data)
+    .digest("hex");
 }
 
 function getSignatureKey(
@@ -181,18 +184,13 @@ async function fetchAmazonPriceWithRetry(
    SCRIPT
 ====================== */
 async function updateAmazonPrices() {
-  console.log("🔄 Atualizando preços da Amazon...\n");
-
-  const FIVE_HOURS_AGO = new Date(
-    Date.now() - 5 * 60 * 60 * 1000
+  console.log(
+    "🔄 Atualizando preços da Amazon (SEM bloqueio por tempo)...\n"
   );
 
   const offers = await prisma.offer.findMany({
     where: {
       store: Store.AMAZON,
-      updatedAt: {
-        lt: FIVE_HOURS_AGO,
-      },
     },
     include: {
       product: true,
@@ -200,27 +198,17 @@ async function updateAmazonPrices() {
   });
 
   if (offers.length === 0) {
-    console.log(
-      "⏭️ Nenhuma offer elegível (todas atualizadas há menos de 5h)"
-    );
+    console.log("⏭️ Nenhuma offer encontrada");
     await prisma.$disconnect();
     return;
   }
 
   console.log(
-    `🔎 ${offers.length} ofertas elegíveis para atualização\n`
+    `🔎 ${offers.length} ofertas encontradas para atualização\n`
   );
 
   for (const offer of offers) {
-    const hoursSinceUpdate =
-      (Date.now() - offer.updatedAt.getTime()) /
-      (1000 * 60 * 60);
-
-    console.log(
-      `🔎 ASIN ${offer.externalId} | Última atualização: ${hoursSinceUpdate.toFixed(
-        2
-      )}h atrás`
-    );
+    console.log(`🔎 ASIN ${offer.externalId}`);
 
     const price = await fetchAmazonPriceWithRetry(
       offer.externalId
@@ -238,7 +226,7 @@ async function updateAmazonPrices() {
       where: { id: offer.id },
       data: {
         price,
-        updatedAt: new Date(), // ✅ FIX DEFINITIVO
+        updatedAt: new Date(),
         affiliateUrl: `https://www.amazon.com.br/dp/${offer.externalId}?tag=${PARTNER_TAG}`,
       },
     });
@@ -251,7 +239,7 @@ async function updateAmazonPrices() {
     await new Promise((r) => setTimeout(r, 1800));
   }
 
-  console.log("\n🏁 Amazon atualizada");
+  console.log("\n🏁 Amazon atualizada (sem bloqueio)");
   await prisma.$disconnect();
 }
 
