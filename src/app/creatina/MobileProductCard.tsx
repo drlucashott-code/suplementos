@@ -2,6 +2,11 @@
 
 import { CreatineForm } from "@prisma/client";
 
+type CompositionLabel =
+  | "FLAVOR_NO_CARB"
+  | "HAS_CARB"
+  | null;
+
 type Product = {
   id: string;
   name: string;
@@ -12,10 +17,10 @@ type Product = {
   price: number;
   affiliateUrl: string;
 
-  pricePerDose: number; // EM REAIS
+  pricePerDose: number;
   doses: number;
 
-  hasCarbohydrate?: boolean;
+  compositionLabel?: CompositionLabel;
 };
 
 export function MobileProductCard({
@@ -38,19 +43,10 @@ export function MobileProductCard({
           pricePerDose * 100
         )} centavos`;
 
-  function handleBuyClick() {
-    if (typeof window !== "undefined" && "gtag" in window) {
-      // @ts-ignore
-      window.gtag("event", "click_comprar_amazon", {
-        product_name: product.name,
-        price: product.price,
-        price_per_dose: pricePerDose,
-        doses: Math.floor(product.doses),
-        form: product.form ?? "unknown",
-        is_best: isBest ?? false,
-      });
-    }
-  }
+  const isCreapure =
+    product.name
+      .toLowerCase()
+      .includes("creapure");
 
   return (
     <div
@@ -124,19 +120,70 @@ export function MobileProductCard({
             </span>
           </p>
 
-          {product.hasCarbohydrate && (
-            <div className="mt-1 text-[11px] text-amber-700 flex items-center gap-1">
-              <span>Contém carboidrato</span>
+          {/* 🟦 CREAPURE */}
+          {isCreapure && (
+            <div className="mt-1 text-[11px] text-blue-700 flex items-center gap-1">
+              <span className="font-semibold">
+                Creapure®
+              </span>
 
               <details className="relative">
                 <summary className="cursor-pointer select-none list-none inline">
                   ⓘ
                 </summary>
 
-                <div className="absolute left-0 mt-1 bg-black text-white text-[11px] px-2 py-1 rounded max-w-[220px] z-10">
-                  Este produto contém carboidratos devido
-                  a excipientes, adoçantes ou outros
-                  ingredientes além da creatina.
+                <div className="absolute left-0 mt-1 bg-black text-white text-[11px] px-2 py-1 rounded max-w-[240px] z-10">
+                  Este produto utiliza creatina
+                  Creapure®, uma matéria-prima de
+                  alta pureza produzida na Alemanha,
+                  reconhecida por rigorosos controles
+                  de qualidade e processos de
+                  fabricação padronizados.
+                </div>
+              </details>
+            </div>
+          )}
+
+          {/* 🔶 SABOR SEM CARBO */}
+          {product.compositionLabel ===
+            "FLAVOR_NO_CARB" && (
+            <div className="mt-1 text-[11px] text-amber-700 flex items-center gap-1">
+              <span>
+                Contém sabor artificial, sem adição de
+                carboidratos
+              </span>
+
+              <details className="relative">
+                <summary className="cursor-pointer select-none list-none inline">
+                  ⓘ
+                </summary>
+
+                <div className="absolute left-0 mt-1 bg-black text-white text-[11px] px-2 py-1 rounded max-w-[240px] z-10">
+                  Este produto contém aromatizantes,
+                  adoçantes ou outros excipientes
+                  adicionados para ajuste de sabor,
+                  sem adição de carboidratos.
+                </div>
+              </details>
+            </div>
+          )}
+
+          {/* 🔴 COM CARBO */}
+          {product.compositionLabel ===
+            "HAS_CARB" && (
+            <div className="mt-1 text-[11px] text-amber-700 flex items-center gap-1">
+              <span>Contém carboidratos</span>
+
+              <details className="relative">
+                <summary className="cursor-pointer select-none list-none inline">
+                  ⓘ
+                </summary>
+
+                <div className="absolute left-0 mt-1 bg-black text-white text-[11px] px-2 py-1 rounded max-w-[240px] z-10">
+                  Este produto contém carboidratos
+                  devido à adição de açúcares,
+                  excipientes ou outros ingredientes
+                  além da creatina.
                 </div>
               </details>
             </div>
@@ -148,7 +195,6 @@ export function MobileProductCard({
         href={product.affiliateUrl}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={handleBuyClick}
         className="block w-full text-center text-white text-sm font-semibold py-2 rounded-lg mt-2 bg-orange-400 hover:bg-orange-500 transition-colors"
       >
         Comprar na Amazon

@@ -12,8 +12,10 @@ const AMAZON_ACCESS_KEY = process.env.AMAZON_ACCESS_KEY;
 const AMAZON_SECRET_KEY = process.env.AMAZON_SECRET_KEY;
 const AMAZON_PARTNER_TAG = process.env.AMAZON_PARTNER_TAG;
 
-const AMAZON_HOST = process.env.AMAZON_HOST ?? "webservices.amazon.com.br";
-const AMAZON_REGION = process.env.AMAZON_REGION ?? "us-east-1";
+const AMAZON_HOST =
+  process.env.AMAZON_HOST ?? "webservices.amazon.com.br";
+const AMAZON_REGION =
+  process.env.AMAZON_REGION ?? "us-east-1";
 const AMAZON_SERVICE = "ProductAdvertisingAPI";
 
 if (
@@ -24,11 +26,11 @@ if (
   throw new Error("Credenciais da Amazon não configuradas");
 }
 
-const ACCESS_KEY = AMAZON_ACCESS_KEY!;
-const SECRET_KEY = AMAZON_SECRET_KEY!;
-const PARTNER_TAG = AMAZON_PARTNER_TAG!;
-const HOST = AMAZON_HOST!;
-const REGION = AMAZON_REGION!;
+const ACCESS_KEY = AMAZON_ACCESS_KEY;
+const SECRET_KEY = AMAZON_SECRET_KEY;
+const PARTNER_TAG = AMAZON_PARTNER_TAG;
+const HOST = AMAZON_HOST;
+const REGION = AMAZON_REGION;
 
 /* ======================
    AWS HELPERS
@@ -71,7 +73,9 @@ async function fetchAmazonPrice(
   });
 
   const now = new Date();
-  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
+  const amzDate = now
+    .toISOString()
+    .replace(/[:-]|\.\d{3}/g, "");
   const dateStamp = amzDate.substring(0, 8);
 
   const canonicalHeaders =
@@ -139,8 +143,8 @@ async function fetchAmazonPrice(
         try {
           const json = JSON.parse(data);
           const price =
-            json?.ItemsResult?.Items?.[0]?.Offers?.Listings?.[0]?.Price
-              ?.Amount ?? null;
+            json?.ItemsResult?.Items?.[0]?.Offers?.Listings?.[0]
+              ?.Price?.Amount ?? null;
           resolve(price);
         } catch {
           resolve(null);
@@ -179,15 +183,33 @@ async function fetchAmazonPriceWithRetry(
 async function updateAmazonPrices() {
   console.log("🔄 Atualizando preços da Amazon...\n");
 
+  const ONE_HOUR_AGO = new Date(
+    Date.now() - 60 * 60 * 1000
+  );
+
   const offers = await prisma.offer.findMany({
-    where: { store: Store.AMAZON },
-    include: { product: true },
+    where: {
+      store: Store.AMAZON,
+      updatedAt: {
+        lt: ONE_HOUR_AGO,
+      },
+    },
+    include: {
+      product: true,
+    },
   });
 
   if (offers.length === 0) {
-    console.log("⚠️ Nenhuma offer da Amazon encontrada");
+    console.log(
+      "⏭️ Nenhuma offer elegível (todas atualizadas na última hora)"
+    );
+    await prisma.$disconnect();
     return;
   }
+
+  console.log(
+    `🔎 ${offers.length} produtos elegíveis para atualização\n`
+  );
 
   for (const offer of offers) {
     console.log(`🔎 ASIN ${offer.externalId}`);

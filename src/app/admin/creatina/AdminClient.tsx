@@ -10,6 +10,29 @@ import type { CreatineProduct } from "./AdminWrapper";
 import { CreatineForm } from "@prisma/client";
 import { ToastOnSubmit } from "./ToastOnSubmit";
 
+/* =======================
+   FIELD (LABEL À ESQUERDA)
+   ======================= */
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-12 gap-2 items-center">
+      <label className="col-span-2 text-sm font-medium text-gray-700">
+        {label}
+      </label>
+      <div className="col-span-10">{children}</div>
+    </div>
+  );
+}
+
+/* =======================
+   TIPOS
+   ======================= */
 type Props = {
   products: CreatineProduct[];
 };
@@ -21,13 +44,15 @@ type Order =
   | { by: "name"; dir: "asc" | "desc" }
   | { by: "flavor"; dir: "asc" | "desc" };
 
+/* =======================
+   COMPONENTE PRINCIPAL
+   ======================= */
 export default function AdminClient({ products }: Props) {
   const [search, setSearch] = useState("");
   const [order, setOrder] = useState<Order>({
     by: "createdAt",
     dir: "desc",
   });
-
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -40,15 +65,9 @@ export default function AdminClient({ products }: Props) {
   function toggleOrder(by: Order["by"]) {
     setOrder((prev) => {
       if (prev.by !== by) {
-        return {
-          by,
-          dir: by === "createdAt" ? "desc" : "asc",
-        };
+        return { by, dir: by === "createdAt" ? "desc" : "asc" };
       }
-      return {
-        by,
-        dir: prev.dir === "asc" ? "desc" : "asc",
-      };
+      return { by, dir: prev.dir === "asc" ? "desc" : "asc" };
     });
   }
 
@@ -68,44 +87,24 @@ export default function AdminClient({ products }: Props) {
     }
 
     result.sort((a, b) => {
-      /* ---------- NOME ---------- */
       if (order.by === "name") {
         return order.dir === "asc"
           ? a.name.localeCompare(b.name, "pt-BR")
           : b.name.localeCompare(a.name, "pt-BR");
       }
 
-      /* ---------- SABOR ---------- */
       if (order.by === "flavor") {
         const fa = a.flavor ?? "";
         const fb = b.flavor ?? "";
 
-        // sem sabor sempre por último
         if (fa === "" && fb !== "") return 1;
         if (fa !== "" && fb === "") return -1;
 
-        const na = fa
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .toLowerCase();
-
-        const nb = fb
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .toLowerCase();
-
-        const cmp =
-          order.dir === "asc"
-            ? na.localeCompare(nb, "pt-BR")
-            : nb.localeCompare(na, "pt-BR");
-
-        if (cmp !== 0) return cmp;
-
-        // desempate por nome
-        return a.name.localeCompare(b.name, "pt-BR");
+        return order.dir === "asc"
+          ? fa.localeCompare(fb, "pt-BR")
+          : fb.localeCompare(fa, "pt-BR");
       }
 
-      /* ---------- DATA ---------- */
       return order.dir === "asc"
         ? new Date(a.createdAt).getTime() -
             new Date(b.createdAt).getTime()
@@ -151,7 +150,7 @@ export default function AdminClient({ products }: Props) {
         className="w-full border rounded p-2 mb-6"
       />
 
-      {/* CADASTRO MANUAL */}
+      {/* CADASTRO */}
       <button
         onClick={() => setShowCreate((v) => !v)}
         className="mb-4 border px-4 py-2 rounded font-medium"
@@ -164,45 +163,59 @@ export default function AdminClient({ products }: Props) {
       {showCreate && (
         <form
           action={createCreatineAction}
-          className="space-y-3 mb-10 border rounded p-4 bg-gray-50"
-          onSubmit={() => setShowCreate(false)}
+          className="space-y-4 mb-10 border rounded p-4 bg-gray-50"
         >
           <ToastOnSubmit message="✅ Produto cadastrado com sucesso" />
 
-          <input name="name" placeholder="Nome" className={input} required />
-          <input name="brand" placeholder="Marca" className={input} required />
-          <input name="flavor" placeholder="Sabor (opcional)" className={input} />
+          <Field label="Nome">
+            <input name="name" className={input} required />
+          </Field>
 
-          <select
-            name="form"
-            defaultValue={CreatineForm.POWDER}
-            className={input}
-          >
-            <option value={CreatineForm.POWDER}>Pó</option>
-            <option value={CreatineForm.CAPSULE}>Cápsula</option>
-            <option value={CreatineForm.GUMMY}>Gummy</option>
-          </select>
+          <Field label="Marca">
+            <input name="brand" className={input} required />
+          </Field>
 
-          <input
-            name="totalUnits"
-            type="number"
-            step="0.01"
-            placeholder="Total"
-            className={input}
-            required
-          />
+          <Field label="Sabor (opcional)">
+            <input name="flavor" className={input} />
+          </Field>
 
-          <input
-            name="unitsPerDose"
-            type="number"
-            step="0.01"
-            placeholder="Dose"
-            className={input}
-            required
-          />
+          <Field label="Forma">
+            <select
+              name="form"
+              defaultValue={CreatineForm.POWDER}
+              className={input}
+            >
+              <option value={CreatineForm.POWDER}>Pó</option>
+              <option value={CreatineForm.CAPSULE}>Cápsula</option>
+              <option value={CreatineForm.GUMMY}>Gummy</option>
+            </select>
+          </Field>
 
-          <input name="imageUrl" placeholder="Imagem (URL)" className={input} />
-          <input name="amazonAsin" placeholder="ASIN Amazon" className={input} />
+          <Field label="Total">
+            <input
+              name="totalUnits"
+              type="number"
+              step="0.01"
+              className={input}
+            />
+          </Field>
+
+          <Field label="Dose">
+            <input
+              name="unitsPerDose"
+              type="number"
+              step="0.01"
+              className={input}
+            />
+          </Field>
+
+          <Field label="Imagem (URL)">
+            <input name="imageUrl" className={input} />
+          </Field>
+
+          <Field label="ASIN Amazon">
+            <input name="amazonAsin" className={input} />
+          </Field>
 
           <button className="bg-black text-white px-4 py-2 rounded">
             Cadastrar
@@ -267,7 +280,11 @@ export default function AdminClient({ products }: Props) {
                         }
                       }}
                     >
-                      <input type="hidden" name="id" value={p.id} />
+                      <input
+                        type="hidden"
+                        name="id"
+                        value={p.id}
+                      />
                       <button className="text-red-600">
                         Excluir
                       </button>
@@ -280,46 +297,88 @@ export default function AdminClient({ products }: Props) {
                     <td colSpan={4} className="p-4">
                       <form
                         action={updateCreatineAction}
-                        className="space-y-3 border rounded p-4 bg-white"
+                        className="space-y-4 border rounded p-4 bg-white"
                       >
                         <ToastOnSubmit message="✅ Produto atualizado com sucesso" />
-                        <input type="hidden" name="id" value={p.id} />
-
-                        <input name="name" defaultValue={p.name} className={input} />
-                        <input name="brand" defaultValue={p.brand} className={input} />
-                        <input name="flavor" defaultValue={p.flavor ?? ""} className={input} />
-
-                        <select
-                          name="form"
-                          defaultValue={p.creatineInfo?.form}
-                          className={input}
-                        >
-                          <option value={CreatineForm.POWDER}>Pó</option>
-                          <option value={CreatineForm.CAPSULE}>Cápsula</option>
-                          <option value={CreatineForm.GUMMY}>Gummy</option>
-                        </select>
-
                         <input
-                          name="totalUnits"
-                          type="number"
-                          step="0.01"
-                          defaultValue={p.creatineInfo?.totalUnits}
-                          className={input}
+                          type="hidden"
+                          name="id"
+                          value={p.id}
                         />
 
-                        <input
-                          name="unitsPerDose"
-                          type="number"
-                          step="0.01"
-                          defaultValue={p.creatineInfo?.unitsPerDose}
-                          className={input}
-                        />
+                        <Field label="Nome">
+                          <input
+                            name="name"
+                            defaultValue={p.name}
+                            className={input}
+                          />
+                        </Field>
 
-                        <input
-                          name="imageUrl"
-                          defaultValue={p.imageUrl}
-                          className={input}
-                        />
+                        <Field label="Marca">
+                          <input
+                            name="brand"
+                            defaultValue={p.brand}
+                            className={input}
+                          />
+                        </Field>
+
+                        <Field label="Sabor">
+                          <input
+                            name="flavor"
+                            defaultValue={p.flavor ?? ""}
+                            className={input}
+                          />
+                        </Field>
+
+                        <Field label="Forma">
+                          <select
+                            name="form"
+                            defaultValue={p.creatineInfo?.form}
+                            className={input}
+                          >
+                            <option value={CreatineForm.POWDER}>Pó</option>
+                            <option value={CreatineForm.CAPSULE}>Cápsula</option>
+                            <option value={CreatineForm.GUMMY}>Gummy</option>
+                          </select>
+                        </Field>
+
+                        <Field label="Total">
+                          <input
+                            name="totalUnits"
+                            type="number"
+                            step="0.01"
+                            defaultValue={p.creatineInfo?.totalUnits}
+                            className={input}
+                          />
+                        </Field>
+
+                        <Field label="Dose">
+                          <input
+                            name="unitsPerDose"
+                            type="number"
+                            step="0.01"
+                            defaultValue={p.creatineInfo?.unitsPerDose}
+                            className={input}
+                          />
+                        </Field>
+
+                        <Field label="Imagem (URL)">
+                          <input
+                            name="imageUrl"
+                            defaultValue={p.imageUrl}
+                            className={input}
+                          />
+                        </Field>
+
+                        <Field label="ASIN Amazon">
+                          <input
+                            name="amazonAsin"
+                            defaultValue={
+                              p.offers[0]?.externalId ?? ""
+                            }
+                            className={input}
+                          />
+                        </Field>
 
                         <div className="flex gap-3">
                           <button className="bg-black text-white px-4 py-2 rounded">

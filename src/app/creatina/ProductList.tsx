@@ -4,6 +4,11 @@ import { MobileProductCard } from "./MobileProductCard";
 import { CreatineForm } from "@prisma/client";
 import { useEffect, useRef } from "react";
 
+type CompositionLabel =
+  | "FLAVOR_NO_CARB"
+  | "HAS_CARB"
+  | null;
+
 type Product = {
   id: string;
   name: string;
@@ -17,7 +22,7 @@ type Product = {
   pricePerDose: number;
   doses: number;
 
-  hasCarbohydrate?: boolean;
+  compositionLabel?: CompositionLabel;
 };
 
 export function ProductList({

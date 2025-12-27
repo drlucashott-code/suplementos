@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "update:amazon": "ts-node scripts/updateAmazonPrices.ts",
-    "update:ml": "ts-node scripts/updateMercadoLivrePrices.ts"
+    "update:ml": "ts-node scripts/updateMercadoLivrePrices.ts",
+    "import:amazon:creatina": "ts-node scripts/importAmazonCreatines.ts"
   },
   "dependencies": {
     "@next/third-parties": "^16.1.1",

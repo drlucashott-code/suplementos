@@ -14,6 +14,11 @@ type SearchParams = {
   doses?: string;
 };
 
+type CompositionLabel =
+  | "FLAVOR_NO_CARB"
+  | "HAS_CARB"
+  | null;
+
 export default async function CreatinaPage({
   searchParams,
 }: {
@@ -31,9 +36,6 @@ export default async function CreatinaPage({
     ? Number(params.priceMax)
     : undefined;
 
-  /* =========================
-     BUSCA PRODUTOS
-     ========================= */
   const products = await prisma.product.findMany({
     where: {
       category: "creatina",
@@ -61,9 +63,6 @@ export default async function CreatinaPage({
     },
   });
 
-  /* =========================
-     PROCESSA + FILTRA
-     ========================= */
   const rankedProducts = products
     .map((product) => {
       if (!product.creatineInfo) return null;
@@ -105,10 +104,17 @@ export default async function CreatinaPage({
         return null;
       }
 
-      const hasCarbohydrate =
-        product.creatineInfo.form === CreatineForm.GUMMY ||
-        (product.creatineInfo.form === CreatineForm.POWDER &&
-          product.creatineInfo.unitsPerDose > 3);
+      let compositionLabel: CompositionLabel = null;
+
+      const units = product.creatineInfo.unitsPerDose;
+
+      if (units > 3 && units <= 4) {
+        compositionLabel = "FLAVOR_NO_CARB";
+      }
+
+      if (units > 4) {
+        compositionLabel = "HAS_CARB";
+      }
 
       return {
         id: product.id,
@@ -120,7 +126,7 @@ export default async function CreatinaPage({
         affiliateUrl: offer.affiliateUrl,
         doses,
         pricePerDose: stats.pricePerDose,
-        hasCarbohydrate,
+        compositionLabel,
       };
     })
     .filter(Boolean)
@@ -128,9 +134,6 @@ export default async function CreatinaPage({
       (a, b) => a!.pricePerDose - b!.pricePerDose
     );
 
-  /* =========================
-     FILTROS DISPONÍVEIS
-     ========================= */
   const brands = await prisma.product.findMany({
     where: { category: "creatina" },
     distinct: ["brand"],
@@ -146,93 +149,31 @@ export default async function CreatinaPage({
     select: { flavor: true },
   });
 
-  /* =========================
-     RENDER
-     ========================= */
   return (
     <main>
-      {/* FAIXA PRETA */}
       <section className="bg-black text-white py-8 px-4">
         <h1 className="text-2xl sm:text-3xl font-bold text-center">
           Calculadora de custo-benefício
         </h1>
       </section>
 
-      {/* CONTEÚDO */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        {/* TEXTO INTRODUTÓRIO */}
-        <section className="space-y-1 mb-6 mt-4 max-w-5xl mx-auto">
-          <p className="text-sm text-gray-700">
-            Categoria: <strong>Creatina</strong>
-          </p>
-
-          <p className="text-sm text-gray-700">
-            Produtos vendidos pela Amazon
-          </p>
-
-          <p className="text-sm text-gray-700 mt-2">
-            Navegue pelos filtros e encontre a melhor
-            creatina para você.
-          </p>
-
-          <details className="text-sm mt-2">
-            <summary className="cursor-pointer text-green-700 font-medium">
-              Entenda o cálculo
-            </summary>
-
-            <div className="mt-2 text-gray-700 space-y-2 max-w-3xl">
-              <p>
-                A comparação é baseada no preço por dose,
-                considerando a dose diária de 3 g de
-                creatina pura (princípio ativo).
-              </p>
-
-              <p>
-                São considerados produtos vendidos pela
-                Amazon e que apresentam boas avaliações
-                dos consumidores, dentro das opções
-                disponíveis para a categoria.
-              </p>
-
-              <p>
-                Para cada produto, utilizamos o preço
-                total informado na Amazon e a quantidade
-                total de creatina declarada pelo
-                fabricante para estimar o número de
-                doses.
-              </p>
-
-              <p className="text-xs text-gray-500">
-                As recomendações de uso dos fabricantes
-                podem variar. O critério adotado neste
-                site é padronizado exclusivamente para
-                fins de comparação.
-              </p>
-            </div>
-          </details>
-        </section>
-
-        {/* FILTROS MOBILE */}
         <MobileFiltersDrawer
           brands={brands.map((b) => b.brand)}
           flavors={flavors.map((f) => f.flavor!).sort()}
         />
 
-        {/* DESKTOP */}
         <div className="flex flex-col lg:flex-row gap-8 mt-6 justify-center">
-          {/* SIDEBAR */}
           <aside className="hidden lg:block w-72 shrink-0">
             <DesktopFiltersSidebar
               brands={brands.map((b) => b.brand)}
               flavors={flavors.map((f) => f.flavor!).sort()}
             />
-
             <div className="mt-4">
               <PriceSlider />
             </div>
           </aside>
 
-          {/* LISTA */}
           <div className="w-full max-w-3xl">
             <ProductList products={rankedProducts as any} />
           </div>
