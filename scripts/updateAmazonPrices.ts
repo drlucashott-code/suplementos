@@ -183,15 +183,15 @@ async function fetchAmazonPriceWithRetry(
 async function updateAmazonPrices() {
   console.log("🔄 Atualizando preços da Amazon...\n");
 
-  const ONE_HOUR_AGO = new Date(
-    Date.now() - 60 * 60 * 1000
+  const FIVE_HOURS_AGO = new Date(
+    Date.now() - 5 * 60 * 60 * 1000
   );
 
   const offers = await prisma.offer.findMany({
     where: {
       store: Store.AMAZON,
       updatedAt: {
-        lt: ONE_HOUR_AGO,
+        lt: FIVE_HOURS_AGO,
       },
     },
     include: {
@@ -201,18 +201,26 @@ async function updateAmazonPrices() {
 
   if (offers.length === 0) {
     console.log(
-      "⏭️ Nenhuma offer elegível (todas atualizadas na última hora)"
+      "⏭️ Nenhuma offer elegível (todas atualizadas há menos de 5h)"
     );
     await prisma.$disconnect();
     return;
   }
 
   console.log(
-    `🔎 ${offers.length} produtos elegíveis para atualização\n`
+    `🔎 ${offers.length} ofertas elegíveis para atualização\n`
   );
 
   for (const offer of offers) {
-    console.log(`🔎 ASIN ${offer.externalId}`);
+    const hoursSinceUpdate =
+      (Date.now() - offer.updatedAt.getTime()) /
+      (1000 * 60 * 60);
+
+    console.log(
+      `🔎 ASIN ${offer.externalId} | Última atualização: ${hoursSinceUpdate.toFixed(
+        2
+      )}h atrás`
+    );
 
     const price = await fetchAmazonPriceWithRetry(
       offer.externalId
@@ -230,6 +238,7 @@ async function updateAmazonPrices() {
       where: { id: offer.id },
       data: {
         price,
+        updatedAt: new Date(), // ✅ FIX DEFINITIVO
         affiliateUrl: `https://www.amazon.com.br/dp/${offer.externalId}?tag=${PARTNER_TAG}`,
       },
     });
@@ -238,7 +247,7 @@ async function updateAmazonPrices() {
       `✅ ${offer.product.name} — R$ ${price}`
     );
 
-    // ⏱️ DELAY ANTI-THROTTLING
+    // ⏱️ delay anti-throttling
     await new Promise((r) => setTimeout(r, 1800));
   }
 
