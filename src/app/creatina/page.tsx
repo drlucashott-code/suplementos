@@ -67,7 +67,7 @@ export default async function CreatinaPage({
   });
 
   /* =========================
-     PROCESSAMENTO
+     PROCESSA + FILTRA
      ========================= */
   const rankedProducts = products
     .map((product) => {
@@ -111,7 +111,6 @@ export default async function CreatinaPage({
       }
 
       let compositionLabel: CompositionLabel = null;
-
       const units = product.creatineInfo.unitsPerDose;
 
       if (units > 3 && units <= 4) {
@@ -140,9 +139,6 @@ export default async function CreatinaPage({
       (a, b) => a!.pricePerDose - b!.pricePerDose
     );
 
-  /* =========================
-     FILTROS DISPONÍVEIS
-     ========================= */
   const brands = await prisma.product.findMany({
     where: { category: "creatina" },
     distinct: ["brand"],
@@ -162,8 +158,8 @@ export default async function CreatinaPage({
      RENDER
      ========================= */
   return (
-    <main>
-      {/* FAIXA PRETA */}
+    <main className="bg-white text-gray-900 min-h-screen">
+      {/* FAIXA SUPERIOR */}
       <section className="bg-black text-white py-8 px-4">
         <h1 className="text-2xl sm:text-3xl font-bold text-center">
           Calculadora de custo-benefício
@@ -171,43 +167,53 @@ export default async function CreatinaPage({
       </section>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        {/* TEXTO INTRODUTÓRIO (RESTAURADO) */}
-        <section className="mt-4 text-sm text-gray-700 dark:text-gray-200 space-y-1 max-w-5xl mx-auto">
+        {/* TEXTO INTRODUTÓRIO */}
+        <section className="mt-4 text-sm text-gray-700 space-y-1 max-w-5xl">
           <p>
-            Categoria: <strong>Creatina</strong> / Produtos
-            vendidos pela Amazon
-          </p>
-
-          <p>
-            Navegue pelos filtros e encontre a melhor
-            creatina para você.
+            Categoria: <strong>Creatina</strong> /
+            Produtos vendidos pela Amazon / Navegue
+            pelos filtros e encontre a melhor
+            creatina para você
           </p>
 
           <details className="mt-2">
-            <summary className="cursor-pointer text-green-600 dark:text-green-400 font-medium">
+            <summary className="cursor-pointer text-green-700 font-medium">
               Entenda o cálculo
             </summary>
 
-            <div className="mt-2 space-y-2">
+            <div className="mt-2 space-y-2 max-w-3xl">
               <p>
-                A comparação é baseada no preço por dose,
-                considerando a dose diária padrão de{" "}
+                A comparação é baseada no preço por
+                dose, considerando a dose diária
+                padrão de{" "}
                 <strong>
-                  3 g de creatina pura (princípio ativo)
-                </strong>.
+                  3 g de creatina pura (princípio
+                  ativo)
+                </strong>
+                .
               </p>
 
               <p>
-                São considerados produtos vendidos pela
-                Amazon, dentro das opções disponíveis
-                para a categoria.
+                São considerados produtos vendidos
+                pela Amazon, priorizando opções bem
+                avaliadas pelos consumidores dentro
+                da categoria.
               </p>
 
-              <p className="text-xs text-gray-600 dark:text-gray-400">
-                As recomendações de uso dos fabricantes
-                podem variar. O critério adotado neste
-                site é padronizado exclusivamente para
-                fins de comparação.
+              <p>
+                O número de doses é estimado a
+                partir da quantidade total de
+                creatina informada pelo fabricante
+                e do preço total do produto no
+                momento da consulta.
+              </p>
+
+              <p className="text-xs text-gray-500">
+                As recomendações de uso podem variar
+                conforme o fabricante. O critério
+                adotado neste site é padronizado
+                exclusivamente para fins de
+                comparação entre produtos.
               </p>
             </div>
           </details>
