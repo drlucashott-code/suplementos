@@ -105,7 +105,7 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
                 checked={order === "cost"}
                 onChange={() => setOrder("cost")}
               />
-              Melhor custo por proteína
+              Menor custo por grama de proteína
             </label>
 
             <label className="flex items-center gap-2 text-sm">
@@ -114,7 +114,7 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
                 checked={order === "protein"}
                 onChange={() => setOrder("protein")}
               />
-              Maior % de proteína
+              Maior concentração de proteína
             </label>
           </div>
 
