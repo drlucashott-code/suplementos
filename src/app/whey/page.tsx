@@ -176,7 +176,7 @@ export default async function WheyPage({
       {/* HEADER */}
       <section className="bg-black text-white py-8 px-4">
         <h1 className="text-2xl sm:text-3xl font-bold text-center">
-          Calculadora de melhor custo-benefício
+          Calculadora de custo-benefício
         </h1>
       </section>
 
