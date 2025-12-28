@@ -9,12 +9,25 @@ export function MobileProductCard({
   product: WheyProductPublic;
   isBest?: boolean;
 }) {
-  const pricePerProtein = Number(product.pricePerProtein.toFixed(2));
+  const pricePerGramProtein =
+    product.pricePerGramProtein;
 
   const pricePerProteinLabel =
-    pricePerProtein >= 1
-      ? `R$ ${pricePerProtein.toFixed(2).replace(".", ",")}`
-      : `${Math.round(pricePerProtein * 100)} centavos`;
+    Number.isFinite(pricePerGramProtein)
+      ? pricePerGramProtein >= 1
+        ? `R$ ${pricePerGramProtein
+            .toFixed(2)
+            .replace(".", ",")}`
+        : `${Math.round(
+            pricePerGramProtein * 100
+          )} centavos`
+      : "Indisponível";
+
+  const numberOfDosesLabel = Number.isFinite(
+    product.numberOfDoses
+  )
+    ? product.numberOfDoses.toFixed(0)
+    : "—";
 
   return (
     <div
@@ -55,27 +68,36 @@ export function MobileProductCard({
           </p>
 
           <p>
+            <strong>Número de doses:</strong>{" "}
+            {numberOfDosesLabel}
+          </p>
+
+          <p>
             <strong>Proteína por dose:</strong>{" "}
             {product.protein} g
           </p>
 
           <p>
             <strong>% de proteína:</strong>{" "}
-            {product.proteinPercent
-              .toFixed(1)
-              .replace(".", ",")}
+            {Number.isFinite(product.proteinPercent)
+              ? product.proteinPercent
+                  .toFixed(1)
+                  .replace(".", ",")
+              : "—"}
             %
           </p>
 
           <p>
             <strong>Preço:</strong>{" "}
-            R$ {product.price.toFixed(2)}
+            R$ {product.price
+              .toFixed(2)
+              .replace(".", ",")}
           </p>
 
           <p className="relative inline-block mt-1">
             <span className="absolute inset-y-0 -inset-x-2 bg-green-300 rounded" />
             <span className="relative font-semibold">
-              Preço por g de proteína:{" "}
+              ⭐ Preço por g de proteína:{" "}
               {pricePerProteinLabel}
             </span>
           </p>

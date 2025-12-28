@@ -84,7 +84,7 @@ model WheyInfo {
 
   /*
     Peso total do produto (em gramas)
-    Ex: 900g, 1000g, 1800g
+    Ex: 450g, 900g, 1000g, 1800g
   */
   totalWeightInGrams    Float
 
@@ -96,7 +96,7 @@ model WheyInfo {
 
   /*
     Quantidade de proteína por dose
-    Ex: 24g, 25g, 27g
+    Ex: 20g, 24g, 27g
   */
   proteinPerDoseInGrams Float
 }
@@ -106,22 +106,22 @@ model WheyInfo {
    (Amazon / Mercado Livre)
 ======================= */
 model Offer {
-  id           String   @id @default(cuid())
+  id            String   @id @default(cuid())
 
-  productId    String
-  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   /*
     AMAZON → usada no frontend e rankings
     MERCADO_LIVRE → mantida apenas para histórico/futuro uso
   */
-  store        Store
+  store         Store
 
   // ASIN (Amazon) ou MLBxxxx (Mercado Livre)
-  externalId   String
+  externalId    String
 
-  price        Float
-  affiliateUrl String
+  price         Float
+  affiliateUrl  String
 
   /*
     Avaliações:
@@ -131,10 +131,11 @@ model Offer {
   ratingAverage Float?
   ratingCount   Int?
 
-  createdAt    DateTime @default(now())
+  createdAt     DateTime @default(now())
 
-  // ⚠️ Mantido default para evitar problemas em migrations
-  updatedAt    DateTime @default(now())
+  // ✅ CORREÇÃO CRÍTICA:
+  // Atualiza automaticamente a cada update()
+  updatedAt     DateTime @updatedAt
 
   @@index([productId])
   @@index([store])

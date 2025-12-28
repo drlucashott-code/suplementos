@@ -15,7 +15,8 @@ export type WheyProductPublic = {
   protein: number; // g por dose
   dose: number; // g
   proteinPercent: number; // %
-  pricePerProtein: number; // R$ / g proteína
+  numberOfDoses: number; // ⭐ NOVO
+  pricePerGramProtein: number; // ⭐
 };
 
 export function ProductList({

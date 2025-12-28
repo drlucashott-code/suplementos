@@ -16,12 +16,15 @@ type RankedProduct = {
   name: string;
   imageUrl: string;
   flavor: string | null;
+
   price: number;
   affiliateUrl: string;
+
   protein: number;
   dose: number;
   proteinPercent: number;
-  pricePerProtein: number;
+  numberOfDoses: number;
+  pricePerGramProtein: number;
 };
 
 export default async function WheyPage({
@@ -38,6 +41,9 @@ export default async function WheyPage({
     : undefined;
   const order = params.order ?? "cost";
 
+  /* ======================
+     BUSCA PRODUTOS
+  ====================== */
   const products = await prisma.product.findMany({
     where: {
       category: "whey",
@@ -62,31 +68,69 @@ export default async function WheyPage({
     },
   });
 
+  /* ======================
+     RANKING + CÁLCULOS
+  ====================== */
   const rankedProducts: RankedProduct[] = products
     .map((product) => {
       if (!product.wheyInfo) return null;
+
       const offer = product.offers[0];
       if (!offer) return null;
 
       if (maxPrice !== undefined && offer.price > maxPrice)
         return null;
 
-      const protein = product.wheyInfo.proteinPerDoseInGrams;
+      const proteinPerDose =
+        product.wheyInfo.proteinPerDoseInGrams;
       const dose = product.wheyInfo.doseInGrams;
-      const proteinPercent = (protein / dose) * 100;
-      const pricePerProtein = offer.price / protein;
+      const totalWeight =
+        product.wheyInfo.totalWeightInGrams;
+
+      if (
+        !proteinPerDose ||
+        !dose ||
+        dose <= 0 ||
+        !totalWeight ||
+        totalWeight <= 0
+      ) {
+        return null;
+      }
+
+      const proteinPercent =
+        (proteinPerDose / dose) * 100;
+
+      if (!Number.isFinite(proteinPercent)) return null;
+
+      const numberOfDoses = totalWeight / dose;
+      if (!Number.isFinite(numberOfDoses)) return null;
+
+      const totalProtein =
+        totalWeight * (proteinPercent / 100);
+
+      if (!Number.isFinite(totalProtein) || totalProtein <= 0)
+        return null;
+
+      const pricePerGramProtein =
+        offer.price / totalProtein;
+
+      if (!Number.isFinite(pricePerGramProtein))
+        return null;
 
       return {
         id: product.id,
         name: product.name,
         imageUrl: product.imageUrl,
         flavor: product.flavor,
+
         price: offer.price,
         affiliateUrl: offer.affiliateUrl,
-        protein,
+
+        protein: proteinPerDose,
         dose,
         proteinPercent,
-        pricePerProtein,
+        numberOfDoses,
+        pricePerGramProtein,
       };
     })
     .filter((p): p is RankedProduct => p !== null)
@@ -95,11 +139,20 @@ export default async function WheyPage({
         if (b.proteinPercent !== a.proteinPercent) {
           return b.proteinPercent - a.proteinPercent;
         }
-        return a.pricePerProtein - b.pricePerProtein;
+        return (
+          a.pricePerGramProtein -
+          b.pricePerGramProtein
+        );
       }
-      return a.pricePerProtein - b.pricePerProtein;
+      return (
+        a.pricePerGramProtein -
+        b.pricePerGramProtein
+      );
     });
 
+  /* ======================
+     FILTROS
+  ====================== */
   const brands = await prisma.product.findMany({
     where: { category: "whey" },
     distinct: ["brand"],
@@ -107,13 +160,20 @@ export default async function WheyPage({
   });
 
   const flavors = await prisma.product.findMany({
-    where: { category: "whey", flavor: { not: null } },
+    where: {
+      category: "whey",
+      flavor: { not: null },
+    },
     distinct: ["flavor"],
     select: { flavor: true },
   });
 
+  /* ======================
+     RENDER
+  ====================== */
   return (
     <main>
+      {/* HEADER */}
       <section className="bg-black text-white py-8 px-4">
         <h1 className="text-2xl sm:text-3xl font-bold text-center">
           Whey Protein — custo-benefício
@@ -121,6 +181,7 @@ export default async function WheyPage({
       </section>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        {/* TEXTO INTRODUTÓRIO */}
         <section className="space-y-1 mb-6 mt-4 max-w-5xl mx-auto text-[#171717]">
           <p className="text-sm">
             Categoria: <strong>Whey Protein</strong>
@@ -129,17 +190,19 @@ export default async function WheyPage({
             Produtos vendidos pela Amazon
           </p>
           <p className="text-sm mt-2">
-            Compare wheys pelo menor preço por grama de proteína ou
-            pela maior porcentagem de proteína por dose.
+            Compare wheys pelo menor preço por grama de proteína
+            ou pela maior porcentagem de proteína por dose.
           </p>
         </section>
 
+        {/* FILTROS MOBILE */}
         <MobileFiltersDrawer
           brands={brands.map((b) => b.brand)}
           flavors={flavors.map((f) => f.flavor!).sort()}
         />
 
         <div className="flex flex-col lg:flex-row gap-8 mt-6 justify-center">
+          {/* FILTROS DESKTOP */}
           <aside className="hidden lg:block w-72 shrink-0">
             <DesktopFiltersSidebar
               brands={brands.map((b) => b.brand)}
@@ -150,6 +213,7 @@ export default async function WheyPage({
             </div>
           </aside>
 
+          {/* LISTA */}
           <div className="w-full max-w-3xl">
             <ProductList products={rankedProducts} />
           </div>
