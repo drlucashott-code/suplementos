@@ -1,5 +1,5 @@
 /**
- * Importação Amazon — Whey Protein (MANUAL ASINS)
+ * Importação Amazon — Whey Protein Isolado (MANUAL ASINS)
  * ✔ NÃO usa GetVariations
  * ✔ Processa apenas ASINs fornecidos
  * ✔ BR SAFE (GetItems + retry + batch 10)
@@ -33,7 +33,8 @@ const commonParameters = {
   SecretKey: process.env.AMAZON_SECRET_KEY!,
   PartnerTag: process.env.AMAZON_PARTNER_TAG!,
   PartnerType: "Associates",
-  Marketplace: process.env.AMAZON_MARKETPLACE || "www.amazon.com.br",
+  Marketplace:
+    process.env.AMAZON_MARKETPLACE || "www.amazon.com.br",
 };
 
 /* =======================
@@ -57,7 +58,11 @@ function writeJSON(file: string, data: any) {
 ======================= */
 function extractWeightInGrams(text: string): number {
   const kg = text.match(/(\d+(?:[.,]\d+)?)\s?kg/i);
-  if (kg) return Math.round(parseFloat(kg[1].replace(",", ".")) * 1000);
+  if (kg) {
+    return Math.round(
+      parseFloat(kg[1].replace(",", ".")) * 1000
+    );
+  }
 
   const g = text.match(/(\d+)\s?g/i);
   if (g) return parseInt(g[1], 10);
@@ -67,6 +72,7 @@ function extractWeightInGrams(text: string): number {
 
 function extractFlavor(title: string): string | null {
   const flavors = [
+    "chocolate branco",
     "chocolate",
     "baunilha",
     "morango",
@@ -79,8 +85,11 @@ function extractFlavor(title: string): string | null {
   ];
 
   const t = title.toLowerCase();
+
   for (const f of flavors) {
-    if (t.includes(f)) return f;
+    if (t.includes(f)) {
+      return f.charAt(0).toUpperCase() + f.slice(1);
+    }
   }
   return null;
 }
@@ -88,7 +97,10 @@ function extractFlavor(title: string): string | null {
 /* =======================
    AMAZON GET ITEMS (BR SAFE)
 ======================= */
-async function getItems(asins: string[], attempt = 1): Promise<any[]> {
+async function getItems(
+  asins: string[],
+  attempt = 1
+): Promise<any[]> {
   if (!asins.length) return [];
 
   try {
@@ -120,11 +132,22 @@ async function getItems(asins: string[], attempt = 1): Promise<any[]> {
    MAIN
 ======================= */
 async function run() {
-  console.log("🚀 Importação Amazon — Whey Protein (MANUAL ASINS)\n");
+  console.log(
+    "🚀 Importação Amazon — Whey Protein Isolado (MANUAL ASINS)\n"
+  );
 
-  const pendentes = readJSON<{ asins: string[] }>(PENDENTES, { asins: [] });
-  const processados = readJSON<{ asins: string[] }>(PROCESSADOS, { asins: [] });
-  const erros = readJSON<{ asins: string[] }>(ERROS, { asins: [] });
+  const pendentes = readJSON<{ asins: string[] }>(
+    PENDENTES,
+    { asins: [] }
+  );
+  const processados = readJSON<{ asins: string[] }>(
+    PROCESSADOS,
+    { asins: [] }
+  );
+  const erros = readJSON<{ asins: string[] }>(
+    ERROS,
+    { asins: [] }
+  );
 
   if (!pendentes.asins.length) {
     console.log("⚠️ Nenhum ASIN pendente para processar");
@@ -147,32 +170,38 @@ async function run() {
       const asin = item.ASIN;
 
       const exists = await prisma.offer.findFirst({
-        where: { store: Store.AMAZON, externalId: asin },
+        where: {
+          store: Store.AMAZON,
+          externalId: asin,
+        },
       });
+
       if (exists) {
         processados.asins.push(asin);
         continue;
       }
 
-      const title =
-        item.ItemInfo?.Title?.DisplayValue ?? "Whey Protein";
+      const amazonTitle =
+        item.ItemInfo?.Title?.DisplayValue ??
+        "Whey Protein Isolado";
+
       const brand =
-        item.ItemInfo?.ByLineInfo?.Brand?.DisplayValue ?? "Desconhecida";
+        item.ItemInfo?.ByLineInfo?.Brand?.DisplayValue ??
+        "Desconhecida";
 
       const totalWeightInGrams =
-        extractWeightInGrams(title) ||
-        Math.round(
-          (item.ItemInfo?.ProductInfo?.Size?.DisplayValue ?? "0")
-            .replace(/[^\d]/g, "")
-        );
+        extractWeightInGrams(amazonTitle);
 
-      const flavor = extractFlavor(title);
+      const flavor = extractFlavor(amazonTitle);
 
+      // ✅ PADRÃO DE NOME FINAL
       const name = [
-        "Whey Protein",
+        "Whey Protein Isolado",
         brand,
-        totalWeightInGrams ? `${totalWeightInGrams}g` : "",
-        title,
+        totalWeightInGrams
+          ? `${totalWeightInGrams}g`
+          : "",
+        amazonTitle,
       ]
         .filter(Boolean)
         .join(" ");
@@ -183,12 +212,13 @@ async function run() {
           name,
           brand,
           flavor,
-          imageUrl: item.Images?.Primary?.Large?.URL ?? "",
+          imageUrl:
+            item.Images?.Primary?.Large?.URL ?? "",
           wheyInfo: {
             create: {
               totalWeightInGrams,
-              doseInGrams: 0,
-              proteinPerDoseInGrams: 0,
+              doseInGrams: 30,             // ✅ 30g
+              proteinPerDoseInGrams: 24,   // ✅ 24g
             },
           },
         },

@@ -6,14 +6,6 @@ import { PrismaClient, Store } from "@prisma/client";
 const prisma = new PrismaClient();
 
 /* ======================
-   CONFIG MANUAL
-====================== */
-// Usado apenas se nenhum ASIN for passado por CLI
-const FALLBACK_ASINS: string[] = [
-  // "B0CDNJ3S3D",
-];
-
-/* ======================
    ENV CHECK
 ====================== */
 const AMAZON_ACCESS_KEY = process.env.AMAZON_ACCESS_KEY;
@@ -34,6 +26,12 @@ if (
   throw new Error("Credenciais da Amazon não configuradas");
 }
 
+const ACCESS_KEY = AMAZON_ACCESS_KEY;
+const SECRET_KEY = AMAZON_SECRET_KEY;
+const PARTNER_TAG = AMAZON_PARTNER_TAG;
+const HOST = AMAZON_HOST;
+const REGION = AMAZON_REGION;
+
 /* ======================
    AWS HELPERS
 ====================== */
@@ -42,7 +40,10 @@ function hmac(key: string | Buffer, data: string): Buffer {
 }
 
 function sha256(data: string): string {
-  return crypto.createHash("sha256").update(data).digest("hex");
+  return crypto
+    .createHash("sha256")
+    .update(data)
+    .digest("hex");
 }
 
 function getSignatureKey(
@@ -70,7 +71,7 @@ async function fetchAmazonPrice(
       "Offers.Listings.Availability.Message",
       "Offers.Listings.MerchantInfo",
     ],
-    PartnerTag: AMAZON_PARTNER_TAG,
+    PartnerTag: PARTNER_TAG,
     PartnerType: "Associates",
   });
 
@@ -83,7 +84,7 @@ async function fetchAmazonPrice(
   const canonicalHeaders =
     "content-encoding:amz-1.0\n" +
     "content-type:application/json; charset=utf-8\n" +
-    `host:${AMAZON_HOST}\n` +
+    `host:${HOST}\n` +
     `x-amz-date:${amzDate}\n`;
 
   const signedHeaders =
@@ -98,7 +99,7 @@ async function fetchAmazonPrice(
     sha256(payload);
 
   const credentialScope =
-    `${dateStamp}/${AMAZON_REGION}/${AMAZON_SERVICE}/aws4_request`;
+    `${dateStamp}/${REGION}/${AMAZON_SERVICE}/aws4_request`;
 
   const stringToSign =
     "AWS4-HMAC-SHA256\n" +
@@ -109,9 +110,9 @@ async function fetchAmazonPrice(
     sha256(canonicalRequest);
 
   const signingKey = getSignatureKey(
-    AMAZON_SECRET_KEY!,
+    SECRET_KEY,
     dateStamp,
-    AMAZON_REGION,
+    REGION,
     AMAZON_SERVICE
   );
 
@@ -121,7 +122,7 @@ async function fetchAmazonPrice(
     .digest("hex");
 
   const options = {
-    hostname: AMAZON_HOST,
+    hostname: HOST,
     path: "/paapi5/getitems",
     method: "POST",
     headers: {
@@ -131,7 +132,7 @@ async function fetchAmazonPrice(
       "X-Amz-Target":
         "com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems",
       Authorization:
-        `AWS4-HMAC-SHA256 Credential=${AMAZON_ACCESS_KEY}/${credentialScope}, ` +
+        `AWS4-HMAC-SHA256 Credential=${ACCESS_KEY}/${credentialScope}, ` +
         `SignedHeaders=${signedHeaders}, Signature=${signature}`,
       "Content-Length": Buffer.byteLength(payload),
     },
@@ -161,7 +162,7 @@ async function fetchAmazonPrice(
 }
 
 /* ======================
-   FETCH WITH RETRY
+   FETCH PRICE WITH RETRY
 ====================== */
 async function fetchAmazonPriceWithRetry(
   asin: string,
@@ -173,7 +174,7 @@ async function fetchAmazonPriceWithRetry(
 
     if (i < retries - 1) {
       console.log("⏳ Retry preço...");
-      await new Promise((r) => setTimeout(r, 2000));
+      await new Promise((r) => setTimeout(r, 1500));
     }
   }
   return null;
@@ -182,41 +183,59 @@ async function fetchAmazonPriceWithRetry(
 /* ======================
    SCRIPT
 ====================== */
-async function updateSelectedAmazonPrices() {
-  const cliAsins = process.argv.slice(2);
-  const asins: string[] =
-    cliAsins.length > 0 ? cliAsins : FALLBACK_ASINS;
+async function updateAmazonPrices() {
+  console.log(
+    "🔄 Atualizando preços da Amazon (apenas > 6h)\n"
+  );
 
-  if (asins.length === 0) {
-    console.log("⚠️ Nenhum ASIN informado");
-    process.exit(0);
+  const SIX_HOURS_AGO = new Date(
+    Date.now() - 6 * 60 * 60 * 1000
+  );
+
+  const offers = await prisma.offer.findMany({
+    where: {
+      store: Store.AMAZON,
+      updatedAt: {
+        lt: SIX_HOURS_AGO,
+      },
+    },
+    include: {
+      product: true,
+    },
+  });
+
+  if (offers.length === 0) {
+    console.log(
+      "⏭️ Nenhuma offer elegível (todas atualizadas nas últimas 6h)"
+    );
+    await prisma.$disconnect();
+    return;
   }
 
   console.log(
-    `🔄 Atualizando preços manualmente (${asins.length} ASINs)\n`
+    `🔎 ${offers.length} ofertas elegíveis para atualização\n`
   );
 
-  for (const asin of asins) {
-    console.log(`🔎 ASIN ${asin}`);
+  for (const offer of offers) {
+    const hoursSinceUpdate =
+      (Date.now() - offer.updatedAt.getTime()) /
+      (1000 * 60 * 60);
 
-    const offer = await prisma.offer.findFirst({
-      where: {
-        store: Store.AMAZON,
-        externalId: asin,
-      },
-      include: { product: true },
-    });
+    console.log(
+      `🔎 ASIN ${offer.externalId} | Última atualização: ${hoursSinceUpdate.toFixed(
+        2
+      )}h atrás`
+    );
 
-    if (!offer) {
-      console.log("⚠️ ASIN não encontrado no banco");
-      continue;
-    }
-
-    const price = await fetchAmazonPriceWithRetry(asin);
+    const price = await fetchAmazonPriceWithRetry(
+      offer.externalId
+    );
 
     if (price === null) {
-      console.log("⚠️ Preço não encontrado");
-      await new Promise((r) => setTimeout(r, 2000));
+      console.log(
+        `⚠️ Preço não encontrado para ${offer.externalId}`
+      );
+      await new Promise((r) => setTimeout(r, 1800));
       continue;
     }
 
@@ -224,7 +243,7 @@ async function updateSelectedAmazonPrices() {
       where: { id: offer.id },
       data: {
         price,
-        affiliateUrl: `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG}`,
+        affiliateUrl: `https://www.amazon.com.br/dp/${offer.externalId}?tag=${PARTNER_TAG}`,
       },
     });
 
@@ -232,15 +251,15 @@ async function updateSelectedAmazonPrices() {
       `✅ ${offer.product.name} — R$ ${price}`
     );
 
-    // Delay anti-throttling
-    await new Promise((r) => setTimeout(r, 2000));
+    // ⏱️ delay anti-throttling
+    await new Promise((r) => setTimeout(r, 1800));
   }
 
-  console.log("\n🏁 Atualização manual finalizada");
+  console.log("\n🏁 Amazon atualizada (bloqueio 6h ativo)");
   await prisma.$disconnect();
 }
 
-updateSelectedAmazonPrices().catch(async (err) => {
+updateAmazonPrices().catch(async (err) => {
   console.error(err);
   await prisma.$disconnect();
   process.exit(1);

@@ -181,16 +181,23 @@ async function fetchAmazonPriceWithRetry(
 }
 
 /* ======================
-   SCRIPT
+   SCRIPT (BLOQUEIO 6H)
 ====================== */
 async function updateAmazonPrices() {
   console.log(
-    "🔄 Atualizando preços da Amazon (SEM bloqueio por tempo)...\n"
+    "🔄 Atualizando preços da Amazon (APENAS ofertas > 6h)\n"
+  );
+
+  const SIX_HOURS_AGO = new Date(
+    Date.now() - 6 * 60 * 60 * 1000
   );
 
   const offers = await prisma.offer.findMany({
     where: {
       store: Store.AMAZON,
+      updatedAt: {
+        lt: SIX_HOURS_AGO,
+      },
     },
     include: {
       product: true,
@@ -198,17 +205,27 @@ async function updateAmazonPrices() {
   });
 
   if (offers.length === 0) {
-    console.log("⏭️ Nenhuma offer encontrada");
+    console.log(
+      "⏭️ Nenhuma offer elegível (todas atualizadas nas últimas 6h)"
+    );
     await prisma.$disconnect();
     return;
   }
 
   console.log(
-    `🔎 ${offers.length} ofertas encontradas para atualização\n`
+    `🔎 ${offers.length} ofertas elegíveis para atualização\n`
   );
 
   for (const offer of offers) {
-    console.log(`🔎 ASIN ${offer.externalId}`);
+    const hoursSinceUpdate =
+      (Date.now() - offer.updatedAt.getTime()) /
+      (1000 * 60 * 60);
+
+    console.log(
+      `🔎 ASIN ${offer.externalId} | Última atualização: ${hoursSinceUpdate.toFixed(
+        2
+      )}h atrás`
+    );
 
     const price = await fetchAmazonPriceWithRetry(
       offer.externalId
@@ -226,8 +243,8 @@ async function updateAmazonPrices() {
       where: { id: offer.id },
       data: {
         price,
-        updatedAt: new Date(),
         affiliateUrl: `https://www.amazon.com.br/dp/${offer.externalId}?tag=${PARTNER_TAG}`,
+        // updatedAt é atualizado automaticamente pelo @updatedAt
       },
     });
 
@@ -239,7 +256,7 @@ async function updateAmazonPrices() {
     await new Promise((r) => setTimeout(r, 1800));
   }
 
-  console.log("\n🏁 Amazon atualizada (sem bloqueio)");
+  console.log("\n🏁 Amazon atualizada (bloqueio 6h ATIVO)");
   await prisma.$disconnect();
 }
 
