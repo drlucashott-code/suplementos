@@ -8,11 +8,22 @@ export default function Home() {
         <h1 className="text-2xl sm:text-3xl font-bold text-center">
           Calculadora de custo-benefício
         </h1>
+        <p className="mt-2 text-sm text-center text-gray-300">
+          🚧 Site em construção — novas funcionalidades em breve
+        </p>
       </section>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        {/* AVISO ANO NOVO */}
+        <section className="mt-6 mb-6 max-w-5xl mx-auto text-center">
+          <p className="text-sm font-medium text-[#171717]">
+            ✨ Feliz Ano Novo! Desejamos um ano de saúde, bons treinos
+            e escolhas mais inteligentes.
+          </p>
+        </section>
+
         {/* TEXTO INTRODUTÓRIO */}
-        <section className="space-y-2 mb-8 mt-6 max-w-5xl mx-auto text-[#171717]">
+        <section className="space-y-2 mb-8 max-w-5xl mx-auto text-[#171717]">
           <p className="text-sm">
             Compare suplementos e encontre o melhor custo-benefício
             com base em preço, rendimento e composição nutricional.
