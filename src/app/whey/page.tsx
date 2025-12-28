@@ -176,7 +176,7 @@ export default async function WheyPage({
       {/* HEADER */}
       <section className="bg-black text-white py-8 px-4">
         <h1 className="text-2xl sm:text-3xl font-bold text-center">
-          Whey Protein — custo-benefício
+          Calculadora de melhor custo-benefício
         </h1>
       </section>
 
@@ -190,8 +190,8 @@ export default async function WheyPage({
             Produtos vendidos pela Amazon
           </p>
           <p className="text-sm mt-2">
-            Compare wheys pelo menor preço por grama de proteína
-            ou pela maior porcentagem de proteína por dose.
+            Ordene os produtos pelo menor preço por grama de proteína
+            ou pela maior concentração de proteína por dose.
           </p>
         </section>
 
