@@ -181,11 +181,11 @@ async function fetchAmazonPriceWithRetry(
 }
 
 /* ======================
-   SCRIPT (BLOQUEIO 6H)
+   SCRIPT (6H + PRICE=0)
 ====================== */
 async function updateAmazonPrices() {
   console.log(
-    "🔄 Atualizando preços da Amazon (APENAS ofertas > 6h)\n"
+    "🔄 Atualizando preços da Amazon (price=0 ou > 6h)\n"
   );
 
   const SIX_HOURS_AGO = new Date(
@@ -195,12 +195,14 @@ async function updateAmazonPrices() {
   const offers = await prisma.offer.findMany({
     where: {
       store: Store.AMAZON,
-      updatedAt: {
-        lt: SIX_HOURS_AGO,
-      },
-    },
-    include: {
-      product: true,
+      OR: [
+        { price: 0 }, // recém adicionados
+        {
+          updatedAt: {
+            lt: SIX_HOURS_AGO,
+          },
+        },
+      ],
     },
   });
 
@@ -222,9 +224,11 @@ async function updateAmazonPrices() {
       (1000 * 60 * 60);
 
     console.log(
-      `🔎 ASIN ${offer.externalId} | Última atualização: ${hoursSinceUpdate.toFixed(
-        2
-      )}h atrás`
+      `🔎 ASIN ${offer.externalId} | Última atualização: ${
+        offer.price === 0
+          ? "NUNCA"
+          : `${hoursSinceUpdate.toFixed(2)}h atrás`
+      }`
     );
 
     const price = await fetchAmazonPriceWithRetry(
@@ -244,19 +248,18 @@ async function updateAmazonPrices() {
       data: {
         price,
         affiliateUrl: `https://www.amazon.com.br/dp/${offer.externalId}?tag=${PARTNER_TAG}`,
-        // updatedAt é atualizado automaticamente pelo @updatedAt
       },
     });
 
     console.log(
-      `✅ ${offer.product.name} — R$ ${price}`
+      `✅ ASIN ${offer.externalId} — R$ ${price}`
     );
 
     // ⏱️ delay anti-throttling
     await new Promise((r) => setTimeout(r, 1800));
   }
 
-  console.log("\n🏁 Amazon atualizada (bloqueio 6h ATIVO)");
+  console.log("\n🏁 Amazon atualizada");
   await prisma.$disconnect();
 }
 
