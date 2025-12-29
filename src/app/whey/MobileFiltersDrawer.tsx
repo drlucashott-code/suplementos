@@ -8,6 +8,14 @@ type Props = {
   flavors: string[];
 };
 
+const PROTEIN_RANGES = [
+  "50-60",
+  "60-70",
+  "70-80",
+  "80-90",
+  "90-100",
+];
+
 export function MobileFiltersDrawer({ brands, flavors }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -15,6 +23,9 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
 
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
+  const [selectedProteinRanges, setSelectedProteinRanges] = useState<string[]>(
+    []
+  );
   const [order, setOrder] = useState<"cost" | "protein">("cost");
   const [tempPrice, setTempPrice] = useState<number>(200);
 
@@ -23,6 +34,9 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
 
     setSelectedBrands(searchParams.get("brand")?.split(",") ?? []);
     setSelectedFlavors(searchParams.get("flavor")?.split(",") ?? []);
+    setSelectedProteinRanges(
+      searchParams.get("proteinRange")?.split(",") ?? []
+    );
     setOrder((searchParams.get("order") as "cost" | "protein") ?? "cost");
     setTempPrice(Number(searchParams.get("priceMax")) || 200);
   }, [open, searchParams]);
@@ -46,6 +60,8 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
       params.set("brand", selectedBrands.join(","));
     if (selectedFlavors.length)
       params.set("flavor", selectedFlavors.join(","));
+    if (selectedProteinRanges.length)
+      params.set("proteinRange", selectedProteinRanges.join(","));
 
     params.set("order", order);
     params.set("priceMax", String(tempPrice));
@@ -57,6 +73,7 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
   function clearFilters() {
     setSelectedBrands([]);
     setSelectedFlavors([]);
+    setSelectedProteinRanges([]);
     setOrder("cost");
     setTempPrice(200);
     router.push("/whey");
@@ -96,6 +113,7 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
         </div>
 
         <div className="p-5 overflow-y-auto flex-1 space-y-6">
+          {/* ORDENAÇÃO */}
           <div>
             <p className="font-medium mb-2">Ordenar por</p>
 
@@ -118,6 +136,31 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
             </label>
           </div>
 
+          {/* CONCENTRAÇÃO */}
+          <div>
+            <p className="font-medium mb-2">
+              Concentração de proteína
+            </p>
+
+            {PROTEIN_RANGES.map((range) => (
+              <label key={range} className="flex items-center gap-2 text-sm mb-2">
+                <input
+                  type="checkbox"
+                  checked={selectedProteinRanges.includes(range)}
+                  onChange={() =>
+                    toggle(
+                      range,
+                      selectedProteinRanges,
+                      setSelectedProteinRanges
+                    )
+                  }
+                />
+                {range.replace("-", "–")}%
+              </label>
+            ))}
+          </div>
+
+          {/* MARCA */}
           <div>
             <p className="font-medium mb-2">Marca</p>
             {[...brands].sort().map((b) => (
@@ -134,6 +177,7 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
             ))}
           </div>
 
+          {/* SABOR */}
           <div>
             <p className="font-medium mb-2">Sabor</p>
             {[...flavors].sort().map((f) => (
@@ -150,6 +194,7 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
             ))}
           </div>
 
+          {/* PREÇO */}
           <div>
             <p className="font-medium mb-2">Preço máximo</p>
             <p className="text-sm mb-1">

@@ -7,6 +7,14 @@ type Props = {
   flavors: string[];
 };
 
+const PROTEIN_RANGES = [
+  "50-60",
+  "60-70",
+  "70-80",
+  "80-90",
+  "90-100",
+];
+
 export function DesktopFiltersSidebar({ brands, flavors }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -31,12 +39,16 @@ export function DesktopFiltersSidebar({ brands, flavors }: Props) {
       params.set(param, next.join(","));
     }
 
+    // 🔑 sempre resetar página ao filtrar
+    params.delete("page");
+
     router.push(`/whey?${params.toString()}`);
   }
 
   function setOrder(order: "cost" | "protein") {
     const params = new URLSearchParams(searchParams.toString());
     params.set("order", order);
+    params.delete("page");
     router.push(`/whey?${params.toString()}`);
   }
 
@@ -80,6 +92,24 @@ export function DesktopFiltersSidebar({ brands, flavors }: Props) {
           />
           Maior % de proteína
         </label>
+      </div>
+
+      {/* CONCENTRAÇÃO DE PROTEÍNA */}
+      <div>
+        <p className="font-medium text-sm mb-2">
+          Concentração de proteína
+        </p>
+
+        {PROTEIN_RANGES.map((range) => (
+          <label key={range} className="flex gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={getSelected("proteinRange").includes(range)}
+              onChange={() => toggleParam("proteinRange", range)}
+            />
+            {range.replace("-", "–")}%
+          </label>
+        ))}
       </div>
 
       {/* MARCA */}
