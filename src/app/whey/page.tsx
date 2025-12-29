@@ -10,10 +10,7 @@ export type SearchParams = {
   priceMax?: string;
   order?: "cost" | "protein";
   proteinRange?: string; // 50-60 | 60-70 | 70-80 | 80-90 | 90-100
-  page?: string;
 };
-
-const PAGE_SIZE = 30;
 
 type RankedProduct = {
   id: string;
@@ -73,7 +70,6 @@ export default async function WheyPage({
     : undefined;
 
   const order = params.order ?? "cost";
-  const currentPage = Math.max(Number(params.page) || 1, 1);
 
   /* ======================
      BUSCA PRODUTOS
@@ -190,21 +186,6 @@ export default async function WheyPage({
     });
 
   /* ======================
-     PAGINAÇÃO
-  ====================== */
-  const totalPages = Math.max(
-    Math.ceil(rankedProducts.length / PAGE_SIZE),
-    1
-  );
-
-  const safePage = Math.min(currentPage, totalPages);
-
-  const paginatedProducts = rankedProducts.slice(
-    (safePage - 1) * PAGE_SIZE,
-    safePage * PAGE_SIZE
-  );
-
-  /* ======================
      FILTROS DISPONÍVEIS
   ====================== */
   const brands = await prisma.product.findMany({
@@ -261,42 +242,12 @@ export default async function WheyPage({
           </aside>
 
           <div className="w-full max-w-3xl">
-            {paginatedProducts.length === 0 ? (
+            {rankedProducts.length === 0 ? (
               <div className="text-center text-sm text-gray-600 py-16">
                 Nenhum produto encontrado.
               </div>
             ) : (
-              <>
-                <ProductList products={paginatedProducts} />
-
-                {totalPages > 1 && (
-                  <div className="flex justify-center gap-2 mt-8">
-                    {Array.from({ length: totalPages }).map(
-                      (_, i) => {
-                        const page = i + 1;
-                        const qs = new URLSearchParams(
-                          params as any
-                        );
-                        qs.set("page", String(page));
-
-                        return (
-                          <a
-                            key={page}
-                            href={`/whey?${qs.toString()}`}
-                            className={`px-3 py-1 rounded text-sm ${
-                              page === safePage
-                                ? "bg-black text-white"
-                                : "bg-gray-100"
-                            }`}
-                          >
-                            {page}
-                          </a>
-                        );
-                      }
-                    )}
-                  </div>
-                )}
-              </>
+              <ProductList products={rankedProducts} />
             )}
           </div>
         </div>
