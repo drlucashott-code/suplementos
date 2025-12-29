@@ -8,7 +8,7 @@ export function PriceSlider() {
   const searchParams = useSearchParams();
 
   const initial =
-    Number(searchParams.get("priceMax")) || 200;
+    Number(searchParams.get("priceMax")) || 400;
 
   const [tempValue, setTempValue] = useState(initial);
 
@@ -18,7 +18,6 @@ export function PriceSlider() {
     );
 
     params.set("priceMax", String(value));
-    params.delete("page"); // ⭐ reset paginação
     router.push(`/whey?${params.toString()}`);
   }
 
@@ -33,7 +32,8 @@ export function PriceSlider() {
       <input
         type="range"
         min={20}
-        max={200}
+        max={400}
+        step={1}
         value={tempValue}
         onChange={(e) =>
           setTempValue(Number(e.target.value))

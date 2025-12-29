@@ -27,20 +27,34 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
     []
   );
   const [order, setOrder] = useState<"cost" | "protein">("cost");
-  const [tempPrice, setTempPrice] = useState<number>(200);
+  const [tempPrice, setTempPrice] = useState<number>(400);
 
+  /* =========================
+     SINCRONIZA COM URL AO ABRIR
+     ========================= */
   useEffect(() => {
     if (!open) return;
 
-    setSelectedBrands(searchParams.get("brand")?.split(",") ?? []);
-    setSelectedFlavors(searchParams.get("flavor")?.split(",") ?? []);
+    setSelectedBrands(
+      searchParams.get("brand")?.split(",") ?? []
+    );
+    setSelectedFlavors(
+      searchParams.get("flavor")?.split(",") ?? []
+    );
     setSelectedProteinRanges(
       searchParams.get("proteinRange")?.split(",") ?? []
     );
-    setOrder((searchParams.get("order") as "cost" | "protein") ?? "cost");
-    setTempPrice(Number(searchParams.get("priceMax")) || 200);
+    setOrder(
+      (searchParams.get("order") as "cost" | "protein") ?? "cost"
+    );
+    setTempPrice(
+      Number(searchParams.get("priceMax")) || 400
+    );
   }, [open, searchParams]);
 
+  /* =========================
+     HELPERS
+     ========================= */
   function toggle(
     value: string,
     list: string[],
@@ -53,6 +67,9 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
     );
   }
 
+  /* =========================
+     APLICAR FILTROS
+     ========================= */
   function applyFilters() {
     const params = new URLSearchParams();
 
@@ -61,7 +78,10 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
     if (selectedFlavors.length)
       params.set("flavor", selectedFlavors.join(","));
     if (selectedProteinRanges.length)
-      params.set("proteinRange", selectedProteinRanges.join(","));
+      params.set(
+        "proteinRange",
+        selectedProteinRanges.join(",")
+      );
 
     params.set("order", order);
     params.set("priceMax", String(tempPrice));
@@ -70,25 +90,33 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
     setOpen(false);
   }
 
+  /* =========================
+     LIMPAR FILTROS
+     ========================= */
   function clearFilters() {
     setSelectedBrands([]);
     setSelectedFlavors([]);
     setSelectedProteinRanges([]);
     setOrder("cost");
-    setTempPrice(200);
+    setTempPrice(400);
+
     router.push("/whey");
     setOpen(false);
   }
 
   return (
     <>
+      {/* BOTÃO */}
       <button
         onClick={() => setOpen(true)}
         className="sm:hidden w-full bg-white text-black px-4 py-3 rounded-xl shadow border flex items-center justify-center gap-2"
       >
-        <span className="font-medium text-sm">Filtrar produtos</span>
+        <span className="font-medium text-sm">
+          Filtrar produtos
+        </span>
       </button>
 
+      {/* OVERLAY */}
       {open && (
         <div
           className="fixed inset-0 bg-black/40 z-40 sm:hidden"
@@ -96,14 +124,18 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
         />
       )}
 
+      {/* DRAWER */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-50 sm:hidden bg-white rounded-t-2xl transition-transform duration-300 flex flex-col ${
           open ? "translate-y-0" : "translate-y-full"
         }`}
         style={{ height: "90vh" }}
       >
+        {/* HEADER */}
         <div className="p-5 border-b flex justify-between items-center">
-          <h2 className="font-semibold text-lg">Filtros</h2>
+          <h2 className="font-semibold text-lg">
+            Filtros
+          </h2>
           <button
             onClick={() => setOpen(false)}
             className="text-gray-500 text-sm"
@@ -112,10 +144,13 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
           </button>
         </div>
 
+        {/* CONTEÚDO */}
         <div className="p-5 overflow-y-auto flex-1 space-y-6">
           {/* ORDENAÇÃO */}
           <div>
-            <p className="font-medium mb-2">Ordenar por</p>
+            <p className="font-medium mb-2">
+              Ordenar por
+            </p>
 
             <label className="flex items-center gap-2 text-sm mb-2">
               <input
@@ -143,10 +178,15 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
             </p>
 
             {PROTEIN_RANGES.map((range) => (
-              <label key={range} className="flex items-center gap-2 text-sm mb-2">
+              <label
+                key={range}
+                className="flex items-center gap-2 text-sm mb-2"
+              >
                 <input
                   type="checkbox"
-                  checked={selectedProteinRanges.includes(range)}
+                  checked={selectedProteinRanges.includes(
+                    range
+                  )}
                   onChange={() =>
                     toggle(
                       range,
@@ -164,12 +204,19 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
           <div>
             <p className="font-medium mb-2">Marca</p>
             {[...brands].sort().map((b) => (
-              <label key={b} className="flex items-center gap-2 text-sm mb-2">
+              <label
+                key={b}
+                className="flex items-center gap-2 text-sm mb-2"
+              >
                 <input
                   type="checkbox"
                   checked={selectedBrands.includes(b)}
                   onChange={() =>
-                    toggle(b, selectedBrands, setSelectedBrands)
+                    toggle(
+                      b,
+                      selectedBrands,
+                      setSelectedBrands
+                    )
                   }
                 />
                 {b}
@@ -181,12 +228,21 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
           <div>
             <p className="font-medium mb-2">Sabor</p>
             {[...flavors].sort().map((f) => (
-              <label key={f} className="flex items-center gap-2 text-sm mb-2">
+              <label
+                key={f}
+                className="flex items-center gap-2 text-sm mb-2"
+              >
                 <input
                   type="checkbox"
-                  checked={selectedFlavors.includes(f)}
+                  checked={selectedFlavors.includes(
+                    f
+                  )}
                   onChange={() =>
-                    toggle(f, selectedFlavors, setSelectedFlavors)
+                    toggle(
+                      f,
+                      selectedFlavors,
+                      setSelectedFlavors
+                    )
                   }
                 />
                 {f}
@@ -196,22 +252,27 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
 
           {/* PREÇO */}
           <div>
-            <p className="font-medium mb-2">Preço máximo</p>
+            <p className="font-medium mb-2">
+              Preço máximo
+            </p>
             <p className="text-sm mb-1">
               Até <strong>R$ {tempPrice}</strong>
             </p>
             <input
               type="range"
               min={20}
-              max={200}
+              max={400}
               step={1}
               value={tempPrice}
-              onChange={(e) => setTempPrice(Number(e.target.value))}
+              onChange={(e) =>
+                setTempPrice(Number(e.target.value))
+              }
               className="w-full accent-green-600"
             />
           </div>
         </div>
 
+        {/* FOOTER */}
         <div className="p-4 border-t space-y-2">
           <button
             onClick={applyFilters}
