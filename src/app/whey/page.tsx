@@ -220,8 +220,11 @@ export default async function WheyPage({
             Categoria: <strong>Whey Protein</strong>
           </p>
           <p className="text-sm">
-            Produtos vendidos pela Amazon e com as melhores
-            avaliações do mercado
+            Produtos vendidos pela Amazon
+          </p>
+          <p className="text-sm mt-2">
+            Ordene os produtos pelo menor preço por grama de proteína
+            ou pela maior concentração de proteína por dose.
           </p>
         </section>
 
