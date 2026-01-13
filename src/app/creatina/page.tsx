@@ -154,14 +154,12 @@ export default async function CreatinaPage({
           );
         }
       }
-
       return a.pricePerGram - b.pricePerGram;
     });
 
   /* =========================
      FILTROS DISPONÍVEIS
      ========================= */
-
   const brands: string[] = [
     ...new Set(
       products
@@ -188,77 +186,76 @@ export default async function CreatinaPage({
      RENDER
      ========================= */
   return (
-    <>
-      <FloatingFiltersBar />
+    <main className="pt-[96px]">
+      {/* HEADER */}
+      <section className="bg-[#131921] text-white px-4 py-3">
+        <h1 className="text-sm">
+          Buscador de suplementos
+        </h1>
+      </section>
 
-      <main className="pt-[96px]">
-        {/* HEADER ESTILO AMAZON */}
-        <section className="bg-[#131921] text-white px-4 py-3">
-          <h1 className="text-sm">
-            Creatina
-          </h1>
+      <div className="max-w-[1200px] mx-auto px-3">
+        {/* TEXTO INTRODUTÓRIO */}
+        <section className="mt-3 mb-2 text-sm text-[#0F1111] space-y-0.5">
+          <p>
+            Categoria: <strong>Creatina</strong>
+          </p>
+
+          <p className="text-gray-600">
+            Produtos vendidos pela Amazon
+          </p>
+
+          <details>
+            <summary className="cursor-pointer text-[#007185] text-sm">
+              Como o ranking é calculado
+            </summary>
+
+            <div className="mt-1 text-sm text-gray-700 space-y-1 max-w-3xl">
+              <p>
+                Ordenação pelo menor preço por grama
+                de creatina (princípio ativo).
+              </p>
+              <p>
+                O desconto considera a média de
+                preço dos últimos 30 dias.
+              </p>
+            </div>
+          </details>
         </section>
 
-        <div className="max-w-[1200px] mx-auto px-3">
-          {/* TEXTO INTRODUTÓRIO */}
-          <section className="mt-3 mb-3 text-sm text-[#0F1111] space-y-0.5">
-            <p>
-              Categoria: <strong>Creatina</strong>
-            </p>
+        {/* FILTRAR + ORDENAR (NÃO FIXO, POSIÇÃO CORRETA) */}
+        <FloatingFiltersBar />
 
-            <p className="text-gray-600">
-              Produtos vendidos pela Amazon
-            </p>
+        {/* FILTROS MOBILE */}
+        <MobileFiltersDrawer
+          brands={brands}
+          flavors={flavors}
+        />
 
-            <details>
-              <summary className="cursor-pointer text-[#007185] text-sm">
-                Como o ranking é calculado
-              </summary>
+        {/* DESKTOP + LISTA */}
+        <div className="flex flex-col lg:flex-row gap-6 mt-4">
+          <aside className="hidden lg:block w-64 shrink-0">
+            <DesktopFiltersSidebar
+              brands={brands}
+              flavors={flavors}
+            />
 
-              <div className="mt-1 text-sm text-gray-700 space-y-1 max-w-3xl">
-                <p>
-                  Ordenação pelo menor preço por
-                  grama de creatina.
-                </p>
-                <p>
-                  Desconto baseado na média de
-                  preço dos últimos 30 dias.
-                </p>
-              </div>
-            </details>
-          </section>
-
-          {/* FILTROS MOBILE */}
-          <MobileFiltersDrawer
-            brands={brands}
-            flavors={flavors}
-          />
-
-          {/* DESKTOP + LISTA */}
-          <div className="flex flex-col lg:flex-row gap-6">
-            <aside className="hidden lg:block w-64 shrink-0">
-              <DesktopFiltersSidebar
-                brands={brands}
-                flavors={flavors}
-              />
-
-              <div className="mt-3">
-                <PriceSlider />
-              </div>
-            </aside>
-
-            <div className="w-full max-w-[680px]">
-              <p className="text-xs text-gray-600 mb-2">
-                {finalProducts.length} resultados
-              </p>
-
-              <ProductList
-                products={finalProducts}
-              />
+            <div className="mt-3">
+              <PriceSlider />
             </div>
+          </aside>
+
+          <div className="w-full max-w-[680px]">
+            <p className="text-xs text-gray-600 mb-2">
+              {finalProducts.length} resultados
+            </p>
+
+            <ProductList
+              products={finalProducts}
+            />
           </div>
         </div>
-      </main>
-    </>
+      </div>
+    </main>
   );
 }

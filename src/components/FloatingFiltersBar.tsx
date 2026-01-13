@@ -1,16 +1,13 @@
 "use client";
 
-import { useScrollDirection } from "@/hooks/useScrollDirection";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export function FloatingFiltersBar() {
-  const visible = useScrollDirection();
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const order =
-    (searchParams.get("order") as "gram" | "discount") ??
-    "gram";
+    searchParams.get("order") ?? "gram";
 
   function openFilters() {
     const params = new URLSearchParams(
@@ -20,9 +17,7 @@ export function FloatingFiltersBar() {
     router.push(`/creatina?${params.toString()}`);
   }
 
-  function changeOrder(
-    value: "gram" | "discount"
-  ) {
+  function changeOrder(value: string) {
     const params = new URLSearchParams(
       searchParams.toString()
     );
@@ -31,36 +26,28 @@ export function FloatingFiltersBar() {
   }
 
   return (
-    <div
-      className={`fixed top-[56px] left-0 right-0 z-40 bg-white border-b transition-transform duration-200 ${
-        visible
-          ? "translate-y-0"
-          : "-translate-y-full"
-      }`}
-    >
-      <div className="flex items-center gap-3 px-3 py-2 overflow-x-auto">
+    <div className="mt-2 mb-3">
+      <div className="flex items-center gap-3">
+        {/* BOTÃO FILTRAR */}
         <button
           onClick={openFilters}
-          className="px-3 py-1 text-sm border rounded-full"
+          className="border border-gray-400 rounded-full px-4 py-2 text-sm bg-white hover:bg-gray-50"
         >
           Filtrar
         </button>
 
+        {/* ORDENAR */}
         <div className="flex items-center gap-1 text-sm">
-          <span className="text-gray-500">
+          <span className="text-gray-600">
             Ordenar:
           </span>
 
           <select
             value={order}
             onChange={(e) =>
-              changeOrder(
-                e.target.value as
-                  | "gram"
-                  | "discount"
-              )
+              changeOrder(e.target.value)
             }
-            className="border rounded px-2 py-1 bg-white"
+            className="border border-gray-400 rounded px-2 py-1 bg-white"
           >
             <option value="gram">
               Preço por grama
