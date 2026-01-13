@@ -1,10 +1,7 @@
 "use client";
 
 import { CreatineForm } from "@prisma/client";
-import {
-  useRouter,
-  useSearchParams,
-} from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 type Props = {
@@ -18,6 +15,7 @@ export function MobileFiltersDrawer({
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
+
   const [open, setOpen] = useState(false);
 
   const [selectedBrands, setSelectedBrands] =
@@ -29,39 +27,38 @@ export function MobileFiltersDrawer({
   const [tempPrice, setTempPrice] =
     useState<number>(200);
 
-  // abre via ?openFilters=1
+  /* =========================
+     ABRE VIA EVENTO (SEM URL)
+     ========================= */
   useEffect(() => {
-    if (searchParams.get("openFilters") === "1") {
-      setOpen(true);
-
+    function handleOpen() {
       setSelectedBrands(
-        searchParams.get("brand")?.split(",") ??
-          []
+        searchParams.get("brand")?.split(",") ?? []
       );
       setSelectedFlavors(
-        searchParams
-          .get("flavor")
-          ?.split(",") ?? []
+        searchParams.get("flavor")?.split(",") ?? []
       );
       setSelectedForms(
         (searchParams
           .get("form")
-          ?.split(",") as CreatineForm[]) ??
-          []
+          ?.split(",") as CreatineForm[]) ?? []
       );
       setTempPrice(
-        Number(searchParams.get("priceMax")) ||
-          200
+        Number(searchParams.get("priceMax")) || 200
       );
+
+      setOpen(true);
     }
+
+    window.addEventListener("open-filters", handleOpen);
+    return () =>
+      window.removeEventListener(
+        "open-filters",
+        handleOpen
+      );
   }, [searchParams]);
 
   function closeDrawer() {
-    const params = new URLSearchParams(
-      searchParams.toString()
-    );
-    params.delete("openFilters");
-    router.replace(`/creatina?${params}`);
     setOpen(false);
   }
 
@@ -77,28 +74,22 @@ export function MobileFiltersDrawer({
     );
   }
 
+  /* =========================
+     APLICA FILTROS (AQUI SIM NAVEGA)
+     ========================= */
   function applyFilters() {
     const params = new URLSearchParams();
 
     if (selectedBrands.length)
-      params.set(
-        "brand",
-        selectedBrands.join(",")
-      );
+      params.set("brand", selectedBrands.join(","));
     if (selectedFlavors.length)
-      params.set(
-        "flavor",
-        selectedFlavors.join(",")
-      );
+      params.set("flavor", selectedFlavors.join(","));
     if (selectedForms.length)
-      params.set(
-        "form",
-        selectedForms.join(",")
-      );
+      params.set("form", selectedForms.join(","));
 
     params.set("priceMax", String(tempPrice));
 
-    router.push(`/creatina?${params}`);
+    router.push(`/creatina?${params.toString()}`);
     setOpen(false);
   }
 
@@ -111,15 +102,18 @@ export function MobileFiltersDrawer({
 
   return (
     <>
+      {/* OVERLAY */}
       <div
         className="fixed inset-0 bg-black/40 z-40"
         onClick={closeDrawer}
       />
 
+      {/* DRAWER */}
       <div
         className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl flex flex-col"
         style={{ height: "90vh" }}
       >
+        {/* HEADER */}
         <div className="p-4 border-b flex justify-between items-center">
           <h2 className="font-semibold text-lg">
             Filtros
@@ -132,25 +126,17 @@ export function MobileFiltersDrawer({
           </button>
         </div>
 
+        {/* CONTEÚDO */}
         <div className="p-4 overflow-y-auto flex-1 space-y-6">
+          {/* APRESENTAÇÃO */}
           <div>
             <p className="font-medium mb-2">
               Apresentação
             </p>
-
             {[
-              {
-                value: CreatineForm.CAPSULE,
-                label: "Cápsula",
-              },
-              {
-                value: CreatineForm.GUMMY,
-                label: "Gummy",
-              },
-              {
-                value: CreatineForm.POWDER,
-                label: "Pó",
-              },
+              { value: CreatineForm.CAPSULE, label: "Cápsula" },
+              { value: CreatineForm.GUMMY, label: "Gummy" },
+              { value: CreatineForm.POWDER, label: "Pó" },
             ].map((f) => (
               <label
                 key={f.value}
@@ -174,6 +160,7 @@ export function MobileFiltersDrawer({
             ))}
           </div>
 
+          {/* MARCA */}
           <div>
             <p className="font-medium mb-2">
               Marca
@@ -201,6 +188,7 @@ export function MobileFiltersDrawer({
             ))}
           </div>
 
+          {/* SABOR */}
           <div>
             <p className="font-medium mb-2">
               Sabor
@@ -228,6 +216,7 @@ export function MobileFiltersDrawer({
             ))}
           </div>
 
+          {/* PREÇO */}
           <div>
             <p className="font-medium mb-2">
               Preço máximo
@@ -251,6 +240,7 @@ export function MobileFiltersDrawer({
           </div>
         </div>
 
+        {/* FOOTER */}
         <div className="p-4 border-t space-y-2">
           <button
             onClick={applyFilters}

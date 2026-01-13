@@ -1,19 +1,18 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
 export function FloatingFiltersBar() {
-  const router = useRouter();
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const order = searchParams.get("order") ?? "gram";
 
   function openFilters() {
-    const params = new URLSearchParams(
-      searchParams.toString()
+    // 🔑 NÃO navega, NÃO muda URL, NÃO sobe a página
+    window.dispatchEvent(
+      new CustomEvent("open-filters")
     );
-    params.set("openFilters", "1");
-    router.push(`/creatina?${params.toString()}`);
   }
 
   function changeOrder(value: string) {
@@ -21,22 +20,13 @@ export function FloatingFiltersBar() {
       searchParams.toString()
     );
     params.set("order", value);
+
+    // aqui pode navegar (usuário pediu ordenação)
     router.push(`/creatina?${params.toString()}`);
   }
 
   return (
-    <div
-      className="
-        sticky
-        top-0
-        z-30
-        bg-white
-        border-b
-        border-gray-200
-        py-2
-        mb-3
-      "
-    >
+    <div className="sticky top-0 z-30 bg-white border-b border-gray-200 py-2 mb-3">
       <div className="flex items-center gap-3 px-1">
         {/* FILTRAR */}
         <button
