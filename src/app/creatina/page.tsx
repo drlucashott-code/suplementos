@@ -21,8 +21,7 @@ export default async function CreatinaPage({
 }) {
   const params = await searchParams;
 
-  const order: "gram" | "discount" =
-    params.order ?? "gram";
+  const order: "gram" | "discount" = params.order ?? "gram";
 
   const selectedBrands = params.brand?.split(",") ?? [];
   const selectedForms =
@@ -83,17 +82,14 @@ export default async function CreatinaPage({
         return null;
       }
 
-      // preço por grama de creatina (princípio ativo)
       const pricePerGram =
         offer.price /
         product.creatineInfo.totalUnits;
 
-      // doses informativas
       const doses =
         product.creatineInfo.totalUnits /
         product.creatineInfo.unitsPerDose;
 
-      // histórico 30 dias
       const history =
         await prisma.offerPriceHistory.findMany({
           where: {
@@ -139,49 +135,51 @@ export default async function CreatinaPage({
      ORDENAÇÃO FINAL
      ========================= */
   const finalProducts = rankedProducts
-    .filter(Boolean)
-    .sort((a: any, b: any) => {
+    .filter(
+      (p): p is NonNullable<typeof p> =>
+        Boolean(p)
+    )
+    .sort((a, b) => {
       if (order === "discount") {
-        const aHas =
-          a.discountPercent !== null &&
-          a.discountPercent !== undefined;
-        const bHas =
-          b.discountPercent !== null &&
-          b.discountPercent !== undefined;
+        const aHas = a.discountPercent != null;
+        const bHas = b.discountPercent != null;
 
-        // 1️⃣ com desconto primeiro
         if (aHas && !bHas) return -1;
         if (!aHas && bHas) return 1;
 
-        // 2️⃣ ambos com desconto → maior desconto
         if (aHas && bHas) {
           return (
             b.discountPercent! -
             a.discountPercent!
           );
         }
-
-        // 3️⃣ nenhum com desconto → menor preço por grama
-        return a.pricePerGram - b.pricePerGram;
       }
 
-      // padrão: menor preço por grama
       return a.pricePerGram - b.pricePerGram;
     });
 
   /* =========================
      FILTROS DISPONÍVEIS
      ========================= */
-  const brands = [
-    ...new Set(products.map((p) => p.brand)),
+
+  const brands: string[] = [
+    ...new Set(
+      products
+        .map((p) => p.brand)
+        .filter(
+          (b): b is string =>
+            typeof b === "string"
+        )
+    ),
   ];
 
-  const flavors = [
+  const flavors: string[] = [
     ...new Set(
       products
         .map((p) => p.flavor)
         .filter(
-          (f): f is string => Boolean(f)
+          (f): f is string =>
+            typeof f === "string"
         )
     ),
   ];
@@ -191,63 +189,40 @@ export default async function CreatinaPage({
      ========================= */
   return (
     <>
-      {/* BOTÃO FLUTUANTE */}
       <FloatingFiltersBar />
 
-      <main className="pt-[104px]">
-        {/* HEADER */}
-        <section className="bg-black text-white py-8 px-4">
-          <h1 className="text-2xl sm:text-3xl font-bold text-center">
-            Calculadora de custo-benefício
+      <main className="pt-[96px]">
+        {/* HEADER ESTILO AMAZON */}
+        <section className="bg-[#131921] text-white px-4 py-3">
+          <h1 className="text-sm">
+            Creatina
           </h1>
         </section>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="max-w-[1200px] mx-auto px-3">
           {/* TEXTO INTRODUTÓRIO */}
-          <section className="space-y-1 mb-6 mt-4 max-w-5xl mx-auto text-[#171717]">
-            <p className="text-sm">
+          <section className="mt-3 mb-3 text-sm text-[#0F1111] space-y-0.5">
+            <p>
               Categoria: <strong>Creatina</strong>
             </p>
 
-            <p className="text-sm">
+            <p className="text-gray-600">
               Produtos vendidos pela Amazon
             </p>
 
-            <p className="text-sm mt-2">
-              Compare creatinas com base no{" "}
-              <strong>
-                preço por grama de creatina
-                (princípio ativo)
-              </strong>{" "}
-              e identifique boas oportunidades
-              de compra.
-            </p>
-
-            <details className="text-sm mt-2">
-              <summary className="cursor-pointer text-green-700 font-medium">
-                Entenda o cálculo
+            <details>
+              <summary className="cursor-pointer text-[#007185] text-sm">
+                Como o ranking é calculado
               </summary>
 
-              <div className="mt-2 space-y-2 max-w-3xl">
+              <div className="mt-1 text-sm text-gray-700 space-y-1 max-w-3xl">
                 <p>
-                  O custo-benefício é calculado
-                  dividindo o preço total do
-                  produto pela quantidade real de
-                  creatina declarada pelo
-                  fabricante.
+                  Ordenação pelo menor preço por
+                  grama de creatina.
                 </p>
-
                 <p>
-                  O desconto considera a variação
-                  do preço total do produto em
-                  relação à média dos últimos 30
-                  dias.
-                </p>
-
-                <p className="text-xs text-gray-500">
-                  As informações são padronizadas
-                  exclusivamente para fins de
-                  comparação.
+                  Desconto baseado na média de
+                  preço dos últimos 30 dias.
                 </p>
               </div>
             </details>
@@ -260,21 +235,25 @@ export default async function CreatinaPage({
           />
 
           {/* DESKTOP + LISTA */}
-          <div className="flex flex-col lg:flex-row gap-8 mt-6 justify-center">
-            <aside className="hidden lg:block w-72 shrink-0">
+          <div className="flex flex-col lg:flex-row gap-6">
+            <aside className="hidden lg:block w-64 shrink-0">
               <DesktopFiltersSidebar
                 brands={brands}
                 flavors={flavors}
               />
 
-              <div className="mt-4">
+              <div className="mt-3">
                 <PriceSlider />
               </div>
             </aside>
 
-            <div className="w-full max-w-3xl">
+            <div className="w-full max-w-[680px]">
+              <p className="text-xs text-gray-600 mb-2">
+                {finalProducts.length} resultados
+              </p>
+
               <ProductList
-                products={finalProducts as any}
+                products={finalProducts}
               />
             </div>
           </div>
