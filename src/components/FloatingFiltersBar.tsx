@@ -6,8 +6,7 @@ export function FloatingFiltersBar() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const order =
-    searchParams.get("order") ?? "gram";
+  const order = searchParams.get("order") ?? "gram";
 
   function openFilters() {
     const params = new URLSearchParams(
@@ -26,9 +25,20 @@ export function FloatingFiltersBar() {
   }
 
   return (
-    <div className="mt-2 mb-3">
-      <div className="flex items-center gap-3">
-        {/* BOTÃO FILTRAR */}
+    <div
+      className="
+        sticky
+        top-0
+        z-30
+        bg-white
+        border-b
+        border-gray-200
+        py-2
+        mb-3
+      "
+    >
+      <div className="flex items-center gap-3 px-1">
+        {/* FILTRAR */}
         <button
           onClick={openFilters}
           className="border border-gray-400 rounded-full px-4 py-2 text-sm bg-white hover:bg-gray-50"

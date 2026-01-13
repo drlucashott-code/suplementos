@@ -186,7 +186,7 @@ export default async function CreatinaPage({
      RENDER
      ========================= */
   return (
-    <main className="pt-[96px]">
+    <main>
       {/* HEADER */}
       <section className="bg-[#131921] text-white px-4 py-3">
         <h1 className="text-sm">
