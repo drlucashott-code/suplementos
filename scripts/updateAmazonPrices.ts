@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 /* ======================
    CONFIG
 ====================== */
-const HOURS_LIMIT = 6;
+const HOURS_LIMIT = 4;
 const REQUEST_DELAY_MS = 1800;
 
 /* ======================
