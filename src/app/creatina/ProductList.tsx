@@ -4,25 +4,19 @@ import { MobileProductCard } from "./MobileProductCard";
 import { CreatineForm } from "@prisma/client";
 import { useEffect, useRef } from "react";
 
-type CompositionLabel =
-  | "FLAVOR_NO_CARB"
-  | "HAS_CARB"
-  | null;
-
 type Product = {
   id: string;
   name: string;
   imageUrl: string;
   flavor: string | null;
-  form?: CreatineForm;
+  form: CreatineForm;
 
   price: number;
   affiliateUrl: string;
 
-  pricePerDose: number;
   doses: number;
-
-  compositionLabel?: CompositionLabel;
+  pricePerGram: number;          // ✅ ADICIONADO
+  discountPercent?: number | null;
 };
 
 export function ProductList({
@@ -34,7 +28,7 @@ export function ProductList({
 
   useEffect(() => {
     if (trackedRef.current) return;
-    if (!products || products.length === 0) return;
+    if (!products.length) return;
 
     if (typeof window !== "undefined" && "gtag" in window) {
       // @ts-ignore

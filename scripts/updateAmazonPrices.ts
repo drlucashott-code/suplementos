@@ -58,26 +58,23 @@ function getSignatureKey(
 }
 
 /* ======================
-   PRICE EXTRACTOR (V1 + V2)
+   PRICE EXTRACTOR
 ====================== */
 function extractAmazonPrice(json: any): number | null {
   const item = json?.ItemsResult?.Items?.[0];
   if (!item) return null;
 
-  // V1
   const priceV1 =
     item?.Offers?.Listings?.[0]?.Price?.Amount;
   if (typeof priceV1 === "number") {
     return priceV1;
   }
 
-  // V2
   const listingsV2 = item?.OffersV2?.Listings;
   if (Array.isArray(listingsV2)) {
     const buyBox =
-      listingsV2.find(
-        (l: any) => l?.IsBuyBoxWinner === true
-      ) ?? listingsV2[0];
+      listingsV2.find((l: any) => l?.IsBuyBoxWinner === true) ??
+      listingsV2[0];
 
     const priceV2 =
       buyBox?.Price?.Money?.Amount;
@@ -228,8 +225,8 @@ async function updateAmazonPrices() {
     const price = await fetchAmazonPrice(offer.externalId);
 
     const data: any = {
-      price: price ?? 0,       // 🔑 indisponível = 0
-      updatedAt: new Date(),   // 🔑 sempre marca tentativa
+      price: price ?? 0,
+      updatedAt: new Date(),
     };
 
     if (price !== null) {
@@ -241,6 +238,18 @@ async function updateAmazonPrices() {
       where: { id: offer.id },
       data,
     });
+
+    /* ======================
+       HISTÓRICO DE PREÇO (NOVO)
+       ====================== */
+    if (price !== null && price > 0) {
+      await prisma.offerPriceHistory.create({
+        data: {
+          offerId: offer.id,
+          price,
+        },
+      });
+    }
 
     console.log(
       price === null

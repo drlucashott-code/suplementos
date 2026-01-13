@@ -3,21 +3,16 @@ import { ProductList } from "./ProductList";
 import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
 import { DesktopFiltersSidebar } from "./DesktopFiltersSidebar";
 import { PriceSlider } from "./PriceSlider";
+import { FloatingFiltersBar } from "@/components/FloatingFiltersBar";
 import { CreatineForm } from "@prisma/client";
-import { calculateCreatineStats } from "@/lib/calculateCreatineStats";
 
 type SearchParams = {
   brand?: string;
   form?: string;
   flavor?: string;
   priceMax?: string;
-  doses?: string;
+  order?: "gram" | "discount";
 };
-
-type CompositionLabel =
-  | "FLAVOR_NO_CARB"
-  | "HAS_CARB"
-  | null;
 
 export default async function CreatinaPage({
   searchParams,
@@ -26,15 +21,20 @@ export default async function CreatinaPage({
 }) {
   const params = await searchParams;
 
+  const order: "gram" | "discount" =
+    params.order ?? "gram";
+
   const selectedBrands = params.brand?.split(",") ?? [];
   const selectedForms =
     (params.form?.split(",") as CreatineForm[]) ?? [];
   const selectedFlavors = params.flavor?.split(",") ?? [];
-  const selectedDoses = params.doses?.split(",") ?? [];
 
   const maxPrice = params.priceMax
     ? Number(params.priceMax)
     : undefined;
+
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   /* =========================
      BUSCA PRODUTOS
@@ -60,17 +60,17 @@ export default async function CreatinaPage({
           price: { gt: 0 },
           affiliateUrl: { not: "" },
         },
-        orderBy: { price: "asc" },
         take: 1,
+        orderBy: { price: "asc" },
       },
     },
   });
 
   /* =========================
-     PROCESSA + FILTRA
+     PROCESSA + DESCONTO
      ========================= */
-  const rankedProducts = products
-    .map((product) => {
+  const rankedProducts = await Promise.all(
+    products.map(async (product) => {
       if (!product.creatineInfo) return null;
 
       const offer = product.offers[0];
@@ -83,42 +83,41 @@ export default async function CreatinaPage({
         return null;
       }
 
-      const stats = calculateCreatineStats({
-        form: product.creatineInfo.form,
-        totalUnits: product.creatineInfo.totalUnits,
-        unitsPerDose: product.creatineInfo.unitsPerDose,
-        price: offer.price,
-      });
+      // preço por grama de creatina (princípio ativo)
+      const pricePerGram =
+        offer.price /
+        product.creatineInfo.totalUnits;
 
-      if (!stats.pricePerDose) return null;
+      // doses informativas
+      const doses =
+        product.creatineInfo.totalUnits /
+        product.creatineInfo.unitsPerDose;
 
-      const doses = stats.doses;
+      // histórico 30 dias
+      const history =
+        await prisma.offerPriceHistory.findMany({
+          where: {
+            offerId: offer.id,
+            createdAt: { gte: thirtyDaysAgo },
+          },
+          select: { price: true },
+        });
 
-      const doseBucket =
-        doses < 50
-          ? "<50"
-          : doses <= 100
-          ? "51-100"
-          : doses <= 150
-          ? "101-150"
-          : ">150";
+      let discountPercent: number | null = null;
 
-      if (
-        selectedDoses.length > 0 &&
-        !selectedDoses.includes(doseBucket)
-      ) {
-        return null;
-      }
+      if (history.length >= 5) {
+        const avg30 =
+          history.reduce(
+            (sum, h) => sum + h.price,
+            0
+          ) / history.length;
 
-      let compositionLabel: CompositionLabel = null;
-      const units = product.creatineInfo.unitsPerDose;
+        const raw =
+          ((avg30 - offer.price) / avg30) * 100;
 
-      if (units > 3 && units <= 4) {
-        compositionLabel = "FLAVOR_NO_CARB";
-      }
-
-      if (units > 4) {
-        compositionLabel = "HAS_CARB";
+        if (raw >= 5) {
+          discountPercent = Math.round(raw);
+        }
       }
 
       return {
@@ -130,123 +129,157 @@ export default async function CreatinaPage({
         price: offer.price,
         affiliateUrl: offer.affiliateUrl,
         doses,
-        pricePerDose: stats.pricePerDose,
-        compositionLabel,
+        pricePerGram,
+        discountPercent,
       };
     })
+  );
+
+  /* =========================
+     ORDENAÇÃO FINAL
+     ========================= */
+  const finalProducts = rankedProducts
     .filter(Boolean)
-    .sort(
-      (a, b) => a!.pricePerDose - b!.pricePerDose
-    );
+    .sort((a: any, b: any) => {
+      if (order === "discount") {
+        const aHas =
+          a.discountPercent !== null &&
+          a.discountPercent !== undefined;
+        const bHas =
+          b.discountPercent !== null &&
+          b.discountPercent !== undefined;
+
+        // 1️⃣ com desconto primeiro
+        if (aHas && !bHas) return -1;
+        if (!aHas && bHas) return 1;
+
+        // 2️⃣ ambos com desconto → maior desconto
+        if (aHas && bHas) {
+          return (
+            b.discountPercent! -
+            a.discountPercent!
+          );
+        }
+
+        // 3️⃣ nenhum com desconto → menor preço por grama
+        return a.pricePerGram - b.pricePerGram;
+      }
+
+      // padrão: menor preço por grama
+      return a.pricePerGram - b.pricePerGram;
+    });
 
   /* =========================
      FILTROS DISPONÍVEIS
      ========================= */
-  const brands = await prisma.product.findMany({
-    where: { category: "creatina" },
-    distinct: ["brand"],
-    select: { brand: true },
-  });
+  const brands = [
+    ...new Set(products.map((p) => p.brand)),
+  ];
 
-  const flavors = await prisma.product.findMany({
-    where: {
-      category: "creatina",
-      flavor: { not: null },
-    },
-    distinct: ["flavor"],
-    select: { flavor: true },
-  });
+  const flavors = [
+    ...new Set(
+      products
+        .map((p) => p.flavor)
+        .filter(
+          (f): f is string => Boolean(f)
+        )
+    ),
+  ];
 
   /* =========================
      RENDER
      ========================= */
   return (
-    <main>
-      {/* FAIXA SUPERIOR */}
-      <section className="bg-black text-white py-8 px-4">
-        <h1 className="text-2xl sm:text-3xl font-bold text-center">
-          Calculadora de custo-benefício
-        </h1>
-      </section>
+    <>
+      {/* BOTÃO FLUTUANTE */}
+      <FloatingFiltersBar />
 
-      {/* CONTEÚDO */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        {/* TEXTO INTRODUTÓRIO */}
-        <section className="space-y-1 mb-6 mt-4 max-w-5xl mx-auto text-[#171717]">
-          <p className="text-sm">
-            Categoria: <strong>Creatina</strong>
-          </p>
-
-          <p className="text-sm">
-            Produtos vendidos pela Amazon
-          </p>
-
-          <p className="text-sm mt-2">
-            Navegue pelos filtros e encontre a melhor
-            creatina para você.
-          </p>
-
-          <details className="text-sm mt-2">
-            <summary className="cursor-pointer text-green-700 font-medium">
-              Entenda o cálculo
-            </summary>
-
-            <div className="mt-2 space-y-2 max-w-3xl">
-              <p>
-                A comparação é baseada no preço por dose,
-                considerando a dose diária de 3 g de
-                creatina pura (princípio ativo).
-              </p>
-
-              <p>
-                São considerados produtos vendidos pela
-                Amazon e que apresentam boas avaliações
-                dos consumidores, dentro das opções
-                disponíveis para a categoria.
-              </p>
-
-              <p>
-                Para cada produto, utilizamos o preço
-                total informado na Amazon e a quantidade
-                total de creatina declarada pelo
-                fabricante para estimar o número de
-                doses.
-              </p>
-
-              <p className="text-xs text-gray-500">
-                As recomendações de uso dos fabricantes
-                podem variar. O critério adotado neste
-                site é padronizado exclusivamente para
-                fins de comparação.
-              </p>
-            </div>
-          </details>
+      <main className="pt-[104px]">
+        {/* HEADER */}
+        <section className="bg-black text-white py-8 px-4">
+          <h1 className="text-2xl sm:text-3xl font-bold text-center">
+            Calculadora de custo-benefício
+          </h1>
         </section>
 
-        {/* FILTROS MOBILE */}
-        <MobileFiltersDrawer
-          brands={brands.map((b) => b.brand)}
-          flavors={flavors.map((f) => f.flavor!).sort()}
-        />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          {/* TEXTO INTRODUTÓRIO */}
+          <section className="space-y-1 mb-6 mt-4 max-w-5xl mx-auto text-[#171717]">
+            <p className="text-sm">
+              Categoria: <strong>Creatina</strong>
+            </p>
 
-        {/* DESKTOP */}
-        <div className="flex flex-col lg:flex-row gap-8 mt-6 justify-center">
-          <aside className="hidden lg:block w-72 shrink-0">
-            <DesktopFiltersSidebar
-              brands={brands.map((b) => b.brand)}
-              flavors={flavors.map((f) => f.flavor!).sort()}
-            />
+            <p className="text-sm">
+              Produtos vendidos pela Amazon
+            </p>
 
-            <div className="mt-4">
-              <PriceSlider />
+            <p className="text-sm mt-2">
+              Compare creatinas com base no{" "}
+              <strong>
+                preço por grama de creatina
+                (princípio ativo)
+              </strong>{" "}
+              e identifique boas oportunidades
+              de compra.
+            </p>
+
+            <details className="text-sm mt-2">
+              <summary className="cursor-pointer text-green-700 font-medium">
+                Entenda o cálculo
+              </summary>
+
+              <div className="mt-2 space-y-2 max-w-3xl">
+                <p>
+                  O custo-benefício é calculado
+                  dividindo o preço total do
+                  produto pela quantidade real de
+                  creatina declarada pelo
+                  fabricante.
+                </p>
+
+                <p>
+                  O desconto considera a variação
+                  do preço total do produto em
+                  relação à média dos últimos 30
+                  dias.
+                </p>
+
+                <p className="text-xs text-gray-500">
+                  As informações são padronizadas
+                  exclusivamente para fins de
+                  comparação.
+                </p>
+              </div>
+            </details>
+          </section>
+
+          {/* FILTROS MOBILE */}
+          <MobileFiltersDrawer
+            brands={brands}
+            flavors={flavors}
+          />
+
+          {/* DESKTOP + LISTA */}
+          <div className="flex flex-col lg:flex-row gap-8 mt-6 justify-center">
+            <aside className="hidden lg:block w-72 shrink-0">
+              <DesktopFiltersSidebar
+                brands={brands}
+                flavors={flavors}
+              />
+
+              <div className="mt-4">
+                <PriceSlider />
+              </div>
+            </aside>
+
+            <div className="w-full max-w-3xl">
+              <ProductList
+                products={finalProducts as any}
+              />
             </div>
-          </aside>
-
-          <div className="w-full max-w-3xl">
-            <ProductList products={rankedProducts as any} />
           </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </>
   );
 }

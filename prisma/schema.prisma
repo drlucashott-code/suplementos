@@ -14,7 +14,6 @@ datasource db {
 /*
   AMAZON → fonte ativa e pública
   MERCADO_LIVRE → mantido apenas internamente
-  (estrutura preservada para possível retomada futura)
 */
 enum Store {
   AMAZON
@@ -39,13 +38,13 @@ model Product {
   flavor       String?
   imageUrl     String
 
-  // Dados específicos da creatina (quando aplicável)
+  // Dados específicos da creatina
   creatineInfo CreatineInfo?
 
-  // Dados específicos do whey protein (quando aplicável)
+  // Dados específicos do whey
   wheyInfo     WheyInfo?
 
-  // Ofertas por loja (atualmente apenas AMAZON é usada publicamente)
+  // Ofertas por loja
   offers       Offer[]
 
   createdAt    DateTime @default(now())
@@ -61,13 +60,6 @@ model CreatineInfo {
   product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   form         CreatineForm
-
-  /*
-    Unidade principal por tipo:
-    - POWDER   → gramas
-    - CAPSULE → cápsulas
-    - GUMMY   → gummies
-  */
   totalUnits   Float
   unitsPerDose Float
 
@@ -82,28 +74,13 @@ model WheyInfo {
   productId             String   @unique
   product               Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  /*
-    Peso total do produto (em gramas)
-    Ex: 450g, 900g, 1000g, 1800g
-  */
   totalWeightInGrams    Float
-
-  /*
-    Dose padrão utilizada na comparação
-    Ex: 30g
-  */
   doseInGrams           Float
-
-  /*
-    Quantidade de proteína por dose
-    Ex: 20g, 24g, 27g
-  */
   proteinPerDoseInGrams Float
 }
 
 /* =======================
    OFFER
-   (Amazon / Mercado Livre)
 ======================= */
 model Offer {
   id            String   @id @default(cuid())
@@ -111,31 +88,20 @@ model Offer {
   productId     String
   product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  /*
-    AMAZON → usada no frontend e rankings
-    MERCADO_LIVRE → mantida apenas para histórico/futuro uso
-  */
   store         Store
-
-  // ASIN (Amazon) ou MLBxxxx (Mercado Livre)
   externalId    String
 
   price         Float
   affiliateUrl  String
 
-  /*
-    Avaliações:
-    - Atualmente relevantes apenas para Mercado Livre
-    - Mantidas para compatibilidade futura
-  */
   ratingAverage Float?
   ratingCount   Int?
 
   createdAt     DateTime @default(now())
-
-  // ✅ CORREÇÃO CRÍTICA:
-  // Atualiza automaticamente a cada update()
   updatedAt     DateTime @updatedAt
+
+  // 🔗 Histórico de preços
+  priceHistory  OfferPriceHistory[]
 
   @@index([productId])
   @@index([store])
@@ -143,8 +109,23 @@ model Offer {
 }
 
 /* =======================
+   OFFER PRICE HISTORY
+   (NOVO – HISTÓRICO REAL)
+======================= */
+model OfferPriceHistory {
+  id        String   @id @default(cuid())
+
+  offerId   String
+  offer     Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  price     Float
+  createdAt DateTime @default(now())
+
+  @@index([offerId, createdAt])
+}
+
+/* =======================
    AMAZON IMPORT QUEUE
-   (Processada por script Node)
 ======================= */
 model AmazonImportQueue {
   id        String   @id @default(cuid())
