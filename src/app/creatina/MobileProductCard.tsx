@@ -52,11 +52,11 @@ export function MobileProductCard({
 
       <div className="flex gap-3 items-start">
         {/* IMAGEM */}
-        <div className="w-36 flex-shrink-0">
+        <div className="w-36 h-36 flex-shrink-0 flex items-center justify-center bg-white">
           <img
             src={product.imageUrl}
             alt={product.name}
-            className="w-full h-auto object-contain block"
+            className="max-w-full max-h-full object-contain"
             loading="lazy"
           />
         </div>
