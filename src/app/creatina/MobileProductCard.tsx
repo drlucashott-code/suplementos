@@ -16,6 +16,7 @@ type Product = {
   doses: number;
 
   discountPercent?: number | null;
+  avg30Price?: number | null;
 };
 
 export function MobileProductCard({
@@ -25,6 +26,10 @@ export function MobileProductCard({
   product: Product;
   isBest?: boolean;
 }) {
+  const [int, cents] = product.price
+    .toFixed(2)
+    .split(".");
+
   return (
     <div
       className={`border p-3 relative ${
@@ -33,7 +38,6 @@ export function MobileProductCard({
           : "border-gray-300 bg-white"
       }`}
     >
-      {/* SELLOS NO TOPO */}
       <div className="flex justify-between items-center mb-2">
         {product.discountPercent ? (
           <span className="bg-[#B12704] text-white text-[11px] px-3 py-0.5 rounded-full">
@@ -51,17 +55,14 @@ export function MobileProductCard({
       </div>
 
       <div className="flex gap-3 items-start">
-        {/* IMAGEM */}
-        <div className="w-36 h-36 flex-shrink-0 flex items-center justify-center bg-white">
+        <div className="w-36 h-36 flex items-center justify-center bg-white">
           <img
             src={product.imageUrl}
             alt={product.name}
             className="max-w-full max-h-full object-contain"
-            loading="lazy"
           />
         </div>
 
-        {/* TEXTO */}
         <div className="flex-1 text-sm text-[#0F1111] leading-tight">
           <h2 className="font-bold text-[14px] mb-1">
             {product.name}
@@ -76,7 +77,6 @@ export function MobileProductCard({
                 ? "Gummy"
                 : "Pó"}
             </p>
-
             <p>Sabor: {product.flavor ?? "Sem sabor"}</p>
             <p>Doses: {Math.floor(product.doses)}</p>
             <p>
@@ -85,17 +85,25 @@ export function MobileProductCard({
             </p>
           </div>
 
-          <div className="flex items-start gap-1 mt-1">
-            <span className="text-xs mt-1">R$</span>
-            <span className="text-xl font-bold">
-              {product.price.toFixed(2)}
+          {/* PREÇO */}
+          <div className="flex items-end gap-1 mt-1">
+            <span className="text-xs mb-1">R$</span>
+            <span className="text-xl font-bold leading-none">
+              {int}
             </span>
+            <span className="text-xs mb-1">{cents}</span>
+
+            {product.avg30Price && (
+              <span className="text-xs text-gray-500 line-through ml-2 mb-1">
+                R$ {product.avg30Price.toFixed(2)}
+              </span>
+            )}
           </div>
 
           {product.discountPercent && (
             <p className="text-xs text-green-700 mt-0.5">
-              🔻 {product.discountPercent}% abaixo da média
-              dos últimos 30 dias
+              🔻 {product.discountPercent}% abaixo da
+              média dos últimos 30 dias
             </p>
           )}
 
@@ -103,7 +111,7 @@ export function MobileProductCard({
             href={product.affiliateUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block mt-2 bg-[#FFD814] hover:bg-[#F7CA00] text-black text-sm px-4 py-2"
+            className="inline-block mt-2 bg-[#FFD814] hover:bg-[#F7CA00] text-black text-sm px-4 py-2 rounded-xl"
           >
             Comprar na Amazon
           </a>

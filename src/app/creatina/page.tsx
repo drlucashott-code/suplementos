@@ -60,9 +60,7 @@ export default async function CreatinaPage({
         where: {
           store: "AMAZON",
           affiliateUrl: { not: "" },
-          ...(showFallback
-            ? {}
-            : { price: { gt: 0 } }),
+          ...(showFallback ? {} : { price: { gt: 0 } }),
         },
         orderBy: { updatedAt: "desc" },
         take: 1,
@@ -82,10 +80,7 @@ export default async function CreatinaPage({
 
       let finalPrice: number | null = offer.price;
 
-      if (
-        showFallback &&
-        (!finalPrice || finalPrice <= 0)
-      ) {
+      if (showFallback && (!finalPrice || finalPrice <= 0)) {
         const lastValid =
           await prisma.offerPriceHistory.findFirst({
             where: { offerId: offer.id },
@@ -96,22 +91,13 @@ export default async function CreatinaPage({
         finalPrice = lastValid?.price ?? null;
       }
 
-      if (!finalPrice || finalPrice <= 0) {
-        return null;
-      }
+      if (!finalPrice || finalPrice <= 0) return null;
 
-      const safePrice = finalPrice as number;
-
-      if (
-        maxPrice !== undefined &&
-        safePrice > maxPrice
-      ) {
+      if (maxPrice !== undefined && finalPrice > maxPrice)
         return null;
-      }
 
       const pricePerGram =
-        safePrice /
-        product.creatineInfo.totalUnits;
+        finalPrice / product.creatineInfo.totalUnits;
 
       const doses =
         product.creatineInfo.totalUnits /
@@ -127,16 +113,15 @@ export default async function CreatinaPage({
         });
 
       let discountPercent: number | null = null;
+      let avg30: number | null = null;
 
       if (history.length >= 5) {
-        const avg30 =
-          history.reduce(
-            (sum, h) => sum + h.price,
-            0
-          ) / history.length;
+        avg30 =
+          history.reduce((s, h) => s + h.price, 0) /
+          history.length;
 
         const raw =
-          ((avg30 - safePrice) / avg30) * 100;
+          ((avg30 - finalPrice) / avg30) * 100;
 
         if (raw >= 5) {
           discountPercent = Math.round(raw);
@@ -149,19 +134,26 @@ export default async function CreatinaPage({
         imageUrl: product.imageUrl,
         flavor: product.flavor,
         form: product.creatineInfo.form,
-        price: safePrice, // ✅ agora sempre number
+        price: finalPrice,
         affiliateUrl: offer.affiliateUrl,
         doses,
         pricePerGram,
         discountPercent,
+        avg30Price:
+          discountPercent && avg30 ? avg30 : null,
       };
     })
   );
 
+  /* =========================
+     FILTRA NULL + ORDENA
+     ========================= */
   const finalProducts = rankedProducts
     .filter(
-      (p): p is NonNullable<typeof p> =>
-        Boolean(p)
+      (
+        p
+      ): p is NonNullable<typeof p> =>
+        p !== null
     )
     .sort((a, b) => {
       if (order === "discount") {
@@ -181,15 +173,26 @@ export default async function CreatinaPage({
       return a.pricePerGram - b.pricePerGram;
     });
 
-  const brands = [...new Set(products.map((p) => p.brand))];
+  /* =========================
+     FILTROS DISPONÍVEIS
+     ========================= */
+  const brands = [
+    ...new Set(products.map((p) => p.brand)),
+  ];
+
   const flavors = [
     ...new Set(
       products
         .map((p) => p.flavor)
-        .filter(Boolean) as string[]
+        .filter(
+          (f): f is string => Boolean(f)
+        )
     ),
   ];
 
+  /* =========================
+     RENDER
+     ========================= */
   return (
     <main>
       <section className="bg-[#131921] text-white px-4 py-3">
