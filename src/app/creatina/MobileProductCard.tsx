@@ -38,6 +38,7 @@ export function MobileProductCard({
           : "border-gray-300 bg-white"
       }`}
     >
+      {/* SELLOS */}
       <div className="flex justify-between items-center mb-2">
         {product.discountPercent ? (
           <span className="bg-[#B12704] text-white text-[11px] px-3 py-0.5 rounded-full">
@@ -55,14 +56,17 @@ export function MobileProductCard({
       </div>
 
       <div className="flex gap-3 items-start">
-        <div className="w-36 h-36 flex items-center justify-center bg-white">
+        {/* IMAGEM */}
+        <div className="w-36 h-36 flex-shrink-0 flex items-center justify-center bg-white">
           <img
             src={product.imageUrl}
             alt={product.name}
             className="max-w-full max-h-full object-contain"
+            loading="lazy"
           />
         </div>
 
+        {/* TEXTO */}
         <div className="flex-1 text-sm text-[#0F1111] leading-tight">
           <h2 className="font-bold text-[14px] mb-1">
             {product.name}
@@ -85,16 +89,18 @@ export function MobileProductCard({
             </p>
           </div>
 
-          {/* PREÇO */}
-          <div className="flex items-end gap-1 mt-1">
-            <span className="text-xs mb-1">R$</span>
+          {/* PREÇO (EXATAMENTE COMO VOCÊ PEDIU) */}
+          <div className="flex items-end gap-0.5 mt-1">
+            <span className="text-xs mb-[2px]">R$</span>
             <span className="text-xl font-bold leading-none">
               {int}
             </span>
-            <span className="text-xs mb-1">{cents}</span>
+            <span className="text-[10px] mb-[4px] -ml-[2px]">
+              {cents}
+            </span>
 
             {product.avg30Price && (
-              <span className="text-xs text-gray-500 line-through ml-2 mb-1">
+              <span className="text-xs text-gray-500 line-through ml-2 mb-[2px]">
                 R$ {product.avg30Price.toFixed(2)}
               </span>
             )}
@@ -107,6 +113,7 @@ export function MobileProductCard({
             </p>
           )}
 
+          {/* BOTÃO (APENAS ARREDONDADO) */}
           <a
             href={product.affiliateUrl}
             target="_blank"
