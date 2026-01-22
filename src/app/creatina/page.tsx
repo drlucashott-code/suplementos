@@ -21,6 +21,9 @@ export default async function CreatinaPage({
 }) {
   const params = await searchParams;
 
+  const showFallback =
+    process.env.NEXT_PUBLIC_SHOW_FALLBACK_PRICE === "true";
+
   const order: "gram" | "discount" = params.order ?? "gram";
 
   const selectedBrands = params.brand?.split(",") ?? [];
@@ -41,13 +44,13 @@ export default async function CreatinaPage({
   const products = await prisma.product.findMany({
     where: {
       category: "creatina",
-      ...(selectedBrands.length > 0 && {
+      ...(selectedBrands.length && {
         brand: { in: selectedBrands },
       }),
-      ...(selectedFlavors.length > 0 && {
+      ...(selectedFlavors.length && {
         flavor: { in: selectedFlavors },
       }),
-      ...(selectedForms.length > 0 && {
+      ...(selectedForms.length && {
         creatineInfo: { form: { in: selectedForms } },
       }),
     },
@@ -56,17 +59,19 @@ export default async function CreatinaPage({
       offers: {
         where: {
           store: "AMAZON",
-          price: { gt: 0 },
           affiliateUrl: { not: "" },
+          ...(showFallback
+            ? {}
+            : { price: { gt: 0 } }),
         },
+        orderBy: { updatedAt: "desc" },
         take: 1,
-        orderBy: { price: "asc" },
       },
     },
   });
 
   /* =========================
-     PROCESSA + DESCONTO
+     PROCESSA + RANKING
      ========================= */
   const rankedProducts = await Promise.all(
     products.map(async (product) => {
@@ -75,15 +80,37 @@ export default async function CreatinaPage({
       const offer = product.offers[0];
       if (!offer) return null;
 
+      let finalPrice: number | null = offer.price;
+
+      if (
+        showFallback &&
+        (!finalPrice || finalPrice <= 0)
+      ) {
+        const lastValid =
+          await prisma.offerPriceHistory.findFirst({
+            where: { offerId: offer.id },
+            orderBy: { createdAt: "desc" },
+            select: { price: true },
+          });
+
+        finalPrice = lastValid?.price ?? null;
+      }
+
+      if (!finalPrice || finalPrice <= 0) {
+        return null;
+      }
+
+      const safePrice = finalPrice as number;
+
       if (
         maxPrice !== undefined &&
-        offer.price > maxPrice
+        safePrice > maxPrice
       ) {
         return null;
       }
 
       const pricePerGram =
-        offer.price /
+        safePrice /
         product.creatineInfo.totalUnits;
 
       const doses =
@@ -109,7 +136,7 @@ export default async function CreatinaPage({
           ) / history.length;
 
         const raw =
-          ((avg30 - offer.price) / avg30) * 100;
+          ((avg30 - safePrice) / avg30) * 100;
 
         if (raw >= 5) {
           discountPercent = Math.round(raw);
@@ -122,7 +149,7 @@ export default async function CreatinaPage({
         imageUrl: product.imageUrl,
         flavor: product.flavor,
         form: product.creatineInfo.form,
-        price: offer.price,
+        price: safePrice, // ✅ agora sempre number
         affiliateUrl: offer.affiliateUrl,
         doses,
         pricePerGram,
@@ -131,9 +158,6 @@ export default async function CreatinaPage({
     })
   );
 
-  /* =========================
-     ORDENAÇÃO FINAL
-     ========================= */
   const finalProducts = rankedProducts
     .filter(
       (p): p is NonNullable<typeof p> =>
@@ -157,37 +181,17 @@ export default async function CreatinaPage({
       return a.pricePerGram - b.pricePerGram;
     });
 
-  /* =========================
-     FILTROS DISPONÍVEIS
-     ========================= */
-  const brands: string[] = [
-    ...new Set(
-      products
-        .map((p) => p.brand)
-        .filter(
-          (b): b is string =>
-            typeof b === "string"
-        )
-    ),
-  ];
-
-  const flavors: string[] = [
+  const brands = [...new Set(products.map((p) => p.brand))];
+  const flavors = [
     ...new Set(
       products
         .map((p) => p.flavor)
-        .filter(
-          (f): f is string =>
-            typeof f === "string"
-        )
+        .filter(Boolean) as string[]
     ),
   ];
 
-  /* =========================
-     RENDER
-     ========================= */
   return (
     <main>
-      {/* HEADER */}
       <section className="bg-[#131921] text-white px-4 py-3">
         <h1 className="text-sm">
           Buscador de suplementos
@@ -195,51 +199,19 @@ export default async function CreatinaPage({
       </section>
 
       <div className="max-w-[1200px] mx-auto px-3">
-        {/* TEXTO INTRODUTÓRIO */}
-        <section className="mt-3 mb-2 text-sm text-[#0F1111] space-y-0.5">
-          <p>
-            Categoria: <strong>Creatina</strong>
-          </p>
-
-          <p className="text-gray-600">
-            Produtos vendidos pela Amazon
-          </p>
-
-          <details>
-            <summary className="cursor-pointer text-[#007185] text-sm">
-              Como o ranking é calculado
-            </summary>
-
-            <div className="mt-1 text-sm text-gray-700 space-y-1 max-w-3xl">
-              <p>
-                Ordenação pelo menor preço por grama
-                de creatina (princípio ativo).
-              </p>
-              <p>
-                O desconto considera a média de
-                preço dos últimos 30 dias.
-              </p>
-            </div>
-          </details>
-        </section>
-
-        {/* FILTRAR + ORDENAR (NÃO FIXO, POSIÇÃO CORRETA) */}
         <FloatingFiltersBar />
 
-        {/* FILTROS MOBILE */}
         <MobileFiltersDrawer
           brands={brands}
           flavors={flavors}
         />
 
-        {/* DESKTOP + LISTA */}
         <div className="flex flex-col lg:flex-row gap-6 mt-4">
           <aside className="hidden lg:block w-64 shrink-0">
             <DesktopFiltersSidebar
               brands={brands}
               flavors={flavors}
             />
-
             <div className="mt-3">
               <PriceSlider />
             </div>
@@ -250,9 +222,7 @@ export default async function CreatinaPage({
               {finalProducts.length} resultados
             </p>
 
-            <ProductList
-              products={finalProducts}
-            />
+            <ProductList products={finalProducts} />
           </div>
         </div>
       </div>

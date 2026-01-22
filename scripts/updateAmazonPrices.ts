@@ -24,7 +24,11 @@ const AMAZON_REGION =
   process.env.AMAZON_REGION ?? "us-east-1";
 const AMAZON_SERVICE = "ProductAdvertisingAPI";
 
-if (!AMAZON_ACCESS_KEY || !AMAZON_SECRET_KEY || !AMAZON_PARTNER_TAG) {
+if (
+  !AMAZON_ACCESS_KEY ||
+  !AMAZON_SECRET_KEY ||
+  !AMAZON_PARTNER_TAG
+) {
   throw new Error("Credenciais da Amazon não configuradas");
 }
 
@@ -66,29 +70,25 @@ function extractAmazonPrice(json: any): number | null {
 
   const priceV1 =
     item?.Offers?.Listings?.[0]?.Price?.Amount;
-  if (typeof priceV1 === "number") {
-    return priceV1;
-  }
+  if (typeof priceV1 === "number") return priceV1;
 
   const listingsV2 = item?.OffersV2?.Listings;
   if (Array.isArray(listingsV2)) {
     const buyBox =
-      listingsV2.find((l: any) => l?.IsBuyBoxWinner === true) ??
+      listingsV2.find((l: any) => l?.IsBuyBoxWinner) ??
       listingsV2[0];
 
     const priceV2 =
       buyBox?.Price?.Money?.Amount;
 
-    if (typeof priceV2 === "number") {
-      return priceV2;
-    }
+    if (typeof priceV2 === "number") return priceV2;
   }
 
   return null;
 }
 
 /* ======================
-   FETCH PRICE
+   FETCH AMAZON PRICE
 ====================== */
 async function fetchAmazonPrice(
   asin: string
@@ -104,7 +104,9 @@ async function fetchAmazonPrice(
   });
 
   const now = new Date();
-  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
+  const amzDate = now
+    .toISOString()
+    .replace(/[:-]|\.\d{3}/g, "");
   const dateStamp = amzDate.substring(0, 8);
 
   const canonicalHeaders =
@@ -185,12 +187,10 @@ async function fetchAmazonPrice(
 }
 
 /* ======================
-   SCRIPT
+   SCRIPT PRINCIPAL
 ====================== */
 async function updateAmazonPrices() {
-  console.log(
-    "🔄 Atualizando preços da Amazon (price=0 ou > 6h)\n"
-  );
+  console.log("🔄 Atualizando preços da Amazon\n");
 
   const LIMIT_DATE = new Date(
     Date.now() - HOURS_LIMIT * 60 * 60 * 1000
@@ -199,17 +199,18 @@ async function updateAmazonPrices() {
   const offers = await prisma.offer.findMany({
     where: {
       store: Store.AMAZON,
-      OR: [
-        { price: 0 },
-        { updatedAt: { lt: LIMIT_DATE } },
-      ],
+      updatedAt: { lt: LIMIT_DATE },
     },
-    include: {
-      product: true,
+    select: {
+      id: true,
+      externalId: true,
+      price: true,
+      updatedAt: true,
+      product: {
+        select: { name: true },
+      },
     },
-    orderBy: {
-      updatedAt: "asc",
-    },
+    orderBy: { updatedAt: "asc" },
   });
 
   console.log(`🔎 ${offers.length} ofertas para atualizar\n`);
@@ -218,49 +219,42 @@ async function updateAmazonPrices() {
     console.log(
       `🔎 ASIN ${offer.externalId}\n` +
       `   Produto: ${offer.product.name}\n` +
-      `   Preço antes: ${offer.price}\n` +
-      `   updatedAt antes: ${offer.updatedAt.toISOString()}`
+      `   Preço atual: ${offer.price ?? "—"}`
     );
 
     const price = await fetchAmazonPrice(offer.externalId);
 
-    const data: any = {
-      price: price ?? 0,
+    const updateData: {
+      updatedAt: Date;
+      price?: number;
+      affiliateUrl?: string;
+    } = {
       updatedAt: new Date(),
     };
 
-    if (price !== null) {
-      data.affiliateUrl =
-        `https://www.amazon.com.br/dp/${offer.externalId}?tag=${PARTNER_TAG}`;
-    }
-
-    const updated = await prisma.offer.update({
-      where: { id: offer.id },
-      data,
-    });
-
-    /* ======================
-       HISTÓRICO DE PREÇO (NOVO)
-       ====================== */
     if (price !== null && price > 0) {
+      updateData.price = price;
+      updateData.affiliateUrl =
+        `https://www.amazon.com.br/dp/${offer.externalId}?tag=${PARTNER_TAG}`;
+
       await prisma.offerPriceHistory.create({
         data: {
           offerId: offer.id,
           price,
         },
       });
+
+      console.log(`✅ Preço atualizado: R$ ${price}`);
+    } else {
+      console.log(
+        "⚠️ Preço não encontrado → mantendo último valor válido"
+      );
     }
 
-    console.log(
-      price === null
-        ? "⚠️ Preço não encontrado → marcado como indisponível (price=0)"
-        : `✅ Preço encontrado: R$ ${price}`
-    );
-
-    console.log(
-      `   Preço salvo: ${updated.price}\n` +
-      `   updatedAt salvo: ${updated.updatedAt.toISOString()}`
-    );
+    await prisma.offer.update({
+      where: { id: offer.id },
+      data: updateData,
+    });
 
     console.log("—".repeat(50));
 
@@ -269,7 +263,7 @@ async function updateAmazonPrices() {
     );
   }
 
-  console.log("\n🏁 Amazon atualizada");
+  console.log("\n🏁 Atualização finalizada");
   await prisma.$disconnect();
 }
 
