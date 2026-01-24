@@ -39,8 +39,8 @@ export default async function CreatinaPage({
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   /* =========================
-     BUSCA PRODUTOS
-     ========================= */
+      BUSCA PRODUTOS
+      ========================= */
   const products = await prisma.product.findMany({
     where: {
       category: "creatina",
@@ -69,8 +69,8 @@ export default async function CreatinaPage({
   });
 
   /* =========================
-     PROCESSA + RANKING
-     ========================= */
+      PROCESSA + RANKING
+      ========================= */
   const rankedProducts = await Promise.all(
     products.map(async (product) => {
       if (!product.creatineInfo) return null;
@@ -141,13 +141,16 @@ export default async function CreatinaPage({
         discountPercent,
         avg30Price:
           discountPercent && avg30 ? avg30 : null,
+        // ✅ Dados reais das estrelas vindos do banco
+        rating: offer.ratingAverage ?? 0,
+        reviewsCount: offer.ratingCount ?? 0,
       };
     })
   );
 
   /* =========================
-     FILTRA NULL + ORDENA
-     ========================= */
+      FILTRA NULL + ORDENA
+      ========================= */
   const finalProducts = rankedProducts
     .filter(
       (
@@ -174,8 +177,8 @@ export default async function CreatinaPage({
     });
 
   /* =========================
-     FILTROS DISPONÍVEIS
-     ========================= */
+      FILTROS DISPONÍVEIS
+      ========================= */
   const brands = [
     ...new Set(products.map((p) => p.brand)),
   ];
@@ -191,8 +194,8 @@ export default async function CreatinaPage({
   ];
 
   /* =========================
-     RENDER
-     ========================= */
+      RENDER
+      ========================= */
   return (
     <main>
       <section className="bg-[#131921] text-white px-4 py-3">
