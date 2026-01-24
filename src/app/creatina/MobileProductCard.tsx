@@ -1,6 +1,6 @@
 "use client";
 
-export function MobileProductCard({ product }: { product: any }) {
+export function MobileProductCard({ product, isBest }: { product: any; isBest?: boolean }) {
   const [int, cents] = product.price.toFixed(2).split(".");
 
   // Formatação para exibir (23,5 mil) em vez de (23500) se for alto
