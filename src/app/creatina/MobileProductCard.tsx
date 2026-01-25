@@ -72,7 +72,7 @@ export function MobileProductCard({ product, isBest }: { product: any; isBest?: 
           {/* Comparativo 30 dias (DE VOLTA AQUI) */}
           {product.avg30Price && product.discountPercent && (
             <p className="text-[11px] text-[#565959] mt-0.5">
-              Média de 30 dias: <span className="line-through">R$ {product.avg30Price.toFixed(2)}</span>
+              Média últimos 30 dias: <span className="line-through">R$ {product.avg30Price.toFixed(2)}</span>
             </p>
           )}
         </div>

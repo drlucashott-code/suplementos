@@ -200,7 +200,7 @@ export default async function CreatinaPage({
     <main>
       <section className="bg-[#131921] text-white px-4 py-3">
         <h1 className="text-sm">
-          Buscador de suplementos
+          Categoria: creatina
         </h1>
       </section>
 
