@@ -1,36 +1,59 @@
 "use client";
 
-import { Search, ArrowLeft } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, Search } from "lucide-react";
 import { useState } from "react";
 
 export function AmazonHeader() {
   const router = useRouter();
-  const [query, setQuery] = useState("");
+  const searchParams = useSearchParams();
+  
+  // Sincroniza o input com o que já estiver na URL
+  const [query, setQuery] = useState(searchParams.get("q") || "");
 
-  const handleSearch = (e: React.FormEvent) => {
+  function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    const path = `/whey${query.trim() ? `?q=${encodeURIComponent(query)}` : ""}`;
-    router.push(path);
-  };
+    const params = new URLSearchParams(searchParams.toString());
+    
+    if (query) {
+      params.set("q", query);
+    } else {
+      params.delete("q");
+    }
+    
+    // Rota alterada para /whey
+    router.push(`/whey?${params.toString()}`);
+  }
 
   return (
-    <header className="bg-[#232f3e] p-3 sticky top-0 z-40">
-      <div className="flex items-center gap-3">
-        <button onClick={() => router.push('/')} className="text-white">
-          <ArrowLeft className="w-6 h-6" />
+    <header className="bg-[#232f3e] text-white sticky top-0 z-40">
+      <div className="flex items-center px-3 h-14 gap-2">
+        
+        {/* Botão de Voltar */}
+        <button 
+          onClick={() => router.back()}
+          className="p-1 active:bg-white/10 rounded-full transition-colors flex-shrink-0"
+          aria-label="Voltar"
+        >
+          <ArrowLeft className="w-6 h-6 stroke-[2.5px]" />
         </button>
         
-        <form onSubmit={handleSearch} className="flex-1 flex items-center bg-white rounded-lg px-3 py-2 gap-2 shadow-md">
-          <Search className="w-5 h-5 text-gray-400" />
+        {/* Barra de Busca Estilo Amazon */}
+        <form 
+          onSubmit={handleSearch}
+          className="flex-1 flex items-center bg-white rounded-md px-3 py-1.5 shadow-inner"
+        >
+          <Search className="w-5 h-5 text-gray-500 mr-2" />
           <input 
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            // Placeholder alterado para Whey Protein
             placeholder="Pesquisar em Whey Protein"
-            className="flex-1 text-[#0F1111] text-[15px] outline-none"
+            className="w-full bg-transparent text-[#0F1111] text-[15px] outline-none placeholder-gray-500"
           />
         </form>
+
       </div>
     </header>
   );

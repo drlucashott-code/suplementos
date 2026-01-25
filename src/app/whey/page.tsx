@@ -2,8 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { ProductList } from "./ProductList";
 import { DesktopFiltersSidebar } from "./DesktopFiltersSidebar";
 import { FloatingFiltersBar } from "./FloatingFiltersBar";
-import { AmazonHeader } from "./AmazonHeader"; 
-import { MobileFiltersDrawer } from "./MobileFiltersDrawer"; // O Drawer ainda existe, mas sem o botão visível na página
+import { AmazonHeader } from "./AmazonHeader";
+import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
 
 export type SearchParams = {
   brand?: string;
@@ -32,6 +32,7 @@ export default async function WheyPage({
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+  // 1. Busca no Banco
   const products = await prisma.product.findMany({
     where: {
       category: "whey",
@@ -59,6 +60,7 @@ export default async function WheyPage({
     },
   });
 
+  // 2. Mapeamento e Cálculos
   const rankedProducts = products.map((product) => {
     if (!product.wheyInfo) return null;
     const offer = product.offers[0];
@@ -73,12 +75,15 @@ export default async function WheyPage({
     if (maxPrice !== undefined && finalPrice > maxPrice) return null;
 
     const info = product.wheyInfo;
-    const proteinPercent = (info.proteinPerDoseInGrams / info.doseInGrams) * 100;
+    
+    // Cálculo da concentração proteica
+    const proteinPercentage = (info.proteinPerDoseInGrams / info.doseInGrams) * 100;
 
+    // Filtro por faixa de proteína
     if (selectedProteinRanges.length > 0) {
       const match = selectedProteinRanges.some(r => {
         const [min, max] = r.split("-").map(Number);
-        return proteinPercent >= min && proteinPercent < (max === 100 ? 101 : max);
+        return proteinPercentage >= min && proteinPercentage < (max === 100 ? 101 : max);
       });
       if (!match) return null;
     }
@@ -86,6 +91,7 @@ export default async function WheyPage({
     const totalDoses = info.totalWeightInGrams / info.doseInGrams;
     const pricePerGramProtein = finalPrice / (totalDoses * info.proteinPerDoseInGrams);
 
+    // Lógica de Desconto
     let discountPercent: number | null = null;
     let avg30: number | null = null;
     if (offer.priceHistory.length >= 5) {
@@ -101,9 +107,8 @@ export default async function WheyPage({
       flavor: product.flavor,
       price: finalPrice,
       affiliateUrl: offer.affiliateUrl,
-      protein: info.proteinPerDoseInGrams,
-      dose: info.doseInGrams,
-      proteinPercent,
+      proteinPerDose: info.proteinPerDoseInGrams, // ✅ Nome sincronizado com o Card
+      proteinPercentage: proteinPercentage,       // ✅ Nome sincronizado com o Card
       numberOfDoses: totalDoses,
       pricePerGramProtein,
       discountPercent,
@@ -113,6 +118,7 @@ export default async function WheyPage({
     };
   }).filter((p): p is NonNullable<typeof p> => p !== null);
 
+  // 3. Ordenação Final
   const finalProducts = rankedProducts.sort((a, b) => {
     if (order === "discount") {
       const aDesc = a.discountPercent ?? 0;
@@ -121,8 +127,7 @@ export default async function WheyPage({
       return a.pricePerGramProtein - b.pricePerGramProtein;
     }
     if (order === "protein") {
-      if (Math.abs(b.proteinPercent - a.proteinPercent) > 0.1) return b.proteinPercent - a.proteinPercent;
-      return a.pricePerGramProtein - b.pricePerGramProtein;
+      return b.proteinPercentage - a.proteinPercentage;
     }
     return a.pricePerGramProtein - b.pricePerGramProtein;
   });
@@ -136,7 +141,6 @@ export default async function WheyPage({
       <div className="max-w-[1200px] mx-auto">
         <FloatingFiltersBar />
         <div className="px-3">
-          {/* ✅ O Drawer é chamado aqui mas não renderiza botão, apenas o conteúdo escondido */}
           <MobileFiltersDrawer brands={brands} flavors={flavors as string[]} />
           
           <div className="flex flex-col lg:flex-row gap-6 mt-4">
