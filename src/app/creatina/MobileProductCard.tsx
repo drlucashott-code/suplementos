@@ -63,12 +63,15 @@ export function MobileProductCard({
         </div>
       )}
 
-      {/* Coluna da Imagem */}
-      <div className="w-[140px] bg-[#f3f3f3] flex-shrink-0 flex items-center justify-center p-2">
+      {/* Coluna da Imagem - CORRIGIDA */}
+      <div className="w-[140px] bg-[#f3f3f3] flex-shrink-0 flex items-center justify-center overflow-hidden">
         <img
           src={product.imageUrl}
           alt={product.name}
-          className="max-h-[180px] max-w-full object-contain mix-blend-multiply"
+          /* Ajustado para w-full e h-full com object-contain 
+             Iso garante que a imagem preencha o máximo de espaço sem sobras 
+          */
+          className="w-full h-full max-h-[220px] object-contain mix-blend-multiply p-1"
         />
       </div>
 
