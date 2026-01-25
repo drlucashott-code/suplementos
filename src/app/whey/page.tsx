@@ -1,57 +1,18 @@
 import { prisma } from "@/lib/prisma";
 import { ProductList } from "./ProductList";
-import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
 import { DesktopFiltersSidebar } from "./DesktopFiltersSidebar";
-import { PriceSlider } from "./PriceSlider";
+import { FloatingFiltersBar } from "./FloatingFiltersBar";
+import { AmazonHeader } from "./AmazonHeader"; 
+import { MobileFiltersDrawer } from "./MobileFiltersDrawer"; // O Drawer ainda existe, mas sem o botão visível na página
 
 export type SearchParams = {
   brand?: string;
   flavor?: string;
   priceMax?: string;
-  order?: "cost" | "protein";
-  proteinRange?: string; // 50-60 | 60-70 | 70-80 | 80-90 | 90-100
+  order?: "cost" | "discount" | "protein";
+  proteinRange?: string;
+  q?: string;
 };
-
-type RankedProduct = {
-  id: string;
-  name: string;
-  imageUrl: string;
-  flavor: string | null;
-
-  price: number;
-  affiliateUrl: string;
-
-  protein: number;
-  dose: number;
-  proteinPercent: number;
-  numberOfDoses: number;
-  pricePerGramProtein: number;
-};
-
-/* ======================
-   PROTEIN RANGE MATCH
-====================== */
-function matchProteinRange(
-  percent: number,
-  range: string
-): boolean {
-  if (!Number.isFinite(percent)) return false;
-
-  switch (range) {
-    case "50-60":
-      return percent >= 50 && percent < 60;
-    case "60-70":
-      return percent >= 60 && percent < 70;
-    case "70-80":
-      return percent >= 70 && percent < 80;
-    case "80-90":
-      return percent >= 80 && percent < 90;
-    case "90-100":
-      return percent >= 90 && percent <= 100;
-    default:
-      return true;
-  }
-}
 
 export default async function WheyPage({
   searchParams,
@@ -59,199 +20,135 @@ export default async function WheyPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
+  const showFallback = process.env.NEXT_PUBLIC_SHOW_FALLBACK_PRICE === "true";
+  const order = params.order ?? "cost";
+  const searchQuery = params.q || "";
 
   const selectedBrands = params.brand?.split(",") ?? [];
   const selectedFlavors = params.flavor?.split(",") ?? [];
-  const selectedProteinRanges =
-    params.proteinRange?.split(",") ?? [];
+  const selectedProteinRanges = params.proteinRange?.split(",") ?? [];
+  const maxPrice = params.priceMax ? Number(params.priceMax) : undefined;
 
-  const maxPrice = params.priceMax
-    ? Number(params.priceMax)
-    : undefined;
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const order = params.order ?? "cost";
-
-  /* ======================
-     BUSCA PRODUTOS
-  ====================== */
   const products = await prisma.product.findMany({
     where: {
       category: "whey",
-      ...(selectedBrands.length > 0 && {
-        brand: { in: selectedBrands },
-      }),
-      ...(selectedFlavors.length > 0 && {
-        flavor: { in: selectedFlavors },
-      }),
+      ...(searchQuery && { name: { contains: searchQuery, mode: 'insensitive' } }),
+      ...(selectedBrands.length > 0 && { brand: { in: selectedBrands } }),
+      ...(selectedFlavors.length > 0 && { flavor: { in: selectedFlavors } }),
     },
     include: {
+      wheyInfo: true,
       offers: {
         where: {
           store: "AMAZON",
-          price: { gt: 0 },
           affiliateUrl: { not: "" },
+          ...(showFallback ? {} : { price: { gt: 0 } }),
         },
-        orderBy: { price: "asc" },
+        include: {
+          priceHistory: {
+            where: { createdAt: { gte: thirtyDaysAgo } },
+            orderBy: { createdAt: "desc" },
+          }
+        },
+        orderBy: { updatedAt: "desc" },
         take: 1,
       },
-      wheyInfo: true,
     },
   });
 
-  /* ======================
-     PROCESSA + FILTRA
-  ====================== */
-  const rankedProducts: RankedProduct[] = products
-    .map((product) => {
-      if (!product.wheyInfo) return null;
+  const rankedProducts = products.map((product) => {
+    if (!product.wheyInfo) return null;
+    const offer = product.offers[0];
+    if (!offer) return null;
 
-      const offer = product.offers[0];
-      if (!offer) return null;
+    let finalPrice = offer.price;
+    if (showFallback && (!finalPrice || finalPrice <= 0)) {
+      finalPrice = offer.priceHistory[0]?.price ?? null;
+    }
 
-      if (maxPrice !== undefined && offer.price > maxPrice)
-        return null;
+    if (!finalPrice || finalPrice <= 0) return null;
+    if (maxPrice !== undefined && finalPrice > maxPrice) return null;
 
-      const proteinPerDose =
-        product.wheyInfo.proteinPerDoseInGrams;
-      const dose = product.wheyInfo.doseInGrams;
-      const totalWeight =
-        product.wheyInfo.totalWeightInGrams;
+    const info = product.wheyInfo;
+    const proteinPercent = (info.proteinPerDoseInGrams / info.doseInGrams) * 100;
 
-      if (
-        !proteinPerDose ||
-        !dose ||
-        !totalWeight ||
-        dose <= 0 ||
-        totalWeight <= 0
-      ) {
-        return null;
-      }
+    if (selectedProteinRanges.length > 0) {
+      const match = selectedProteinRanges.some(r => {
+        const [min, max] = r.split("-").map(Number);
+        return proteinPercent >= min && proteinPercent < (max === 100 ? 101 : max);
+      });
+      if (!match) return null;
+    }
 
-      const proteinPercent =
-        (proteinPerDose / dose) * 100;
+    const totalDoses = info.totalWeightInGrams / info.doseInGrams;
+    const pricePerGramProtein = finalPrice / (totalDoses * info.proteinPerDoseInGrams);
 
-      if (
-        selectedProteinRanges.length > 0 &&
-        !selectedProteinRanges.some((r) =>
-          matchProteinRange(proteinPercent, r)
-        )
-      ) {
-        return null;
-      }
+    let discountPercent: number | null = null;
+    let avg30: number | null = null;
+    if (offer.priceHistory.length >= 5) {
+      avg30 = offer.priceHistory.reduce((s, h) => s + h.price, 0) / offer.priceHistory.length;
+      const raw = ((avg30 - finalPrice) / avg30) * 100;
+      if (raw >= 5) discountPercent = Math.round(raw);
+    }
 
-      const numberOfDoses = totalWeight / dose;
-      const totalProtein =
-        totalWeight * (proteinPercent / 100);
+    return {
+      id: product.id,
+      name: product.name,
+      imageUrl: product.imageUrl,
+      flavor: product.flavor,
+      price: finalPrice,
+      affiliateUrl: offer.affiliateUrl,
+      protein: info.proteinPerDoseInGrams,
+      dose: info.doseInGrams,
+      proteinPercent,
+      numberOfDoses: totalDoses,
+      pricePerGramProtein,
+      discountPercent,
+      avg30Price: discountPercent ? avg30 : null,
+      rating: offer.ratingAverage ?? 0,
+      reviewsCount: offer.ratingCount ?? 0,
+    };
+  }).filter((p): p is NonNullable<typeof p> => p !== null);
 
-      if (!Number.isFinite(totalProtein) || totalProtein <= 0)
-        return null;
-
-      const pricePerGramProtein =
-        offer.price / totalProtein;
-
-      if (!Number.isFinite(pricePerGramProtein))
-        return null;
-
-      return {
-        id: product.id,
-        name: product.name,
-        imageUrl: product.imageUrl,
-        flavor: product.flavor,
-
-        price: offer.price,
-        affiliateUrl: offer.affiliateUrl,
-
-        protein: proteinPerDose,
-        dose,
-        proteinPercent,
-        numberOfDoses,
-        pricePerGramProtein,
-      };
-    })
-    .filter((p): p is RankedProduct => p !== null)
-    .sort((a, b) => {
-      if (order === "protein") {
-        if (b.proteinPercent !== a.proteinPercent) {
-          return b.proteinPercent - a.proteinPercent;
-        }
-        return (
-          a.pricePerGramProtein -
-          b.pricePerGramProtein
-        );
-      }
-      return (
-        a.pricePerGramProtein -
-        b.pricePerGramProtein
-      );
-    });
-
-  /* ======================
-     FILTROS DISPONÍVEIS
-  ====================== */
-  const brands = await prisma.product.findMany({
-    where: { category: "whey" },
-    distinct: ["brand"],
-    select: { brand: true },
+  const finalProducts = rankedProducts.sort((a, b) => {
+    if (order === "discount") {
+      const aDesc = a.discountPercent ?? 0;
+      const bDesc = b.discountPercent ?? 0;
+      if (bDesc !== aDesc) return bDesc - aDesc;
+      return a.pricePerGramProtein - b.pricePerGramProtein;
+    }
+    if (order === "protein") {
+      if (Math.abs(b.proteinPercent - a.proteinPercent) > 0.1) return b.proteinPercent - a.proteinPercent;
+      return a.pricePerGramProtein - b.pricePerGramProtein;
+    }
+    return a.pricePerGramProtein - b.pricePerGramProtein;
   });
 
-  const flavors = await prisma.product.findMany({
-    where: {
-      category: "whey",
-      flavor: { not: null },
-    },
-    distinct: ["flavor"],
-    select: { flavor: true },
-  });
+  const brands = [...new Set(products.map(p => p.brand))];
+  const flavors = [...new Set(products.map(p => p.flavor).filter(f => !!f))];
 
-  /* ======================
-     RENDER
-  ====================== */
   return (
-    <main>
-      <section className="bg-black text-white py-8 px-4">
-        <h1 className="text-2xl sm:text-3xl font-bold text-center">
-          Calculadora de custo-benefício
-        </h1>
-      </section>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <section className="space-y-1 mb-6 mt-4 max-w-5xl mx-auto text-[#171717]">
-          <p className="text-sm">
-            Categoria: <strong>Whey Protein</strong>
-          </p>
-          <p className="text-sm">
-            Produtos vendidos pela Amazon
-          </p>
-          <p className="text-sm mt-2">
-            Ordene os produtos pelo menor preço por grama de proteína
-            ou pela maior concentração de proteína por dose.
-          </p>
-        </section>
-
-        <MobileFiltersDrawer
-          brands={brands.map((b) => b.brand)}
-          flavors={flavors.map((f) => f.flavor!).sort()}
-        />
-
-        <div className="flex flex-col lg:flex-row gap-8 mt-6 justify-center">
-          <aside className="hidden lg:block w-72 shrink-0">
-            <DesktopFiltersSidebar
-              brands={brands.map((b) => b.brand)}
-              flavors={flavors.map((f) => f.flavor!).sort()}
-            />
-            <div className="mt-4">
-              <PriceSlider />
+    <main className="bg-[#EAEDED] min-h-screen">
+      <AmazonHeader />
+      <div className="max-w-[1200px] mx-auto">
+        <FloatingFiltersBar />
+        <div className="px-3">
+          {/* ✅ O Drawer é chamado aqui mas não renderiza botão, apenas o conteúdo escondido */}
+          <MobileFiltersDrawer brands={brands} flavors={flavors as string[]} />
+          
+          <div className="flex flex-col lg:flex-row gap-6 mt-4">
+            <aside className="hidden lg:block w-64 shrink-0">
+              <DesktopFiltersSidebar brands={brands} flavors={flavors as string[]} />
+            </aside>
+            <div className="w-full max-w-[680px] pb-10">
+              <p className="text-[13px] text-gray-500 mb-2 px-1">
+                {finalProducts.length} resultados encontrados
+              </p>
+              <ProductList products={finalProducts} />
             </div>
-          </aside>
-
-          <div className="w-full max-w-3xl">
-            {rankedProducts.length === 0 ? (
-              <div className="text-center text-sm text-gray-600 py-16">
-                Nenhum produto encontrado.
-              </div>
-            ) : (
-              <ProductList products={rankedProducts} />
-            )}
           </div>
         </div>
       </div>

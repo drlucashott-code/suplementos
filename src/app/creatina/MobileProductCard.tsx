@@ -114,18 +114,15 @@ export function MobileProductCard({
 
           {product.doses && (
             <>
-              <span>•</span>
-              <span>
-                Rendimento:{" "}
-                <b className="text-[#0F1111] font-medium">
-                  {Math.floor(product.doses)} doses
-                </b>
-              </span>
+              {product.flavor && <span>•</span>}
+              <b className="text-[#0F1111] font-medium">
+                {Math.floor(product.doses)} doses
+              </b>
             </>
           )}
         </div>
 
-        {/* SELO DE CARBOIDRATO (Baseado em Scoop ou Formato Gummy) */}
+        {/* SELO DE CARBOIDRATO */}
         {shouldShowCarbTag && (
           <div className="mb-1">
             <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 font-medium">

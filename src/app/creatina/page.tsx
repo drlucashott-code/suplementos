@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { ProductList } from "./ProductList";
 import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
 import { DesktopFiltersSidebar } from "./DesktopFiltersSidebar";
-import { FloatingFiltersBar } from "@/components/FloatingFiltersBar";
+import { FloatingFiltersBar } from "@/app/creatina/FloatingFiltersBar";
 import { AmazonHeader } from "./AmazonHeader";
 import { CreatineForm } from "@prisma/client";
 

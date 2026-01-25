@@ -3,33 +3,11 @@
 import { useEffect, useRef } from "react";
 import { MobileProductCard } from "./MobileProductCard";
 
-export type WheyProductPublic = {
-  id: string;
-  name: string;
-  imageUrl: string;
-  flavor: string | null;
-
-  price: number;
-  affiliateUrl: string;
-
-  protein: number; // g por dose
-  dose: number; // g
-  proteinPercent: number; // %
-  numberOfDoses: number; // ⭐ NOVO
-  pricePerGramProtein: number; // ⭐
-};
-
-export function ProductList({
-  products,
-}: {
-  products: WheyProductPublic[];
-}) {
+export function ProductList({ products }: { products: any[] }) {
   const trackedRef = useRef(false);
 
   useEffect(() => {
-    if (trackedRef.current) return;
-    if (!products || products.length === 0) return;
-
+    if (trackedRef.current || !products.length) return;
     if (typeof window !== "undefined" && "gtag" in window) {
       // @ts-ignore
       window.gtag("event", "view_product_list", {
@@ -38,17 +16,16 @@ export function ProductList({
         best_product_name: products[0]?.name,
       });
     }
-
     trackedRef.current = true;
   }, [products]);
 
   return (
-    <section className="flex-1 space-y-6">
+    <section className="flex flex-col">
       {products.map((product, index) => (
-        <MobileProductCard
-          key={product.id}
-          product={product}
-          isBest={index === 0}
+        <MobileProductCard 
+          key={product.id} 
+          product={product} 
+          isBest={index === 0} 
         />
       ))}
     </section>
