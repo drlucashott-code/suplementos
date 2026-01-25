@@ -8,8 +8,6 @@ type Props = {
   flavors: string[];
 };
 
-const DOSE_BUCKETS = ["<50", "51-100", "101-150", ">150"];
-
 export function DesktopFiltersSidebar({ brands, flavors }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -56,12 +54,12 @@ export function DesktopFiltersSidebar({ brands, flavors }: Props) {
   }
 
   return (
-    <div className="border rounded-xl p-4 space-y-6 bg-white">
+    <div className="border rounded-xl p-4 space-y-6 bg-white shadow-sm">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-lg">Filtros</h3>
+        <h3 className="font-semibold text-lg text-[#0F1111]">Filtros</h3>
         <button
           onClick={clearFilters}
-          className="text-xs text-gray-500 hover:underline"
+          className="text-xs text-[#007185] hover:underline"
         >
           Limpar filtros
         </button>
@@ -69,37 +67,39 @@ export function DesktopFiltersSidebar({ brands, flavors }: Props) {
 
       {/* APRESENTAÇÃO */}
       <div>
-        <p className="font-medium text-sm mb-2">Apresentação</p>
-        {[
-          { value: CreatineForm.CAPSULE, label: "Cápsula" },
-          { value: CreatineForm.GUMMY, label: "Gummy" },
-          { value: CreatineForm.POWDER, label: "Pó" },
-        ].map((f) => (
-          <label key={f.value} className="flex gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={getSelected("form").includes(f.value)}
-              onChange={() => toggleParam("form", f.value)}
-            />
-            {f.label}
-          </label>
-        ))}
+        <p className="font-bold text-sm mb-2 text-[#0F1111]">Apresentação</p>
+        <div className="space-y-1">
+          {[
+            { value: CreatineForm.CAPSULE, label: "Cápsula" },
+            { value: CreatineForm.GUMMY, label: "Gummy" },
+            { value: CreatineForm.POWDER, label: "Pó" },
+          ].map((f) => (
+            <label key={f.value} className="flex items-center gap-2 text-sm cursor-pointer hover:text-[#e47911]">
+              <input
+                type="checkbox"
+                className="w-4 h-4 accent-[#e47911]"
+                checked={getSelected("form").includes(f.value)}
+                onChange={() => toggleParam("form", f.value)}
+              />
+              {f.label}
+            </label>
+          ))}
+        </div>
       </div>
 
       {/* MARCA */}
       <div>
-        <p className="font-medium text-sm mb-2">Marca</p>
-        <div className="space-y-1 max-h-40 overflow-auto">
+        <p className="font-bold text-sm mb-2 text-[#0F1111]">Marca</p>
+        <div className="space-y-1 max-h-48 overflow-auto pr-2 custom-scrollbar">
           {[...brands].sort().map((brand) => (
-            <label key={brand} className="flex gap-2 text-sm">
+            <label key={brand} className="flex items-center gap-2 text-sm cursor-pointer hover:text-[#e47911]">
               <input
                 type="checkbox"
+                className="w-4 h-4 accent-[#e47911]"
                 checked={getSelected("brand").includes(brand)}
-                onChange={() =>
-                  toggleParam("brand", brand)
-                }
+                onChange={() => toggleParam("brand", brand)}
               />
-              {brand}
+              <span className="line-clamp-1">{brand}</span>
             </label>
           ))}
         </div>
@@ -107,38 +107,20 @@ export function DesktopFiltersSidebar({ brands, flavors }: Props) {
 
       {/* SABOR */}
       <div>
-        <p className="font-medium text-sm mb-2">Sabor</p>
-        {[...flavors].sort().map((flavor) => (
-          <label key={flavor} className="flex gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={getSelected("flavor").includes(flavor)}
-              onChange={() =>
-                toggleParam("flavor", flavor)
-              }
-            />
-            {flavor}
-          </label>
-        ))}
-      </div>
-
-      {/* DOSES */}
-      <div>
-        <p className="font-medium text-sm mb-2">Doses</p>
-        {DOSE_BUCKETS.map((bucket) => (
-          <label key={bucket} className="flex gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={getSelected("doses").includes(
-                bucket
-              )}
-              onChange={() =>
-                toggleParam("doses", bucket)
-              }
-            />
-            {bucket}
-          </label>
-        ))}
+        <p className="font-bold text-sm mb-2 text-[#0F1111]">Sabor</p>
+        <div className="space-y-1 max-h-40 overflow-auto pr-2 custom-scrollbar">
+          {[...flavors].sort().map((flavor) => (
+            <label key={flavor} className="flex items-center gap-2 text-sm cursor-pointer hover:text-[#e47911]">
+              <input
+                type="checkbox"
+                className="w-4 h-4 accent-[#e47911]"
+                checked={getSelected("flavor").includes(flavor)}
+                onChange={() => toggleParam("flavor", flavor)}
+              />
+              <span className="line-clamp-1">{flavor}</span>
+            </label>
+          ))}
+        </div>
       </div>
     </div>
   );

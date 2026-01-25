@@ -24,12 +24,7 @@ export function MobileFiltersDrawer({
     useState<string[]>([]);
   const [selectedForms, setSelectedForms] =
     useState<CreatineForm[]>([]);
-  const [tempPrice, setTempPrice] =
-    useState<number>(200);
 
-  /* =========================
-     ABRE VIA EVENTO (SEM URL)
-     ========================= */
   useEffect(() => {
     function handleOpen() {
       setSelectedBrands(
@@ -43,19 +38,13 @@ export function MobileFiltersDrawer({
           .get("form")
           ?.split(",") as CreatineForm[]) ?? []
       );
-      setTempPrice(
-        Number(searchParams.get("priceMax")) || 200
-      );
 
       setOpen(true);
     }
 
     window.addEventListener("open-filters", handleOpen);
     return () =>
-      window.removeEventListener(
-        "open-filters",
-        handleOpen
-      );
+      window.removeEventListener("open-filters", handleOpen);
   }, [searchParams]);
 
   function closeDrawer() {
@@ -74,9 +63,6 @@ export function MobileFiltersDrawer({
     );
   }
 
-  /* =========================
-     APLICA FILTROS (AQUI SIM NAVEGA)
-     ========================= */
   function applyFilters() {
     const params = new URLSearchParams();
 
@@ -87,7 +73,9 @@ export function MobileFiltersDrawer({
     if (selectedForms.length)
       params.set("form", selectedForms.join(","));
 
-    params.set("priceMax", String(tempPrice));
+    // Mantém a query de busca se existir
+    const q = searchParams.get("q");
+    if (q) params.set("q", q);
 
     router.push(`/creatina?${params.toString()}`);
     setOpen(false);
@@ -102,22 +90,17 @@ export function MobileFiltersDrawer({
 
   return (
     <>
-      {/* OVERLAY */}
       <div
         className="fixed inset-0 bg-black/40 z-40"
         onClick={closeDrawer}
       />
 
-      {/* DRAWER */}
       <div
         className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl flex flex-col"
         style={{ height: "90vh" }}
       >
-        {/* HEADER */}
         <div className="p-4 border-b flex justify-between items-center">
-          <h2 className="font-semibold text-lg">
-            Filtros
-          </h2>
+          <h2 className="font-semibold text-lg">Filtros</h2>
           <button
             onClick={closeDrawer}
             className="text-sm text-gray-500"
@@ -126,34 +109,20 @@ export function MobileFiltersDrawer({
           </button>
         </div>
 
-        {/* CONTEÚDO */}
         <div className="p-4 overflow-y-auto flex-1 space-y-6">
           {/* APRESENTAÇÃO */}
           <div>
-            <p className="font-medium mb-2">
-              Apresentação
-            </p>
+            <p className="font-medium mb-2">Apresentação</p>
             {[
               { value: CreatineForm.CAPSULE, label: "Cápsula" },
               { value: CreatineForm.GUMMY, label: "Gummy" },
               { value: CreatineForm.POWDER, label: "Pó" },
             ].map((f) => (
-              <label
-                key={f.value}
-                className="flex gap-2 text-sm mb-2"
-              >
+              <label key={f.value} className="flex gap-2 text-sm mb-2">
                 <input
                   type="checkbox"
-                  checked={selectedForms.includes(
-                    f.value
-                  )}
-                  onChange={() =>
-                    toggle(
-                      f.value,
-                      selectedForms,
-                      setSelectedForms
-                    )
-                  }
+                  checked={selectedForms.includes(f.value)}
+                  onChange={() => toggle(f.value, selectedForms, setSelectedForms)}
                 />
                 {f.label}
               </label>
@@ -162,26 +131,13 @@ export function MobileFiltersDrawer({
 
           {/* MARCA */}
           <div>
-            <p className="font-medium mb-2">
-              Marca
-            </p>
+            <p className="font-medium mb-2">Marca</p>
             {[...brands].sort().map((b) => (
-              <label
-                key={b}
-                className="flex gap-2 text-sm mb-2"
-              >
+              <label key={b} className="flex gap-2 text-sm mb-2">
                 <input
                   type="checkbox"
-                  checked={selectedBrands.includes(
-                    b
-                  )}
-                  onChange={() =>
-                    toggle(
-                      b,
-                      selectedBrands,
-                      setSelectedBrands
-                    )
-                  }
+                  checked={selectedBrands.includes(b)}
+                  onChange={() => toggle(b, selectedBrands, setSelectedBrands)}
                 />
                 {b}
               </label>
@@ -190,57 +146,20 @@ export function MobileFiltersDrawer({
 
           {/* SABOR */}
           <div>
-            <p className="font-medium mb-2">
-              Sabor
-            </p>
+            <p className="font-medium mb-2">Sabor</p>
             {[...flavors].sort().map((f) => (
-              <label
-                key={f}
-                className="flex gap-2 text-sm mb-2"
-              >
+              <label key={f} className="flex gap-2 text-sm mb-2">
                 <input
                   type="checkbox"
-                  checked={selectedFlavors.includes(
-                    f
-                  )}
-                  onChange={() =>
-                    toggle(
-                      f,
-                      selectedFlavors,
-                      setSelectedFlavors
-                    )
-                  }
+                  checked={selectedFlavors.includes(f)}
+                  onChange={() => toggle(f, selectedFlavors, setSelectedFlavors)}
                 />
                 {f}
               </label>
             ))}
           </div>
-
-          {/* PREÇO */}
-          <div>
-            <p className="font-medium mb-2">
-              Preço máximo
-            </p>
-            <p className="text-sm mb-1">
-              Até <strong>R$ {tempPrice}</strong>
-            </p>
-            <input
-              type="range"
-              min={20}
-              max={200}
-              step={1}
-              value={tempPrice}
-              onChange={(e) =>
-                setTempPrice(
-                  Number(e.target.value)
-                )
-              }
-              className="w-full accent-green-600"
-            />
-          </div>
         </div>
 
-        {/* FOOTER */}
         <div className="p-4 border-t space-y-2">
           <button
             onClick={applyFilters}

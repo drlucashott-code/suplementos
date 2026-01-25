@@ -1,34 +1,28 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState, useEffect } from "react";
 
-export function useScrollDirection(threshold = 10) {
-  const [show, setShow] = useState(true);
-  const lastScrollY = useRef(0);
+export function useScrollDirection() {
+  const [scrollDirection, setScrollDirection] = useState<"up" | "down" | null>(null);
 
   useEffect(() => {
-    function onScroll() {
-      const current = window.scrollY;
-      const diff = current - lastScrollY.current;
+    let lastScrollY = window.pageYOffset;
 
-      if (diff > threshold && current > 80) {
-        setShow(false);
+    const updateScrollDirection = () => {
+      const scrollY = window.pageYOffset;
+      // Detecta a direção baseada na posição anterior
+      const direction = scrollY > lastScrollY ? "down" : "up";
+      
+      // Margem de erro (threshold) de 10px para evitar oscilações
+      if (direction !== scrollDirection && (scrollY - lastScrollY > 10 || scrollY - lastScrollY < -10)) {
+        setScrollDirection(direction);
       }
+      lastScrollY = scrollY > 0 ? scrollY : 0;
+    };
 
-      if (diff < -threshold) {
-        setShow(true);
-      }
+    window.addEventListener("scroll", updateScrollDirection);
+    return () => window.removeEventListener("scroll", updateScrollDirection);
+  }, [scrollDirection]);
 
-      lastScrollY.current = current;
-    }
-
-    window.addEventListener("scroll", onScroll, {
-      passive: true,
-    });
-
-    return () =>
-      window.removeEventListener("scroll", onScroll);
-  }, [threshold]);
-
-  return show;
+  return scrollDirection;
 }
