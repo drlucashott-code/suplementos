@@ -19,6 +19,7 @@ type Product = {
 
   rating?: number;
   reviewsCount?: number;
+  hasCarbs?: boolean;
 };
 
 export function MobileProductCard({
@@ -54,6 +55,9 @@ export function MobileProductCard({
           .replace(".", ",") + " mil"
       : reviewsCount.toString();
 
+  // Selo de carboidrato aparece se hasCarbs for true OU se for Gummy
+  const shouldShowCarbTag = product.hasCarbs || product.form === "GUMMY";
+
   return (
     <div className="flex gap-3 border-b border-gray-100 bg-white relative items-stretch min-h-[240px]">
       {/* Selo de Desconto */}
@@ -63,14 +67,11 @@ export function MobileProductCard({
         </div>
       )}
 
-      {/* Coluna da Imagem - CORRIGIDA */}
+      {/* Coluna da Imagem */}
       <div className="w-[140px] bg-[#f3f3f3] flex-shrink-0 flex items-center justify-center overflow-hidden">
         <img
           src={product.imageUrl}
           alt={product.name}
-          /* Ajustado para w-full e h-full com object-contain 
-             Iso garante que a imagem preencha o máximo de espaço sem sobras 
-          */
           className="w-full h-full max-h-[220px] object-contain mix-blend-multiply p-1"
         />
       </div>
@@ -124,6 +125,15 @@ export function MobileProductCard({
           )}
         </div>
 
+        {/* SELO DE CARBOIDRATO (Baseado em Scoop ou Formato Gummy) */}
+        {shouldShowCarbTag && (
+          <div className="mb-1">
+            <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 font-medium">
+              Contém carboidratos
+            </span>
+          </div>
+        )}
+
         {/* Bloco de Preço */}
         <div className="flex flex-col mt-1">
           {hasPrice ? (
@@ -161,8 +171,7 @@ export function MobileProductCard({
               </div>
 
               <p className="text-[12px] text-[#565959]">
-                (R$ {product.pricePerGram.toFixed(2)} /
-                grama)
+                (R$ {product.pricePerGram.toFixed(2)} / g de creatina)
               </p>
 
               {product.avg30Price &&

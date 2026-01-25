@@ -51,7 +51,6 @@ export default async function CreatinaPage({
           ...(showFallback ? {} : { price: { gt: 0 } }),
         },
         include: {
-          // Trazemos o histórico dos últimos 30 dias de uma vez
           priceHistory: {
             where: { createdAt: { gte: thirtyDaysAgo } },
             orderBy: { createdAt: "desc" },
@@ -95,13 +94,26 @@ export default async function CreatinaPage({
         avg30Price: null,
         rating: offer.ratingAverage ?? 0,
         reviewsCount: offer.ratingCount ?? 0,
+        hasCarbs: false,
       };
     }
 
     if (maxPrice !== undefined && finalPrice > maxPrice) return null;
 
-    const pricePerGram = finalPrice / product.creatineInfo.totalUnits;
-    const doses = product.creatineInfo.totalUnits / product.creatineInfo.unitsPerDose;
+    /* ============================================================
+       LÓGICA DE PUREZA BASEADA NO SCOOP (3g de Creatina Fixa)
+       ============================================================ */
+    const info = product.creatineInfo;
+    const totalDosesNoPote = info.totalUnits / info.unitsPerDose;
+    
+    // Consideramos que cada dose entrega exatamente 3g de creatina pura
+    const gramasCreatinaPuraNoPote = totalDosesNoPote * 3;
+    
+    // O preço por grama agora reflete a creatina real, não o peso do pó
+    const pricePerGramCreatine = finalPrice / gramasCreatinaPuraNoPote;
+
+    // Identificação de Carboidratos: scoop > 4g
+    const hasCarbs = info.unitsPerDose > 4;
 
     // Cálculo de desconto usando o histórico em memória
     let discountPercent: number | null = null;
@@ -121,8 +133,9 @@ export default async function CreatinaPage({
       form: product.creatineInfo.form,
       price: finalPrice,
       affiliateUrl: offer.affiliateUrl,
-      doses,
-      pricePerGram,
+      doses: totalDosesNoPote,
+      pricePerGram: pricePerGramCreatine,
+      hasCarbs,
       discountPercent,
       avg30Price: discountPercent && avg30 ? avg30 : null,
       rating: offer.ratingAverage ?? 0,
@@ -161,7 +174,6 @@ export default async function CreatinaPage({
               <p className="text-[13px] text-gray-600 mb-2 px-1">
                 {finalProducts.length} resultados encontrados
               </p>
-              {/* Passamos todos os produtos, o componente gerencia a exibição gradual */}
               <ProductList products={finalProducts} />
             </div>
           </div>
