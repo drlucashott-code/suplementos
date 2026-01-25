@@ -10,6 +10,10 @@ const prisma = new PrismaClient();
 ====================== */
 const HOURS_LIMIT = 4;
 const REQUEST_DELAY_MS = 1800;
+const SCRAPE_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+// 🔥 FORÇA SCRAPING IGNORANDO EXECUÇÕES ANTERIORES
+const FORCE_SCRAPE = true;
 
 /* ======================
    ENV CHECK
@@ -88,11 +92,11 @@ function extractAmazonPrice(json: any): number | null {
 }
 
 /* ======================
-   FETCH AMAZON PRICE
+   FETCH AMAZON PRICE (API)
 ====================== */
 async function fetchAmazonPrice(
   asin: string
-): Promise<number | null> {
+): Promise<number | null | "NOT_ACCESSIBLE"> {
   const payload = JSON.stringify({
     ItemIds: [asin],
     Resources: [
@@ -173,6 +177,17 @@ async function fetchAmazonPrice(
       res.on("end", () => {
         try {
           const json = JSON.parse(data);
+
+          if (
+            json?.Errors?.some(
+              (e: any) =>
+                e?.Code === "ItemNotAccessible"
+            )
+          ) {
+            resolve("NOT_ACCESSIBLE");
+            return;
+          }
+
           resolve(extractAmazonPrice(json));
         } catch {
           resolve(null);
@@ -183,6 +198,54 @@ async function fetchAmazonPrice(
     req.on("error", () => resolve(null));
     req.write(payload);
     req.end();
+  });
+}
+
+/* ======================
+   SCRAPING FALLBACK
+====================== */
+async function scrapeAmazonPrice(
+  asin: string
+): Promise<number | null> {
+  return new Promise((resolve) => {
+    https
+      .get(
+        {
+          hostname: "www.amazon.com.br",
+          path: `/dp/${asin}`,
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            "Accept-Language":
+              "pt-BR,pt;q=0.9",
+          },
+        },
+        (res) => {
+          let html = "";
+          res.on("data", (c) => (html += c));
+          res.on("end", () => {
+            const match =
+              html.match(
+                /R\$[\s]*([\d\.]+,\d{2})/
+              );
+
+            if (!match) return resolve(null);
+
+            const price = Number(
+              match[1]
+                .replace(/\./g, "")
+                .replace(",", ".")
+            );
+
+            resolve(
+              Number.isFinite(price)
+                ? price
+                : null
+            );
+          });
+        }
+      )
+      .on("error", () => resolve(null));
   });
 }
 
@@ -199,7 +262,10 @@ async function updateAmazonPrices() {
   const offers = await prisma.offer.findMany({
     where: {
       store: Store.AMAZON,
-      updatedAt: { lt: LIMIT_DATE },
+      OR: [
+        { updatedAt: { lt: LIMIT_DATE } },
+        { price: 0 },
+      ],
     },
     select: {
       id: true,
@@ -213,62 +279,111 @@ async function updateAmazonPrices() {
     orderBy: { updatedAt: "asc" },
   });
 
-  console.log(`🔎 ${offers.length} ofertas para atualizar\n`);
+  console.log(`🔎 ${offers.length} ofertas\n`);
 
   for (const offer of offers) {
     console.log(
-      `🔎 ASIN ${offer.externalId}\n` +
-      `   Produto: ${offer.product.name}\n` +
-      `   Preço atual: ${offer.price ?? "—"}`
+      `🔎 ${offer.externalId} — ${offer.product.name}`
     );
 
-    const price = await fetchAmazonPrice(offer.externalId);
+    const result = await fetchAmazonPrice(
+      offer.externalId
+    );
 
-    const updateData: {
-      updatedAt: Date;
-      price?: number;
-      affiliateUrl?: string;
-    } = {
-      updatedAt: new Date(),
-    };
-
-    if (price !== null && price > 0) {
-      updateData.price = price;
-      updateData.affiliateUrl =
-        `https://www.amazon.com.br/dp/${offer.externalId}?tag=${PARTNER_TAG}`;
+    /* ---------- API OK ---------- */
+    if (typeof result === "number" && result > 0) {
+      await prisma.offer.update({
+        where: { id: offer.id },
+        data: {
+          price: result,
+          updatedAt: new Date(),
+          affiliateUrl: `https://www.amazon.com.br/dp/${offer.externalId}?tag=${PARTNER_TAG}`,
+        },
+      });
 
       await prisma.offerPriceHistory.create({
         data: {
           offerId: offer.id,
-          price,
+          price: result,
         },
       });
 
-      console.log(`✅ Preço atualizado: R$ ${price}`);
-    } else {
-      console.log(
-        "⚠️ Preço não encontrado → mantendo último valor válido"
-      );
+      console.log(`✅ API: R$ ${result}`);
     }
 
-    await prisma.offer.update({
-      where: { id: offer.id },
-      data: updateData,
-    });
+    /* ---------- API INDISPONÍVEL ---------- */
+    else if (result === null) {
+      await prisma.offer.update({
+        where: { id: offer.id },
+        data: { price: 0 },
+      });
 
-    console.log("—".repeat(50));
+      console.log("⚠️ Indisponível via API");
+    }
 
+    /* ---------- API BLOQUEADA → SCRAPING ---------- */
+    else if (result === "NOT_ACCESSIBLE") {
+      const canScrape =
+        FORCE_SCRAPE ||
+        Date.now() -
+          offer.updatedAt.getTime() >
+          SCRAPE_INTERVAL_MS;
+
+      if (canScrape) {
+        console.log(
+          "🕷️ API bloqueada → scraping (FORÇADO)"
+        );
+
+        const scraped =
+          await scrapeAmazonPrice(
+            offer.externalId
+          );
+
+        if (scraped && scraped > 0) {
+          await prisma.offer.update({
+            where: { id: offer.id },
+            data: { price: scraped },
+          });
+
+          await prisma.offerPriceHistory.create({
+            data: {
+              offerId: offer.id,
+              price: scraped,
+            },
+          });
+
+          console.log(
+            `🕷️ Scrape: R$ ${scraped}`
+          );
+        } else {
+          await prisma.offer.update({
+            where: { id: offer.id },
+            data: { price: 0 },
+          });
+
+          console.log(
+            "⚠️ Scraping falhou"
+          );
+        }
+      } else {
+        console.log(
+          "⏳ Scraping já feito hoje"
+        );
+      }
+    }
+
+    console.log("—".repeat(40));
     await new Promise((r) =>
       setTimeout(r, REQUEST_DELAY_MS)
     );
   }
 
-  console.log("\n🏁 Atualização finalizada");
+  console.log("\n🏁 Finalizado");
   await prisma.$disconnect();
 }
 
 updateAmazonPrices().catch(async (err) => {
-  console.error("❌ Erro no script:", err);
+  console.error("❌ Erro:", err);
   await prisma.$disconnect();
   process.exit(1);
 });

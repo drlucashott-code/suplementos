@@ -1,28 +1,74 @@
 "use client";
 
-export function MobileProductCard({ product, isBest }: { product: any; isBest?: boolean }) {
-  const [int, cents] = product.price.toFixed(2).split(".");
+import { CreatineForm } from "@prisma/client";
 
-  // Formatação para exibir (23,5 mil)
-  const formattedCount = product.reviewsCount >= 1000 
-    ? (product.reviewsCount / 1000).toFixed(1).replace('.', ',') + ' mil' 
-    : product.reviewsCount;
+type Product = {
+  id: string;
+  name: string;
+  imageUrl: string;
+  flavor: string | null;
+  form: CreatineForm;
+
+  price: number | null;
+  affiliateUrl: string;
+
+  doses: number | null;
+  pricePerGram: number;
+  discountPercent?: number | null;
+  avg30Price?: number | null;
+
+  rating?: number;
+  reviewsCount?: number;
+};
+
+export function MobileProductCard({
+  product,
+  isBest,
+}: {
+  product: Product;
+  isBest?: boolean;
+}) {
+  const hasPrice =
+    typeof product.price === "number" &&
+    product.price > 0;
+
+  const intCents = hasPrice
+    ? product.price!.toFixed(2).split(".")
+    : null;
+
+  // Avaliações (proteção)
+  const rating =
+    typeof product.rating === "number"
+      ? product.rating
+      : 0;
+
+  const reviewsCount =
+    typeof product.reviewsCount === "number"
+      ? product.reviewsCount
+      : 0;
+
+  const formattedCount =
+    reviewsCount >= 1000
+      ? (reviewsCount / 1000)
+          .toFixed(1)
+          .replace(".", ",") + " mil"
+      : reviewsCount.toString();
 
   return (
     <div className="flex gap-3 border-b border-gray-100 bg-white relative items-stretch min-h-[240px]">
       {/* Selo de Desconto */}
-      {product.discountPercent && (
+      {hasPrice && product.discountPercent && (
         <div className="absolute top-4 left-0 z-10 bg-[#CC0C39] text-white text-[11px] font-bold px-2 py-0.5 rounded-r-sm shadow-sm">
           {product.discountPercent}% OFF
         </div>
       )}
 
-      {/* Coluna da Imagem com Fundo Cinza Vertical */}
+      {/* Coluna da Imagem */}
       <div className="w-[140px] bg-[#f3f3f3] flex-shrink-0 flex items-center justify-center p-2">
-        <img 
-          src={product.imageUrl} 
-          alt={product.name} 
-          className="max-h-[180px] max-w-full object-contain mix-blend-multiply" 
+        <img
+          src={product.imageUrl}
+          alt={product.name}
+          className="max-h-[180px] max-w-full object-contain mix-blend-multiply"
         />
       </div>
 
@@ -32,61 +78,120 @@ export function MobileProductCard({ product, isBest }: { product: any; isBest?: 
           {product.name}
         </h2>
 
-        {/* Avaliações Dinâmicas */}
+        {/* Avaliações */}
         <div className="flex items-center gap-1 mb-1 text-[12px]">
-          <span className="font-normal text-[#0F1111]">{product.rating.toFixed(1)}</span>
+          <span className="font-normal text-[#0F1111]">
+            {rating.toFixed(1)}
+          </span>
+
           <div className="flex text-[#e47911] text-[10px] tracking-tighter">
             {[...Array(5)].map((_, i) => (
               <span key={i}>
-                {i < Math.floor(product.rating) ? "★" : "☆"}
+                {i < Math.floor(rating) ? "★" : "☆"}
               </span>
             ))}
           </div>
-          <span className="text-[#007185]">({formattedCount})</span>
+
+          <span className="text-[#007185]">
+            ({formattedCount})
+          </span>
         </div>
 
         {/* Informações Extras */}
         <div className="flex flex-wrap gap-x-2 text-[12px] text-[#565959] mb-1">
-          {product.flavor && <span>Sabor: <b className="text-[#0F1111] font-medium">{product.flavor}</b></span>}
-          <span>•</span>
-          <span>Rendimento: <b className="text-[#0F1111] font-medium">{Math.floor(product.doses)} doses</b></span>
+          {product.flavor && (
+            <span>
+              Sabor:{" "}
+              <b className="text-[#0F1111] font-medium">
+                {product.flavor}
+              </b>
+            </span>
+          )}
+
+          {product.doses && (
+            <>
+              <span>•</span>
+              <span>
+                Rendimento:{" "}
+                <b className="text-[#0F1111] font-medium">
+                  {Math.floor(product.doses)} doses
+                </b>
+              </span>
+            </>
+          )}
         </div>
 
-        {/* Bloco de Preço Completo */}
+        {/* Bloco de Preço */}
         <div className="flex flex-col mt-1">
-          <div className="flex items-start">
-            <span className={`text-[11px] mt-1 font-medium ${product.discountPercent ? 'text-[#CC0C39]' : ''}`}>R$</span>
-            <span className={`text-3xl font-medium tracking-tighter leading-none ${product.discountPercent ? 'text-[#CC0C39]' : ''}`}>
-              {int}
-            </span>
-            <span className={`text-[11px] mt-1 font-medium ${product.discountPercent ? 'text-[#CC0C39]' : ''}`}>
-              {cents}
-            </span>
-          </div>
-          
-          {/* Preço por Grama */}
-          <p className="text-[12px] text-[#565959]">
-            (R$ {product.pricePerGram.toFixed(2)} / grama)
-          </p>
+          {hasPrice ? (
+            <>
+              <div className="flex items-start">
+                <span
+                  className={`text-[11px] mt-1 font-medium ${
+                    product.discountPercent
+                      ? "text-[#CC0C39]"
+                      : ""
+                  }`}
+                >
+                  R$
+                </span>
 
-          {/* Comparativo 30 dias (DE VOLTA AQUI) */}
-          {product.avg30Price && product.discountPercent && (
-            <p className="text-[11px] text-[#565959] mt-0.5">
-              Média últimos 30 dias: <span className="line-through">R$ {product.avg30Price.toFixed(2)}</span>
+                <span
+                  className={`text-3xl font-medium tracking-tighter leading-none ${
+                    product.discountPercent
+                      ? "text-[#CC0C39]"
+                      : ""
+                  }`}
+                >
+                  {intCents![0]}
+                </span>
+
+                <span
+                  className={`text-[11px] mt-1 font-medium ${
+                    product.discountPercent
+                      ? "text-[#CC0C39]"
+                      : ""
+                  }`}
+                >
+                  {intCents![1]}
+                </span>
+              </div>
+
+              <p className="text-[12px] text-[#565959]">
+                (R$ {product.pricePerGram.toFixed(2)} /
+                grama)
+              </p>
+
+              {product.avg30Price &&
+                product.discountPercent && (
+                  <p className="text-[11px] text-[#565959] mt-0.5">
+                    Média últimos 30 dias:{" "}
+                    <span className="line-through">
+                      R${" "}
+                      {product.avg30Price.toFixed(2)}
+                    </span>
+                  </p>
+                )}
+            </>
+          ) : (
+            <p className="text-[13px] text-[#565959] italic">
+              Preço indisponível no momento
             </p>
           )}
         </div>
 
-        {/* Selo Prime (Laranja e Azul) */}
+        {/* Selo Prime */}
         <div className="mt-1 flex items-center gap-1">
           <span className="font-black italic text-[14px] leading-none">
-            <span className="not-italic text-[16px] text-[#FEBD69] mr-0.5">✓</span>
+            <span className="not-italic text-[16px] text-[#FEBD69] mr-0.5">
+              ✓
+            </span>
             <span className="text-[#00A8E1]">prime</span>
           </span>
         </div>
 
         {/* Botão Amazon */}
-        <a 
+        <a
           href={product.affiliateUrl}
           target="_blank"
           className="mt-auto bg-[#FFD814] border border-[#FCD200] rounded-full py-2 text-[13px] text-center font-medium shadow-sm hover:bg-[#F7CA00] active:scale-95 transition-transform text-[#0F1111]"

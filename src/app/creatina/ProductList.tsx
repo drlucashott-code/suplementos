@@ -4,19 +4,23 @@ import { MobileProductCard } from "./MobileProductCard";
 import { CreatineForm } from "@prisma/client";
 import { useEffect, useRef } from "react";
 
-type Product = {
+export type Product = {
   id: string;
   name: string;
   imageUrl: string;
   flavor: string | null;
   form: CreatineForm;
 
-  price: number;
+  // 🔑 Agora aceita fallback
+  price: number | null;
   affiliateUrl: string;
 
-  doses: number;
-  pricePerGram: number;          // ✅ ADICIONADO
+  doses: number | null;
+  pricePerGram: number; // Infinity quando não entra no ranking
   discountPercent?: number | null;
+
+  rating?: number;
+  reviewsCount?: number;
 };
 
 export function ProductList({
@@ -30,7 +34,10 @@ export function ProductList({
     if (trackedRef.current) return;
     if (!products.length) return;
 
-    if (typeof window !== "undefined" && "gtag" in window) {
+    if (
+      typeof window !== "undefined" &&
+      "gtag" in window
+    ) {
       // @ts-ignore
       window.gtag("event", "view_product_list", {
         total_products: products.length,
