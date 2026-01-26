@@ -1,47 +1,55 @@
-name: Update Prices (Amazon)
+name: Update Amazon Prices
 
 on:
   schedule:
-    # 4x por dia (a cada 6 horas)
-    - cron: "0 0,6,12,18 * * *"
+    # Horários UTC: 09:00, 15:00, 21:00, 02:00
+    # Horários BRT: 06:00, 12:00, 18:00, 23:00
+    - cron: '0 9,15,21,2 * * *'
+  
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Forçar Scraping?'
+        type: boolean
+        default: false
 
 jobs:
   update-prices:
     runs-on: ubuntu-latest
-
+    
     steps:
-      # =========================
-      # CHECKOUT
-      # =========================
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # =========================
-      # NODE
-      # =========================
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: "npm"
+          node-version: '20'
+          cache: 'npm'
 
-      # =========================
-      # DEPENDÊNCIAS
-      # =========================
-      - name: Install dependencies
+      - name: Install Dependencies
         run: npm ci
 
-      # =========================
-      # AMAZON (API)
-      # =========================
-      - name: Update Amazon prices
-        run: node --loader ts-node/esm scripts/updateAmazonPrices.ts
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - name: Generate Prisma Client
+        run: npx prisma generate
 
+      - name: Run Updater
+        run: |
+          # Pega a hora atual (UTC)
+          HOUR=$(date -u +%H)
+          
+          # Se for 09h UTC (06h Brasil) OU se foi acionado manualmente com flag true
+          if [ "$HOUR" == "09" ] || [ "${{ inputs.mode }}" == "true" ]; then
+            echo "🔥 Executando com FALLBACK DE SCRAPING..."
+            npx tsx scripts/update-prices-batch.ts --scrape
+          else
+            echo "🛡️ Executando APENAS API..."
+            npx tsx scripts/update-prices-batch.ts
+          fi
+        env:
+          # LEMBRE DE CADASTRAR ESSES SECRETS NO GITHUB
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
           AMAZON_ACCESS_KEY: ${{ secrets.AMAZON_ACCESS_KEY }}
           AMAZON_SECRET_KEY: ${{ secrets.AMAZON_SECRET_KEY }}
           AMAZON_PARTNER_TAG: ${{ secrets.AMAZON_PARTNER_TAG }}
-          AMAZON_REGION: ${{ secrets.AMAZON_REGION }}
-          AMAZON_HOST: ${{ secrets.AMAZON_HOST }}

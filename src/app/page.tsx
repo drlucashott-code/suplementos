@@ -157,7 +157,7 @@ function CategoryCard({ title, imageSrc, onClick, disabled }: CategoryCardProps)
       </div>
 
       {disabled && (
-        <span className="text-[10px] text-gray-400 mt-1">(disabled)</span>
+        <span className="text-[10px] text-gray-400 mt-1">(em breve)</span>
       )}
     </div>
   );
