@@ -109,7 +109,6 @@ async function fetchAmazonPricesBatch(asins: string[]): Promise<Record<string, P
             for (const item of json.ItemsResult.Items) {
               let price = 0;
               
-              // 1. Tenta pegar preço V1 ou V2
               const p1 = item?.Offers?.Listings?.[0]?.Price?.Amount;
               if (typeof p1 === "number") price = p1;
               else {
@@ -121,11 +120,9 @@ async function fetchAmazonPricesBatch(asins: string[]): Promise<Record<string, P
                 }
               }
 
-              // LÓGICA DE ESTOQUE DA API
               if (price > 0) {
                 results[item.ASIN] = { price, status: "OK" };
               } else {
-                // Se o item veio, mas sem preço, é certeza que está sem estoque na Amazon
                 results[item.ASIN] = { price: 0, status: "OUT_OF_STOCK" };
               }
             }
@@ -196,7 +193,6 @@ async function updateAmazonPrices() {
     const chunk = offers.slice(i, i + BATCH_SIZE);
     const asins = chunk.map(o => o.externalId).filter(Boolean);
 
-    // 1. CHAMA API
     let apiResults: Record<string, PriceResult> = {};
     let apiCrashed = false;
     
@@ -206,28 +202,24 @@ async function updateAmazonPrices() {
       apiCrashed = true;
     }
 
-    // 2. PROCESSA RESULTADOS
     for (const offer of chunk) {
       const result = apiResults[offer.externalId];
+      const productFullName = `[${offer.externalId}] ${offer.product.name}`;
       let finalPrice = 0;
       let shouldZero = false;
       let logMsg = "";
 
       if (result) {
-        // --- CASO 1: API SUCESSO ---
         if (result.status === "OK") {
           finalPrice = result.price;
           logMsg = `✅ R$ ${finalPrice}`;
         } 
-        // --- CASO 2: API DIZ SEM ESTOQUE (Regra: Não faz scraping) ---
         else if (result.status === "OUT_OF_STOCK") {
           shouldZero = true;
           logMsg = `❌ Sem estoque (API). Scraping ignorado.`;
         }
       } 
       else {
-        // --- CASO 3: ERRO TÉCNICO OU ASIN NÃO RETORNADO ---
-        // (Aqui aplicamos a regra: Se o erro for "outro", tenta scraping)
         if (ENABLE_SCRAPING && !apiCrashed) {
            process.stdout.write(`   ⚠️ [${offer.externalId}] Erro na API. Tentando Scraping... `);
            const scraped = await scrapeAmazonPrice(offer.externalId);
@@ -236,16 +228,14 @@ async function updateAmazonPrices() {
              finalPrice = scraped;
              logMsg = `🕷️ Salvo pelo Scraping: R$ ${finalPrice}`;
            } else {
-             // Se scraping também falhar, mantemos preço antigo (segurança)
              logMsg = `⚠️ Falha total. Mantendo preço antigo.`;
            }
-           console.log(""); // quebra linha do stdout
+           console.log(""); 
         } else {
            logMsg = `⚠️ Erro API (Modo Seguro). Mantendo antigo.`;
         }
       }
 
-      // 3. ATUALIZA BANCO
       if (finalPrice > 0) {
         await prisma.offer.update({
           where: { id: offer.id },
@@ -258,17 +248,17 @@ async function updateAmazonPrices() {
         await prisma.offerPriceHistory.create({
           data: { offerId: offer.id, price: finalPrice },
         });
-        console.log(`   ${logMsg} -> ${offer.product.name.substring(0, 20)}...`);
+        console.log(`   ${logMsg} -> ${productFullName}`);
       } 
       else if (shouldZero) {
         await prisma.offer.update({
           where: { id: offer.id },
           data: { price: 0, updatedAt: new Date() },
         });
-        console.log(`   ${logMsg} -> ${offer.product.name.substring(0, 20)}...`);
+        console.log(`   ${logMsg} -> ${productFullName}`);
       } 
       else {
-        console.log(`   ${logMsg}`);
+        console.log(`   ${logMsg} -> ${productFullName}`);
       }
     }
 
