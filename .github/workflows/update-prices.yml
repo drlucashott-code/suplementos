@@ -41,10 +41,12 @@ jobs:
           # Se for 09h UTC (06h Brasil) OU se foi acionado manualmente com flag true
           if [ "$HOUR" == "09" ] || [ "${{ inputs.mode }}" == "true" ]; then
             echo "🔥 Executando com FALLBACK DE SCRAPING..."
-            npx tsx scripts/update-prices-batch.ts --scrape
+            # ATENÇÃO: Aqui está o nome correto do seu arquivo
+            npx tsx scripts/updateAmazonPrices.ts --scrape
           else
             echo "🛡️ Executando APENAS API..."
-            npx tsx scripts/update-prices-batch.ts
+            # ATENÇÃO: Aqui está o nome correto do seu arquivo
+            npx tsx scripts/updateAmazonPrices.ts
           fi
         env:
           # LEMBRE DE CADASTRAR ESSES SECRETS NO GITHUB
