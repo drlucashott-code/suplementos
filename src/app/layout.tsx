@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
    METADATA
    ========================= */
 export const metadata: Metadata = {
-  title: "Suplementos — custo-benefício",
+  title: "Amazon Picks",
   description:
     "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
 };
