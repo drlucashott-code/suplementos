@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { ProductList } from "./ProductList";
 import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
-import { DesktopFiltersSidebar } from "./DesktopFiltersSidebar";
+// Removido sidebar para layout full-width
+// import { DesktopFiltersSidebar } from "./DesktopFiltersSidebar";
 import { FloatingFiltersBar } from "@/app/creatina/FloatingFiltersBar";
 import { AmazonHeader } from "./AmazonHeader";
 import { CreatineForm } from "@prisma/client";
@@ -33,7 +34,7 @@ export default async function CreatinaPage({
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  // 🚀 BUSCA OTIMIZADA: Trazemos o histórico junto para evitar N+1 queries
+  // 🚀 BUSCA OTIMIZADA
   const products = await prisma.product.findMany({
     where: {
       category: "creatina",
@@ -48,7 +49,7 @@ export default async function CreatinaPage({
         where: {
           store: "AMAZON",
           affiliateUrl: { not: "" },
-          ...(showFallback ? {} : { price: { gt: 0 } }),
+          // Removemos o filtro de preço aqui para tratar na memória (mais seguro)
         },
         include: {
           priceHistory: {
@@ -63,59 +64,40 @@ export default async function CreatinaPage({
   });
 
   /* =========================
-      PROCESSAMENTO (MAIS RÁPIDO)
-      ========================= */
+      PROCESSAMENTO
+     ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.creatineInfo) return null;
     const offer = product.offers[0];
+    
+    // Se não tem oferta nenhuma, remove.
     if (!offer) return null;
 
     let finalPrice = offer.price;
 
-    // Fallback usando o histórico que já temos em memória
+    // Fallback usando histórico (se ativado no .env)
     if (showFallback && (!finalPrice || finalPrice <= 0)) {
       finalPrice = offer.priceHistory[0]?.price ?? null;
     }
 
-    if (!showFallback && (!finalPrice || finalPrice <= 0)) return null;
-
+    // 🔥 CORREÇÃO PRINCIPAL:
+    // Se o preço for 0, nulo ou inválido -> RETORNA NULL (Remove da lista)
     if (!finalPrice || finalPrice <= 0) {
-      return {
-        id: product.id,
-        name: product.name,
-        imageUrl: product.imageUrl,
-        flavor: product.flavor,
-        form: product.creatineInfo.form,
-        price: null,
-        affiliateUrl: offer.affiliateUrl,
-        doses: null,
-        pricePerGram: Infinity,
-        discountPercent: null,
-        avg30Price: null,
-        rating: offer.ratingAverage ?? 0,
-        reviewsCount: offer.ratingCount ?? 0,
-        hasCarbs: false,
-      };
+      return null;
     }
 
+    // Filtro de preço máximo
     if (maxPrice !== undefined && finalPrice > maxPrice) return null;
 
     /* ============================================================
-       LÓGICA DE PUREZA BASEADA NO SCOOP (3g de Creatina Fixa)
+       CÁLCULOS DE PUREZA E PREÇO
        ============================================================ */
     const info = product.creatineInfo;
     const totalDosesNoPote = info.totalUnits / info.unitsPerDose;
-    
-    // Consideramos que cada dose entrega exatamente 3g de creatina pura
     const gramasCreatinaPuraNoPote = totalDosesNoPote * 3;
-    
-    // O preço por grama agora reflete a creatina real, não o peso do pó
     const pricePerGramCreatine = finalPrice / gramasCreatinaPuraNoPote;
-
-    // Identificação de Carboidratos: scoop > 4g
     const hasCarbs = info.unitsPerDose > 4;
 
-    // Cálculo de desconto usando o histórico em memória
     let discountPercent: number | null = null;
     let avg30: number | null = null;
 
@@ -166,17 +148,18 @@ export default async function CreatinaPage({
         <FloatingFiltersBar />
         <div className="px-3">
           <MobileFiltersDrawer brands={brands} flavors={flavors} />
-          <div className="flex flex-col lg:flex-row gap-6 mt-4">
-            <aside className="hidden lg:block w-64 shrink-0">
-              <DesktopFiltersSidebar brands={brands} flavors={flavors} />
-            </aside>
-            <div className="w-full max-w-[680px] pb-10">
-              <p className="text-[13px] text-gray-600 mb-2 px-1">
-                {finalProducts.length} resultados encontrados
-              </p>
-              <ProductList products={finalProducts} />
+          
+          {/* LAYOUT AJUSTADO: Sem Sidebar, largura total */}
+          <div className="mt-4 pb-10 w-full">
+            <p className="text-[13px] text-gray-600 mb-2 px-1">
+              {finalProducts.length} resultados encontrados
+            </p>
+            
+            <div className="w-full">
+               <ProductList products={finalProducts} />
             </div>
           </div>
+
         </div>
       </div>
     </main>
