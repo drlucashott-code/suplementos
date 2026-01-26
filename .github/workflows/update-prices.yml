@@ -1,14 +1,15 @@
-name: Update Amazon Prices
+name: Update Prices (Amazon)
 
 on:
   schedule:
-    # Horários UTC: 09:00, 15:00, 21:00, 02:00
-    # Horários BRT: 06:00, 12:00, 18:00, 23:00
-    - cron: '0 9,15,21,2 * * *'
+    # Horários UTC: 09h, 15h, 21h, 03h
+    # Horários BRT: 06h, 12h, 18h, 00h
+    # (O scraping rodará apenas na execução das 09h UTC / 06h BRT)
+    - cron: "0 9,15,21,3 * * *"
   
   workflow_dispatch:
     inputs:
-      mode:
+      force_scrape:
         description: 'Forçar Scraping?'
         type: boolean
         default: false
@@ -16,42 +17,59 @@ on:
 jobs:
   update-prices:
     runs-on: ubuntu-latest
-    
+
     steps:
-      - name: Checkout code
+      # =========================
+      # CHECKOUT
+      # =========================
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+      # =========================
+      # NODE
+      # =========================
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: 20
+          cache: "npm"
 
-      - name: Install Dependencies
+      # =========================
+      # DEPENDÊNCIAS
+      # =========================
+      - name: Install dependencies
         run: npm ci
 
+      # =========================
+      # PRISMA (Gera o cliente)
+      # =========================
       - name: Generate Prisma Client
         run: npx prisma generate
 
-      - name: Run Updater
+      # =========================
+      # AMAZON (API + LÓGICA)
+      # =========================
+      - name: Update Amazon prices
         run: |
-          # Pega a hora atual (UTC)
+          # Pega a hora atual do servidor (UTC)
           HOUR=$(date -u +%H)
           
-          # Se for 09h UTC (06h Brasil) OU se foi acionado manualmente com flag true
-          if [ "$HOUR" == "09" ] || [ "${{ inputs.mode }}" == "true" ]; then
-            echo "🔥 Executando com FALLBACK DE SCRAPING..."
-            # ATENÇÃO: Aqui está o nome correto do seu arquivo
+          # Se for 09h UTC (06h Brasil) OU se foi forçado manualmente
+          if [ "$HOUR" == "09" ] || [ "${{ inputs.force_scrape }}" == "true" ]; then
+            echo "🔥 Executando COM Scraping (Horário Principal)..."
             npx tsx scripts/updateAmazonPrices.ts --scrape
           else
-            echo "🛡️ Executando APENAS API..."
-            # ATENÇÃO: Aqui está o nome correto do seu arquivo
+            echo "🛡️ Executando SEM Scraping (Modo Seguro)..."
             npx tsx scripts/updateAmazonPrices.ts
           fi
         env:
-          # LEMBRE DE CADASTRAR ESSES SECRETS NO GITHUB
+          # Banco de Dados
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
+
+          # Amazon API
           AMAZON_ACCESS_KEY: ${{ secrets.AMAZON_ACCESS_KEY }}
           AMAZON_SECRET_KEY: ${{ secrets.AMAZON_SECRET_KEY }}
           AMAZON_PARTNER_TAG: ${{ secrets.AMAZON_PARTNER_TAG }}
+          AMAZON_REGION: ${{ secrets.AMAZON_REGION }}
+          AMAZON_HOST: ${{ secrets.AMAZON_HOST }}
