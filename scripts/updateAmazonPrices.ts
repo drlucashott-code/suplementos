@@ -13,7 +13,7 @@ const REQUEST_DELAY_MS = 1800;
 const SCRAPE_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 // 🔥 FORÇA SCRAPING IGNORANDO EXECUÇÕES ANTERIORES
-const FORCE_SCRAPE = true;
+const FORCE_SCRAPE = false;
 
 /* ======================
    ENV CHECK
