@@ -181,10 +181,11 @@ async function updateAmazonPrices() {
   console.log("🚀 Iniciando Update");
   console.log(`MODO: ${ENABLE_SCRAPING ? "🔥 Scraping Habilitado (Se necessário)" : "🛡️ Apenas API"}\n`);
 
+  // Busca as ofertas ordenadas por nome do produto (Ordem Alfabética)
   const offers = await prisma.offer.findMany({
     where: { store: Store.AMAZON },
     select: { id: true, externalId: true, product: { select: { name: true } } },
-    orderBy: { updatedAt: "asc" },
+    orderBy: { product: { name: "asc" } },
   });
 
   console.log(`📦 Processando ${offers.length} ofertas em lotes de ${BATCH_SIZE}...\n`);
@@ -204,64 +205,69 @@ async function updateAmazonPrices() {
 
     for (const offer of chunk) {
       const result = apiResults[offer.externalId];
-      const productFullName = `[${offer.externalId}] ${offer.product.name}`;
+      const asin = offer.externalId;
+      const name = offer.product.name;
+      
       let finalPrice = 0;
       let shouldZero = false;
-      let logMsg = "";
+      let statusLog = "";
 
       if (result) {
         if (result.status === "OK") {
           finalPrice = result.price;
-          logMsg = `✅ R$ ${finalPrice}`;
+          statusLog = `✅ R$ ${finalPrice}`;
         } 
         else if (result.status === "OUT_OF_STOCK") {
           shouldZero = true;
-          logMsg = `❌ Sem estoque (API). Scraping ignorado.`;
+          statusLog = `❌ Sem estoque (API)`;
         }
       } 
       else {
         if (ENABLE_SCRAPING && !apiCrashed) {
-           process.stdout.write(`   ⚠️ [${offer.externalId}] Erro na API. Tentando Scraping... `);
-           const scraped = await scrapeAmazonPrice(offer.externalId);
+           process.stdout.write(`   ⚠️ ${name} [${asin}] -> Erro API. Scraping... `);
+           const scraped = await scrapeAmazonPrice(asin);
            
            if (scraped) {
              finalPrice = scraped;
-             logMsg = `🕷️ Salvo pelo Scraping: R$ ${finalPrice}`;
+             statusLog = `🕷️ Scraping: R$ ${finalPrice}`;
+             console.log("OK");
            } else {
-             logMsg = `⚠️ Falha total. Mantendo preço antigo.`;
+             statusLog = `⚠️ Falha total (Mantido antigo)`;
+             console.log("Falhou");
            }
-           console.log(""); 
         } else {
-           logMsg = `⚠️ Erro API (Modo Seguro). Mantendo antigo.`;
+           statusLog = `⚠️ Erro API (Modo Seguro)`;
         }
       }
 
+      // --- ATUALIZAÇÃO E LOG NO PADRÃO: NOME COMPLETO + ASIN + PREÇO ---
       if (finalPrice > 0) {
         await prisma.offer.update({
           where: { id: offer.id },
           data: {
             price: finalPrice,
             updatedAt: new Date(),
-            affiliateUrl: `https://www.amazon.com.br/dp/${offer.externalId}?tag=${AMAZON_PARTNER_TAG}`,
+            affiliateUrl: `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG}`,
           },
         });
         await prisma.offerPriceHistory.create({
           data: { offerId: offer.id, price: finalPrice },
         });
-        console.log(`   ${logMsg} -> ${productFullName}`);
+        console.log(`   ${name} [${asin}] | ${statusLog}`);
       } 
       else if (shouldZero) {
         await prisma.offer.update({
           where: { id: offer.id },
           data: { price: 0, updatedAt: new Date() },
         });
-        console.log(`   ${logMsg} -> ${productFullName}`);
+        console.log(`   ${name} [${asin}] | ${statusLog}`);
       } 
-      else {
-        console.log(`   ${logMsg} -> ${productFullName}`);
+      else if (statusLog.includes("Erro") || statusLog.includes("Falha")) {
+        console.log(`   ${name} [${asin}] | ${statusLog}`);
       }
     }
 
+    // Delay de segurança entre lotes para não ser bloqueado
     await new Promise((r) => setTimeout(r, REQUEST_DELAY_MS));
   }
 
