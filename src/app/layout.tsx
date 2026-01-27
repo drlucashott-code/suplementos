@@ -26,7 +26,16 @@ export const metadata: Metadata = {
     follow: true,
   },
   authors: [{ name: "amazonpicks" }],
-  keywords: ["suplementos", "creatina", "whey protein", "amazon", "melhor preço", "custo-benefício"],
+  keywords: [
+    "suplementos", 
+    "creatina", 
+    "whey protein", 
+    "amazon", 
+    "melhor preço", 
+    "custo-benefício", 
+    "comparador de suplementos"
+  ],
+  manifest: "/site.webmanifest",
 };
 
 /* =========================
@@ -37,6 +46,7 @@ export const viewport: Viewport = {
   themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
+  maximumScale: 5, // Essencial para o score de Acessibilidade (Zoom)
 };
 
 /* =========================
@@ -53,11 +63,22 @@ export default function RootLayout({
         {/* Força modo claro (Safari iOS / mobile) */}
         <meta name="color-scheme" content="light" />
         
-        {/* 🚀 OTIMIZAÇÃO DE CONEXÃO (LCP) 
-            Prepara o navegador para baixar as imagens da Amazon antes mesmo 
-            do CSS terminar de carregar, ganhando milissegundos preciosos. */}
-        <link rel="preconnect" href="https://m.media-amazon.com" />
+        {/* 🚀 OTIMIZAÇÃO CRÍTICA DE CONEXÃO (LCP) 
+            O crossOrigin="anonymous" resolve o aviso de 'Preconnect to required origins'
+            que persiste mesmo quando o link básico está presente. */}
+        <link 
+          rel="preconnect" 
+          href="https://m.media-amazon.com" 
+          crossOrigin="anonymous" 
+        />
         <link rel="dns-prefetch" href="https://m.media-amazon.com" />
+        
+        {/* Fallback para o segundo domínio de CDN da Amazon */}
+        <link 
+          rel="preconnect" 
+          href="https://images-na.ssl-images-amazon.com" 
+          crossOrigin="anonymous" 
+        />
       </head>
 
       <body
@@ -65,11 +86,12 @@ export default function RootLayout({
       >
         {children}
 
-        {/* 🔔 Toasts globais para feedback ao usuário */}
+        {/* 🔔 Toasts globais para feedback de ações */}
         <Toaster position="top-right" />
 
         {/* 📊 Google Analytics 
-            Configurado para carregar sem bloquear a renderização inicial. */}
+            Injetado via afterInteractive (padrão da lib) para não competir 
+            por recursos com a renderização das imagens dos produtos. */}
         <GoogleAnalytics gaId="G-CLEY1YQ80S" />
       </body>
     </html>

@@ -8,7 +8,7 @@ import { CreatineForm } from "@prisma/client";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 /* =========================
-   METADATA (SEO & Aba do Navegador)
+   METADATA (SEO & Aba)
    ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — O melhor preço em suplementos",
@@ -43,7 +43,7 @@ export default async function CreatinaPage({
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   /* =========================
-      BUSCA NO BANCO DE DADOS
+      BUSCA OTIMIZADA (Prisma)
      ========================= */
   const products = await prisma.product.findMany({
     where: {
@@ -73,35 +73,38 @@ export default async function CreatinaPage({
   });
 
   /* =========================
-      PROCESSAMENTO E RANKING
+      PROCESSAMENTO DE DADOS
      ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.creatineInfo) return null;
     const offer = product.offers[0];
     
+    // Se não tem oferta válida, remove da lista
     if (!offer) return null;
 
     let finalPrice = offer.price;
 
-    // Lógica de Fallback (Preço histórico se o atual estiver zerado)
+    // Lógica de Fallback usando histórico se o preço atual estiver zerado
     if (showFallback && (!finalPrice || finalPrice <= 0)) {
       finalPrice = offer.priceHistory[0]?.price ?? null;
     }
 
-    // Filtro de Segurança: Se não tem preço válido, some do site
+    // Filtro de Segurança: Remove produtos sem preço válido
     if (!finalPrice || finalPrice <= 0) {
       return null;
     }
 
-    // Filtro de Preço Máximo (SearchParams)
+    // Filtro de preço máximo (via SearchParams)
     if (maxPrice !== undefined && finalPrice > maxPrice) return null;
 
+    /* CÁLCULOS DE PUREZA E PREÇO */
     const info = product.creatineInfo;
     const totalDosesNoPote = info.totalUnits / info.unitsPerDose;
-    const gramasCreatinaPuraNoPote = totalDosesNoPote * 3;
+    const gramasCreatinaPuraNoPote = totalDosesNoPote * 3; // Base de cálculo: 3g pura
     const pricePerGramCreatine = finalPrice / gramasCreatinaPuraNoPote;
     const hasCarbs = info.unitsPerDose > 4;
 
+    /* CÁLCULO DE DESCONTO (Média 30 dias) */
     let discountPercent: number | null = null;
     let avg30: number | null = null;
 
@@ -114,7 +117,7 @@ export default async function CreatinaPage({
     return {
       id: product.id,
       name: product.name,
-      // 🚀 Otimização de URL para carregar 320px em vez de 500px
+      // 🚀 OTIMIZAÇÃO DE IMAGEM: Solicita versão 320px direto da Amazon
       imageUrl: getOptimizedAmazonUrl(product.imageUrl, 320),
       flavor: product.flavor,
       form: product.creatineInfo.form,
@@ -130,7 +133,9 @@ export default async function CreatinaPage({
     };
   });
 
-  // Ordenação final
+  /* =========================
+      RANKING E FILTROS FINAIS
+     ========================= */
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => {
@@ -141,9 +146,11 @@ export default async function CreatinaPage({
         if (!aHas && bHas) return 1;
         if (aHas && bHas) return b.discountPercent! - a.discountPercent!;
       }
+      // Padrão: Menor preço por grama de creatina pura
       return a.pricePerGram - b.pricePerGram;
     });
 
+  // Dados para os filtros do Drawer
   const brands = [...new Set(products.map((p) => p.brand))];
   const flavors = [...new Set(products.map((p) => p.flavor).filter((f): f is string => Boolean(f)))];
 
@@ -153,17 +160,20 @@ export default async function CreatinaPage({
   return (
     <main className="bg-[#EAEDED] min-h-screen">
       <AmazonHeader />
+      
       <div className="max-w-[1200px] mx-auto">
         <FloatingFiltersBar />
+        
         <div className="px-3">
           <MobileFiltersDrawer brands={brands} flavors={flavors} />
           
           <div className="mt-4 pb-10 w-full">
-            <p className="text-[13px] text-gray-600 mb-2 px-1">
+            <p className="text-[13px] text-zinc-800 mb-2 px-1">
               {finalProducts.length} resultados encontrados
             </p>
             
             <div className="w-full">
+               {/* Passa a lista já processada e rankeada para o Client Component */}
                <ProductList products={finalProducts} />
             </div>
           </div>

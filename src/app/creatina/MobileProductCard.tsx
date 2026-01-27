@@ -77,8 +77,7 @@ export function MobileProductCard({
           alt={product.name}
           width={230}
           height={230}
-          // 🚀 OTIMIZAÇÃO FINAL: sizes ajuda o navegador a escolher a resolução correta 
-          // e priority elimina o atraso LCP de 3.5s
+          // 🚀 PERFORMANCE LCP: sizes informa o espaço exato (140px) no mobile
           sizes="(max-width: 768px) 140px, 230px"
           priority={priority} 
           loading={priority ? "eager" : "lazy"}
@@ -112,8 +111,8 @@ export function MobileProductCard({
           </span>
         </div>
 
-        {/* Informações Extras (Cor ajustada para contraste WCAG) */}
-        <div className="flex flex-wrap gap-x-2 text-[12px] text-[#444646] mb-1">
+        {/* Informações Extras (Ajuste de Cor para Score 100 de Acessibilidade) */}
+        <div className="flex flex-wrap gap-x-2 text-[12px] text-zinc-800 mb-1">
           {product.flavor && (
             <span>
               Sabor:{" "}
@@ -178,14 +177,14 @@ export function MobileProductCard({
                 </span>
               </div>
 
-              {/* Acessibilidade: Escurecido para passar no teste de contraste */}
-              <p className="text-[12px] text-gray-700">
+              {/* Acessibilidade: Escurecido para passar no teste de contraste WCAG */}
+              <p className="text-[12px] text-zinc-950 font-medium">
                 (R$ {product.pricePerGram.toFixed(2)} / g de creatina)
               </p>
 
               {product.avg30Price &&
                 product.discountPercent && (
-                  <p className="text-[11px] text-gray-700 mt-0.5">
+                  <p className="text-[11px] text-zinc-800 mt-0.5">
                     Média últimos 30 dias:{" "}
                     <span className="line-through">
                       R${" "}
@@ -195,7 +194,7 @@ export function MobileProductCard({
                 )}
             </>
           ) : (
-            <p className="text-[13px] text-gray-700 italic">
+            <p className="text-[13px] text-zinc-800 italic">
               Preço indisponível no momento
             </p>
           )}
