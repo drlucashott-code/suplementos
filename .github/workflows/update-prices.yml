@@ -40,7 +40,7 @@ jobs:
       - name: Update Amazon prices
         # Certifique-se que o caminho do arquivo bate com o seu projeto.
         # Usei 'src/scripts/update-amazon.ts' baseado no código anterior.
-        run: npx tsx src/scripts/update-amazon.ts
+        run: npx tsx src/scripts/updateAmazonPrices.ts
         env:
           # Banco de Dados
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
