@@ -43,7 +43,12 @@ function sha256(data: string): string {
   return crypto.createHash("sha256").update(data).digest("hex");
 }
 
-function getSignatureKey(key: string, dateStamp: string, region: string, service: string): Buffer {
+function getSignatureKey(
+  key: string,
+  dateStamp: string,
+  region: string,
+  service: string
+): Buffer {
   const kDate = hmac(`AWS4${key}`, dateStamp);
   const kRegion = hmac(kDate, region);
   const kService = hmac(kRegion, service);
@@ -60,7 +65,9 @@ type PriceResult = {
   status: ApiStatus;
 };
 
-async function fetchAmazonPricesBatch(asins: string[]): Promise<Record<string, PriceResult>> {
+async function fetchAmazonPricesBatch(
+  asins: string[]
+): Promise<Record<string, PriceResult>> {
   if (asins.length === 0) return {};
 
   const payload = JSON.stringify({
@@ -74,13 +81,32 @@ async function fetchAmazonPricesBatch(asins: string[]): Promise<Record<string, P
   const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
   const dateStamp = amzDate.substring(0, 8);
 
-  const canonicalHeaders = `content-encoding:amz-1.0\ncontent-type:application/json; charset=utf-8\nhost:${AMAZON_HOST}\nx-amz-date:${amzDate}\n`;
-  const signedHeaders = "content-encoding;content-type;host;x-amz-date";
-  const canonicalRequest = `POST\n/paapi5/getitems\n\n${canonicalHeaders}\n${signedHeaders}\n${sha256(payload)}`;
-  const credentialScope = `${dateStamp}/${AMAZON_REGION}/${AMAZON_SERVICE}/aws4_request`;
-  const stringToSign = `AWS4-HMAC-SHA256\n${amzDate}\n${credentialScope}\n${sha256(canonicalRequest)}`;
-  const signingKey = getSignatureKey(AMAZON_SECRET_KEY!, dateStamp, AMAZON_REGION, AMAZON_SERVICE);
-  const signature = crypto.createHmac("sha256", signingKey).update(stringToSign).digest("hex");
+  const canonicalHeaders =
+    `content-encoding:amz-1.0\ncontent-type:application/json; charset=utf-8\nhost:${AMAZON_HOST}\nx-amz-date:${amzDate}\n`;
+
+  const signedHeaders =
+    "content-encoding;content-type;host;x-amz-date";
+
+  const canonicalRequest =
+    `POST\n/paapi5/getitems\n\n${canonicalHeaders}\n${signedHeaders}\n${sha256(payload)}`;
+
+  const credentialScope =
+    `${dateStamp}/${AMAZON_REGION}/${AMAZON_SERVICE}/aws4_request`;
+
+  const stringToSign =
+    `AWS4-HMAC-SHA256\n${amzDate}\n${credentialScope}\n${sha256(canonicalRequest)}`;
+
+  const signingKey = getSignatureKey(
+    AMAZON_SECRET_KEY!,
+    dateStamp,
+    AMAZON_REGION,
+    AMAZON_SERVICE
+  );
+
+  const signature = crypto
+    .createHmac("sha256", signingKey)
+    .update(stringToSign)
+    .digest("hex");
 
   const options = {
     hostname: AMAZON_HOST,
@@ -90,8 +116,10 @@ async function fetchAmazonPricesBatch(asins: string[]): Promise<Record<string, P
       "Content-Type": "application/json; charset=utf-8",
       "Content-Encoding": "amz-1.0",
       "X-Amz-Date": amzDate,
-      "X-Amz-Target": "com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems",
-      Authorization: `AWS4-HMAC-SHA256 Credential=${AMAZON_ACCESS_KEY}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
+      "X-Amz-Target":
+        "com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems",
+      Authorization:
+        `AWS4-HMAC-SHA256 Credential=${AMAZON_ACCESS_KEY}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
       "Content-Length": Buffer.byteLength(payload),
     },
   };
@@ -108,31 +136,30 @@ async function fetchAmazonPricesBatch(asins: string[]): Promise<Record<string, P
           if (json?.ItemsResult?.Items) {
             for (const item of json.ItemsResult.Items) {
               let price = 0;
-              
-              const p1 = item?.Offers?.Listings?.[0]?.Price?.Amount;
-              if (typeof p1 === "number") price = p1;
-              else {
-                const listingsV2 = item?.OffersV2?.Listings;
-                if (Array.isArray(listingsV2)) {
-                   const buyBox = listingsV2.find((l: any) => l?.IsBuyBoxWinner) ?? listingsV2[0];
-                   const p2 = buyBox?.Price?.Money?.Amount;
-                   if (typeof p2 === "number") price = p2;
-                }
+
+              const listingsV2 = item?.OffersV2?.Listings;
+              if (Array.isArray(listingsV2)) {
+                const buyBox =
+                  listingsV2.find((l: any) => l?.IsBuyBoxWinner) ??
+                  listingsV2[0];
+                const p = buyBox?.Price?.Money?.Amount;
+                if (typeof p === "number") price = p;
               }
 
-              if (price > 0) {
-                results[item.ASIN] = { price, status: "OK" };
-              } else {
-                results[item.ASIN] = { price: 0, status: "OUT_OF_STOCK" };
-              }
+              results[item.ASIN] =
+                price > 0
+                  ? { price, status: "OK" }
+                  : { price: 0, status: "OUT_OF_STOCK" };
             }
           }
+
           resolve(results);
         } catch {
           resolve({});
         }
       });
     });
+
     req.on("error", () => resolve({}));
     req.write(payload);
     req.end();
@@ -140,35 +167,72 @@ async function fetchAmazonPricesBatch(asins: string[]): Promise<Record<string, P
 }
 
 /* ======================
-   SCRAPING FALLBACK
+   SCRAPING FALLBACK (EQUILIBRADO)
 ====================== */
-async function scrapeAmazonPrice(asin: string): Promise<number | null> {
-  const randomAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+async function scrapeAmazonPrice(
+  asin: string
+): Promise<number | null> {
+  const randomAgent =
+    USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+
   return new Promise((resolve) => {
-    https.get(
-      {
-        hostname: "www.amazon.com.br",
-        path: `/dp/${asin}`,
-        headers: {
-          "User-Agent": randomAgent,
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-          "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+    https
+      .get(
+        {
+          hostname: "www.amazon.com.br",
+          path: `/dp/${asin}`,
+          headers: {
+            "User-Agent": randomAgent,
+            "Accept-Language":
+              "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+          },
         },
-      },
-      (res) => {
-        let html = "";
-        res.on("data", (c) => (html += c));
-        res.on("end", () => {
-          if (res.statusCode === 503 || html.includes("api-services-support@amazon.com")) {
-            resolve(null); return;
-          }
-          const match = html.match(/R\$[\s]*([\d\.]+,\d{2})/);
-          if (!match) return resolve(null);
-          const price = Number(match[1].replace(/\./g, "").replace(",", "."));
-          resolve(Number.isFinite(price) ? price : null);
-        });
-      }
-    ).on("error", () => resolve(null));
+        (res) => {
+          let html = "";
+          res.on("data", (c) => (html += c));
+          res.on("end", () => {
+            if (
+              res.statusCode === 503 ||
+              html.includes("api-services-support@amazon.com")
+            ) {
+              return resolve(null);
+            }
+
+            // 1️⃣ BUY BOX CLÁSSICO
+            let match =
+              html.match(
+                /id="priceblock_ourprice"[\s\S]*?R\$[\s]*([\d\.]+,\d{2})/
+              ) ||
+              html.match(
+                /id="priceblock_dealprice"[\s\S]*?R\$[\s]*([\d\.]+,\d{2})/
+              ) ||
+              html.match(
+                /id="price_inside_buybox"[\s\S]*?R\$[\s]*([\d\.]+,\d{2})/
+              );
+
+            // 2️⃣ FALLBACK REAL (PREÇO PRINCIPAL VISUAL)
+            if (!match) {
+              match = html.match(
+                /a-offscreen">R\$[\s]*([\d\.]+,\d{2})</
+              );
+            }
+
+            if (!match) return resolve(null);
+
+            const price = Number(
+              match[1].replace(/\./g, "").replace(",", ".")
+            );
+
+            // 🚨 SANITY CHECK
+            if (!Number.isFinite(price) || price < 90) {
+              return resolve(null);
+            }
+
+            resolve(price);
+          });
+        }
+      )
+      .on("error", () => resolve(null));
   });
 }
 
@@ -179,35 +243,47 @@ async function updateAmazonPrices() {
   const ENABLE_SCRAPING = process.argv.includes("--scrape");
 
   console.log("🚀 Iniciando Update");
-  console.log(`MODO: ${ENABLE_SCRAPING ? "🔥 Scraping Habilitado (Se necessário)" : "🛡️ Apenas API"}\n`);
+  console.log(
+    `MODO: ${
+      ENABLE_SCRAPING
+        ? "🔥 Scraping Habilitado (Se necessário)"
+        : "🛡️ Apenas API"
+    }\n`
+  );
 
-  // Busca as ofertas ordenadas por nome do produto (Ordem Alfabética)
   const offers = await prisma.offer.findMany({
     where: { store: Store.AMAZON },
-    select: { id: true, externalId: true, product: { select: { name: true } } },
+    select: {
+      id: true,
+      externalId: true,
+      product: { select: { name: true } },
+    },
     orderBy: { product: { name: "asc" } },
   });
 
-  console.log(`📦 Processando ${offers.length} ofertas em lotes de ${BATCH_SIZE}...\n`);
+  console.log(
+    `📦 Processando ${offers.length} ofertas em lotes de ${BATCH_SIZE}...\n`
+  );
 
   for (let i = 0; i < offers.length; i += BATCH_SIZE) {
     const chunk = offers.slice(i, i + BATCH_SIZE);
-    const asins = chunk.map(o => o.externalId).filter(Boolean);
+    const asins = chunk.map((o) => o.externalId).filter(Boolean);
 
     let apiResults: Record<string, PriceResult> = {};
     let apiCrashed = false;
-    
+
     try {
-      if (asins.length > 0) apiResults = await fetchAmazonPricesBatch(asins);
+      if (asins.length > 0)
+        apiResults = await fetchAmazonPricesBatch(asins);
     } catch {
       apiCrashed = true;
     }
 
     for (const offer of chunk) {
-      const result = apiResults[offer.externalId];
       const asin = offer.externalId;
       const name = offer.product.name;
-      
+      const result = apiResults[asin];
+
       let finalPrice = 0;
       let shouldZero = false;
       let statusLog = "";
@@ -216,31 +292,30 @@ async function updateAmazonPrices() {
         if (result.status === "OK") {
           finalPrice = result.price;
           statusLog = `✅ R$ ${finalPrice}`;
-        } 
-        else if (result.status === "OUT_OF_STOCK") {
+        } else {
           shouldZero = true;
           statusLog = `❌ Sem estoque (API)`;
         }
-      } 
-      else {
+      } else {
         if (ENABLE_SCRAPING && !apiCrashed) {
-           process.stdout.write(`   ⚠️ ${name} [${asin}] -> Erro API. Scraping... `);
-           const scraped = await scrapeAmazonPrice(asin);
-           
-           if (scraped) {
-             finalPrice = scraped;
-             statusLog = `🕷️ Scraping: R$ ${finalPrice}`;
-             console.log("OK");
-           } else {
-             statusLog = `⚠️ Falha total (Mantido antigo)`;
-             console.log("Falhou");
-           }
+          process.stdout.write(
+            `   ⚠️ ${name} [${asin}] -> Erro API. Scraping... `
+          );
+          const scraped = await scrapeAmazonPrice(asin);
+
+          if (scraped) {
+            finalPrice = scraped;
+            statusLog = `🕷️ Scraping: R$ ${finalPrice}`;
+            console.log("OK");
+          } else {
+            statusLog = `⚠️ Falha total (Mantido antigo)`;
+            console.log("Falhou");
+          }
         } else {
-           statusLog = `⚠️ Erro API (Modo Seguro)`;
+          statusLog = `⚠️ Erro API (Modo Seguro)`;
         }
       }
 
-      // --- ATUALIZAÇÃO E LOG NO PADRÃO: NOME COMPLETO + ASIN + PREÇO ---
       if (finalPrice > 0) {
         await prisma.offer.update({
           where: { id: offer.id },
@@ -250,25 +325,30 @@ async function updateAmazonPrices() {
             affiliateUrl: `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG}`,
           },
         });
+
         await prisma.offerPriceHistory.create({
           data: { offerId: offer.id, price: finalPrice },
         });
+
         console.log(`   ${name} [${asin}] | ${statusLog}`);
-      } 
-      else if (shouldZero) {
+      } else if (shouldZero) {
         await prisma.offer.update({
           where: { id: offer.id },
           data: { price: 0, updatedAt: new Date() },
         });
+
         console.log(`   ${name} [${asin}] | ${statusLog}`);
-      } 
-      else if (statusLog.includes("Erro") || statusLog.includes("Falha")) {
+      } else if (
+        statusLog.includes("Erro") ||
+        statusLog.includes("Falha")
+      ) {
         console.log(`   ${name} [${asin}] | ${statusLog}`);
       }
     }
 
-    // Delay de segurança entre lotes para não ser bloqueado
-    await new Promise((r) => setTimeout(r, REQUEST_DELAY_MS));
+    await new Promise((r) =>
+      setTimeout(r, REQUEST_DELAY_MS)
+    );
   }
 
   console.log("\n🏁 Finalizado.");
