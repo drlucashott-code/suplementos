@@ -2,38 +2,43 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Search } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export function AmazonHeader() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // Sincroniza o input com o que já estiver na URL
+  // Sincroniza o input com o valor da URL ("q")
   const [query, setQuery] = useState(searchParams.get("q") || "");
+
+  // Atualiza o estado interno se a URL mudar externamente (ex: limpar filtros)
+  useEffect(() => {
+    setQuery(searchParams.get("q") || "");
+  }, [searchParams]);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     const params = new URLSearchParams(searchParams.toString());
     
-    if (query) {
-      params.set("q", query);
+    if (query.trim()) {
+      params.set("q", query.trim());
     } else {
       params.delete("q");
     }
     
-    // Rota alterada para /whey
+    // Mantém a navegação dentro da categoria de whey
     router.push(`/whey?${params.toString()}`);
   }
 
   return (
-    <header className="bg-[#232f3e] text-white sticky top-0 z-40">
-      <div className="flex items-center px-3 h-14 gap-2">
+    <header className="bg-[#232f3e] text-white sticky top-0 z-40 w-full shadow-md">
+      <div className="flex items-center px-3 h-14 gap-2 max-w-[1200px] mx-auto">
         
-        {/* Botão de Voltar */}
+        {/* Botão de Voltar: Acessível para leitores de tela */}
         <button 
           onClick={() => router.back()}
           className="p-1 active:bg-white/10 rounded-full transition-colors flex-shrink-0"
-          aria-label="Voltar"
+          aria-label="Voltar para a página anterior"
         >
           <ArrowLeft className="w-6 h-6 stroke-[2.5px]" />
         </button>
@@ -42,15 +47,20 @@ export function AmazonHeader() {
         <form 
           onSubmit={handleSearch}
           className="flex-1 flex items-center bg-white rounded-md px-3 py-1.5 shadow-inner"
+          role="search"
         >
-          <Search className="w-5 h-5 text-gray-500 mr-2" />
+          <label htmlFor="whey-search" className="sr-only">
+            Pesquisar em Whey Protein
+          </label>
+          <Search className="w-5 h-5 text-zinc-500 mr-2 flex-shrink-0" aria-hidden="true" />
           <input 
+            id="whey-search"
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            // Placeholder alterado para Whey Protein
             placeholder="Pesquisar em Whey Protein"
-            className="w-full bg-transparent text-[#0F1111] text-[15px] outline-none placeholder-gray-500"
+            className="w-full bg-transparent text-[#0F1111] text-[15px] outline-none placeholder-zinc-500 font-normal"
+            enterKeyHint="search"
           />
         </form>
 

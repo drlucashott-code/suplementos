@@ -1,9 +1,27 @@
+import { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { ProductList } from "./ProductList";
-import { DesktopFiltersSidebar } from "./DesktopFiltersSidebar";
 import { FloatingFiltersBar } from "./FloatingFiltersBar";
 import { AmazonHeader } from "./AmazonHeader";
 import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
+import { getOptimizedAmazonUrl } from "@/lib/utils";
+
+/* =========================
+   PERFORMANCE (Edge Caching)
+   Reduz o TTFB servindo a página a partir do cache por 60 segundos.
+   ========================= */
+export const revalidate = 60;
+
+/* =========================
+   METADATA (SEO)
+   ========================= */
+export const metadata: Metadata = {
+  title: "amazonpicks — Comparador de Whey Protein",
+  description: "Compare o custo por grama de proteína e a concentração dos melhores Whey Proteins da Amazon.",
+  alternates: {
+    canonical: "/whey",
+  },
+};
 
 export type SearchParams = {
   brand?: string;
@@ -32,7 +50,9 @@ export default async function WheyPage({
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  // 1. Busca no Banco
+  /* =========================
+      1. BUSCA NO BANCO (Prisma)
+     ========================= */
   const products = await prisma.product.findMany({
     where: {
       category: "whey",
@@ -60,13 +80,16 @@ export default async function WheyPage({
     },
   });
 
-  // 2. Mapeamento e Cálculos
+  /* =========================
+      2. MAPEAMENTO E CÁLCULOS (Server-side)
+     ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.wheyInfo) return null;
     const offer = product.offers[0];
     if (!offer) return null;
 
     let finalPrice = offer.price;
+    // Lógica de Fallback de Preço para evitar itens "Indisponíveis"
     if (showFallback && (!finalPrice || finalPrice <= 0)) {
       finalPrice = offer.priceHistory[0]?.price ?? null;
     }
@@ -76,10 +99,10 @@ export default async function WheyPage({
 
     const info = product.wheyInfo;
     
-    // Cálculo da concentração proteica
+    // 🧪 Cálculo da Concentração Proteica (Ex: 80% de proteína)
     const proteinPercentage = (info.proteinPerDoseInGrams / info.doseInGrams) * 100;
 
-    // Filtro por faixa de proteína
+    // Filtro por faixa de proteína (90%, 80%, etc)
     if (selectedProteinRanges.length > 0) {
       const match = selectedProteinRanges.some(r => {
         const [min, max] = r.split("-").map(Number);
@@ -88,10 +111,12 @@ export default async function WheyPage({
       if (!match) return null;
     }
 
+    // 💰 Cálculo do Custo por Grama de Proteína Pura
     const totalDoses = info.totalWeightInGrams / info.doseInGrams;
-    const pricePerGramProtein = finalPrice / (totalDoses * info.proteinPerDoseInGrams);
+    const totalProteinInGrams = totalDoses * info.proteinPerDoseInGrams;
+    const pricePerGramProtein = finalPrice / totalProteinInGrams;
 
-    // Lógica de Desconto
+    // 📈 Lógica de Desconto Real (Média 30 dias)
     let discountPercent: number | null = null;
     let avg30: number | null = null;
     if (offer.priceHistory.length >= 5) {
@@ -103,12 +128,13 @@ export default async function WheyPage({
     return {
       id: product.id,
       name: product.name,
-      imageUrl: product.imageUrl,
+      // 🚀 OTIMIZAÇÃO LCP: Solicita a imagem redimensionada (320px)
+      imageUrl: getOptimizedAmazonUrl(product.imageUrl, 320),
       flavor: product.flavor,
       price: finalPrice,
       affiliateUrl: offer.affiliateUrl,
-      proteinPerDose: info.proteinPerDoseInGrams, // ✅ Nome sincronizado com o Card
-      proteinPercentage: proteinPercentage,       // ✅ Nome sincronizado com o Card
+      proteinPerDose: info.proteinPerDoseInGrams,
+      proteinPercentage: proteinPercentage,
       numberOfDoses: totalDoses,
       pricePerGramProtein,
       discountPercent,
@@ -118,7 +144,9 @@ export default async function WheyPage({
     };
   }).filter((p): p is NonNullable<typeof p> => p !== null);
 
-  // 3. Ordenação Final
+  /* =========================
+      3. ORDENAÇÃO FINAL
+     ========================= */
   const finalProducts = rankedProducts.sort((a, b) => {
     if (order === "discount") {
       const aDesc = a.discountPercent ?? 0;
@@ -129,29 +157,34 @@ export default async function WheyPage({
     if (order === "protein") {
       return b.proteinPercentage - a.proteinPercentage;
     }
+    // Padrão: Custo-benefício (Menor preço por grama de proteína)
     return a.pricePerGramProtein - b.pricePerGramProtein;
   });
 
-  const brands = [...new Set(products.map(p => p.brand))];
-  const flavors = [...new Set(products.map(p => p.flavor).filter(f => !!f))];
+  // Geração de filtros dinâmicos
+  const brands = Array.from(new Set(products.map(p => p.brand))).sort();
+  const flavors = Array.from(new Set(products.map(p => p.flavor).filter(f => !!f))).sort();
 
   return (
-    <main className="bg-[#EAEDED] min-h-screen">
+    <main className="bg-[#EAEDED] min-h-screen" style={{ fontFamily: 'Arial, sans-serif' }}>
       <AmazonHeader />
+      
       <div className="max-w-[1200px] mx-auto">
         <FloatingFiltersBar />
+        
         <div className="px-3">
           <MobileFiltersDrawer brands={brands} flavors={flavors as string[]} />
           
           <div className="flex flex-col lg:flex-row gap-6 mt-4">
-            <aside className="hidden lg:block w-64 shrink-0">
-              <DesktopFiltersSidebar brands={brands} flavors={flavors as string[]} />
-            </aside>
-            <div className="w-full max-w-[680px] pb-10">
-              <p className="text-[13px] text-gray-500 mb-2 px-1">
-                {finalProducts.length} resultados encontrados
+            <div className="w-full pb-10">
+              <p className="text-[13px] text-zinc-600 mb-2 px-1 font-medium">
+                {finalProducts.length} produtos encontrados
               </p>
-              <ProductList products={finalProducts} />
+              
+              <div className="w-full">
+                {/* 🚀 LISTA OTIMIZADA: Prioriza LCP nos primeiros 3 itens */}
+                <ProductList products={finalProducts} />
+              </div>
             </div>
           </div>
         </div>

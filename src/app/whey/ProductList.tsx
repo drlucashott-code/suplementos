@@ -4,20 +4,21 @@ import { MobileProductCard, WheyProduct } from "./MobileProductCard";
 import { useEffect, useRef, useState } from "react";
 
 export function ProductList({ products }: { products: WheyProduct[] }) {
-  // ✅ Começa com 5 produtos para performance inicial
-  const [visibleCount, setVisibleCount] = useState(5);
+  // 🚀 PERFORMANCE DE ELITE: Iniciamos com 3 itens para priorizar o LCP.
+  // Menos elementos no DOM inicial = Renderização mais rápida no mobile.
+  const [visibleCount, setVisibleCount] = useState(3);
   const trackedRef = useRef(false);
 
-  // Elemento sentinela para o infinite scroll
+  // Sentinela para o Infinite Scroll
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  // 🔁 Resetar a contagem quando os filtros mudarem
+  // 🔁 Resetar o estado ao mudar os filtros
   useEffect(() => {
-    setVisibleCount(5);
+    setVisibleCount(3);
     trackedRef.current = false;
   }, [products]);
 
-  // 📊 Tracking (Analytics) - Adaptado para evento de Whey
+  // 📊 Analytics Tracking (Whey Specific)
   useEffect(() => {
     if (trackedRef.current || !products.length) return;
 
@@ -32,18 +33,22 @@ export function ProductList({ products }: { products: WheyProduct[] }) {
     trackedRef.current = true;
   }, [products]);
 
-  // ♾️ Infinite scroll progressivo
+  // ♾️ Infinite Scroll Progressivo
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         const firstEntry = entries[0];
 
         if (firstEntry.isIntersecting && products.length > visibleCount) {
-          // ✅ Carrega mais 20 por vez conforme o scroll atinge o fim
+          // Carrega mais 20 itens por vez
           setVisibleCount((prev) => prev + 20);
         }
       },
-      { threshold: 0.1 }
+      { 
+        threshold: 0.1,
+        // Inicia o carregamento 300px antes do usuário chegar ao fim para evitar vácuo
+        rootMargin: "300px" 
+      }
     );
 
     if (loadMoreRef.current) {
@@ -61,39 +66,42 @@ export function ProductList({ products }: { products: WheyProduct[] }) {
   const hasMore = products.length > visibleCount;
 
   return (
-    <section className="flex-1 space-y-4">
+    <section className="flex-1 space-y-4" style={{ fontFamily: 'Arial, sans-serif' }}>
       {visibleProducts.map((product, index) => (
         <MobileProductCard
           key={product.id}
           product={product}
           isBest={index === 0}
+          // 🔥 PRIORIDADE DE CARREGAMENTO: 
+          // Instruímos o Next.js a carregar as 3 primeiras imagens imediatamente.
+          priority={index < 3} 
         />
       ))}
 
-      {/* Sentinela do infinite scroll com visual Amazon */}
+      {/* Sentinela com Visual de Carregamento Amazon */}
       {hasMore && (
         <div
           ref={loadMoreRef}
-          className="h-24 flex items-center justify-center"
+          className="h-28 flex items-center justify-center"
         >
           <div className="flex flex-col items-center gap-2">
-            <div className="w-7 h-7 border-2 border-gray-200 border-t-[#007185] rounded-full animate-spin" />
-            <p className="text-[13px] text-gray-500 font-medium">
-              Carregando mais resultados...
+            <div className="w-8 h-8 border-2 border-zinc-200 border-t-[#007185] rounded-full animate-spin" />
+            <p className="text-[12px] text-zinc-500 font-medium">
+              Buscando mais ofertas de Whey...
             </p>
           </div>
         </div>
       )}
 
-      {/* Estado Vazio (Empty State) */}
+      {/* Estado Vazio Otimizado para Conversão */}
       {products.length === 0 && (
-        <div className="text-center py-24 bg-white rounded-xl border border-dashed border-gray-300 mx-1">
-          <p className="text-[#565959] text-[15px]">
+        <div className="text-center py-20 bg-white rounded-xl border border-dashed border-zinc-300 mx-1">
+          <p className="text-zinc-600 text-[15px] px-4">
             Nenhum Whey Protein encontrado com estes filtros.
           </p>
           <button 
             onClick={() => window.location.href = '/whey'}
-            className="mt-4 text-[#007185] font-medium hover:underline text-[14px]"
+            className="mt-4 text-[#007185] font-bold hover:underline text-[14px]"
           >
             Limpar todos os filtros
           </button>

@@ -189,7 +189,7 @@ export default async function CreatinaPage({
           
           <div className="mt-4 pb-10 w-full">
             <p className="text-[13px] text-zinc-800 mb-2 px-1 font-medium">
-              {finalProducts.length} creatinas comparadas
+              {finalProducts.length} produtos encontrados
             </p>
             
             <div className="w-full">
