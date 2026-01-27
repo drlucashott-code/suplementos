@@ -40,7 +40,7 @@ jobs:
       - name: Update Amazon prices
         # ⚠️ CAMINHO CORRIGIDO:
         # Aponta para 'src/scripts/updateAmazonPrices.ts' (Case Sensitive no Linux)
-        run: npx tsx src/scripts/updateAmazonPrices.ts
+        run: npx tsx scripts/updateAmazonPrices.ts
         env:
           # Banco de Dados
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
