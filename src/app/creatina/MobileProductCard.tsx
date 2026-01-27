@@ -16,7 +16,8 @@ export type Product = {
   pricePerGram: number;
   discountPercent?: number | null;
   avgPrice?: number | null; 
-  isLowestPrice?: boolean; 
+  isLowestPrice?: boolean;   // Menor preço em 30 dias
+  isLowestPrice7d?: boolean; // Menor preço em 7 dias
   rating?: number;
   reviewsCount?: number;
   hasCarbs?: boolean;
@@ -96,7 +97,7 @@ export function MobileProductCard({
           )}
         </div>
 
-        {/* Preço por grama forçado na linha de baixo, escrito em preto */}
+        {/* Preço por grama em preto */}
         <div className="text-[12px] text-[#0F1111] mb-1">
           R$ {product.pricePerGram.toFixed(2).replace(".", ",")} / g de creatina
         </div>
@@ -110,14 +111,26 @@ export function MobileProductCard({
           </div>
         )}
 
-        {/* Selo Vermelho "Menor preço" */}
-        {product.isLowestPrice && (
-          <div className="mb-1">
-            <span className="bg-[#CC0C39] text-white text-[11px] font-bold px-2 py-0.5 rounded-sm">
-              Menor preço em 30 dias
-            </span>
-          </div>
-        )}
+        {/* --- SESSÃO DE SELOS DE MENOR PREÇO --- */}
+        <div className="flex flex-col gap-1 mb-1">
+          {/* Selo 7 Dias (Prioridade visual por ser mais "fresco") */}
+          {product.isLowestPrice7d && (
+            <div className="inline-block">
+              <span className="bg-[#CC0C39] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm">
+                Menor preço em 7 dias
+              </span>
+            </div>
+          )}
+
+          {/* Selo 30 Dias */}
+          {product.isLowestPrice && (
+            <div className="inline-block">
+              <span className="bg-[#CC0C39] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm">
+                Menor preço em 30 dias
+              </span>
+            </div>
+          )}
+        </div>
 
         {/* Bloco de Preço Estilo Amazon */}
         <div className="flex flex-col mt-1">
@@ -135,7 +148,7 @@ export function MobileProductCard({
                 </span>
               </div>
 
-              {/* Linha "De:" SÓ APARECE SE O PREÇO FOR MENOR QUE A MÉDIA */}
+              {/* Linha "De:" condicional */}
               {product.avgPrice && product.price! < product.avgPrice && (
                 <div className="relative flex items-center gap-1 mt-0.5">
                   <span className="text-[13px] text-zinc-500">

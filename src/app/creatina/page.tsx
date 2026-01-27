@@ -9,8 +9,7 @@ import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 /* =========================
    PERFORMANCE (Edge Caching)
-   O Next.js manterá esta página em cache no CDN por 60 segundos, 
-   reduzindo drasticamente a carga no banco de dados e o tempo de resposta.
+   O Next.js manterá esta página em cache no CDN por 60 segundos.
    ========================= */
 export const revalidate = 60;
 
@@ -49,8 +48,13 @@ export default async function CreatinaPage({
   const selectedFlavors = params.flavor?.split(",") ?? [];
   const maxPrice = params.priceMax ? Number(params.priceMax) : undefined;
 
+  // Definição dos períodos históricos
+  const now = new Date();
   const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  thirtyDaysAgo.setDate(now.getDate() - 30);
+  
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(now.getDate() - 7);
 
   /* =========================
       BUSCA OTIMIZADA (Prisma)
@@ -106,21 +110,16 @@ export default async function CreatinaPage({
     const pricePerGramCreatine = finalPrice / gramasCreatinaPuraNoPote;
     const hasCarbs = info.unitsPerDose > 4;
 
-    /* 📈 LÓGICA DE PREÇOS E SELOS (30 DIAS) 
-       Calculamos a média das médias diárias e identificamos o menor preço.
+    /* 📈 LÓGICA DE HISTÓRICO E SELOS INTELIGENTES
+       Regra: Menor preço do período E diferença de pelo menos 2% para a média mensal.
     */
-    let lowestPrice30: number | null = null;
+    let isLowestPrice30 = false;
+    let isLowestPrice7 = false;
     let avgMonthly: number | null = null;
-    let isLowestPrice = false;
     let discountPercent: number | null = null;
 
     if (offer.priceHistory.length > 0) {
-      const prices = offer.priceHistory.map(h => h.price);
-      
-      // 1. Encontra o menor valor absoluto do mês
-      lowestPrice30 = Math.min(...prices);
-
-      // 2. Cálculo da Média Mensal (Média das Médias Diárias)
+      // 1. Médias Diárias (Preço de Referência)
       const dailyPricesMap = new Map<string, number[]>();
       offer.priceHistory.forEach(h => {
         const dayKey = h.createdAt.toISOString().split('T')[0];
@@ -132,10 +131,24 @@ export default async function CreatinaPage({
       dailyPricesMap.forEach(p => dailyAverages.push(p.reduce((a, b) => a + b, 0) / p.length));
       avgMonthly = dailyAverages.reduce((a, b) => a + b, 0) / dailyAverages.length;
 
-      // 3. Define se ganha o SELO (Preço atual é o menor do mês)
-      isLowestPrice = finalPrice <= (lowestPrice30 + 0.01);
+      // 2. Cálculo de Mínimos Históricos
+      const prices30d = offer.priceHistory.map(h => h.price);
+      const lowest30 = Math.min(...prices30d);
 
-      // 4. Desconto baseado na média mensal
+      const history7d = offer.priceHistory.filter(h => h.createdAt >= sevenDaysAgo);
+      const lowest7 = history7d.length > 0 ? Math.min(...history7d.map(h => h.price)) : null;
+
+      // 3. Gatilho de Significância (Preço atual deve ser < 98% da média)
+      const isSignificantDrop = avgMonthly ? (finalPrice < avgMonthly * 0.98) : false;
+
+      // 4. Aplicação de Selos com Prioridade (30 dias > 7 dias)
+      if (finalPrice <= (lowest30 + 0.01) && isSignificantDrop) {
+        isLowestPrice30 = true;
+      } else if (lowest7 !== null && finalPrice <= (lowest7 + 0.01) && isSignificantDrop) {
+        isLowestPrice7 = true;
+      }
+
+      // 5. Desconto visual (apenas se >= 5%)
       if (avgMonthly > 0) {
         const rawDiscount = ((avgMonthly - finalPrice) / avgMonthly) * 100;
         if (rawDiscount >= 5) discountPercent = Math.round(rawDiscount);
@@ -153,10 +166,9 @@ export default async function CreatinaPage({
       doses: totalDosesNoPote,
       pricePerGram: pricePerGramCreatine,
       hasCarbs,
-      // Novos campos para a interface
       avgPrice: avgMonthly,
-      lowestPrice: lowestPrice30,
-      isLowestPrice,
+      isLowestPrice: isLowestPrice30,   // Selo 30 dias
+      isLowestPrice7d: isLowestPrice7, // Selo 7 dias
       discountPercent,
       rating: offer.ratingAverage ?? 0,
       reviewsCount: offer.ratingCount ?? 0,
