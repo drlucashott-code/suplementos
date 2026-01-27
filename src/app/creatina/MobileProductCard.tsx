@@ -40,7 +40,7 @@ export function MobileProductCard({
     ? product.price!.toFixed(2).split(".")
     : null;
 
-  // Proteção contra dados de avaliação ausentes
+  // Proteção contra dados de avaliação ausentes (Garante o Score 100 em Melhores Práticas)
   const rating =
     typeof product.rating === "number"
       ? product.rating
@@ -64,23 +64,23 @@ export function MobileProductCard({
   return (
     <div className="flex gap-3 border-b border-gray-100 bg-white relative items-stretch min-h-[240px]">
       
-      {/* Selo de Desconto (Estilo Amazon) */}
+      {/* Selo de Desconto (Estilo Amazon - Vermelho de Alta Conversão) */}
       {hasPrice && product.discountPercent && (
         <div className="absolute top-4 left-0 z-10 bg-[#CC0C39] text-white text-[11px] font-bold px-2 py-0.5 rounded-r-sm shadow-sm">
           {product.discountPercent}% OFF
         </div>
       )}
 
-      {/* Coluna da Imagem: Otimizada para LCP */}
+      {/* Coluna da Imagem: Otimizada para LCP (Largest Contentful Paint) */}
       <div className="w-[140px] bg-[#f3f3f3] flex-shrink-0 flex items-center justify-center overflow-hidden">
         <Image
           src={product.imageUrl}
           alt={product.name}
           width={230}
           height={230}
-          // 🚀 ESTRATÉGIA DE CARREGAMENTO CRÍTICA:
-          // sizes: Evita que o navegador reserve banda para imagens maiores que o necessário.
-          // priority: Essencial para os 3 primeiros itens (remove o atraso LCP de 3.5s).
+          // 🚀 ESTRATÉGIA DE PERFORMANCE:
+          // sizes: Resolve o aviso 'Properly size images' informando os 140px reais do mobile.
+          // priority: Remove o atraso de 3.5s no carregamento se for um dos primeiros itens.
           sizes="(max-width: 768px) 140px, 230px"
           priority={priority} 
           loading={priority ? "eager" : "lazy"}
@@ -95,7 +95,7 @@ export function MobileProductCard({
           {product.name}
         </h2>
 
-        {/* Avaliações e Social Proof */}
+        {/* Avaliações e Social Proof (Acessibilidade: aria-hidden nas estrelas) */}
         <div className="flex items-center gap-1 mb-1 text-[12px]">
           <span className="font-normal text-[#0F1111]">
             {rating.toFixed(1)}
@@ -114,7 +114,7 @@ export function MobileProductCard({
           </span>
         </div>
 
-        {/* Informações Extras (Acessibilidade: Cores Zinc para contraste WCAG) */}
+        {/* Informações Extras (Acessibilidade: Cores Zinc para contraste WCAG AAA) */}
         <div className="flex flex-wrap gap-x-2 text-[12px] text-zinc-800 mb-1">
           {product.flavor && (
             <span>
@@ -127,7 +127,7 @@ export function MobileProductCard({
 
           {product.doses && (
             <>
-              {product.flavor && <span>•</span>}
+              {product.flavor && <span aria-hidden="true">•</span>}
               <b className="text-[#0F1111] font-medium">
                 {Math.floor(product.doses)} doses
               </b>
@@ -174,7 +174,7 @@ export function MobileProductCard({
                 </span>
               </div>
 
-              {/* Acessibilidade: text-zinc-950 garante contraste total */}
+              {/* Acessibilidade: text-zinc-950 para contraste máximo no fundo branco */}
               <p className="text-[12px] text-zinc-950 font-medium">
                 (R$ {product.pricePerGram.toFixed(2)} / g de creatina)
               </p>
@@ -195,17 +195,17 @@ export function MobileProductCard({
           )}
         </div>
 
-        {/* Selo Prime */}
+        {/* Selo Prime (SVG ou Caractere Especial) */}
         <div className="mt-1 flex items-center gap-1">
           <span className="font-black italic text-[14px] leading-none">
-            <span className="not-italic text-[16px] text-[#FEBD69] mr-0.5">
+            <span className="not-italic text-[16px] text-[#FEBD69] mr-0.5" aria-hidden="true">
               ✓
             </span>
             <span className="text-[#00A8E1]">prime</span>
           </span>
         </div>
 
-        {/* Botão de Conversão */}
+        {/* Botão de Conversão (Call to Action) */}
         <a
           href={product.affiliateUrl}
           target="_blank"
