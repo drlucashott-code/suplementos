@@ -135,8 +135,8 @@ export function MobileProductCard({
                 </span>
               </div>
 
-              {/* Linha "De:" com o valor médio e ícone de informação */}
-              {product.avgPrice && (
+              {/* Linha "De:" SÓ APARECE SE O PREÇO FOR MENOR QUE A MÉDIA */}
+              {product.avgPrice && product.price! < product.avgPrice && (
                 <div className="relative flex items-center gap-1 mt-0.5">
                   <span className="text-[13px] text-zinc-500">
                     De: <span className="line-through">R${product.avgPrice.toFixed(2).replace(".", ",")}</span>
