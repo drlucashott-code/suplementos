@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { GoogleAnalytics } from "@next/third-parties/google";
@@ -15,19 +15,23 @@ const geistMono = Geist_Mono({
 });
 
 /* =========================
-   METADATA
+   METADATA (SEO & Aba)
    ========================= */
 export const metadata: Metadata = {
-  title: "Amazon Picks",
+  title: "amazonpicks — O melhor preço em suplementos",
   description:
     "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
+  robots: "index, follow",
 };
 
 /* =========================
-   VIEWPORT (Next 16+)
+   VIEWPORT
    ========================= */
-export const viewport = {
+export const viewport: Viewport = {
   colorScheme: "light",
+  themeColor: "#ffffff",
+  width: "device-width",
+  initialScale: 1,
 };
 
 /* =========================
@@ -43,6 +47,12 @@ export default function RootLayout({
       <head>
         {/* Força modo claro (Safari iOS / mobile) */}
         <meta name="color-scheme" content="light" />
+        
+        {/* 🚀 OTIMIZAÇÃO DE CONEXÃO (LCP) 
+            Prepara o navegador para baixar as imagens da Amazon antes mesmo 
+            do CSS terminar de carregar, ganhando milissegundos preciosos. */}
+        <link rel="preconnect" href="https://m.media-amazon.com" />
+        <link rel="dns-prefetch" href="https://m.media-amazon.com" />
       </head>
 
       <body
@@ -53,7 +63,8 @@ export default function RootLayout({
         {/* 🔔 Toasts globais */}
         <Toaster position="top-right" />
 
-        {/* 📊 Google Analytics */}
+        {/* 📊 Google Analytics 
+            Carregado via afterInteractive por padrão para não bloquear o LCP. */}
         <GoogleAnalytics gaId="G-CLEY1YQ80S" />
       </body>
     </html>

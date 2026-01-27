@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image"; // Importado para otimização automática
+import Image from "next/image";
 import { CreatineForm } from "@prisma/client";
 
 export type Product = {
@@ -26,11 +26,11 @@ export type Product = {
 export function MobileProductCard({
   product,
   isBest,
-  priority, // 🔥 Propriedade injetada para controle de performance
+  priority,
 }: {
   product: Product;
   isBest?: boolean;
-  priority: boolean; // Forçamos o booleano vindo do ProductList
+  priority: boolean;
 }) {
   const hasPrice =
     typeof product.price === "number" &&
@@ -72,13 +72,13 @@ export function MobileProductCard({
 
       {/* Coluna da Imagem */}
       <div className="w-[140px] bg-[#f3f3f3] flex-shrink-0 flex items-center justify-center overflow-hidden">
-        {/* 🔥 OTIMIZAÇÃO CRÍTICA AQUI: Substituição de img por Image + priority */}
         <Image
           src={product.imageUrl}
           alt={product.name}
-          width={230} // Largura base para cálculo de aspect-ratio
-          height={230} // Altura base para cálculo de aspect-ratio
-          // Atributos que matam o atraso de 3.5s no LCP:
+          width={230}
+          height={230}
+          // 🚀 Melhora final de performance: Avisa o navegador o tamanho real ocupado
+          sizes="(max-width: 768px) 140px, 230px"
           priority={priority} 
           loading={priority ? "eager" : "lazy"}
           fetchPriority={priority ? "high" : "low"}
@@ -111,8 +111,8 @@ export function MobileProductCard({
           </span>
         </div>
 
-        {/* Informações Extras */}
-        <div className="flex flex-wrap gap-x-2 text-[12px] text-[#565959] mb-1">
+        {/* Informações Extras (Acessibilidade: Escurecido para Contraste) */}
+        <div className="flex flex-wrap gap-x-2 text-[12px] text-[#444646] mb-1">
           {product.flavor && (
             <span>
               Sabor:{" "}
@@ -177,13 +177,14 @@ export function MobileProductCard({
                 </span>
               </div>
 
-              <p className="text-[12px] text-[#565959]">
+              {/* Acessibilidade: text-gray-700 para melhor contraste */}
+              <p className="text-[12px] text-gray-700">
                 (R$ {product.pricePerGram.toFixed(2)} / g de creatina)
               </p>
 
               {product.avg30Price &&
                 product.discountPercent && (
-                  <p className="text-[11px] text-[#565959] mt-0.5">
+                  <p className="text-[11px] text-gray-700 mt-0.5">
                     Média últimos 30 dias:{" "}
                     <span className="line-through">
                       R${" "}
@@ -193,7 +194,7 @@ export function MobileProductCard({
                 )}
             </>
           ) : (
-            <p className="text-[13px] text-[#565959] italic">
+            <p className="text-[13px] text-gray-700 italic">
               Preço indisponível no momento
             </p>
           )}
