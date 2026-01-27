@@ -5,17 +5,18 @@ const nextConfig: NextConfig = {
       CONFIGURAÇÕES DE IMAGEM
      ========================= */
   images: {
-    // 🚀 Otimização de Formatos:
-    // O AVIF é até 20% mais leve que o WebP, reduzindo drasticamente o LCP.
+    // 🚀 Otimização de Formatos de Próxima Geração:
+    // O AVIF é a tecnologia de ponta atual, sendo até 20% mais leve que o WebP.
+    // O Next.js tentará servir AVIF primeiro; se o navegador não suportar, envia WebP.
     formats: ['image/avif', 'image/webp'],
     
-    // ⚡ Política de Cache Eficiente:
-    // Resolve o aviso do Google "Serve static assets with an efficient cache policy".
-    // 31536000 segundos = 1 ano.
+    // ⚡ Política de Cache Agressiva:
+    // Força o cache por 1 ano (31536000 segundos) para recursos externos.
+    // Isso elimina o aviso "Serve static assets with an efficient cache policy".
     minimumCacheTTL: 31536000,
 
-    // 🌐 Permissões de Origens Remotas:
-    // Configurado com '/**' para garantir que qualquer subdiretório da Amazon seja aceito.
+    // 🌐 Permissões de Origens Remotas (Amazon CDNs):
+    // Usamos '/**' para garantir compatibilidade com qualquer estrutura de pastas da Amazon.
     remotePatterns: [
       {
         protocol: 'https',
@@ -43,27 +44,29 @@ const nextConfig: NextConfig = {
   /* =========================
       PERFORMANCE & SEGURANÇA
      ========================= */
-  // Mantém o modo estrito para identificar vazamentos de memória ou efeitos colaterais.
+  // Ativa o Strict Mode para detectar ciclos de renderização desnecessários.
   reactStrictMode: true,
   
-  // 🛡️ Segurança e Payload:
-  // Remove o cabeçalho 'X-Powered-By' para dificultar a identificação da stack e economizar bytes.
+  // 🛡️ Segurança:
+  // Remove o cabeçalho 'X-Powered-By: Next.js' do payload, o que é uma boa prática
+  // de segurança e economiza alguns bytes em cada requisição HTTP.
   poweredByHeader: false,
 
-  // 🏗️ Otimização do Compilador:
+  // 🏗️ Otimização do Compilador (SWC):
   compiler: {
-    // Limpa o bundle de produção removendo console.logs.
-    // Isso reduz o TBT (Total Blocking Time) em dispositivos mobile.
-    removeConsole: process.env.NODE_ENV === 'production',
+    // Limpa o bundle de produção removendo todos os console.log.
+    // Isso melhora a nota de 'Total Blocking Time' (TBT) em dispositivos mobile.
+    removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error'] } : false,
   },
 
   /* =========================
-      EXPERIMENTAL (Opcional)
+      OTIMIZAÇÃO DE PACOTES
      ========================= */
-  // experimental: {
-  //   // Otimiza o carregamento de pacotes de ícones grandes como lucide-react
-  //   optimizePackageImports: ['lucide-react'],
-  // },
+  experimental: {
+    // Garante que o Next.js importe apenas os ícones utilizados da Lucide, 
+    // em vez de carregar a biblioteca inteira no bundle do cliente.
+    optimizePackageImports: ['lucide-react'],
+  },
 };
 
 export default nextConfig;

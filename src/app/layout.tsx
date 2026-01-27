@@ -4,7 +4,7 @@ import { Toaster } from "react-hot-toast";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 
-// Configuração de fontes com display swap para evitar layout shift
+// 🚀 Otimização de Fontes: display 'swap' garante que o texto apareça antes da fonte carregar 100%
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -39,6 +39,10 @@ export const metadata: Metadata = {
     "comparador de suplementos",
   ],
   manifest: "/site.webmanifest",
+  // 🔗 Canonical URL ajuda a evitar conteúdo duplicado no Google
+  alternates: {
+    canonical: "https://amazonpicks.vercel.app",
+  },
 };
 
 /* =========================
@@ -49,7 +53,7 @@ export const viewport: Viewport = {
   themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 5, // Permite zoom para acessibilidade sem penalizar o SEO
+  maximumScale: 5, // Essencial para o score 100 de Acessibilidade
 };
 
 /* =========================
@@ -63,13 +67,12 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <head>
-        {/* Força o modo claro em dispositivos mobile para evitar conflitos de cores */}
+        {/* Força o modo claro para evitar que o Dark Mode do sistema quebre o contraste planejado */}
         <meta name="color-scheme" content="light" />
 
-        {/* 🚀 OTIMIZAÇÃO CRÍTICA DE CONEXÃO (LCP) 
-            O crossOrigin="anonymous" é obrigatório para que o navegador valide 
-            o handshake TLS com o CDN da Amazon antes mesmo de baixar as imagens. */}
-        [Image of browser preconnect and prefetch mechanism]
+        {/* 🚀 HANDSHAKE TLS ANTECIPADO:
+            O crossOrigin="anonymous" resolve o aviso de 'Preconnect to required origins'. 
+            O navegador agora valida a conexão com a Amazon no milissegundo zero. */}
         <link
           rel="preconnect"
           href="https://m.media-amazon.com"
@@ -77,7 +80,7 @@ export default function RootLayout({
         />
         <link rel="dns-prefetch" href="https://m.media-amazon.com" />
 
-        {/* Fallback para o segundo domínio de entrega de mídia da Amazon */}
+        {/* CDN secundário da Amazon para garantir cobertura total de imagens */}
         <link
           rel="preconnect"
           href="https://images-na.ssl-images-amazon.com"
@@ -90,11 +93,11 @@ export default function RootLayout({
       >
         {children}
 
-        {/* 🔔 Feedback visual (Toast notifications) */}
+        {/* 🔔 Feedback visual de ações (Toast) */}
         <Toaster position="top-right" />
 
-        {/* 📊 Google Analytics 
-            Carregado de forma não-bloqueante para priorizar a renderização do conteúdo. */}
+        {/* 📊 Google Analytics: 
+            Estratégia afterInteractive para não competir com o LCP da página. */}
         <GoogleAnalytics gaId="G-CLEY1YQ80S" />
       </body>
     </html>

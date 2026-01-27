@@ -21,20 +21,22 @@ export type Product = {
 };
 
 export function ProductList({ products }: { products: Product[] }) {
-  // 🚀 PERFORMANCE TOTAL: Começa com apenas 3 produtos para otimizar LCP e FCP
+  // 🚀 PERFORMANCE RADICAL: 
+  // Iniciamos com 3 itens. Isso minimiza o tempo de execução do JavaScript inicial 
+  // e reduz o peso do DOM, melhorando o FCP (First Contentful Paint).
   const [visibleCount, setVisibleCount] = useState(3);
   const trackedRef = useRef(false);
 
-  // Elemento sentinela para o infinite scroll
+  // Elemento invisível que serve como gatilho para carregar mais itens
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  // 🔁 Resetar a contagem para 3 sempre que os filtros mudarem
+  // 🔁 Resetar a contagem e o tracking sempre que a lista de produtos (filtros) mudar
   useEffect(() => {
     setVisibleCount(3);
     trackedRef.current = false;
   }, [products]);
 
-  // 📊 Tracking de Analytics (Visualização da Lista)
+  // 📊 Tracking de Analytics: Dispara quando a lista é renderizada pela primeira vez
   useEffect(() => {
     if (trackedRef.current || !products.length) return;
 
@@ -49,20 +51,21 @@ export function ProductList({ products }: { products: Product[] }) {
     trackedRef.current = true;
   }, [products]);
 
-  // ♾️ Lógica de Infinite Scroll progressivo
+  // ♾️ Lógica de Infinite Scroll com Intersection Observer
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         const firstEntry = entries[0];
 
+        // Se o sentinela entrar na viewport, carregamos mais 20 produtos
         if (firstEntry.isIntersecting && products.length > visibleCount) {
-          // ✅ Carrega mais 20 produtos por vez assim que o usuário chega ao fim dos 3 primeiros
           setVisibleCount((prev) => prev + 20);
         }
       },
       { 
         threshold: 0.1,
-        rootMargin: "200px" // Começa a carregar 200px antes de chegar no fim para evitar vácuo
+        // rootMargin de 200px faz o carregamento começar ANTES do usuário chegar no fim
+        rootMargin: "200px" 
       }
     );
 
@@ -82,18 +85,21 @@ export function ProductList({ products }: { products: Product[] }) {
 
   return (
     <section className="flex-1 space-y-4">
+      {/* Listagem de Cards */}
       {visibleProducts.map((product, index) => (
         <MobileProductCard
           key={product.id}
           product={product}
           isBest={index === 0}
-          // 🔥 PRIORIDADE ABSOLUTA: 
-          // Como carregamos apenas 3, todos eles recebem prioridade máxima de imagem.
+          /* ⚡ ESTRATÉGIA LCP: 
+             Apenas os 3 primeiros produtos recebem prioridade de carregamento de imagem.
+             Isso remove o atraso de descoberta do navegador para o conteúdo "Above the Fold".
+          */
           priority={index < 3} 
         />
       ))}
 
-      {/* Elemento invisível que dispara o carregamento de mais itens */}
+      {/* Indicador de Carregamento (Sentinela) */}
       {hasMore && (
         <div
           ref={loadMoreRef}
@@ -108,11 +114,11 @@ export function ProductList({ products }: { products: Product[] }) {
         </div>
       )}
 
-      {/* Estado vazio quando os filtros não retornam nada */}
+      {/* Estado Vazio (Zero Results) com Cores de Alto Contraste */}
       {products.length === 0 && (
         <div className="text-center py-20 bg-white rounded-xl border border-dashed border-zinc-300 mx-1">
           <p className="text-zinc-500 text-[14px]">
-            Nenhum produto encontrado com estes filtros.
+            Nenhum suplemento encontrado com estes filtros.
           </p>
         </div>
       )}

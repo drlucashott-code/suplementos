@@ -79,9 +79,9 @@ export function MobileProductCard({
           width={230}
           height={230}
           // 🚀 ESTRATÉGIA DE PERFORMANCE:
-          // sizes: Resolve o aviso 'Properly size images' informando os 140px reais do mobile.
-          // priority: Remove o atraso de carregamento se for um dos primeiros itens da lista.
-          sizes="(max-width: 768px) 140px, 230px"
+          // sizes: Resolve o aviso 'Properly size images' informando os 140px reais no mobile.
+          // priority/fetchPriority: Remove o atraso de carregamento se for um dos primeiros itens.
+          sizes="(max-width: 600px) 140px, 230px"
           priority={priority} 
           loading={priority ? "eager" : "lazy"}
           fetchPriority={priority ? "high" : "low"}
@@ -174,7 +174,7 @@ export function MobileProductCard({
                 </span>
               </div>
 
-              {/* Acessibilidade: text-zinc-950 para contraste máximo no fundo branco */}
+              {/* Acessibilidade: text-zinc-950 garante contraste máximo no fundo branco */}
               <p className="text-[12px] text-zinc-950 font-medium">
                 (R$ {product.pricePerGram.toFixed(2)} / g de creatina)
               </p>
@@ -195,7 +195,7 @@ export function MobileProductCard({
           )}
         </div>
 
-        {/* Selo Prime (SVG ou Caractere Especial) */}
+        {/* Selo Prime (Acessibilidade: aria-hidden no ícone de check) */}
         <div className="mt-1 flex items-center gap-1">
           <span className="font-black italic text-[14px] leading-none">
             <span className="not-italic text-[16px] text-[#FEBD69] mr-0.5" aria-hidden="true">
