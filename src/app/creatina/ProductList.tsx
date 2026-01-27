@@ -21,20 +21,20 @@ export type Product = {
 };
 
 export function ProductList({ products }: { products: Product[] }) {
-  // ✅ Começa com 5 produtos
+  // ✅ Começa com 5 produtos para priorizar o carregamento inicial
   const [visibleCount, setVisibleCount] = useState(5);
   const trackedRef = useRef(false);
 
   // Elemento sentinela para infinite scroll
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  // 🔁 Resetar quando os filtros mudarem
+  // 🔁 Resetar a contagem quando os filtros mudarem
   useEffect(() => {
     setVisibleCount(5);
     trackedRef.current = false;
   }, [products]);
 
-  // 📊 Tracking (Analytics)
+  // 📊 Tracking de Analytics (Visualização da Lista)
   useEffect(() => {
     if (trackedRef.current || !products.length) return;
 
@@ -49,14 +49,14 @@ export function ProductList({ products }: { products: Product[] }) {
     trackedRef.current = true;
   }, [products]);
 
-  // ♾️ Infinite scroll progressivo
+  // ♾️ Lógica de Infinite Scroll progressivo
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         const firstEntry = entries[0];
 
         if (firstEntry.isIntersecting && products.length > visibleCount) {
-          // ✅ Carrega mais 20 por vez
+          // ✅ Carrega mais 20 produtos por vez ao rolar
           setVisibleCount((prev) => prev + 20);
         }
       },
@@ -84,10 +84,14 @@ export function ProductList({ products }: { products: Product[] }) {
           key={product.id}
           product={product}
           isBest={index === 0}
+          // 🔥 RESOLUÇÃO DO ERRO DE BUILD:
+          // Agora passamos obrigatoriamente a prop priority.
+          // Os 3 primeiros itens do ranking atual recebem prioridade de carregamento (LCP).
+          priority={index < 3} 
         />
       ))}
 
-      {/* Sentinela do infinite scroll */}
+      {/* Elemento invisível que dispara o carregamento de mais itens */}
       {hasMore && (
         <div
           ref={loadMoreRef}
@@ -102,6 +106,7 @@ export function ProductList({ products }: { products: Product[] }) {
         </div>
       )}
 
+      {/* Estado vazio quando os filtros não retornam nada */}
       {products.length === 0 && (
         <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
           <p className="text-gray-500">
