@@ -53,8 +53,8 @@ export default async function CreatinaPage({
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   /* =========================
-      BUSCA OTIMIZADA (Prisma)
-      Buscamos apenas os campos necessários para reduzir o payload.
+     BUSCA OTIMIZADA (Prisma)
+     Buscamos apenas os campos necessários para reduzir o payload.
      ========================= */
   const products = await prisma.product.findMany({
     where: {
@@ -75,7 +75,7 @@ export default async function CreatinaPage({
           priceHistory: {
             where: { createdAt: { gte: thirtyDaysAgo } },
             orderBy: { createdAt: "desc" },
-          }
+          },
         },
         orderBy: { updatedAt: "desc" },
         take: 1,
@@ -84,8 +84,8 @@ export default async function CreatinaPage({
   });
 
   /* =========================
-      PROCESSAMENTO DE DADOS (Server-side)
-      Calculamos o ranking real de pureza antes de enviar ao cliente.
+     PROCESSAMENTO DE DADOS (Server-side)
+     Calculamos o ranking real de pureza antes de enviar ao cliente.
      ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.creatineInfo) return null;
@@ -117,16 +117,43 @@ export default async function CreatinaPage({
     // Identifica se contém carbo baseado no peso da dose (> 4g sugere aditivos/sabores)
     const hasCarbs = info.unitsPerDose > 4;
 
-    /* 📈 CÁLCULO DE DESCONTO HISTÓRICO 
-       Calculamos a média de 30 dias para validar se o desconto é real.
+    /* 📈 CÁLCULO DE DESCONTO HISTÓRICO (Algoritmo Corrigido)
+       Agrupamos por dia para calcular a "Média das Médias Diárias",
+       evitando que dias voláteis distorçam o valor de referência.
     */
     let discountPercent: number | null = null;
     let avg30: number | null = null;
 
-    if (offer.priceHistory.length >= 5) {
-      avg30 = offer.priceHistory.reduce((s, h) => s + h.price, 0) / offer.priceHistory.length;
-      const raw = ((avg30 - finalPrice) / avg30) * 100;
-      if (raw >= 5) discountPercent = Math.round(raw);
+    if (offer.priceHistory.length > 0) {
+      // 1. Agrupa preços por dia (YYYY-MM-DD)
+      const dailyPricesMap = new Map<string, number[]>();
+      
+      for (const h of offer.priceHistory) {
+        const dayKey = h.createdAt.toISOString().split('T')[0];
+        if (!dailyPricesMap.has(dayKey)) dailyPricesMap.set(dayKey, []);
+        dailyPricesMap.get(dayKey)!.push(h.price);
+      }
+
+      // 2. Calcula a média individual de cada dia
+      const dailyAverages: number[] = [];
+      dailyPricesMap.forEach((prices) => {
+        const daySum = prices.reduce((acc, curr) => acc + curr, 0);
+        dailyAverages.push(daySum / prices.length);
+      });
+
+      // 3. Calcula a média final dos últimos 30 dias
+      if (dailyAverages.length > 0) {
+        const totalSum = dailyAverages.reduce((acc, curr) => acc + curr, 0);
+        avg30 = totalSum / dailyAverages.length;
+
+        // Calcula a porcentagem real de desconto
+        const rawDiscount = ((avg30 - finalPrice) / avg30) * 100;
+        
+        // Só consideramos desconto se for >= 5% para evitar ruído
+        if (rawDiscount >= 5) {
+          discountPercent = Math.round(rawDiscount);
+        }
+      }
     }
 
     return {
@@ -149,7 +176,7 @@ export default async function CreatinaPage({
   });
 
   /* =========================
-      RANKING E FILTROS FINAIS
+     RANKING E FILTROS FINAIS
      ========================= */
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
@@ -172,7 +199,7 @@ export default async function CreatinaPage({
   ).sort();
 
   /* =========================
-      RENDERIZAÇÃO
+     RENDERIZAÇÃO
      ========================= */
   return (
     <main className="bg-[#EAEDED] min-h-screen">

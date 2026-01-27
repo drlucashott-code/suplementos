@@ -51,7 +51,7 @@ export default async function WheyPage({
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   /* =========================
-      1. BUSCA NO BANCO (Prisma)
+     1. BUSCA NO BANCO (Prisma)
      ========================= */
   const products = await prisma.product.findMany({
     where: {
@@ -72,7 +72,7 @@ export default async function WheyPage({
           priceHistory: {
             where: { createdAt: { gte: thirtyDaysAgo } },
             orderBy: { createdAt: "desc" },
-          }
+          },
         },
         orderBy: { updatedAt: "desc" },
         take: 1,
@@ -81,7 +81,7 @@ export default async function WheyPage({
   });
 
   /* =========================
-      2. MAPEAMENTO E CÁLCULOS (Server-side)
+     2. MAPEAMENTO E CÁLCULOS (Server-side)
      ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.wheyInfo) return null;
@@ -116,13 +116,35 @@ export default async function WheyPage({
     const totalProteinInGrams = totalDoses * info.proteinPerDoseInGrams;
     const pricePerGramProtein = finalPrice / totalProteinInGrams;
 
-    // 📈 Lógica de Desconto Real (Média 30 dias)
+    // 📈 Lógica de Desconto Real (Algoritmo: Média das Médias Diárias)
     let discountPercent: number | null = null;
     let avg30: number | null = null;
-    if (offer.priceHistory.length >= 5) {
-      avg30 = offer.priceHistory.reduce((s, h) => s + h.price, 0) / offer.priceHistory.length;
-      const raw = ((avg30 - finalPrice) / avg30) * 100;
-      if (raw >= 5) discountPercent = Math.round(raw);
+
+    if (offer.priceHistory.length > 0) {
+      // 1. Agrupa preços por dia
+      const dailyPricesMap = new Map<string, number[]>();
+      for (const h of offer.priceHistory) {
+        const dayKey = h.createdAt.toISOString().split('T')[0];
+        if (!dailyPricesMap.has(dayKey)) dailyPricesMap.set(dayKey, []);
+        dailyPricesMap.get(dayKey)!.push(h.price);
+      }
+
+      // 2. Calcula a média de cada dia individualmente
+      const dailyAverages: number[] = [];
+      dailyPricesMap.forEach((prices) => {
+        const daySum = prices.reduce((acc, curr) => acc + curr, 0);
+        dailyAverages.push(daySum / prices.length);
+      });
+
+      // 3. Calcula a média final das médias diárias
+      if (dailyAverages.length > 0) {
+        const totalSum = dailyAverages.reduce((acc, curr) => acc + curr, 0);
+        avg30 = totalSum / dailyAverages.length;
+
+        // Calcula desconto (apenas se for relevante, >= 5%)
+        const raw = ((avg30 - finalPrice) / avg30) * 100;
+        if (raw >= 5) discountPercent = Math.round(raw);
+      }
     }
 
     return {
@@ -138,14 +160,14 @@ export default async function WheyPage({
       numberOfDoses: totalDoses,
       pricePerGramProtein,
       discountPercent,
-      avg30Price: discountPercent ? avg30 : null,
+      avg30Price: discountPercent && avg30 ? avg30 : null,
       rating: offer.ratingAverage ?? 0,
       reviewsCount: offer.ratingCount ?? 0,
     };
   }).filter((p): p is NonNullable<typeof p> => p !== null);
 
   /* =========================
-      3. ORDENAÇÃO FINAL
+     3. ORDENAÇÃO FINAL
      ========================= */
   const finalProducts = rankedProducts.sort((a, b) => {
     if (order === "discount") {
