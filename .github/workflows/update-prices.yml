@@ -2,15 +2,15 @@ name: Update Prices (Amazon)
 
 on:
   schedule:
-    # Horários UTC: 09h, 15h, 21h, 03h
-    # Horários BRT: 06h, 12h, 18h, 00h
-    # (O scraping rodará apenas na execução das 09h UTC / 06h BRT)
-    - cron: "0 9,15,21,3 * * *"
-  
+    # Horários UTC: 03h, 09h, 15h, 21h
+    # Horários BRT: 00h, 06h, 12h, 18h
+    # Scraping + Browser apenas às 09h UTC (06h BRT)
+    - cron: "0 3,9,15,21 * * *"
+
   workflow_dispatch:
     inputs:
       force_scrape:
-        description: 'Forçar Scraping?'
+        description: "Forçar Scraping + Browser?"
         type: boolean
         default: false
 
@@ -41,23 +41,33 @@ jobs:
         run: npm ci
 
       # =========================
-      # PRISMA (Gera o cliente)
+      # PRISMA
       # =========================
       - name: Generate Prisma Client
         run: npx prisma generate
 
       # =========================
-      # AMAZON (API + LÓGICA)
+      # PLAYWRIGHT (Chromium)
+      # Só instala quando necessário
+      # =========================
+      - name: Install Playwright Chromium
+        if: |
+          github.event_name == 'workflow_dispatch' && inputs.force_scrape == true ||
+          github.event_name == 'schedule'
+        run: npx playwright install chromium
+
+      # =========================
+      # AMAZON UPDATE
       # =========================
       - name: Update Amazon prices
         run: |
-          # Pega a hora atual do servidor (UTC)
+          # Hora atual em UTC
           HOUR=$(date -u +%H)
-          
-          # Se for 09h UTC (06h Brasil) OU se foi forçado manualmente
-          if [ "$HOUR" == "09" ] || [ "${{ inputs.force_scrape }}" == "true" ]; then
-            echo "🔥 Executando COM Scraping (Horário Principal)..."
-            npx tsx scripts/updateAmazonPrices.ts --scrape
+
+          # Se for 09h UTC (06h BRT) ou se foi forçado manualmente
+          if [ "$HOUR" = "09" ] || [ "${{ inputs.force_scrape }}" = "true" ]; then
+            echo "🔥 Executando COM Scraping + Playwright (Horário Principal)..."
+            npx tsx scripts/updateAmazonPrices.ts --scrape --browser
           else
             echo "🛡️ Executando SEM Scraping (Modo Seguro)..."
             npx tsx scripts/updateAmazonPrices.ts

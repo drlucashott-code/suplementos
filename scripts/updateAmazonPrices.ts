@@ -2,6 +2,7 @@ import "dotenv/config";
 import https from "https";
 import crypto from "node:crypto";
 import { PrismaClient, Store } from "@prisma/client";
+import { chromium } from "playwright";
 
 const prisma = new PrismaClient();
 
@@ -56,7 +57,7 @@ function getSignatureKey(
 }
 
 /* ======================
-   API EM LOTE (RETORNA STATUS)
+   API EM LOTE
 ====================== */
 type ApiStatus = "OK" | "OUT_OF_STOCK" | "ERROR";
 
@@ -167,7 +168,7 @@ async function fetchAmazonPricesBatch(
 }
 
 /* ======================
-   SCRAPING FALLBACK (EQUILIBRADO)
+   SCRAPING HTML LEVE
 ====================== */
 async function scrapeAmazonPrice(
   asin: string
@@ -198,8 +199,7 @@ async function scrapeAmazonPrice(
               return resolve(null);
             }
 
-            // 1️⃣ BUY BOX CLÁSSICO
-            let match =
+            const match =
               html.match(
                 /id="priceblock_ourprice"[\s\S]*?R\$[\s]*([\d\.]+,\d{2})/
               ) ||
@@ -207,15 +207,8 @@ async function scrapeAmazonPrice(
                 /id="priceblock_dealprice"[\s\S]*?R\$[\s]*([\d\.]+,\d{2})/
               ) ||
               html.match(
-                /id="price_inside_buybox"[\s\S]*?R\$[\s]*([\d\.]+,\d{2})/
-              );
-
-            // 2️⃣ FALLBACK REAL (PREÇO PRINCIPAL VISUAL)
-            if (!match) {
-              match = html.match(
                 /a-offscreen">R\$[\s]*([\d\.]+,\d{2})</
               );
-            }
 
             if (!match) return resolve(null);
 
@@ -223,12 +216,7 @@ async function scrapeAmazonPrice(
               match[1].replace(/\./g, "").replace(",", ".")
             );
 
-            // 🚨 SANITY CHECK
-            if (!Number.isFinite(price) || price < 90) {
-              return resolve(null);
-            }
-
-            resolve(price);
+            resolve(Number.isFinite(price) ? price : null);
           });
         }
       )
@@ -237,17 +225,54 @@ async function scrapeAmazonPrice(
 }
 
 /* ======================
+   PLAYWRIGHT (BROWSER REAL)
+====================== */
+async function playwrightAmazonPrice(
+  asin: string
+): Promise<number | null> {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage();
+
+  try {
+    await page.goto(`https://www.amazon.com.br/dp/${asin}`, {
+      waitUntil: "networkidle",
+      timeout: 30000,
+    });
+
+    const priceText = await page
+      .locator(".a-price .a-offscreen")
+      .first()
+      .textContent();
+
+    if (!priceText) return null;
+
+    const price = Number(
+      priceText.replace("R$", "").trim().replace(/\./g, "").replace(",", ".")
+    );
+
+    return Number.isFinite(price) ? price : null;
+  } catch {
+    return null;
+  } finally {
+    await browser.close();
+  }
+}
+
+/* ======================
    MAIN LOOP
 ====================== */
 async function updateAmazonPrices() {
   const ENABLE_SCRAPING = process.argv.includes("--scrape");
+  const ENABLE_BROWSER = process.argv.includes("--browser");
 
   console.log("🚀 Iniciando Update");
   console.log(
     `MODO: ${
       ENABLE_SCRAPING
-        ? "🔥 Scraping Habilitado (Se necessário)"
+        ? "🔥 Scraping Habilitado"
         : "🛡️ Apenas API"
+    } | Browser: ${
+      ENABLE_BROWSER ? "🧠 Playwright ON" : "OFF"
     }\n`
   );
 
@@ -285,7 +310,6 @@ async function updateAmazonPrices() {
       const result = apiResults[asin];
 
       let finalPrice = 0;
-      let shouldZero = false;
       let statusLog = "";
 
       if (result) {
@@ -293,27 +317,35 @@ async function updateAmazonPrices() {
           finalPrice = result.price;
           statusLog = `✅ R$ ${finalPrice}`;
         } else {
-          shouldZero = true;
           statusLog = `❌ Sem estoque (API)`;
         }
-      } else {
-        if (ENABLE_SCRAPING && !apiCrashed) {
-          process.stdout.write(
-            `   ⚠️ ${name} [${asin}] -> Erro API. Scraping... `
-          );
-          const scraped = await scrapeAmazonPrice(asin);
+      } else if (ENABLE_SCRAPING && !apiCrashed) {
+        process.stdout.write(
+          `   ⚠️ ${name} [${asin}] -> Erro API. Scraping... `
+        );
 
-          if (scraped) {
-            finalPrice = scraped;
-            statusLog = `🕷️ Scraping: R$ ${finalPrice}`;
-            console.log("OK");
+        const scraped = await scrapeAmazonPrice(asin);
+
+        if (scraped) {
+          finalPrice = scraped;
+          statusLog = `🕷️ Scraping: R$ ${finalPrice}`;
+          console.log("OK");
+        } else if (ENABLE_BROWSER) {
+          console.log("Falhou → Browser");
+          const browserPrice = await playwrightAmazonPrice(asin);
+
+          if (browserPrice) {
+            finalPrice = browserPrice;
+            statusLog = `🌐 Browser: R$ ${finalPrice}`;
           } else {
             statusLog = `⚠️ Falha total (Mantido antigo)`;
-            console.log("Falhou");
           }
         } else {
-          statusLog = `⚠️ Erro API (Modo Seguro)`;
+          statusLog = `⚠️ Falha scraping`;
+          console.log("Falhou");
         }
+      } else {
+        statusLog = `⚠️ Erro API (Modo Seguro)`;
       }
 
       if (finalPrice > 0) {
@@ -331,17 +363,7 @@ async function updateAmazonPrices() {
         });
 
         console.log(`   ${name} [${asin}] | ${statusLog}`);
-      } else if (shouldZero) {
-        await prisma.offer.update({
-          where: { id: offer.id },
-          data: { price: 0, updatedAt: new Date() },
-        });
-
-        console.log(`   ${name} [${asin}] | ${statusLog}`);
-      } else if (
-        statusLog.includes("Erro") ||
-        statusLog.includes("Falha")
-      ) {
+      } else {
         console.log(`   ${name} [${asin}] | ${statusLog}`);
       }
     }
