@@ -1,25 +1,80 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   VARIÁVEIS DE SISTEMA & TEMA (Tailwind v4)
+   ========================================================================== */
 :root {
   --background: #ffffff;
-  --foreground: #171717;
-}
-
-/* Força modo claro em todos os dispositivos */
-html {
-  color-scheme: light;
-  -webkit-text-size-adjust: 100%;
+  --foreground: #0f1111; /* Cor de texto padrão da Amazon */
+  
+  /* Mapeamento das fontes Geist configuradas no RootLayout */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+/* ==========================================================================
+   RESET & OTIMIZAÇÕES DE RENDERIZAÇÃO
+   ========================================================================== */
+html {
+  /* Força o modo claro para evitar que o Dark Mode do sistema altere o contraste */
+  color-scheme: light;
+  /* Impede que o iOS altere o tamanho do texto ao rotacionar o aparelho */
+  -webkit-text-size-adjust: 100%;
+  /* Melhora o scroll no mobile */
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  /* 🚀 ANTIALIASING: Essencial para legibilidade de fontes pequenas no mobile */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* ==========================================================================
+   ACESSIBILIDADE & UX MOBILE
+   ========================================================================== */
+
+/* Remove o destaque azul ao tocar em botões no Android/iOS (UX mais limpa) */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Garante que imagens não quebrem o layout antes de carregar */
+img {
+  content-visibility: auto;
+}
+
+/* Foco acessível apenas para navegação via teclado */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid #e47911; /* Laranja Amazon para foco de acessibilidade */
+  outline-offset: 2px;
+}
+
+/* Helper para esconder elementos mantendo a leitura por screen readers (Score 100 Acessibilidade) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
