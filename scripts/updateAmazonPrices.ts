@@ -144,8 +144,9 @@ async function fetchAmazonPricesBatch(
    MAIN LOOP
 ====================== */
 async function updateAmazonPrices() {
-  console.log("🚀 Iniciando Update (Modo Estrito: APENAS API OFICIAL)");
-  
+  console.log("🚀 Iniciando Update (Modo Estrito: APENAS API)");
+  console.log("ℹ️ Histórico será salvo apenas 1x por dia ou se o preço mudar.\n");
+
   const offers = await prisma.offer.findMany({
     where: { store: Store.AMAZON },
     select: {
@@ -186,6 +187,7 @@ async function updateAmazonPrices() {
         finalPrice = result.price;
         logStatus = `✅ R$ ${finalPrice}`;
         
+        // 1. Atualiza Tabela Offer (Sempre)
         await prisma.offer.update({
           where: { id: offer.id },
           data: {
@@ -195,13 +197,29 @@ async function updateAmazonPrices() {
           },
         });
 
-        await prisma.offerPriceHistory.create({
-          data: { offerId: offer.id, price: finalPrice },
+        // 2. Histórico Inteligente (1x por dia ou se mudar)
+        const lastHistory = await prisma.offerPriceHistory.findFirst({
+          where: { offerId: offer.id },
+          orderBy: { createdAt: 'desc' }
         });
 
+        const now = new Date();
+        const isSameDay = lastHistory && 
+          lastHistory.createdAt.getDate() === now.getDate() &&
+          lastHistory.createdAt.getMonth() === now.getMonth() &&
+          lastHistory.createdAt.getFullYear() === now.getFullYear();
+
+        if (!isSameDay || (lastHistory && lastHistory.price !== finalPrice)) {
+          await prisma.offerPriceHistory.create({
+            data: { offerId: offer.id, price: finalPrice },
+          });
+          logStatus += " | 💾 Histórico +1";
+        } else {
+          logStatus += " | ⏩ Histórico Ignorado";
+        }
+
       } else {
-        // ❌ FALHA: Sem estoque, erro ou "ItemNotAccessible"
-        // Zera o preço para não exibir no site
+        // ❌ FALHA: Sem estoque, erro ou bloqueio
         finalPrice = 0;
         logStatus = result?.status === "OUT_OF_STOCK" 
             ? "🔻 Sem Estoque" 
@@ -213,7 +231,7 @@ async function updateAmazonPrices() {
         });
       }
 
-      console.log(`   ${name.substring(0, 40).padEnd(40)} [${asin}] | ${logStatus}`);
+      console.log(`   ${name.substring(0, 35).padEnd(35)} [${asin}] | ${logStatus}`);
     }
 
     // Delay obrigatório

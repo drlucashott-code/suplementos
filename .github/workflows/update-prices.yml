@@ -2,11 +2,11 @@ name: Update Prices (Amazon API Only)
 
 on:
   schedule:
-    # Horários UTC: 03h, 09h, 15h, 21h
-    # Horários BRT: 00h, 06h, 12h, 18h
-    - cron: "0 3,9,15,21 * * *"
+    # Roda a cada 4 horas (00, 04, 08, 12, 16, 20 UTC)
+    # Isso cobre o dia todo no Brasil e garante atualização constante
+    - cron: "0 */4 * * *"
 
-  workflow_dispatch: # Permite rodar manualmente sem inputs complexos
+  workflow_dispatch: # Permite rodar manualmente pelo botão no GitHub se precisar
 
 jobs:
   update-prices:
@@ -38,13 +38,13 @@ jobs:
       # 3. EXECUÇÃO (API ONLY)
       # =========================
       - name: Update Amazon prices
-        # Certifique-se que o caminho do arquivo bate com o seu projeto.
-        # Usei 'src/scripts/update-amazon.ts' baseado no código anterior.
+        # ⚠️ CAMINHO CORRIGIDO:
+        # Aponta para 'src/scripts/updateAmazonPrices.ts' (Case Sensitive no Linux)
         run: npx tsx src/scripts/updateAmazonPrices.ts
         env:
           # Banco de Dados
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          # Se usar Supabase/Neon com Pooling, pode precisar do DIRECT_URL:
+          # Descomente a linha abaixo se usar Supabase/Neon com Connection Pooling
           # DIRECT_URL: ${{ secrets.DIRECT_URL }}
 
           # Credenciais Amazon
@@ -52,6 +52,6 @@ jobs:
           AMAZON_SECRET_KEY: ${{ secrets.AMAZON_SECRET_KEY }}
           AMAZON_PARTNER_TAG: ${{ secrets.AMAZON_PARTNER_TAG }}
           
-          # Configurações Padrão (Podem ser fixas aqui ou Secrets)
+          # Configurações Padrão
           AMAZON_REGION: "us-east-1"
           AMAZON_HOST: "webservices.amazon.com.br"
