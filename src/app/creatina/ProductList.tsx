@@ -21,16 +21,16 @@ export type Product = {
 };
 
 export function ProductList({ products }: { products: Product[] }) {
-  // ✅ Começa com 5 produtos para priorizar o carregamento inicial
-  const [visibleCount, setVisibleCount] = useState(5);
+  // 🚀 PERFORMANCE TOTAL: Começa com apenas 3 produtos para otimizar LCP e FCP
+  const [visibleCount, setVisibleCount] = useState(3);
   const trackedRef = useRef(false);
 
-  // Elemento sentinela para infinite scroll
+  // Elemento sentinela para o infinite scroll
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  // 🔁 Resetar a contagem quando os filtros mudarem
+  // 🔁 Resetar a contagem para 3 sempre que os filtros mudarem
   useEffect(() => {
-    setVisibleCount(5);
+    setVisibleCount(3);
     trackedRef.current = false;
   }, [products]);
 
@@ -56,11 +56,14 @@ export function ProductList({ products }: { products: Product[] }) {
         const firstEntry = entries[0];
 
         if (firstEntry.isIntersecting && products.length > visibleCount) {
-          // ✅ Carrega mais 20 produtos por vez ao rolar
+          // ✅ Carrega mais 20 produtos por vez assim que o usuário chega ao fim dos 3 primeiros
           setVisibleCount((prev) => prev + 20);
         }
       },
-      { threshold: 0.1 }
+      { 
+        threshold: 0.1,
+        rootMargin: "200px" // Começa a carregar 200px antes de chegar no fim para evitar vácuo
+      }
     );
 
     if (loadMoreRef.current) {
@@ -84,9 +87,8 @@ export function ProductList({ products }: { products: Product[] }) {
           key={product.id}
           product={product}
           isBest={index === 0}
-          // 🔥 RESOLUÇÃO DO ERRO DE BUILD:
-          // Agora passamos obrigatoriamente a prop priority.
-          // Os 3 primeiros itens do ranking atual recebem prioridade de carregamento (LCP).
+          // 🔥 PRIORIDADE ABSOLUTA: 
+          // Como carregamos apenas 3, todos eles recebem prioridade máxima de imagem.
           priority={index < 3} 
         />
       ))}
@@ -95,12 +97,12 @@ export function ProductList({ products }: { products: Product[] }) {
       {hasMore && (
         <div
           ref={loadMoreRef}
-          className="h-20 flex items-center justify-center"
+          className="h-28 flex items-center justify-center"
         >
           <div className="flex flex-col items-center gap-2">
-            <div className="w-6 h-6 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
-            <p className="text-[12px] text-gray-500">
-              A carregar mais resultados...
+            <div className="w-6 h-6 border-2 border-zinc-300 border-t-blue-500 rounded-full animate-spin" />
+            <p className="text-[12px] text-zinc-600 font-medium">
+              Buscando mais ofertas...
             </p>
           </div>
         </div>
@@ -108,8 +110,8 @@ export function ProductList({ products }: { products: Product[] }) {
 
       {/* Estado vazio quando os filtros não retornam nada */}
       {products.length === 0 && (
-        <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
-          <p className="text-gray-500">
+        <div className="text-center py-20 bg-white rounded-xl border border-dashed border-zinc-300 mx-1">
+          <p className="text-zinc-500 text-[14px]">
             Nenhum produto encontrado com estes filtros.
           </p>
         </div>
