@@ -21,7 +21,12 @@ export const metadata: Metadata = {
   title: "amazonpicks — O melhor preço em suplementos",
   description:
     "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
-  robots: "index, follow",
+  robots: {
+    index: true,
+    follow: true,
+  },
+  authors: [{ name: "amazonpicks" }],
+  keywords: ["suplementos", "creatina", "whey protein", "amazon", "melhor preço", "custo-benefício"],
 };
 
 /* =========================
@@ -60,11 +65,11 @@ export default function RootLayout({
       >
         {children}
 
-        {/* 🔔 Toasts globais */}
+        {/* 🔔 Toasts globais para feedback ao usuário */}
         <Toaster position="top-right" />
 
         {/* 📊 Google Analytics 
-            Carregado via afterInteractive por padrão para não bloquear o LCP. */}
+            Configurado para carregar sem bloquear a renderização inicial. */}
         <GoogleAnalytics gaId="G-CLEY1YQ80S" />
       </body>
     </html>

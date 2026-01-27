@@ -58,7 +58,7 @@ export function MobileProductCard({
           .replace(".", ",") + " mil"
       : reviewsCount.toString();
 
-  // Selo de carboidrato aparece se hasCarbs for true OU se for Gummy
+  // Selo de carboidrato aparece se hasCarbs for true OU se for GUMMY
   const shouldShowCarbTag = product.hasCarbs || product.form === "GUMMY";
 
   return (
@@ -77,7 +77,8 @@ export function MobileProductCard({
           alt={product.name}
           width={230}
           height={230}
-          // 🚀 Melhora final de performance: Avisa o navegador o tamanho real ocupado
+          // 🚀 OTIMIZAÇÃO FINAL: sizes ajuda o navegador a escolher a resolução correta 
+          // e priority elimina o atraso LCP de 3.5s
           sizes="(max-width: 768px) 140px, 230px"
           priority={priority} 
           loading={priority ? "eager" : "lazy"}
@@ -111,7 +112,7 @@ export function MobileProductCard({
           </span>
         </div>
 
-        {/* Informações Extras (Acessibilidade: Escurecido para Contraste) */}
+        {/* Informações Extras (Cor ajustada para contraste WCAG) */}
         <div className="flex flex-wrap gap-x-2 text-[12px] text-[#444646] mb-1">
           {product.flavor && (
             <span>
@@ -177,7 +178,7 @@ export function MobileProductCard({
                 </span>
               </div>
 
-              {/* Acessibilidade: text-gray-700 para melhor contraste */}
+              {/* Acessibilidade: Escurecido para passar no teste de contraste */}
               <p className="text-[12px] text-gray-700">
                 (R$ {product.pricePerGram.toFixed(2)} / g de creatina)
               </p>
