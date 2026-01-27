@@ -1,8 +1,9 @@
 "use client";
 
+import Image from "next/image"; // Importado para otimização automática
 import { CreatineForm } from "@prisma/client";
 
-type Product = {
+export type Product = {
   id: string;
   name: string;
   imageUrl: string;
@@ -25,9 +26,11 @@ type Product = {
 export function MobileProductCard({
   product,
   isBest,
+  priority, // 🔥 Propriedade injetada para controle de performance
 }: {
   product: Product;
   isBest?: boolean;
+  priority: boolean; // Forçamos o booleano vindo do ProductList
 }) {
   const hasPrice =
     typeof product.price === "number" &&
@@ -69,9 +72,16 @@ export function MobileProductCard({
 
       {/* Coluna da Imagem */}
       <div className="w-[140px] bg-[#f3f3f3] flex-shrink-0 flex items-center justify-center overflow-hidden">
-        <img
+        {/* 🔥 OTIMIZAÇÃO CRÍTICA AQUI: Substituição de img por Image + priority */}
+        <Image
           src={product.imageUrl}
           alt={product.name}
+          width={230} // Largura base para cálculo de aspect-ratio
+          height={230} // Altura base para cálculo de aspect-ratio
+          // Atributos que matam o atraso de 3.5s no LCP:
+          priority={priority} 
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "low"}
           className="w-full h-full max-h-[220px] object-contain mix-blend-multiply p-1"
         />
       </div>

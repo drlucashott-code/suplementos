@@ -1,11 +1,19 @@
+import { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { ProductList } from "./ProductList";
 import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
-// Removido sidebar para layout full-width
-// import { DesktopFiltersSidebar } from "./DesktopFiltersSidebar";
 import { FloatingFiltersBar } from "@/app/creatina/FloatingFiltersBar";
 import { AmazonHeader } from "./AmazonHeader";
 import { CreatineForm } from "@prisma/client";
+import { getOptimizedAmazonUrl } from "@/lib/utils";
+
+/* =========================
+   METADATA (SEO & Aba do Navegador)
+   ========================= */
+export const metadata: Metadata = {
+  title: "amazonpicks — O melhor preço em suplementos",
+  description: "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
+};
 
 type SearchParams = {
   brand?: string;
@@ -34,7 +42,9 @@ export default async function CreatinaPage({
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  // 🚀 BUSCA OTIMIZADA
+  /* =========================
+      BUSCA NO BANCO DE DADOS
+     ========================= */
   const products = await prisma.product.findMany({
     where: {
       category: "creatina",
@@ -49,7 +59,6 @@ export default async function CreatinaPage({
         where: {
           store: "AMAZON",
           affiliateUrl: { not: "" },
-          // Removemos o filtro de preço aqui para tratar na memória (mais seguro)
         },
         include: {
           priceHistory: {
@@ -64,34 +73,29 @@ export default async function CreatinaPage({
   });
 
   /* =========================
-      PROCESSAMENTO
+      PROCESSAMENTO E RANKING
      ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.creatineInfo) return null;
     const offer = product.offers[0];
     
-    // Se não tem oferta nenhuma, remove.
     if (!offer) return null;
 
     let finalPrice = offer.price;
 
-    // Fallback usando histórico (se ativado no .env)
+    // Lógica de Fallback (Preço histórico se o atual estiver zerado)
     if (showFallback && (!finalPrice || finalPrice <= 0)) {
       finalPrice = offer.priceHistory[0]?.price ?? null;
     }
 
-    // 🔥 CORREÇÃO PRINCIPAL:
-    // Se o preço for 0, nulo ou inválido -> RETORNA NULL (Remove da lista)
+    // Filtro de Segurança: Se não tem preço válido, some do site
     if (!finalPrice || finalPrice <= 0) {
       return null;
     }
 
-    // Filtro de preço máximo
+    // Filtro de Preço Máximo (SearchParams)
     if (maxPrice !== undefined && finalPrice > maxPrice) return null;
 
-    /* ============================================================
-       CÁLCULOS DE PUREZA E PREÇO
-       ============================================================ */
     const info = product.creatineInfo;
     const totalDosesNoPote = info.totalUnits / info.unitsPerDose;
     const gramasCreatinaPuraNoPote = totalDosesNoPote * 3;
@@ -110,7 +114,8 @@ export default async function CreatinaPage({
     return {
       id: product.id,
       name: product.name,
-      imageUrl: product.imageUrl,
+      // 🚀 Otimização de URL para carregar 320px em vez de 500px
+      imageUrl: getOptimizedAmazonUrl(product.imageUrl, 320),
       flavor: product.flavor,
       form: product.creatineInfo.form,
       price: finalPrice,
@@ -125,6 +130,7 @@ export default async function CreatinaPage({
     };
   });
 
+  // Ordenação final
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => {
@@ -141,6 +147,9 @@ export default async function CreatinaPage({
   const brands = [...new Set(products.map((p) => p.brand))];
   const flavors = [...new Set(products.map((p) => p.flavor).filter((f): f is string => Boolean(f)))];
 
+  /* =========================
+      RENDERIZAÇÃO
+     ========================= */
   return (
     <main className="bg-[#EAEDED] min-h-screen">
       <AmazonHeader />
@@ -149,7 +158,6 @@ export default async function CreatinaPage({
         <div className="px-3">
           <MobileFiltersDrawer brands={brands} flavors={flavors} />
           
-          {/* LAYOUT AJUSTADO: Sem Sidebar, largura total */}
           <div className="mt-4 pb-10 w-full">
             <p className="text-[13px] text-gray-600 mb-2 px-1">
               {finalProducts.length} resultados encontrados
@@ -159,7 +167,6 @@ export default async function CreatinaPage({
                <ProductList products={finalProducts} />
             </div>
           </div>
-
         </div>
       </div>
     </main>
