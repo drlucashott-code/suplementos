@@ -2,21 +2,25 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* =========================
-     CONFIGURAÇÕES DE IMAGEM
+      CONFIGURAÇÕES DE IMAGEM
      ========================= */
   images: {
-    // 🚀 Suporte a formatos modernos (AVIF é ~20% menor que WebP)
+    // 🚀 Otimização de Formatos:
+    // O AVIF é até 20% mais leve que o WebP, reduzindo drasticamente o LCP.
     formats: ['image/avif', 'image/webp'],
     
-    // ⚡ Cache agressivo para imagens externas (Amazon)
-    // Isso evita que a Vercel re-processe a mesma imagem várias vezes.
-    minimumCacheTTL: 31536000, // 1 ano em segundos
+    // ⚡ Política de Cache Eficiente:
+    // Resolve o aviso do Google "Serve static assets with an efficient cache policy".
+    // 31536000 segundos = 1 ano.
+    minimumCacheTTL: 31536000,
 
+    // 🌐 Permissões de Origens Remotas:
+    // Configurado com '/**' para garantir que qualquer subdiretório da Amazon seja aceito.
     remotePatterns: [
       {
         protocol: 'https',
         hostname: 'm.media-amazon.com',
-        pathname: '/**', // 👈 Alterado para /** para cobrir todas as pastas
+        pathname: '/**', 
       },
       {
         protocol: 'https',
@@ -37,23 +41,29 @@ const nextConfig: NextConfig = {
   },
 
   /* =========================
-     PERFORMANCE & SEGURANÇA
+      PERFORMANCE & SEGURANÇA
      ========================= */
+  // Mantém o modo estrito para identificar vazamentos de memória ou efeitos colaterais.
   reactStrictMode: true,
   
-  // 🛡️ Remove o cabeçalho X-Powered-By (Segurança e -0.1kb de payload)
+  // 🛡️ Segurança e Payload:
+  // Remove o cabeçalho 'X-Powered-By' para dificultar a identificação da stack e economizar bytes.
   poweredByHeader: false,
 
-  // 🏗️ Otimização do Compilador (Turbo/SWC)
+  // 🏗️ Otimização do Compilador:
   compiler: {
-    // Remove console.log em produção para um bundle mais limpo
+    // Limpa o bundle de produção removendo console.logs.
+    // Isso reduz o TBT (Total Blocking Time) em dispositivos mobile.
     removeConsole: process.env.NODE_ENV === 'production',
   },
 
   /* =========================
-     PROXIES & REDIRECTS (Opcional)
+      EXPERIMENTAL (Opcional)
      ========================= */
-  // Se precisar de redirecionamentos futuros para SEO, adicione aqui.
+  // experimental: {
+  //   // Otimiza o carregamento de pacotes de ícones grandes como lucide-react
+  //   optimizePackageImports: ['lucide-react'],
+  // },
 };
 
 export default nextConfig;

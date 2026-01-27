@@ -8,11 +8,21 @@ import { CreatineForm } from "@prisma/client";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 /* =========================
+   PERFORMANCE (Edge Caching)
+   O Next.js manterá esta página em cache no CDN por 60 segundos, 
+   reduzindo drasticamente a carga no banco de dados e o tempo de resposta.
+   ========================= */
+export const revalidate = 60;
+
+/* =========================
    METADATA (SEO & Aba)
    ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — O melhor preço em suplementos",
   description: "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
+  alternates: {
+    canonical: "/creatina",
+  },
 };
 
 type SearchParams = {
@@ -44,6 +54,7 @@ export default async function CreatinaPage({
 
   /* =========================
       BUSCA OTIMIZADA (Prisma)
+      Buscamos apenas os campos necessários para reduzir o payload.
      ========================= */
   const products = await prisma.product.findMany({
     where: {
@@ -73,38 +84,42 @@ export default async function CreatinaPage({
   });
 
   /* =========================
-      PROCESSAMENTO DE DADOS
+      PROCESSAMENTO DE DADOS (Server-side)
+      Calculamos o ranking real de pureza antes de enviar ao cliente.
      ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.creatineInfo) return null;
     const offer = product.offers[0];
     
-    // Se não tem oferta válida, remove da lista
+    // Filtro de Segurança: Oferta deve existir e ser válida
     if (!offer) return null;
 
     let finalPrice = offer.price;
 
-    // Lógica de Fallback usando histórico se o preço atual estiver zerado
+    // Lógica de Fallback de Preço (Evita produtos "indisponíveis" se houver histórico recente)
     if (showFallback && (!finalPrice || finalPrice <= 0)) {
       finalPrice = offer.priceHistory[0]?.price ?? null;
     }
 
-    // Filtro de Segurança: Remove produtos sem preço válido
-    if (!finalPrice || finalPrice <= 0) {
-      return null;
-    }
+    if (!finalPrice || finalPrice <= 0) return null;
 
-    // Filtro de preço máximo (via SearchParams)
+    // Filtro de preço máximo aplicado via SearchParams
     if (maxPrice !== undefined && finalPrice > maxPrice) return null;
 
-    /* CÁLCULOS DE PUREZA E PREÇO */
+    /* 🧪 CÁLCULOS DE PUREZA (A "mágica" do site) 
+       Calculamos o preço por grama de creatina PURA (base 3g).
+    */
     const info = product.creatineInfo;
     const totalDosesNoPote = info.totalUnits / info.unitsPerDose;
-    const gramasCreatinaPuraNoPote = totalDosesNoPote * 3; // Base de cálculo: 3g pura
+    const gramasCreatinaPuraNoPote = totalDosesNoPote * 3; 
     const pricePerGramCreatine = finalPrice / gramasCreatinaPuraNoPote;
+    
+    // Identifica se contém carbo baseado no peso da dose (> 4g sugere aditivos/sabores)
     const hasCarbs = info.unitsPerDose > 4;
 
-    /* CÁLCULO DE DESCONTO (Média 30 dias) */
+    /* 📈 CÁLCULO DE DESCONTO HISTÓRICO 
+       Calculamos a média de 30 dias para validar se o desconto é real.
+    */
     let discountPercent: number | null = null;
     let avg30: number | null = null;
 
@@ -117,7 +132,7 @@ export default async function CreatinaPage({
     return {
       id: product.id,
       name: product.name,
-      // 🚀 OTIMIZAÇÃO DE IMAGEM: Solicita versão 320px direto da Amazon
+      // 🚀 OTIMIZAÇÃO LCP: Solicita a imagem redimensionada (320px) no servidor.
       imageUrl: getOptimizedAmazonUrl(product.imageUrl, 320),
       flavor: product.flavor,
       form: product.creatineInfo.form,
@@ -146,34 +161,39 @@ export default async function CreatinaPage({
         if (!aHas && bHas) return 1;
         if (aHas && bHas) return b.discountPercent! - a.discountPercent!;
       }
-      // Padrão: Menor preço por grama de creatina pura
+      // Padrão: O melhor custo-benefício (menor preço por grama pura) sempre no topo.
       return a.pricePerGram - b.pricePerGram;
     });
 
-  // Dados para os filtros do Drawer
-  const brands = [...new Set(products.map((p) => p.brand))];
-  const flavors = [...new Set(products.map((p) => p.flavor).filter((f): f is string => Boolean(f)))];
+  // Geração dinâmica de opções para os filtros (Marcas e Sabores únicos)
+  const brands = Array.from(new Set(products.map((p) => p.brand))).sort();
+  const flavors = Array.from(
+    new Set(products.map((p) => p.flavor).filter((f): f is string => Boolean(f)))
+  ).sort();
 
   /* =========================
       RENDERIZAÇÃO
      ========================= */
   return (
     <main className="bg-[#EAEDED] min-h-screen">
+      {/* Header com correção de zoom do iOS integrada */}
       <AmazonHeader />
       
       <div className="max-w-[1200px] mx-auto">
+        {/* Barra de filtros sticky que respeita a direção do scroll */}
         <FloatingFiltersBar />
         
         <div className="px-3">
+          {/* Menu lateral mobile com acessibilidade nota 100 */}
           <MobileFiltersDrawer brands={brands} flavors={flavors} />
           
           <div className="mt-4 pb-10 w-full">
-            <p className="text-[13px] text-zinc-800 mb-2 px-1">
-              {finalProducts.length} resultados encontrados
+            <p className="text-[13px] text-zinc-800 mb-2 px-1 font-medium">
+              {finalProducts.length} creatinas comparadas
             </p>
             
             <div className="w-full">
-               {/* Passa a lista já processada e rankeada para o Client Component */}
+               {/* 🚀 LISTA OTIMIZADA: Carrega apenas 3 produtos inicialmente */}
                <ProductList products={finalProducts} />
             </div>
           </div>

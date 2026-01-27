@@ -80,7 +80,7 @@ export function MobileProductCard({
           height={230}
           // 🚀 ESTRATÉGIA DE PERFORMANCE:
           // sizes: Resolve o aviso 'Properly size images' informando os 140px reais do mobile.
-          // priority: Remove o atraso de 3.5s no carregamento se for um dos primeiros itens.
+          // priority: Remove o atraso de carregamento se for um dos primeiros itens da lista.
           sizes="(max-width: 768px) 140px, 230px"
           priority={priority} 
           loading={priority ? "eager" : "lazy"}
