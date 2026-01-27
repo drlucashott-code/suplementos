@@ -15,7 +15,8 @@ export type Product = {
   doses: number | null;
   pricePerGram: number;
   discountPercent?: number | null;
-  avg30Price?: number | null;
+  avgPrice?: number | null; // Ajustado: Nome simplificado para "Média"
+  isLowestPrice?: boolean;  // Adicionado: Flag para o selo "Menor preço em 30 dias"
   rating?: number;
   reviewsCount?: number;
 };
@@ -92,8 +93,8 @@ export function ProductList({ products }: { products: Product[] }) {
           product={product}
           isBest={index === 0}
           /* ⚡ ESTRATÉGIA LCP: 
-             Apenas os 3 primeiros produtos recebem prioridade de carregamento de imagem.
-             Isso remove o atraso de descoberta do navegador para o conteúdo "Above the Fold".
+              Apenas os 3 primeiros produtos recebem prioridade de carregamento de imagem.
+              Isso remove o atraso de descoberta do navegador para o conteúdo "Above the Fold".
           */
           priority={index < 3} 
         />

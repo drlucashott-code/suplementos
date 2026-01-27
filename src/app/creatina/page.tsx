@@ -53,9 +53,8 @@ export default async function CreatinaPage({
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   /* =========================
-     BUSCA OTIMIZADA (Prisma)
-     Buscamos apenas os campos necessários para reduzir o payload.
-     ========================= */
+      BUSCA OTIMIZADA (Prisma)
+      ========================= */
   const products = await prisma.product.findMany({
     where: {
       category: "creatina",
@@ -84,82 +83,68 @@ export default async function CreatinaPage({
   });
 
   /* =========================
-     PROCESSAMENTO DE DADOS (Server-side)
-     Calculamos o ranking real de pureza antes de enviar ao cliente.
-     ========================= */
+      PROCESSAMENTO DE DADOS (Server-side)
+      ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.creatineInfo) return null;
     const offer = product.offers[0];
     
-    // Filtro de Segurança: Oferta deve existir e ser válida
     if (!offer) return null;
 
     let finalPrice = offer.price;
 
-    // Lógica de Fallback de Preço (Evita produtos "indisponíveis" se houver histórico recente)
     if (showFallback && (!finalPrice || finalPrice <= 0)) {
       finalPrice = offer.priceHistory[0]?.price ?? null;
     }
 
     if (!finalPrice || finalPrice <= 0) return null;
-
-    // Filtro de preço máximo aplicado via SearchParams
     if (maxPrice !== undefined && finalPrice > maxPrice) return null;
 
-    /* 🧪 CÁLCULOS DE PUREZA (A "mágica" do site) 
-       Calculamos o preço por grama de creatina PURA (base 3g).
-    */
     const info = product.creatineInfo;
     const totalDosesNoPote = info.totalUnits / info.unitsPerDose;
     const gramasCreatinaPuraNoPote = totalDosesNoPote * 3; 
     const pricePerGramCreatine = finalPrice / gramasCreatinaPuraNoPote;
-    
-    // Identifica se contém carbo baseado no peso da dose (> 4g sugere aditivos/sabores)
     const hasCarbs = info.unitsPerDose > 4;
 
-    /* 📈 CÁLCULO DE DESCONTO HISTÓRICO (Algoritmo Corrigido)
-       Agrupamos por dia para calcular a "Média das Médias Diárias",
-       evitando que dias voláteis distorçam o valor de referência.
+    /* 📈 LÓGICA DE PREÇOS E SELOS (30 DIAS) 
+       Calculamos a média das médias diárias e identificamos o menor preço.
     */
+    let lowestPrice30: number | null = null;
+    let avgMonthly: number | null = null;
+    let isLowestPrice = false;
     let discountPercent: number | null = null;
-    let avg30: number | null = null;
 
     if (offer.priceHistory.length > 0) {
-      // 1. Agrupa preços por dia (YYYY-MM-DD)
-      const dailyPricesMap = new Map<string, number[]>();
+      const prices = offer.priceHistory.map(h => h.price);
       
-      for (const h of offer.priceHistory) {
+      // 1. Encontra o menor valor absoluto do mês
+      lowestPrice30 = Math.min(...prices);
+
+      // 2. Cálculo da Média Mensal (Média das Médias Diárias)
+      const dailyPricesMap = new Map<string, number[]>();
+      offer.priceHistory.forEach(h => {
         const dayKey = h.createdAt.toISOString().split('T')[0];
         if (!dailyPricesMap.has(dayKey)) dailyPricesMap.set(dayKey, []);
         dailyPricesMap.get(dayKey)!.push(h.price);
-      }
-
-      // 2. Calcula a média individual de cada dia
-      const dailyAverages: number[] = [];
-      dailyPricesMap.forEach((prices) => {
-        const daySum = prices.reduce((acc, curr) => acc + curr, 0);
-        dailyAverages.push(daySum / prices.length);
       });
 
-      // 3. Calcula a média final dos últimos 30 dias
-      if (dailyAverages.length > 0) {
-        const totalSum = dailyAverages.reduce((acc, curr) => acc + curr, 0);
-        avg30 = totalSum / dailyAverages.length;
+      const dailyAverages: number[] = [];
+      dailyPricesMap.forEach(p => dailyAverages.push(p.reduce((a, b) => a + b, 0) / p.length));
+      avgMonthly = dailyAverages.reduce((a, b) => a + b, 0) / dailyAverages.length;
 
-        // Calcula a porcentagem real de desconto
-        const rawDiscount = ((avg30 - finalPrice) / avg30) * 100;
-        
-        // Só consideramos desconto se for >= 5% para evitar ruído
-        if (rawDiscount >= 5) {
-          discountPercent = Math.round(rawDiscount);
-        }
+      // 3. Define se ganha o SELO (Preço atual é o menor do mês)
+      isLowestPrice = finalPrice <= (lowestPrice30 + 0.01);
+
+      // 4. Desconto baseado na média mensal
+      if (avgMonthly > 0) {
+        const rawDiscount = ((avgMonthly - finalPrice) / avgMonthly) * 100;
+        if (rawDiscount >= 5) discountPercent = Math.round(rawDiscount);
       }
     }
 
     return {
       id: product.id,
       name: product.name,
-      // 🚀 OTIMIZAÇÃO LCP: Solicita a imagem redimensionada (320px) no servidor.
       imageUrl: getOptimizedAmazonUrl(product.imageUrl, 320),
       flavor: product.flavor,
       form: product.creatineInfo.form,
@@ -168,16 +153,19 @@ export default async function CreatinaPage({
       doses: totalDosesNoPote,
       pricePerGram: pricePerGramCreatine,
       hasCarbs,
+      // Novos campos para a interface
+      avgPrice: avgMonthly,
+      lowestPrice: lowestPrice30,
+      isLowestPrice,
       discountPercent,
-      avg30Price: discountPercent && avg30 ? avg30 : null,
       rating: offer.ratingAverage ?? 0,
       reviewsCount: offer.ratingCount ?? 0,
     };
   });
 
   /* =========================
-     RANKING E FILTROS FINAIS
-     ========================= */
+      RANKING E FILTROS FINAIS
+      ========================= */
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => {
@@ -188,39 +176,26 @@ export default async function CreatinaPage({
         if (!aHas && bHas) return 1;
         if (aHas && bHas) return b.discountPercent! - a.discountPercent!;
       }
-      // Padrão: O melhor custo-benefício (menor preço por grama pura) sempre no topo.
       return a.pricePerGram - b.pricePerGram;
     });
 
-  // Geração dinâmica de opções para os filtros (Marcas e Sabores únicos)
   const brands = Array.from(new Set(products.map((p) => p.brand))).sort();
   const flavors = Array.from(
     new Set(products.map((p) => p.flavor).filter((f): f is string => Boolean(f)))
   ).sort();
 
-  /* =========================
-     RENDERIZAÇÃO
-     ========================= */
   return (
     <main className="bg-[#EAEDED] min-h-screen">
-      {/* Header com correção de zoom do iOS integrada */}
       <AmazonHeader />
-      
       <div className="max-w-[1200px] mx-auto">
-        {/* Barra de filtros sticky que respeita a direção do scroll */}
         <FloatingFiltersBar />
-        
         <div className="px-3">
-          {/* Menu lateral mobile com acessibilidade nota 100 */}
           <MobileFiltersDrawer brands={brands} flavors={flavors} />
-          
           <div className="mt-4 pb-10 w-full">
             <p className="text-[13px] text-zinc-800 mb-2 px-1 font-medium">
               {finalProducts.length} produtos encontrados
             </p>
-            
             <div className="w-full">
-               {/* 🚀 LISTA OTIMIZADA: Carrega apenas 3 produtos inicialmente */}
                <ProductList products={finalProducts} />
             </div>
           </div>
