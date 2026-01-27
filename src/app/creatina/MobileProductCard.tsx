@@ -76,7 +76,7 @@ export function MobileProductCard({
         {/* Avaliações */}
         <div className="flex items-center gap-1 mb-1 text-[12px]">
           <span className="font-normal text-[#0F1111]">{rating.toFixed(1)}</span>
-          <div className="flex text-[#e47911] text-[10px] tracking-tighter">
+          <div className="flex text-[#e47911] text-[10px] tracking-tighter" aria-hidden="true">
             {[...Array(5)].map((_, i) => (
               <span key={i}>{i < Math.floor(rating) ? "★" : "☆"}</span>
             ))}
@@ -85,7 +85,7 @@ export function MobileProductCard({
         </div>
 
         {/* Info secundária: Sabor e Doses */}
-        <div className="flex flex-wrap items-center gap-x-1.5 text-[12px] text-zinc-600">
+        <div className="flex flex-wrap items-center gap-x-1.5 text-[12px] text-zinc-600 mb-1">
           {product.flavor && (
             <span>Sabor: <b className="text-[#0F1111] font-medium">{product.flavor}</b></span>
           )}
@@ -97,11 +97,6 @@ export function MobileProductCard({
           )}
         </div>
 
-        {/* Preço por grama em preto */}
-        <div className="text-[12px] text-[#0F1111] mb-1">
-          R$ {product.pricePerGram.toFixed(2).replace(".", ",")} / g de creatina
-        </div>
-
         {/* Tag de Carboidrato */}
         {shouldShowCarbTag && (
           <div className="mb-1">
@@ -111,78 +106,82 @@ export function MobileProductCard({
           </div>
         )}
 
-        {/* --- SESSÃO DE SELOS DE MENOR PREÇO --- */}
+        {/* Selos de Menor Preço (Regra de Prioridade: 30d > 7d) */}
         <div className="flex flex-col gap-1 mb-1">
-          {/* Selo 7 Dias (Prioridade visual por ser mais "fresco") */}
-          {product.isLowestPrice7d && (
-            <div className="inline-block">
-              <span className="bg-[#CC0C39] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm">
-                Menor preço em 7 dias
-              </span>
-            </div>
-          )}
-
-          {/* Selo 30 Dias */}
-          {product.isLowestPrice && (
+          {product.isLowestPrice ? (
             <div className="inline-block">
               <span className="bg-[#CC0C39] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm">
                 Menor preço em 30 dias
               </span>
             </div>
-          )}
+          ) : product.isLowestPrice7d ? (
+            <div className="inline-block">
+              <span className="bg-[#CC0C39] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm">
+                Menor preço em 7 dias
+              </span>
+            </div>
+          ) : null}
         </div>
 
         {/* Bloco de Preço Estilo Amazon */}
         <div className="flex flex-col mt-1">
           {hasPrice ? (
             <>
-              <div className="flex items-start">
-                <span className={`text-[12px] mt-1.5 font-medium ${product.discountPercent ? "text-[#CC0C39]" : "text-[#0F1111]"}`}>
-                  R$
-                </span>
-                <span className={`text-3xl font-medium tracking-tight leading-none ${product.discountPercent ? "text-[#CC0C39]" : "text-[#0F1111]"}`}>
-                  {intCents![0]}
-                </span>
-                <span className={`text-[12px] mt-1.5 font-medium ${product.discountPercent ? "text-[#CC0C39]" : "text-[#0F1111]"}`}>
-                  {intCents![1]}
-                </span>
+              <div className="flex items-baseline gap-2 flex-wrap">
+                {/* Preço Principal */}
+                <div className="flex items-start">
+                  <span className={`text-[12px] mt-1.5 font-medium ${product.discountPercent ? "text-[#CC0C39]" : "text-[#0F1111]"}`}>
+                    R$
+                  </span>
+                  <span className={`text-3xl font-medium tracking-tight leading-none ${product.discountPercent ? "text-[#CC0C39]" : "text-[#0F1111]"}`}>
+                    {intCents![0]}
+                  </span>
+                  <span className={`text-[12px] mt-1.5 font-medium ${product.discountPercent ? "text-[#CC0C39]" : "text-[#0F1111]"}`}>
+                    {intCents![1]}
+                  </span>
+                </div>
+
+                {/* Linha "De:" - Agora à direita com tamanho 12px */}
+                {product.avgPrice && product.price! < product.avgPrice && (
+                  <div className="relative flex items-center gap-1">
+                    <span className="text-[12px] text-zinc-500">
+                      De: <span className="line-through">R${product.avgPrice.toFixed(2).replace(".", ",")}</span>
+                    </span>
+                    <button 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setShowTooltip(!showTooltip);
+                      }}
+                      className="text-zinc-400 hover:text-zinc-600 focus:outline-none p-0.5"
+                    >
+                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                      </svg>
+                    </button>
+
+                    {/* Tooltip explicativo */}
+                    {showTooltip && (
+                      <div className="absolute bottom-6 left-0 z-50 w-64 bg-white border border-gray-200 shadow-xl rounded p-3 text-[12px] text-zinc-700 leading-snug animate-in fade-in zoom-in duration-150">
+                        <p>
+                          Isto é determinado usando o preço médio que os clientes pagaram pelo produto na Amazon nos últimos 30 dias. 
+                          São excluídos os preços pagos pelos clientes pelo produto quando ele estiver em promoção por tempo limitado.
+                        </p>
+                        <button 
+                          onClick={() => setShowTooltip(false)}
+                          className="mt-2 text-blue-600 font-medium block w-full text-left"
+                        >
+                          Fechar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* Linha "De:" condicional */}
-              {product.avgPrice && product.price! < product.avgPrice && (
-                <div className="relative flex items-center gap-1 mt-0.5">
-                  <span className="text-[13px] text-zinc-500">
-                    De: <span className="line-through">R${product.avgPrice.toFixed(2).replace(".", ",")}</span>
-                  </span>
-                  <button 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setShowTooltip(!showTooltip);
-                    }}
-                    className="text-zinc-400 hover:text-zinc-600 focus:outline-none"
-                  >
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-                    </svg>
-                  </button>
-
-                  {/* Tooltip explicativo */}
-                  {showTooltip && (
-                    <div className="absolute bottom-6 left-0 z-50 w-64 bg-white border border-gray-200 shadow-xl rounded p-3 text-[12px] text-zinc-700 leading-snug animate-in fade-in zoom-in duration-150">
-                      <p>
-                        Isto é determinado usando o preço médio que os clientes pagaram pelo produto na Amazon nos últimos 30 dias. 
-                        São excluídos os preços pagos pelos clientes pelo produto quando ele estiver em promoção por tempo limitado.
-                      </p>
-                      <button 
-                        onClick={() => setShowTooltip(false)}
-                        className="mt-2 text-blue-600 font-medium block w-full text-left"
-                      >
-                        Fechar
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Preço por grama de creatina (12px, entre parênteses) */}
+              <div className="text-[12px] text-[#0F1111] mt-0.5 font-medium">
+                (R$ {product.pricePerGram.toFixed(2).replace(".", ",")} / g de creatina)
+              </div>
             </>
           ) : (
             <p className="text-[13px] text-zinc-800 italic">Preço indisponível</p>
