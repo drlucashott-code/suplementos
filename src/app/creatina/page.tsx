@@ -57,7 +57,7 @@ export default async function CreatinaPage({
   sevenDaysAgo.setDate(now.getDate() - 7);
 
   /* =========================
-      BUSCA OTIMIZADA (Prisma)
+      1. BUSCA FILTRADA (Para a lista de produtos)
       ========================= */
   const products = await prisma.product.findMany({
     where: {
@@ -87,7 +87,7 @@ export default async function CreatinaPage({
   });
 
   /* =========================
-      PROCESSAMENTO DE DADOS (Server-side)
+      2. PROCESSAMENTO DE DADOS (Server-side)
       ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.creatineInfo) return null;
@@ -176,7 +176,7 @@ export default async function CreatinaPage({
   });
 
   /* =========================
-      RANKING E FILTROS FINAIS
+      3. RANKING E ORDENAÇÃO
       ========================= */
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
@@ -191,9 +191,23 @@ export default async function CreatinaPage({
       return a.pricePerGram - b.pricePerGram;
     });
 
-  const brands = Array.from(new Set(products.map((p) => p.brand))).sort();
-  const flavors = Array.from(
-    new Set(products.map((p) => p.flavor).filter((f): f is string => Boolean(f)))
+  /* =========================
+     4. CORREÇÃO DO BUG DOS FILTROS
+     Buscamos TODAS as marcas/sabores da categoria, independentemente 
+     dos filtros aplicados na URL, para preencher o menu lateral.
+     ========================= */
+  const allOptions = await prisma.product.findMany({
+    where: { category: "creatina" },
+    select: {
+      brand: true,
+      flavor: true
+    },
+    distinct: ['brand', 'flavor']
+  });
+
+  const availableBrands = Array.from(new Set(allOptions.map((p) => p.brand))).sort();
+  const availableFlavors = Array.from(
+    new Set(allOptions.map((p) => p.flavor).filter((f): f is string => Boolean(f)))
   ).sort();
 
   return (
@@ -202,7 +216,12 @@ export default async function CreatinaPage({
       <div className="max-w-[1200px] mx-auto">
         <FloatingFiltersBar />
         <div className="px-3">
-          <MobileFiltersDrawer brands={brands} flavors={flavors} />
+          {/* Passamos as listas completas (availableBrands) em vez das filtradas */}
+          <MobileFiltersDrawer 
+            brands={availableBrands} 
+            flavors={availableFlavors} 
+            totalResults={finalProducts.length}
+          />
           <div className="mt-4 pb-10 w-full">
             <p className="text-[13px] text-zinc-800 mb-2 px-1 font-medium">
               {finalProducts.length} produtos encontrados

@@ -198,9 +198,24 @@ export default async function WheyPage({
       return a.pricePerGramProtein - b.pricePerGramProtein;
     });
 
-  // Geração de filtros dinâmicos
-  const brands = Array.from(new Set(products.map(p => p.brand))).sort();
-  const flavors = Array.from(new Set(products.map(p => p.flavor).filter(f => !!f))).sort();
+  /* =========================
+     3. CORREÇÃO DO BUG DOS FILTROS (Igual Creatina)
+     Buscamos TODAS as marcas/sabores da categoria 'whey', 
+     independentemente dos filtros aplicados na URL.
+     ========================= */
+  const allOptions = await prisma.product.findMany({
+    where: { category: "whey" },
+    select: {
+      brand: true,
+      flavor: true
+    },
+    distinct: ['brand', 'flavor']
+  });
+
+  const availableBrands = Array.from(new Set(allOptions.map((p) => p.brand))).sort();
+  const availableFlavors = Array.from(
+    new Set(allOptions.map((p) => p.flavor).filter((f): f is string => Boolean(f)))
+  ).sort();
 
   return (
     <main className="bg-[#EAEDED] min-h-screen" style={{ fontFamily: 'Arial, sans-serif' }}>
@@ -210,7 +225,11 @@ export default async function WheyPage({
         <FloatingFiltersBar />
         
         <div className="px-3">
-          <MobileFiltersDrawer brands={brands} flavors={flavors as string[]} />
+          <MobileFiltersDrawer 
+            brands={availableBrands} 
+            flavors={availableFlavors} 
+            totalResults={finalProducts.length}
+          />
           
           <div className="flex flex-col lg:flex-row gap-6 mt-4">
             <div className="w-full pb-10">
