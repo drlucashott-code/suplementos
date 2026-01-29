@@ -8,8 +8,13 @@ const prisma = new PrismaClient();
 /* ======================
    CONFIGURAÇÕES
 ====================== */
-const REQUEST_DELAY_MS = 2000; // 2 segundos entre lotes (evita erro 429)
-const BATCH_SIZE = 10; // Limite máximo da API por requisição
+const REQUEST_DELAY_MS = 2000; 
+const BATCH_SIZE = 10; 
+
+// 🚫 LISTA DE BLOQUEIO
+const BLOCKED_STORES = [
+  "Loja Suplemento"
+];
 
 /* ======================
    ENV CHECK
@@ -26,7 +31,7 @@ if (!AMAZON_ACCESS_KEY || !AMAZON_SECRET_KEY || !AMAZON_PARTNER_TAG) {
 }
 
 /* ======================
-   AWS HELPERS (Assinatura)
+   AWS HELPERS
 ====================== */
 function hmac(key: string | Buffer, data: string): Buffer {
   return crypto.createHmac("sha256", key).update(data).digest();
@@ -36,12 +41,7 @@ function sha256(data: string): string {
   return crypto.createHash("sha256").update(data).digest("hex");
 }
 
-function getSignatureKey(
-  key: string,
-  dateStamp: string,
-  region: string,
-  service: string
-): Buffer {
+function getSignatureKey(key: string, dateStamp: string, region: string, service: string): Buffer {
   const kDate = hmac(`AWS4${key}`, dateStamp);
   const kRegion = hmac(kDate, region);
   const kService = hmac(kRegion, service);
@@ -49,23 +49,36 @@ function getSignatureKey(
 }
 
 /* ======================
-   API CALL (GetItems)
+   API CALL
 ====================== */
-type ApiStatus = "OK" | "OUT_OF_STOCK" | "ERROR";
+type ApiStatus = "OK" | "FALLBACK" | "OUT_OF_STOCK" | "ERROR";
 
 type PriceResult = {
   price: number;
   status: ApiStatus;
+  merchant: string;
 };
 
-async function fetchAmazonPricesBatch(
-  asins: string[]
-): Promise<Record<string, PriceResult>> {
-  if (asins.length === 0) return {};
+async function fetchAmazonPricesBatch(asins: string[]): Promise<Record<string, PriceResult>> {
+  const results: Record<string, PriceResult> = {};
+  
+  // Inicializa como ERROR (para zerar caso a requisição falhe totalmente)
+  asins.forEach(asin => {
+    results[asin] = { price: 0, status: "ERROR", merchant: "-" };
+  });
+
+  if (asins.length === 0) return results;
 
   const payload = JSON.stringify({
     ItemIds: asins,
-    Resources: ["Offers.Listings.Price", "OffersV2.Listings.Price"],
+    Resources: [
+      "Offers.Listings.Price", 
+      "Offers.Listings.MerchantInfo", 
+      "OffersV2.Listings.Price",
+      "OffersV2.Listings.MerchantInfo",
+      "Offers.Summaries.HighestPrice", // Único Fallback Ativo
+      "Offers.Summaries.LowestPrice"
+    ],
     PartnerTag: AMAZON_PARTNER_TAG,
     PartnerType: "Associates",
   });
@@ -103,38 +116,53 @@ async function fetchAmazonPricesBatch(
       res.on("end", () => {
         try {
           const json = JSON.parse(data);
-          const results: Record<string, PriceResult> = {};
 
           if (json?.ItemsResult?.Items) {
             for (const item of json.ItemsResult.Items) {
               let price = 0;
-              
-              // Tenta V2 (Buy Box)
-              const listingsV2 = item?.OffersV2?.Listings;
-              if (Array.isArray(listingsV2)) {
-                const buyBox = listingsV2.find((l: any) => l?.IsBuyBoxWinner) ?? listingsV2[0];
-                const p = buyBox?.Price?.Money?.Amount;
-                if (typeof p === "number") price = p;
+              let merchantName = "-";
+              let finalStatus: ApiStatus = "OUT_OF_STOCK";
+
+              // Helper para filtrar lojas bloqueadas
+              const getValidOffer = (listings: any[]) => {
+                if (!Array.isArray(listings)) return null;
+                const valid = listings.filter((l: any) => !BLOCKED_STORES.includes(l?.MerchantInfo?.Name));
+                return valid.length > 0 ? (valid.find((l:any) => l.IsBuyBoxWinner) || valid[0]) : null;
+              };
+
+              // 1. TENTA ACHAR OFERTA VÁLIDA
+              let chosen = getValidOffer(item?.OffersV2?.Listings);
+              if (!chosen) chosen = getValidOffer(item?.Offers?.Listings);
+
+              if (chosen) {
+                const p = chosen.Price?.Money?.Amount || chosen.Price?.Amount;
+                if (p > 0) {
+                  price = p;
+                  merchantName = chosen.MerchantInfo?.Name || "Desconhecido";
+                  finalStatus = "OK";
+                }
               }
 
-              // Fallback V1
+              // 2. FALLBACK: Apenas HighestPrice do Sumário
               if (price === 0) {
-                 const p1 = item?.Offers?.Listings?.[0]?.Price?.Amount;
-                 if (typeof p1 === "number") price = p1;
+                 const highest = item?.Offers?.Summaries?.[0]?.HighestPrice?.Amount;
+                 if (highest > 0) {
+                    price = highest;
+                    merchantName = "Amazon (Ref)";
+                    finalStatus = "FALLBACK";
+                 }
+                 // Se não achou HighestPrice, mantém como OUT_OF_STOCK
+                 // (Mesmo que tenha sido bloqueado, será considerado Sem Estoque Válido)
               }
 
-              results[item.ASIN] = price > 0
-                ? { price, status: "OK" }
-                : { price: 0, status: "OUT_OF_STOCK" };
+              results[item.ASIN] = { price, status: finalStatus, merchant: merchantName };
             }
           }
           resolve(results);
-        } catch {
-          resolve({});
-        }
+        } catch { resolve(results); }
       });
     });
-    req.on("error", () => resolve({}));
+    req.on("error", () => resolve(results));
     req.write(payload);
     req.end();
   });
@@ -144,9 +172,9 @@ async function fetchAmazonPricesBatch(
    MAIN LOOP
 ====================== */
 async function updateAmazonPrices() {
-  console.log("🚀 Iniciando Update (Modo Estrito: APENAS API)");
-  console.log("ℹ️ Histórico será salvo apenas 1x por dia ou se o preço mudar.\n");
-
+  console.log("🚀 Iniciando Update (Logs: OK, Ref, Erro API ou Sem Estoque)");
+  console.log("🚫 Lojas Bloqueadas:", BLOCKED_STORES);
+  
   const offers = await prisma.offer.findMany({
     where: { store: Store.AMAZON },
     select: {
@@ -165,14 +193,9 @@ async function updateAmazonPrices() {
 
     let apiResults: Record<string, PriceResult> = {};
     
-    // Chamada à API
     try {
-      if (asins.length > 0) {
-        apiResults = await fetchAmazonPricesBatch(asins);
-      }
-    } catch (e) {
-      console.error("❌ Erro no lote:", e);
-    }
+      if (asins.length > 0) apiResults = await fetchAmazonPricesBatch(asins);
+    } catch (e) { console.error("❌ Erro fatal no lote:", e); }
 
     for (const offer of chunk) {
       const asin = offer.externalId;
@@ -180,14 +203,13 @@ async function updateAmazonPrices() {
       const result = apiResults[asin];
 
       let finalPrice = 0;
-      let logStatus = "";
+      let historyStatus = "⏩ Mantido";
+      let logMessage = "";
 
-      if (result && result.status === "OK") {
-        // ✅ SUCESSO: Preço oficial capturado
+      // CASO 1: PREÇO VÁLIDO (Oferta Real ou Fallback)
+      if (result && (result.status === "OK" || result.status === "FALLBACK")) {
         finalPrice = result.price;
-        logStatus = `✅ R$ ${finalPrice}`;
         
-        // 1. Atualiza Tabela Offer (Sempre)
         await prisma.offer.update({
           where: { id: offer.id },
           data: {
@@ -197,12 +219,9 @@ async function updateAmazonPrices() {
           },
         });
 
-        // 2. Histórico Inteligente (1x por dia ou se mudar)
         const lastHistory = await prisma.offerPriceHistory.findFirst({
-          where: { offerId: offer.id },
-          orderBy: { createdAt: 'desc' }
+          where: { offerId: offer.id }, orderBy: { createdAt: 'desc' }
         });
-
         const now = new Date();
         const isSameDay = lastHistory && 
           lastHistory.createdAt.getDate() === now.getDate() &&
@@ -210,31 +229,38 @@ async function updateAmazonPrices() {
           lastHistory.createdAt.getFullYear() === now.getFullYear();
 
         if (!isSameDay || (lastHistory && lastHistory.price !== finalPrice)) {
-          await prisma.offerPriceHistory.create({
-            data: { offerId: offer.id, price: finalPrice },
-          });
-          logStatus += " | 💾 Histórico +1";
-        } else {
-          logStatus += " | ⏩ Histórico Ignorado";
+          await prisma.offerPriceHistory.create({ data: { offerId: offer.id, price: finalPrice } });
+          historyStatus = "💾 Atualizado";
         }
 
-      } else {
-        // ❌ FALHA: Sem estoque, erro ou bloqueio
-        finalPrice = 0;
-        logStatus = result?.status === "OUT_OF_STOCK" 
-            ? "🔻 Sem Estoque" 
-            : "⚠️ API Bloqueada/Sem Dados";
+        const icon = result.status === "FALLBACK" ? "🛡️ Ref." : "✅";
+        logMessage = `${name} | ${asin} | R$ ${finalPrice.toFixed(2).replace('.',',')} | ${icon} ${result.merchant} | ${historyStatus}`;
 
+      } 
+      // CASO 2: ZERADO (Sem Estoque, Bloqueado ou Erro API)
+      else {
+        // Zera o preço no banco
         await prisma.offer.update({
           where: { id: offer.id },
           data: { price: 0, updatedAt: new Date() },
         });
+
+        let statusLabel = "";
+        
+        // Diferencia apenas Erro Técnico de Falta de Estoque
+        if (result?.status === "ERROR") {
+          statusLabel = "⚠️ ZERADO (Erro na API)";
+        } else {
+          // OUT_OF_STOCK ou Bloqueado caem aqui como "Sem Estoque"
+          statusLabel = "🔻 ZERADO (Sem Estoque)";
+        }
+
+        logMessage = `${name} | ${asin} | R$ 0,00 | - | ${statusLabel}`;
       }
 
-      console.log(`   ${name.substring(0, 35).padEnd(35)} [${asin}] | ${logStatus}`);
+      console.log(logMessage);
     }
 
-    // Delay obrigatório
     await new Promise((r) => setTimeout(r, REQUEST_DELAY_MS));
   }
 
