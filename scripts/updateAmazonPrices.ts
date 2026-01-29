@@ -65,7 +65,13 @@ async function fetchAmazonPricesBatch(
 
   const payload = JSON.stringify({
     ItemIds: asins,
-    Resources: ["Offers.Listings.Price", "OffersV2.Listings.Price"],
+    Resources: [
+        "Offers.Listings.Price", 
+        "OffersV2.Listings.Price",
+        "Offers.Listings.MerchantInfo",   // Necessário para verificar o nome
+        "OffersV2.Listings.MerchantInfo", // Necessário para verificar o nome
+        "Offers.Summaries.HighestPrice"   // Necessário para o ajuste
+    ],
     PartnerTag: AMAZON_PARTNER_TAG,
     PartnerType: "Associates",
   });
@@ -108,19 +114,37 @@ async function fetchAmazonPricesBatch(
           if (json?.ItemsResult?.Items) {
             for (const item of json.ItemsResult.Items) {
               let price = 0;
+              let merchantName = "";
               
               // Tenta V2 (Buy Box)
               const listingsV2 = item?.OffersV2?.Listings;
               if (Array.isArray(listingsV2)) {
                 const buyBox = listingsV2.find((l: any) => l?.IsBuyBoxWinner) ?? listingsV2[0];
                 const p = buyBox?.Price?.Money?.Amount;
-                if (typeof p === "number") price = p;
+                if (typeof p === "number") {
+                    price = p;
+                    merchantName = buyBox?.MerchantInfo?.Name;
+                }
               }
 
               // Fallback V1
               if (price === 0) {
-                 const p1 = item?.Offers?.Listings?.[0]?.Price?.Amount;
-                 if (typeof p1 === "number") price = p1;
+                 const listing1 = item?.Offers?.Listings?.[0];
+                 const p1 = listing1?.Price?.Amount;
+                 if (typeof p1 === "number") {
+                     price = p1;
+                     merchantName = listing1?.MerchantInfo?.Name;
+                 }
+              }
+
+              // ====================================================
+              // AJUSTE: Se for Loja Suplemento -> Usa HighestPrice
+              // ====================================================
+              if (merchantName === "Loja Suplemento") {
+                  const highest = item?.Offers?.Summaries?.[0]?.HighestPrice?.Amount;
+                  if (typeof highest === "number" && highest > 0) {
+                      price = highest;
+                  }
               }
 
               results[item.ASIN] = price > 0
