@@ -141,8 +141,10 @@ export function MobileProductCard({
                   </span>
                 </div>
 
-                {/* Linha "De:" - Agora à direita com tamanho 12px */}
-                {product.avgPrice && product.price! < product.avgPrice && (
+                {/* Linha "De:" (Média Histórica)
+                    Corrigido com Math.round para evitar redundância por erro de precisão decimal
+                */}
+                {product.avgPrice && (Math.round(product.avgPrice * 100) > Math.round(product.price! * 100)) && (
                   <div className="relative flex items-center gap-1">
                     <span className="text-[12px] text-zinc-500">
                       De: <span className="line-through">R${product.avgPrice.toFixed(2).replace(".", ",")}</span>
@@ -164,13 +166,12 @@ export function MobileProductCard({
                       <div className="absolute bottom-6 left-0 z-50 w-64 bg-white border border-gray-200 shadow-xl rounded p-3 text-[12px] text-zinc-700 leading-snug animate-in fade-in zoom-in duration-150">
                         <p>
                           Isto é determinado usando o preço médio que os clientes pagaram pelo produto na Amazon nos últimos 30 dias. 
-                          São excluídos os preços pagos pelos clientes pelo produto quando ele estiver em promoção por tempo limitado.
                         </p>
                         <button 
                           onClick={() => setShowTooltip(false)}
                           className="mt-2 text-blue-600 font-medium block w-full text-left"
                         >
-                          Fechar
+                          Fecho
                         </button>
                       </div>
                     )}
