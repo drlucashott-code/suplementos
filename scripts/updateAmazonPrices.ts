@@ -8,8 +8,8 @@ const prisma = new PrismaClient();
 /* ======================
    CONFIGURAÇÕES
 ====================== */
-const REQUEST_DELAY_MS = 2000; // 2 segundos entre lotes (evita erro 429)
-const BATCH_SIZE = 10; // Limite máximo da API por requisição
+const REQUEST_DELAY_MS = 2500;
+const BATCH_SIZE = 10;
 
 /* ======================
    ENV CHECK
@@ -26,7 +26,7 @@ if (!AMAZON_ACCESS_KEY || !AMAZON_SECRET_KEY || !AMAZON_PARTNER_TAG) {
 }
 
 /* ======================
-   AWS HELPERS (Assinatura)
+   AWS HELPERS
 ====================== */
 function hmac(key: string | Buffer, data: string): Buffer {
   return crypto.createHmac("sha256", key).update(data).digest();
@@ -56,6 +56,7 @@ type ApiStatus = "OK" | "OUT_OF_STOCK" | "ERROR";
 type PriceResult = {
   price: number;
   status: ApiStatus;
+  isBuyBox: boolean;
 };
 
 async function fetchAmazonPricesBatch(
@@ -65,9 +66,13 @@ async function fetchAmazonPricesBatch(
 
   const payload = JSON.stringify({
     ItemIds: asins,
-    Resources: ["Offers.Listings.Price", "OffersV2.Listings.Price"],
+    Resources: [
+      "Offers.Listings.Price",
+      "Offers.Listings.IsBuyBoxWinner"
+    ],
     PartnerTag: AMAZON_PARTNER_TAG,
     PartnerType: "Associates",
+    Marketplace: "www.amazon.com.br"
   });
 
   const now = new Date();
@@ -107,34 +112,43 @@ async function fetchAmazonPricesBatch(
 
           if (json?.ItemsResult?.Items) {
             for (const item of json.ItemsResult.Items) {
-              let price = 0;
-              
-              // Tenta V2 (Buy Box)
-              const listingsV2 = item?.OffersV2?.Listings;
-              if (Array.isArray(listingsV2)) {
-                const buyBox = listingsV2.find((l: any) => l?.IsBuyBoxWinner) ?? listingsV2[0];
-                const p = buyBox?.Price?.Money?.Amount;
-                if (typeof p === "number") price = p;
+              const listings = item?.Offers?.Listings || [];
+              let chosenListing: any = null;
+
+              if (Array.isArray(listings) && listings.length > 0) {
+                const validListings = listings.filter((l: any) => typeof l?.Price?.Amount === "number");
+
+                if (validListings.length > 0) {
+                  // Estratégia Buy Box: Tenta achar o vencedor, senão pega o primeiro da lista
+                  const buyBoxWinner = validListings.find((l: any) => l.IsBuyBoxWinner === true);
+                  chosenListing = buyBoxWinner || validListings[0];
+                }
               }
 
-              // Fallback V1
-              if (price === 0) {
-                 const p1 = item?.Offers?.Listings?.[0]?.Price?.Amount;
-                 if (typeof p1 === "number") price = p1;
+              if (chosenListing) {
+                results[item.ASIN] = { 
+                  price: chosenListing.Price.Amount, 
+                  status: "OK",
+                  isBuyBox: chosenListing.IsBuyBoxWinner ?? false
+                };
+              } else {
+                results[item.ASIN] = { price: 0, status: "OUT_OF_STOCK", isBuyBox: false };
               }
-
-              results[item.ASIN] = price > 0
-                ? { price, status: "OK" }
-                : { price: 0, status: "OUT_OF_STOCK" };
             }
           }
           resolve(results);
-        } catch {
+        } catch (err) {
+          console.error("Erro Parse JSON:", err);
           resolve({});
         }
       });
     });
-    req.on("error", () => resolve({}));
+    
+    req.on("error", (e) => {
+        console.error("Erro Request:", e);
+        resolve({});
+    });
+    
     req.write(payload);
     req.end();
   });
@@ -144,9 +158,8 @@ async function fetchAmazonPricesBatch(
    MAIN LOOP
 ====================== */
 async function updateAmazonPrices() {
-  console.log("🚀 Iniciando Update (Modo Estrito: APENAS API)");
-  console.log("ℹ️ Histórico será salvo apenas 1x por dia ou se o preço mudar.\n");
-
+  console.log("🚀 Iniciando Update (Logs: Nome Completo > ASIN > Preço)");
+  
   const offers = await prisma.offer.findMany({
     where: { store: Store.AMAZON },
     select: {
@@ -165,7 +178,6 @@ async function updateAmazonPrices() {
 
     let apiResults: Record<string, PriceResult> = {};
     
-    // Chamada à API
     try {
       if (asins.length > 0) {
         apiResults = await fetchAmazonPricesBatch(asins);
@@ -183,11 +195,12 @@ async function updateAmazonPrices() {
       let logStatus = "";
 
       if (result && result.status === "OK") {
-        // ✅ SUCESSO: Preço oficial capturado
         finalPrice = result.price;
-        logStatus = `✅ R$ ${finalPrice}`;
+        const icon = result.isBuyBox ? "⭐ BuyBox" : "📄 Oferta";
         
-        // 1. Atualiza Tabela Offer (Sempre)
+        // Log Formatado
+        logStatus = `✅ R$ ${finalPrice} [${icon}]`;
+        
         await prisma.offer.update({
           where: { id: offer.id },
           data: {
@@ -197,7 +210,6 @@ async function updateAmazonPrices() {
           },
         });
 
-        // 2. Histórico Inteligente (1x por dia ou se mudar)
         const lastHistory = await prisma.offerPriceHistory.findFirst({
           where: { offerId: offer.id },
           orderBy: { createdAt: 'desc' }
@@ -213,17 +225,12 @@ async function updateAmazonPrices() {
           await prisma.offerPriceHistory.create({
             data: { offerId: offer.id, price: finalPrice },
           });
-          logStatus += " | 💾 Histórico +1";
-        } else {
-          logStatus += " | ⏩ Histórico Ignorado";
+          logStatus += " | 💾 Histórico Atualizado";
         }
 
       } else {
-        // ❌ FALHA: Sem estoque, erro ou bloqueio
         finalPrice = 0;
-        logStatus = result?.status === "OUT_OF_STOCK" 
-            ? "🔻 Sem Estoque" 
-            : "⚠️ API Bloqueada/Sem Dados";
+        logStatus = "🔻 Sem Estoque/Dados";
 
         await prisma.offer.update({
           where: { id: offer.id },
@@ -231,10 +238,10 @@ async function updateAmazonPrices() {
         });
       }
 
-      console.log(`   ${name.substring(0, 35).padEnd(35)} [${asin}] | ${logStatus}`);
+      // NOVO FORMATO DE LOG: Nome | ASIN | Status
+      console.log(`   ${name} | ${asin} | ${logStatus}`);
     }
 
-    // Delay obrigatório
     await new Promise((r) => setTimeout(r, REQUEST_DELAY_MS));
   }
 
