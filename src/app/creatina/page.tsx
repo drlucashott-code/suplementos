@@ -8,14 +8,14 @@ import { CreatineForm } from "@prisma/client";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 /* =========================
-   PERFORMANCE (Edge Caching)
-   O Next.js manterá esta página em cache no CDN por 60 segundos.
-   ========================= */
+    PERFORMANCE (Edge Caching)
+    O Next.js manterá esta página em cache no CDN por 60 segundos.
+    ========================= */
 export const revalidate = 60;
 
 /* =========================
-   METADATA (SEO & Aba)
-   ========================= */
+    METADATA (SEO & Aba)
+    ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — O melhor preço em suplementos",
   description: "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
@@ -28,6 +28,7 @@ type SearchParams = {
   brand?: string;
   form?: string;
   flavor?: string;
+  weight?: string; // Novo: Filtro de Tamanho
   priceMax?: string;
   order?: "gram" | "discount";
   q?: string;
@@ -46,6 +47,7 @@ export default async function CreatinaPage({
   const selectedBrands = params.brand?.split(",") ?? [];
   const selectedForms = (params.form?.split(",") as CreatineForm[]) ?? [];
   const selectedFlavors = params.flavor?.split(",") ?? [];
+  const selectedWeights = params.weight?.split(",") ?? []; // Novo
   const maxPrice = params.priceMax ? Number(params.priceMax) : undefined;
 
   // Definição dos períodos históricos
@@ -66,6 +68,10 @@ export default async function CreatinaPage({
       ...(selectedBrands.length && { brand: { in: selectedBrands } }),
       ...(selectedFlavors.length && { flavor: { in: selectedFlavors } }),
       ...(selectedForms.length && { creatineInfo: { form: { in: selectedForms } } }),
+      // Novo: Filtro de Tamanho (Peso ou Unidades)
+      ...(selectedWeights.length && { 
+        creatineInfo: { totalUnits: { in: selectedWeights.map(Number) } } 
+      }),
     },
     include: {
       creatineInfo: true,
@@ -110,16 +116,13 @@ export default async function CreatinaPage({
     const pricePerGramCreatine = finalPrice / gramasCreatinaPuraNoPote;
     const hasCarbs = info.unitsPerDose > 4;
 
-    /* 📈 LÓGICA DE HISTÓRICO E SELOS INTELIGENTES
-       Regra: Menor preço do período E diferença de pelo menos 2% para a média mensal.
-    */
+    /* 📈 LÓGICA DE HISTÓRICO E SELOS INTELIGENTES */
     let isLowestPrice30 = false;
     let isLowestPrice7 = false;
     let avgMonthly: number | null = null;
     let discountPercent: number | null = null;
 
     if (offer.priceHistory.length > 0) {
-      // 1. Médias Diárias (Preço de Referência)
       const dailyPricesMap = new Map<string, number[]>();
       offer.priceHistory.forEach(h => {
         const dayKey = h.createdAt.toISOString().split('T')[0];
@@ -131,24 +134,20 @@ export default async function CreatinaPage({
       dailyPricesMap.forEach(p => dailyAverages.push(p.reduce((a, b) => a + b, 0) / p.length));
       avgMonthly = dailyAverages.reduce((a, b) => a + b, 0) / dailyAverages.length;
 
-      // 2. Cálculo de Mínimos Históricos
       const prices30d = offer.priceHistory.map(h => h.price);
       const lowest30 = Math.min(...prices30d);
 
       const history7d = offer.priceHistory.filter(h => h.createdAt >= sevenDaysAgo);
       const lowest7 = history7d.length > 0 ? Math.min(...history7d.map(h => h.price)) : null;
 
-      // 3. Gatilho de Significância (Preço atual deve ser < 98% da média)
       const isSignificantDrop = avgMonthly ? (finalPrice < avgMonthly * 0.98) : false;
 
-      // 4. Aplicação de Selos com Prioridade (30 dias > 7 dias)
       if (finalPrice <= (lowest30 + 0.01) && isSignificantDrop) {
         isLowestPrice30 = true;
       } else if (lowest7 !== null && finalPrice <= (lowest7 + 0.01) && isSignificantDrop) {
         isLowestPrice7 = true;
       }
 
-      // 5. Desconto visual (apenas se >= 5%)
       if (avgMonthly > 0) {
         const rawDiscount = ((avgMonthly - finalPrice) / avgMonthly) * 100;
         if (rawDiscount >= 5) discountPercent = Math.round(rawDiscount);
@@ -167,8 +166,8 @@ export default async function CreatinaPage({
       pricePerGram: pricePerGramCreatine,
       hasCarbs,
       avgPrice: avgMonthly,
-      isLowestPrice: isLowestPrice30,   // Selo 30 dias
-      isLowestPrice7d: isLowestPrice7, // Selo 7 dias
+      isLowestPrice: isLowestPrice30,
+      isLowestPrice7d: isLowestPrice7,
       discountPercent,
       rating: offer.ratingAverage ?? 0,
       reviewsCount: offer.ratingCount ?? 0,
@@ -192,15 +191,16 @@ export default async function CreatinaPage({
     });
 
   /* =========================
-     4. CORREÇÃO DO BUG DOS FILTROS
-     Buscamos TODAS as marcas/sabores da categoria, independentemente 
-     dos filtros aplicados na URL, para preencher o menu lateral.
-     ========================= */
+      4. COLETA DE OPÇÕES PARA FILTROS
+      ========================= */
   const allOptions = await prisma.product.findMany({
     where: { category: "creatina" },
     select: {
       brand: true,
-      flavor: true
+      flavor: true,
+      creatineInfo: {
+        select: { totalUnits: true }
+      }
     },
     distinct: ['brand', 'flavor']
   });
@@ -209,6 +209,11 @@ export default async function CreatinaPage({
   const availableFlavors = Array.from(
     new Set(allOptions.map((p) => p.flavor).filter((f): f is string => Boolean(f)))
   ).sort();
+  
+  // Novo: Coleta de Pesos/Unidades disponíveis
+  const availableWeights = Array.from(
+    new Set(allOptions.map((p) => p.creatineInfo?.totalUnits).filter((w): w is number => Boolean(w)))
+  ).sort((a, b) => a - b);
 
   return (
     <main className="bg-[#EAEDED] min-h-screen">
@@ -216,10 +221,10 @@ export default async function CreatinaPage({
       <div className="max-w-[1200px] mx-auto">
         <FloatingFiltersBar />
         <div className="px-3">
-          {/* Passamos as listas completas (availableBrands) em vez das filtradas */}
           <MobileFiltersDrawer 
             brands={availableBrands} 
             flavors={availableFlavors} 
+            weights={availableWeights} // Novo: Passando pesos para o Drawer
             totalResults={finalProducts.length}
           />
           <div className="mt-4 pb-10 w-full">

@@ -1,38 +1,38 @@
 "use client";
 
-import { CreatineForm } from "@prisma/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 
+// Props compatíveis com a estrutura de dados das barras
 type Props = {
   brands: string[];
   flavors: string[];
-  weights: number[]; // Pesos/Unidades vindos do banco
   totalResults: number; 
 };
 
-type FilterTab = "form" | "brand" | "flavor" | "weight";
+type FilterTab = "protein" | "brand" | "flavor";
 
-export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: Props) {
+// Faixas adaptadas para gramas por barra
+const PROTEIN_RANGES = [
+  { label: "Acima de 20g por barra", value: "20-100" },
+  { label: "15g a 20g por barra", value: "15-20" },
+  { label: "10g a 15g por barra", value: "10-15" },
+  { label: "Abaixo de 10g por barra", value: "0-10" },
+];
+
+export function MobileFiltersDrawer({ brands, flavors, totalResults }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<FilterTab>("form");
+  const [activeTab, setActiveTab] = useState<FilterTab>("protein");
 
-  // Estados internos dos Filtros
+  // Estados dos Filtros (Internos ao Drawer para permitir cancelamento)
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
-  const [selectedForms, setSelectedForms] = useState<CreatineForm[]>([]);
-  const [selectedWeights, setSelectedWeights] = useState<string[]>([]);
+  const [selectedProteinRanges, setSelectedProteinRanges] = useState<string[]>([]);
 
-  // Helper corrigido: Valores baixos (ex: 60, 120) viram unidades para Caps/Gummies
-  const formatSize = (val: number) => {
-    if (val <= 120) return `${val} unidades`;
-    return val >= 1000 ? `${val / 1000}kg` : `${val}g`;
-  };
-
-  // 🔒 Lógica de Scroll Lock
+  // 🔒 Scroll Lock
   useEffect(() => {
     if (open) {
       document.body.style.overflow = "hidden";
@@ -42,41 +42,30 @@ export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: 
     return () => { document.body.style.overflow = "unset"; };
   }, [open]);
 
-  // Sincronização com a URL ao abrir
+  // Sincronização com a URL ao abrir através do evento global
   useEffect(() => {
     function handleOpen() {
       setSelectedBrands(searchParams.get("brand")?.split(",") ?? []);
       setSelectedFlavors(searchParams.get("flavor")?.split(",") ?? []);
-      setSelectedForms((searchParams.get("form")?.split(",") as CreatineForm[]) ?? []);
-      setSelectedWeights(searchParams.get("weight")?.split(",") ?? []);
+      setSelectedProteinRanges(searchParams.get("proteinRange")?.split(",") ?? []);
       setOpen(true);
     }
     window.addEventListener("open-filters", handleOpen);
     return () => window.removeEventListener("open-filters", handleOpen);
   }, [searchParams]);
 
-  // Alternar seleção
+  // Lógica de Seleção de Tags
   const toggle = <T,>(value: T, list: T[], setList: (v: T[]) => void) => {
     setList(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
   };
 
-  const hasAnyFilter = 
-    selectedBrands.length > 0 || 
-    selectedFlavors.length > 0 || 
-    selectedForms.length > 0 ||
-    selectedWeights.length > 0;
-
-  const countFilters = 
-    selectedBrands.length + 
-    selectedFlavors.length + 
-    selectedForms.length +
-    selectedWeights.length;
+  const hasAnyFilter = selectedBrands.length > 0 || selectedFlavors.length > 0 || selectedProteinRanges.length > 0;
+  const countFilters = selectedBrands.length + selectedFlavors.length + selectedProteinRanges.length;
 
   const clearInternalFilters = () => {
     setSelectedBrands([]);
     setSelectedFlavors([]);
-    setSelectedForms([]);
-    setSelectedWeights([]);
+    setSelectedProteinRanges([]);
   };
 
   const applyFilters = () => {
@@ -88,39 +77,33 @@ export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: 
     if (selectedFlavors.length) params.set("flavor", selectedFlavors.join(","));
     else params.delete("flavor");
 
-    if (selectedForms.length) params.set("form", selectedForms.join(","));
-    else params.delete("form");
+    if (selectedProteinRanges.length) params.set("proteinRange", selectedProteinRanges.join(","));
+    else params.delete("proteinRange");
 
-    if (selectedWeights.length) params.set("weight", selectedWeights.join(","));
-    else params.delete("weight");
+    // Mantém a ordenação atual se existir, senão define padrão
+    if (!params.has("order")) params.set("order", "cost");
 
-    if (!params.has("order")) params.set("order", "gram");
-
-    router.push(`/creatina?${params.toString()}`);
+    // Mantém a navegação na rota de barra
+    router.push(`/barra?${params.toString()}`);
     setOpen(false);
   };
 
-  // Listas Ordenadas
+  // Listas Ordenadas (A-Z)
   const sortedBrands = useMemo(() => [...brands].sort((a, b) => a.localeCompare(b)), [brands]);
   const sortedFlavors = useMemo(() => [...flavors].sort((a, b) => a.localeCompare(b)), [flavors]);
-  const sortedForms = useMemo(() => [
-    { value: CreatineForm.CAPSULE, label: "Cápsula" },
-    { value: CreatineForm.GUMMY, label: "Gummy" },
-    { value: CreatineForm.POWDER, label: "Pó" },
-  ].sort((a, b) => a.label.localeCompare(b.label)), []);
 
   if (!open) return null;
 
   return (
     <>
-      {/* Overlay */}
+      {/* Overlay Escuro */}
       <div 
         className="fixed inset-0 bg-black/60 z-[60] animate-in fade-in duration-200" 
         onClick={() => setOpen(false)} 
         aria-hidden="true"
       />
 
-      {/* Drawer Container */}
+      {/* Container do Drawer */}
       <div 
         className="fixed bottom-0 left-0 right-0 z-[70] bg-white rounded-t-2xl flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300" 
         style={{ height: "85vh", fontFamily: "Arial, sans-serif" }}
@@ -128,7 +111,7 @@ export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: 
         aria-modal="true"
       >
         
-        {/* Header */}
+        {/* Header com Contador */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-200 bg-[#f0f2f2]">
           <h2 className="text-[16px] font-bold text-zinc-900">
             Filtros {countFilters > 0 && <span className="text-[#007185] ml-1">({countFilters})</span>}
@@ -136,30 +119,28 @@ export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: 
           <button 
             onClick={() => setOpen(false)} 
             className="text-zinc-500 hover:text-zinc-900 text-3xl font-light p-1 leading-none"
-            aria-label="Fechar filtros"
+            aria-label="Fechar menu de filtros"
           >
             &times;
           </button>
         </div>
 
-        {/* Corpo do Filtro */}
+        {/* Corpo: Navegação Lateral + Conteúdo Selecionável */}
         <div className="flex flex-1 overflow-hidden">
           
-          {/* Navegação Lateral */}
+          {/* Menu Lateral: Categorias */}
           <nav className="w-[130px] bg-[#f0f2f2] border-r border-zinc-200 overflow-y-auto">
             {[
-              { id: "form", label: "Apresentação" },
+              { id: "protein", label: "Proteína / Barra" },
               { id: "brand", label: "Marcas" },
               { id: "flavor", label: "Sabor" },
-              { id: "weight", label: "Tamanho" },
             ].map((tab) => {
               const isActive = activeTab === tab.id;
               
               let badgeCount = 0;
               if (tab.id === 'brand') badgeCount = selectedBrands.length;
               if (tab.id === 'flavor') badgeCount = selectedFlavors.length;
-              if (tab.id === 'form') badgeCount = selectedForms.length;
-              if (tab.id === 'weight') badgeCount = selectedWeights.length;
+              if (tab.id === 'protein') badgeCount = selectedProteinRanges.length;
 
               return (
                 <button
@@ -180,16 +161,16 @@ export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: 
             })}
           </nav>
 
-          {/* Área de Opções */}
+          {/* Área de Seleção: Tags (Branca) */}
           <div className="flex-1 p-4 overflow-y-auto bg-white">
             <div className="flex flex-wrap gap-2 content-start">
               
-              {activeTab === "form" && sortedForms.map((f) => (
+              {activeTab === "protein" && PROTEIN_RANGES.map((r) => (
                 <Tag 
-                  key={f.value} 
-                  label={f.label} 
-                  active={selectedForms.includes(f.value)} 
-                  onClick={() => toggle(f.value, selectedForms, setSelectedForms)} 
+                  key={r.value} 
+                  label={r.label} 
+                  active={selectedProteinRanges.includes(r.value)} 
+                  onClick={() => toggle(r.value, selectedProteinRanges, setSelectedProteinRanges)} 
                 />
               ))}
 
@@ -210,21 +191,12 @@ export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: 
                   onClick={() => toggle(f, selectedFlavors, setSelectedFlavors)} 
                 />
               ))}
-
-              {activeTab === "weight" && weights.map((w) => (
-                <Tag 
-                  key={w} 
-                  label={formatSize(w)} 
-                  active={selectedWeights.includes(w.toString())} 
-                  onClick={() => toggle(w.toString(), selectedWeights, setSelectedWeights)} 
-                />
-              ))}
             </div>
           </div>
         </div>
 
-        {/* Rodapé */}
-        <div className="p-3 bg-white border-t border-zinc-200 flex items-center gap-3 pb-8">
+        {/* Rodapé: Ações */}
+        <div className="p-3 bg-white border-t border-zinc-200 flex items-center gap-3 shrink-0 pb-8">
           {hasAnyFilter && (
             <button
               onClick={clearInternalFilters}

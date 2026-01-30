@@ -1,20 +1,16 @@
 /**
- * ImportAmazonGetVariation
- * Importação Amazon com GetVariations (ASIN pai)
+ * ImportAmazonGetVariation v1.8
+ * - Memória de ParentASIN: Evita chamadas duplicadas para a mesma família
+ * - Processamento em Lote: Recebe múltiplos ASINs de uma vez
  */
 
 import "dotenv/config";
 import paapi from "amazon-paapi";
-import { PrismaClient, Store } from "@prisma/client";
+import { PrismaClient, Store, CreatineForm } from "@prisma/client";
 
-/* =======================
-   PRISMA
-======================= */
 const prisma = new PrismaClient();
+const processedParents = new Set<string>(); // A nossa "Memória" da rodada
 
-/* =======================
-   AMAZON CONFIG
-======================= */
 const commonParameters = {
   AccessKey: process.env.AMAZON_ACCESS_KEY!,
   SecretKey: process.env.AMAZON_SECRET_KEY!,
@@ -23,144 +19,107 @@ const commonParameters = {
   Marketplace: "www.amazon.com.br",
 };
 
-/* =======================
-   FLAVORS
-======================= */
-const FLAVORS = [
-  "chocolate",
-  "chocolate branco",
-  "baunilha",
-  "morango",
-  "cookies",
-  "cookies and cream",
-  "banana",
-  "coco",
-  "doce de leite",
-  "neutro",
-  "sem sabor",
-  "natural",
-];
-
-function normalize(text: string) {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-function extractFlavorFromText(text?: string): string | null {
+/* ======================= HELPERS ======================= */
+function extractFlavor(text?: string): string | null {
   if (!text) return null;
-  const n = normalize(text);
-
-  for (const flavor of FLAVORS) {
-    if (n.includes(normalize(flavor))) {
-      return flavor
-        .split(" ")
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(" ");
-    }
+  const flavors = ["chocolate", "baunilha", "morango", "cookies", "banana", "coco", "doce de leite", "neutro", "natural"];
+  const n = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  for (const f of flavors) {
+    if (n.includes(f)) return f.charAt(0).toUpperCase() + f.slice(1);
   }
   return null;
 }
 
-function extractWeightInGrams(text: string): number {
-  const kg = text.match(/(\d+(?:[.,]\d+)?)\s?kg/i);
-  if (kg) return Math.round(parseFloat(kg[1].replace(",", ".")) * 1000);
-
+function extractWeight(text: string): number {
   const g = text.match(/(\d+)\s?g/i);
-  if (g) return parseInt(g[1], 10);
-
-  return 0;
+  return g ? parseInt(g[1], 10) : 0;
 }
 
-/* =======================
-   MAIN
-======================= */
+/* ======================= MAIN ======================= */
 async function run() {
-  const [, , asinBase, titlePattern, doseStr, proteinStr] =
-    process.argv;
+  const args = process.argv.slice(2);
+  const [asinsRaw, titlePattern, category, brandInput, totalWeightInput, unitsBoxInput, doseInput, proteinInput] = args;
 
-  if (!asinBase || !titlePattern || !doseStr || !proteinStr) {
-    console.log(
-      "❌ Uso: ts-node ImportAmazonGetVariation.ts <ASIN_BASE> <titlePattern> <dose> <protein>"
-    );
-    process.exit(1);
-  }
+  const asinList = asinsRaw.split(",");
+  const mUnitsPerBox = Math.floor(Number(unitsBoxInput)) || 0;
+  const mDose = Number(doseInput) || 0;
+  const mProtein = Number(proteinInput) || 0;
 
-  const dose = Number(doseStr);
-  const proteinPerDose = Number(proteinStr);
+  for (const currentAsin of asinList) {
+    try {
+      console.log(`\n🔍 Analisando item: ${currentAsin}`);
 
-  console.log(`🚀 Importando variações do ASIN ${asinBase}`);
+      // 1. Descobrir quem é o pai
+      const lookup = await paapi.GetItems(commonParameters, {
+        ItemIds: [currentAsin],
+        Resources: ["ParentASIN", "ItemInfo.ByLineInfo"]
+      });
 
-  const variations = await paapi.GetVariations(
-    commonParameters,
-    {
-      ASIN: asinBase,
-      Resources: ["ItemInfo.Title", "ItemInfo.ByLineInfo"],
-    }
-  );
+      const baseItem = lookup?.ItemsResult?.Items?.[0];
+      if (!baseItem) {
+        console.log(`❌ ASIN ${currentAsin} não encontrado.`);
+        continue;
+      }
 
-  const items = variations?.VariationsResult?.Items ?? [];
-  console.log(`🔁 ${items.length} variações encontradas`);
+      const parentAsin = baseItem.ParentASIN || currentAsin;
 
-  for (const item of items) {
-    const asin = item.ASIN;
-    if (!asin) continue;
+      // 2. CHECK DA MEMÓRIA: Se já processamos esse pai nesta rodada, pula!
+      if (processedParents.has(parentAsin)) {
+        console.log(`⏭️ Família ${parentAsin} já processada nesta rodada. Pulando para economizar API...`);
+        continue;
+      }
 
-    const title =
-      item.ItemInfo?.Title?.DisplayValue ?? "";
-    const brand =
-      item.ItemInfo?.ByLineInfo?.Brand?.DisplayValue ??
-      "Desconhecida";
+      console.log(`🔗 Nova Família Detectada: ${parentAsin}. Buscando variações...`);
 
-    const flavor = extractFlavorFromText(title);
-    const weight = extractWeightInGrams(title);
+      // 3. Buscar variações
+      let itemsToProcess = [];
+      try {
+        const variations = await paapi.GetVariations(commonParameters, {
+          ASIN: parentAsin,
+          Resources: ["ItemInfo.Title", "ItemInfo.ByLineInfo", "Images.Primary.Large", "DetailPageURL"],
+        });
+        itemsToProcess = variations?.VariationsResult?.Items ?? [];
+      } catch (vErr) {
+        console.log(`⚠️ GetVariations recusado. Usando apenas o item individual.`);
+      }
 
-    const finalName = titlePattern
-      .replace("{brand}", brand)
-      .replace("{weight}", weight ? `${weight}g` : "")
-      .replace("{title}", title);
+      if (itemsToProcess.length === 0) itemsToProcess = [baseItem];
 
-    const exists = await prisma.offer.findFirst({
-      where: { store: Store.AMAZON, externalId: asin },
-    });
+      // 4. Salvar no Banco
+      for (const item of itemsToProcess) {
+        const asin = item.ASIN;
+        const title = item.ItemInfo?.Title?.DisplayValue ?? "";
+        const brand = brandInput || item.ItemInfo?.ByLineInfo?.Brand?.DisplayValue || "Desconhecida";
 
-    if (exists) {
-      console.log(`⚠️ ${asin} já existe, ignorado`);
-      continue;
-    }
+        const exists = await prisma.offer.findFirst({ where: { store: Store.AMAZON, externalId: asin } });
+        if (exists) continue;
 
-    const product = await prisma.product.create({
-      data: {
-        category: "whey",
-        name: finalName,
-        brand,
-        flavor,
-        imageUrl: item.Images?.Primary?.Large?.URL ?? "",
-        wheyInfo: {
-          create: {
-            totalWeightInGrams: weight,
-            doseInGrams: dose,
-            proteinPerDoseInGrams: proteinPerDose,
+        await prisma.product.create({
+          data: {
+            category,
+            name: titlePattern.replace("{brand}", brand).replace("{weight}", (Number(totalWeightInput) || extractWeight(title)) + "g").replace("{title}", title),
+            brand,
+            flavor: extractFlavor(title),
+            imageUrl: item.Images?.Primary?.Large?.URL ?? "",
+            ...(category === "barra" && {
+              proteinBarInfo: { create: { unitsPerBox: mUnitsPerBox, doseInGrams: mDose, proteinPerDoseInGrams: mProtein } }
+            }),
+            ...(category === "whey" && {
+              wheyInfo: { create: { totalWeightInGrams: Number(totalWeightInput) || extractWeight(title), doseInGrams: mDose, proteinPerDoseInGrams: mProtein } }
+            }),
+            offers: { create: { store: Store.AMAZON, externalId: asin, affiliateUrl: item.DetailPageURL, price: 0 } }
           },
-        },
-      },
-    });
+        });
+        console.log(`   ✅ Criado: ${asin}`);
+      }
 
-    await prisma.offer.create({
-      data: {
-        productId: product.id,
-        store: Store.AMAZON,
-        externalId: asin,
-        affiliateUrl: item.DetailPageURL,
-        price: 0,
-      },
-    });
+      // 5. REGISTRAR NA MEMÓRIA: Marcamos este pai como concluído
+      processedParents.add(parentAsin);
 
-    console.log(`✅ Criado: ${finalName}`);
+    } catch (err: any) {
+      console.log(`❌ Erro no ASIN ${currentAsin}: ${err.message}`);
+    }
   }
 }
 
-run()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect());
+run().catch(console.error).finally(() => prisma.$disconnect());

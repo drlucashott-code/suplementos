@@ -30,25 +30,28 @@ enum CreatineForm {
    PRODUCT
 ======================= */
 model Product {
-  id           String   @id @default(cuid())
+  id             String        @id @default(cuid())
 
-  category     String
-  name         String
-  brand        String
-  flavor       String?
-  imageUrl     String
+  category       String
+  name           String
+  brand          String
+  flavor         String?
+  imageUrl       String
 
   // Dados específicos da creatina
-  creatineInfo CreatineInfo?
+  creatineInfo   CreatineInfo?
 
   // Dados específicos do whey
-  wheyInfo     WheyInfo?
+  wheyInfo       WheyInfo?
+
+  // Dados específicos da barra de proteína
+  proteinBarInfo ProteinBarInfo?
 
   // Ofertas por loja
-  offers       Offer[]
+  offers         Offer[]
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 }
 
 /* =======================
@@ -70,13 +73,27 @@ model CreatineInfo {
    WHEY INFO
 ======================= */
 model WheyInfo {
-  id                    String   @id @default(cuid())
-  productId             String   @unique
-  product               Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id                    String  @id @default(cuid())
+  productId             String  @unique
+  product               Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   totalWeightInGrams    Float
   doseInGrams           Float
   proteinPerDoseInGrams Float
+}
+
+/* =======================
+   PROTEIN BAR INFO
+   (Ajustado: Unidades em vez de Peso Total)
+======================= */
+model ProteinBarInfo {
+  id                    String  @id @default(cuid())
+  productId             String  @unique
+  product               Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  unitsPerBox           Int     // Unidades por caixa (Ex: 12)
+  doseInGrams           Float   // Peso de uma unidade (barrinha)
+  proteinPerDoseInGrams Float   // Proteína por unidade
 }
 
 /* =======================
@@ -86,7 +103,7 @@ model Offer {
   id            String   @id @default(cuid())
 
   productId     String
-  product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   store         Store
   externalId    String
@@ -103,9 +120,9 @@ model Offer {
   // 🔗 Histórico de preços
   priceHistory  OfferPriceHistory[]
 
+  @@unique([store, externalId])
   @@index([productId])
   @@index([store])
-  @@unique([store, externalId])
 }
 
 /* =======================

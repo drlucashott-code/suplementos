@@ -6,9 +6,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 type Props = {
   brands: string[];
   flavors: string[];
+  weights: number[]; // Novo: Pesos/Unidades vindos do banco
 };
 
-export function DesktopFiltersSidebar({ brands, flavors }: Props) {
+export function DesktopFiltersSidebar({ brands, flavors, weights }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -16,12 +17,25 @@ export function DesktopFiltersSidebar({ brands, flavors }: Props) {
     return searchParams.get(param)?.split(",") ?? [];
   }
 
+  // Lógica de formatação: Valores baixos (60, 120) viram unidades
+  const formatSize = (val: number) => {
+    if (val <= 120) return `${val} unidades`;
+    return val >= 1000 ? `${val / 1000}kg` : `${val}g`;
+  };
+
   function track(event: string, data?: object) {
     if (typeof window !== "undefined" && "gtag" in window) {
       // @ts-ignore
       window.gtag("event", event, data);
     }
   }
+
+  const hasActiveFilters = 
+    searchParams.get("brand") || 
+    searchParams.get("flavor") || 
+    searchParams.get("form") || 
+    searchParams.get("weight") || 
+    searchParams.get("q");
 
   function toggleParam(param: string, value: string) {
     const current = getSelected(param);
@@ -54,15 +68,17 @@ export function DesktopFiltersSidebar({ brands, flavors }: Props) {
   }
 
   return (
-    <div className="border rounded-xl p-4 space-y-6 bg-white shadow-sm">
+    <div className="border rounded-xl p-4 space-y-6 bg-white shadow-sm sticky top-24">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-lg text-[#0F1111]">Filtros</h3>
-        <button
-          onClick={clearFilters}
-          className="text-xs text-[#007185] hover:underline"
-        >
-          Limpar filtros
-        </button>
+        {hasActiveFilters && (
+          <button
+            onClick={clearFilters}
+            className="text-xs text-[#007185] hover:underline"
+          >
+            Limpar tudo
+          </button>
+        )}
       </div>
 
       {/* APRESENTAÇÃO */}
@@ -82,6 +98,24 @@ export function DesktopFiltersSidebar({ brands, flavors }: Props) {
                 onChange={() => toggleParam("form", f.value)}
               />
               {f.label}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* TAMANHO (Cápsulas/Unidades ou Peso) */}
+      <div>
+        <p className="font-bold text-sm mb-2 text-[#0F1111]">Tamanho</p>
+        <div className="space-y-1 max-h-40 overflow-auto pr-2 custom-scrollbar">
+          {weights.map((w) => (
+            <label key={w} className="flex items-center gap-2 text-sm cursor-pointer hover:text-[#e47911]">
+              <input
+                type="checkbox"
+                className="w-4 h-4 accent-[#e47911]"
+                checked={getSelected("weight").includes(w.toString())}
+                onChange={() => toggleParam("weight", w.toString())}
+              />
+              {formatSize(w)}
             </label>
           ))}
         </div>
