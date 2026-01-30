@@ -26,8 +26,8 @@ export type SearchParams = {
   brand?: string;
   flavor?: string;
   priceMax?: string;
-  order?: "cost" | "discount" | "protein";
-  proteinRange?: string; // Gramas de proteína por barra
+  order?: "cost" | "discount" | "protein_pct"; // Atualizado para protein_pct
+  proteinRange?: string; 
   q?: string;
 };
 
@@ -46,7 +46,6 @@ export default async function BarraPage({
   const selectedProteinRanges = params.proteinRange?.split(",") ?? [];
   const maxPrice = params.priceMax ? Number(params.priceMax) : undefined;
 
-  // Definição dos períodos históricos
   const now = new Date();
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(now.getDate() - 30);
@@ -65,7 +64,7 @@ export default async function BarraPage({
       ...(selectedFlavors.length > 0 && { flavor: { in: selectedFlavors } }),
     },
     include: {
-      proteinBarInfo: true, // Relacionamento específico de barras
+      proteinBarInfo: true,
       offers: {
         where: {
           store: "AMAZON",
@@ -101,7 +100,10 @@ export default async function BarraPage({
 
     const info = product.proteinBarInfo;
     
-    // 🧪 Lógica de Filtro por Gramas de Proteína por Barra
+    // 🧪 Cálculo da Concentração Proteica (% de proteína na barra)
+    const proteinPercentage = (info.proteinPerDoseInGrams / info.doseInGrams) * 100;
+
+    // Filtro por faixa de proteína (gramas fixas por barra)
     const proteinPerBar = info.proteinPerDoseInGrams;
     if (selectedProteinRanges.length > 0) {
       const match = selectedProteinRanges.some(r => {
@@ -111,7 +113,7 @@ export default async function BarraPage({
       if (!match) return null;
     }
 
-    // 💰 Custo por Grama de Proteína (Custo-benefício real)
+    // 💰 Custo por Grama de Proteína (Custo-benefício)
     const totalProteinInBox = info.unitsPerBox * info.proteinPerDoseInGrams;
     const pricePerGramProtein = finalPrice / totalProteinInBox;
 
@@ -159,9 +161,10 @@ export default async function BarraPage({
       imageUrl: getOptimizedAmazonUrl(product.imageUrl, 320),
       flavor: product.flavor,
       price: finalPrice,
-      weightPerBar: info.doseInGrams, // Adicionado para cálculo de % de proteína no card
+      weightPerBar: info.doseInGrams,
       affiliateUrl: offer.affiliateUrl,
       proteinPerBar: proteinPerBar,
+      proteinPercentage, // Passando para a ordenação
       unitsPerBox: info.unitsPerBox,
       pricePerGramProtein,
       avgPrice: avgMonthly,
@@ -173,23 +176,31 @@ export default async function BarraPage({
     };
   });
 
+  /* =========================
+      3. ORDENAÇÃO FINAL
+      ========================= */
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => {
+      // 1. Maior Desconto
       if (order === "discount") {
         const aDesc = a.discountPercent ?? 0;
         const bDesc = b.discountPercent ?? 0;
         if (bDesc !== aDesc) return bDesc - aDesc;
         return a.pricePerGramProtein - b.pricePerGramProtein;
       }
-      if (order === "protein") {
-        return b.proteinPerBar - a.proteinPerBar;
+      
+      // 2. Maior % de Proteína (Pureza)
+      if (order === "protein_pct") {
+        return b.proteinPercentage - a.proteinPercentage;
       }
+
+      // 3. Custo-benefício (Preço por grama de proteína) - PADRÃO
       return a.pricePerGramProtein - b.pricePerGramProtein;
     });
 
   /* =========================
-      3. COLETA DE OPÇÕES DE FILTRO
+      4. FILTROS LATERAIS
       ========================= */
   const allOptions = await prisma.product.findMany({
     where: { category: "barra" },

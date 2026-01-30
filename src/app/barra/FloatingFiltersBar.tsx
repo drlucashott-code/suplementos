@@ -9,7 +9,7 @@ export function FloatingFiltersBar() {
   const router = useRouter();
   const scrollDirection = useScrollDirection();
 
-  // O padrão para Barras também pode ser custo por proteína ou preço por unidade
+  // O padrão é 'cost' (custo por grama de proteína)
   const order = searchParams.get("order") ?? "cost";
 
   function openFilters() {
@@ -25,8 +25,8 @@ export function FloatingFiltersBar() {
     router.push(`/barra?${params.toString()}`);
   }
 
-  // 🚀 Lógica de Performance e UX: 
-  // A barra utiliza translate-y para evitar repaints caros.
+  // Lógica de Performance e UX: 
+  // A barra utiliza translate-y para evitar repaints caros ao esconder/mostrar no scroll.
   const isVisible = scrollDirection !== "down";
 
   return (
@@ -38,7 +38,7 @@ export function FloatingFiltersBar() {
     >
       <div className="flex items-center gap-3 max-w-[1200px] mx-auto">
         
-        {/* BOTÃO DE FILTRO: Estilo Amazon Mobile (Toque Limpo) */}
+        {/* BOTÃO DE FILTRO: Estilo Amazon Mobile */}
         <button
           onClick={openFilters}
           className="flex items-center justify-center border border-zinc-300 rounded-lg p-2.5 bg-white shadow-sm active:bg-zinc-100 flex-shrink-0 transition-colors"
@@ -47,7 +47,7 @@ export function FloatingFiltersBar() {
           <SlidersHorizontal className="w-5 h-5 text-zinc-900" />
         </button>
 
-        {/* ÁREA DE ORDENAÇÃO */}
+        {/* ÁREA DE ORDENAÇÃO ATUALIZADA */}
         <div className="flex-1 flex items-center gap-2">
           <label 
             htmlFor="sort-select"
@@ -63,13 +63,12 @@ export function FloatingFiltersBar() {
               onChange={(e) => changeOrder(e.target.value)}
               className="w-full appearance-none border border-zinc-300 rounded-lg px-3 py-2 bg-zinc-50 text-[13px] text-zinc-900 shadow-sm outline-none pr-9 border-b-zinc-400 active:border-[#e47911] transition-all"
             >
-              <option value="cost">Custo-benefício (Prot.)</option>
-              <option value="unit_price">Preço por Unidade</option>
+              <option value="cost">Custo benefício (preço por grama de proteína)</option>
               <option value="discount">Maior desconto</option>
-              <option value="protein">Mais proteína por barra</option>
+              <option value="protein_pct">Maior % de proteína</option>
             </select>
             
-            {/* Indicador Visual do Select */}
+            {/* Indicador Visual do Select (Seta) */}
             <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none border-l border-zinc-300 pl-2">
               <ChevronDown className="w-4 h-4 text-zinc-500" />
             </div>
