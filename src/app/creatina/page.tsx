@@ -237,7 +237,7 @@ export default async function CreatinaPage({
 
           <div className="mt-4 pb-10 w-full">
             <p className="text-[13px] text-zinc-800 mb-2 px-1 font-medium">
-              {finalProducts.length} produtos encontrados
+              {finalProducts.length} produtos encontrados em Creatina
             </p>
             <div className="w-full">
                <ProductList products={finalProducts} />
