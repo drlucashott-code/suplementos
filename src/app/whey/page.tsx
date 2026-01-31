@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { Suspense } from "react"; // <--- ADICIONADO PARA CORRIGIR O BUILD
 import { prisma } from "@/lib/prisma";
 import { ProductList } from "./ProductList";
 import { FloatingFiltersBar } from "./FloatingFiltersBar";
@@ -7,14 +8,15 @@ import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 /* =========================
-    PERFORMANCE (Edge Caching)
-    Reduz o TTFB servindo a página a partir do cache por 60 segundos.
-    ========================= */
-export const revalidate = 60;
+    PERFORMANCE & BUILD FIX
+    O uso de force-dynamic resolve o erro de 'missing-suspense' na Vercel
+    ao garantir que a página seja processada dinamicamente no servidor.
+   ========================= */
+export const dynamic = "force-dynamic";
 
 /* =========================
     METADATA (SEO)
-    ========================= */
+   ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — Comparador de Whey Protein",
   description: "Compare o custo por grama de proteína e a concentração dos melhores Whey Proteins da Amazon.",
@@ -26,7 +28,7 @@ export const metadata: Metadata = {
 export type SearchParams = {
   brand?: string;
   flavor?: string;
-  weight?: string; // Novo: Filtro de Tamanho
+  weight?: string; 
   priceMax?: string;
   order?: "cost" | "discount" | "protein";
   proteinRange?: string;
@@ -45,20 +47,18 @@ export default async function WheyPage({
 
   const selectedBrands = params.brand?.split(",") ?? [];
   const selectedFlavors = params.flavor?.split(",") ?? [];
-  const selectedWeights = params.weight?.split(",") ?? []; // Novo
+  const selectedWeights = params.weight?.split(",") ?? []; 
   const selectedProteinRanges = params.proteinRange?.split(",") ?? [];
   const maxPrice = params.priceMax ? Number(params.priceMax) : undefined;
 
-  // Definição dos períodos históricos
   const now = new Date();
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(now.getDate() - 30);
-  
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(now.getDate() - 7);
 
   /* =========================
-      1. BUSCA NO BANCO (Prisma)
+      1. BUSCA NO BANCO
       ========================= */
   const products = await prisma.product.findMany({
     where: {
@@ -66,7 +66,6 @@ export default async function WheyPage({
       ...(searchQuery && { name: { contains: searchQuery, mode: 'insensitive' } }),
       ...(selectedBrands.length > 0 && { brand: { in: selectedBrands } }),
       ...(selectedFlavors.length > 0 && { flavor: { in: selectedFlavors } }),
-      // Novo: Filtro de Tamanho aplicado no banco
       ...(selectedWeights.length > 0 && { 
         wheyInfo: { totalWeightInGrams: { in: selectedWeights.map(Number) } } 
       }),
@@ -74,10 +73,7 @@ export default async function WheyPage({
     include: {
       wheyInfo: true,
       offers: {
-        where: {
-          store: "AMAZON",
-          affiliateUrl: { not: "" },
-        },
+        where: { store: "AMAZON", affiliateUrl: { not: "" } },
         include: {
           priceHistory: {
             where: { createdAt: { gte: thirtyDaysAgo } },
@@ -91,7 +87,7 @@ export default async function WheyPage({
   });
 
   /* =========================
-      2. MAPEAMENTO E CÁLCULOS (Server-side)
+      2. PROCESSAMENTO E CÁLCULOS
       ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.wheyInfo) return null;
@@ -107,11 +103,8 @@ export default async function WheyPage({
     if (maxPrice !== undefined && finalPrice > maxPrice) return null;
 
     const info = product.wheyInfo;
-    
-    // 🧪 Cálculo da Concentração Proteica
     const proteinPercentage = (info.proteinPerDoseInGrams / info.doseInGrams) * 100;
 
-    // Filtro por faixa de proteína
     if (selectedProteinRanges.length > 0) {
       const match = selectedProteinRanges.some(r => {
         const [min, max] = r.split("-").map(Number);
@@ -120,14 +113,10 @@ export default async function WheyPage({
       if (!match) return null;
     }
 
-    // 💰 Cálculo do Custo por Grama de Proteína Pura
     const totalDoses = info.totalWeightInGrams / info.doseInGrams;
     const totalProteinInGrams = totalDoses * info.proteinPerDoseInGrams;
     const pricePerGramProtein = finalPrice / totalProteinInGrams;
 
-    /* 📈 LÓGICA DE HISTÓRICO E SELOS INTELIGENTES */
-    let isLowestPrice30 = false;
-    let isLowestPrice7 = false;
     let avgMonthly: number | null = null;
     let discountPercent: number | null = null;
 
@@ -138,24 +127,9 @@ export default async function WheyPage({
         if (!dailyPricesMap.has(dayKey)) dailyPricesMap.set(dayKey, []);
         dailyPricesMap.get(dayKey)!.push(h.price);
       });
-
       const dailyAverages: number[] = [];
       dailyPricesMap.forEach(p => dailyAverages.push(p.reduce((a, b) => a + b, 0) / p.length));
       avgMonthly = dailyAverages.reduce((a, b) => a + b, 0) / dailyAverages.length;
-
-      const prices30d = offer.priceHistory.map(h => h.price);
-      const lowest30 = Math.min(...prices30d);
-
-      const history7d = offer.priceHistory.filter(h => h.createdAt >= sevenDaysAgo);
-      const lowest7 = history7d.length > 0 ? Math.min(...history7d.map(h => h.price)) : null;
-
-      const isSignificantDrop = avgMonthly ? (finalPrice < avgMonthly * 0.98) : false;
-
-      if (finalPrice <= (lowest30 + 0.01) && isSignificantDrop) {
-        isLowestPrice30 = true;
-      } else if (lowest7 !== null && finalPrice <= (lowest7 + 0.01) && isSignificantDrop) {
-        isLowestPrice7 = true;
-      }
 
       if (avgMonthly > 0) {
         const rawDiscount = ((avgMonthly - finalPrice) / avgMonthly) * 100;
@@ -175,8 +149,6 @@ export default async function WheyPage({
       numberOfDoses: totalDoses,
       pricePerGramProtein,
       avgPrice: avgMonthly,
-      isLowestPrice: isLowestPrice30,
-      isLowestPrice7d: isLowestPrice7,
       discountPercent,
       rating: offer.ratingAverage ?? 0,
       reviewsCount: offer.ratingCount ?? 0,
@@ -186,62 +158,53 @@ export default async function WheyPage({
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => {
-      if (order === "discount") {
-        const aDesc = a.discountPercent ?? 0;
-        const bDesc = b.discountPercent ?? 0;
-        if (bDesc !== aDesc) return bDesc - aDesc;
-        return a.pricePerGramProtein - b.pricePerGramProtein;
-      }
-      if (order === "protein") {
-        return b.proteinPercentage - a.proteinPercentage;
-      }
+      if (order === "discount") return (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
+      if (order === "protein") return b.proteinPercentage - a.proteinPercentage;
       return a.pricePerGramProtein - b.pricePerGramProtein;
     });
 
   /* =========================
-      3. BUSCA DE OPÇÕES (Marcas, Sabores e Pesos)
+      3. COLETA DE OPÇÕES
       ========================= */
   const allOptions = await prisma.product.findMany({
     where: { category: "whey" },
     select: {
-      brand: true,
-      flavor: true,
-      wheyInfo: {
-        select: { totalWeightInGrams: true }
-      }
+      brand: true, flavor: true,
+      wheyInfo: { select: { totalWeightInGrams: true } }
     },
     distinct: ['brand', 'flavor']
   });
 
   const availableBrands = Array.from(new Set(allOptions.map((p) => p.brand))).sort();
-  const availableFlavors = Array.from(
-    new Set(allOptions.map((p) => p.flavor).filter((f): f is string => Boolean(f)))
-  ).sort();
-  
-  // Novo: Coleta de Pesos disponíveis para o filtro
-  const availableWeights = Array.from(
-    new Set(allOptions.map((p) => p.wheyInfo?.totalWeightInGrams).filter((w): w is number => Boolean(w)))
-  ).sort((a, b) => a - b);
+  const availableFlavors = Array.from(new Set(allOptions.map((p) => p.flavor).filter((f): f is string => Boolean(f)))).sort();
+  const availableWeights = Array.from(new Set(allOptions.map((p) => p.wheyInfo?.totalWeightInGrams).filter((w): w is number => Boolean(w)))).sort((a, b) => a - b);
 
   return (
-    <main className="bg-[#EAEDED] min-h-screen" style={{ fontFamily: 'Arial, sans-serif' }}>
-      <AmazonHeader />
+    <main className="bg-[#EAEDED] min-h-screen">
+      {/* 🛡️ PROTEÇÃO CONTRA ERRO DE BUILD VERCEL */}
+      <Suspense fallback={<div className="h-16 bg-[#232f3e]" />}>
+        <AmazonHeader />
+      </Suspense>
       
       <div className="max-w-[1200px] mx-auto">
-        <FloatingFiltersBar />
+        <Suspense fallback={<div className="h-14 bg-white border-b border-zinc-200" />}>
+          <FloatingFiltersBar />
+        </Suspense>
         
         <div className="px-3">
-          <MobileFiltersDrawer 
-            brands={availableBrands} 
-            flavors={availableFlavors} 
-            weights={availableWeights} // Passando novos pesos
-            totalResults={finalProducts.length}
-          />
+          <Suspense fallback={null}>
+            <MobileFiltersDrawer 
+              brands={availableBrands} 
+              flavors={availableFlavors} 
+              weights={availableWeights}
+              totalResults={finalProducts.length}
+            />
+          </Suspense>
           
           <div className="flex flex-col lg:flex-row gap-6 mt-4">
             <div className="w-full pb-10">
               <p className="text-[13px] text-zinc-600 mb-2 px-1 font-medium">
-                {finalProducts.length} produtos encontrados
+                {finalProducts.length} produtos encontrados em Whey Protein
               </p>
               
               <div className="w-full">
