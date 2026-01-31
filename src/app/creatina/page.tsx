@@ -215,7 +215,6 @@ export default async function CreatinaPage({
 
   return (
     <main className="bg-[#EAEDED] min-h-screen">
-      {/* CORREÇÃO: Envolvendo AmazonHeader em Suspense para evitar erro de build */}
       <Suspense fallback={<div className="h-16 bg-[#232f3e]" />}>
         <AmazonHeader />
       </Suspense>
