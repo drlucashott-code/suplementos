@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { Suspense } from "react"; // <--- ADICIONADO PARA CORRIGIR O BUILD
 import { prisma } from "@/lib/prisma";
 import { ProductList } from "./ProductList";
 import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
@@ -8,14 +9,14 @@ import { CreatineForm } from "@prisma/client";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 /* =========================
-    PERFORMANCE (Edge Caching)
-    O Next.js manterá esta página em cache no CDN por 60 segundos.
-    ========================= */
+   PERFORMANCE (Edge Caching)
+   O Next.js manterá esta página em cache no CDN por 60 segundos.
+   ========================= */
 export const revalidate = 60;
 
 /* =========================
-    METADATA (SEO & Aba)
-    ========================= */
+   METADATA (SEO & Aba)
+   ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — O melhor preço em suplementos",
   description: "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
@@ -219,14 +220,24 @@ export default async function CreatinaPage({
     <main className="bg-[#EAEDED] min-h-screen">
       <AmazonHeader />
       <div className="max-w-[1200px] mx-auto">
-        <FloatingFiltersBar />
+        
+        {/* CORREÇÃO: Envolvendo componentes Client-Side com Suspense */}
+        <Suspense fallback={<div className="h-14 bg-white border-b border-zinc-200" />}>
+          <FloatingFiltersBar />
+        </Suspense>
+
         <div className="px-3">
-          <MobileFiltersDrawer 
-            brands={availableBrands} 
-            flavors={availableFlavors} 
-            weights={availableWeights} // Novo: Passando pesos para o Drawer
-            totalResults={finalProducts.length}
-          />
+          
+          {/* CORREÇÃO: Envolvendo componentes Client-Side com Suspense */}
+          <Suspense fallback={null}>
+            <MobileFiltersDrawer 
+              brands={availableBrands} 
+              flavors={availableFlavors} 
+              weights={availableWeights}
+              totalResults={finalProducts.length}
+            />
+          </Suspense>
+
           <div className="mt-4 pb-10 w-full">
             <p className="text-[13px] text-zinc-800 mb-2 px-1 font-medium">
               {finalProducts.length} produtos encontrados
