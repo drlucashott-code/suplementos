@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react"; // <--- ADICIONADO PARA SEGURANÇA GLOBAL
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 
-// 🚀 Otimização de Fontes: display 'swap' garante que o texto apareça antes da fonte carregar 100%
+// 🚀 Otimização de Fontes
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -39,7 +40,6 @@ export const metadata: Metadata = {
     "comparador de suplementos",
   ],
   manifest: "/site.webmanifest",
-  // 🔗 Canonical URL ajuda a evitar conteúdo duplicado no Google
   alternates: {
     canonical: "https://amazonpicks.vercel.app",
   },
@@ -53,7 +53,7 @@ export const viewport: Viewport = {
   themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 5, // Essencial para o score 100 de Acessibilidade
+  maximumScale: 5,
 };
 
 /* =========================
@@ -67,12 +67,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <head>
-        {/* Força o modo claro para evitar que o Dark Mode do sistema quebre o contraste planejado */}
         <meta name="color-scheme" content="light" />
 
-        {/* 🚀 HANDSHAKE TLS ANTECIPADO:
-            O crossOrigin="anonymous" resolve o aviso de 'Preconnect to required origins'. 
-            O navegador agora valida a conexão com a Amazon no milissegundo zero. */}
+        {/* 🚀 HANDSHAKE TLS ANTECIPADO */}
         <link
           rel="preconnect"
           href="https://m.media-amazon.com"
@@ -80,7 +77,6 @@ export default function RootLayout({
         />
         <link rel="dns-prefetch" href="https://m.media-amazon.com" />
 
-        {/* CDN secundário da Amazon para garantir cobertura total de imagens */}
         <link
           rel="preconnect"
           href="https://images-na.ssl-images-amazon.com"
@@ -91,13 +87,15 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        {/* Envolver o children em um Suspense global aqui no Layout é uma 
+          camada extra de proteção para o sistema de roteamento do Next.js.
+        */}
+        <Suspense fallback={null}>
+          {children}
+        </Suspense>
 
-        {/* 🔔 Feedback visual de ações (Toast) */}
         <Toaster position="top-right" />
 
-        {/* 📊 Google Analytics: 
-            Estratégia afterInteractive para não competir com o LCP da página. */}
         <GoogleAnalytics gaId="G-CLEY1YQ80S" />
       </body>
     </html>
