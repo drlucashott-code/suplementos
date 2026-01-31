@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { Suspense } from "react"; // <--- ADICIONADO PARA CORRIGIR O BUILD
+import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { ProductList } from "./ProductList";
 import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
@@ -9,13 +9,14 @@ import { CreatineForm } from "@prisma/client";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 /* =========================
-   PERFORMANCE (Edge Caching)
-   O Next.js manterá esta página em cache no CDN por 60 segundos.
+    PERFORMANCE & BUILD FIX
+    O uso de force-dynamic resolve o erro de bails out of client-side rendering
+    ao garantir que a página sempre seja renderizada no servidor sob demanda.
    ========================= */
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 /* =========================
-   METADATA (SEO & Aba)
+    METADATA (SEO & Aba)
    ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — O melhor preço em suplementos",
@@ -29,7 +30,7 @@ type SearchParams = {
   brand?: string;
   form?: string;
   flavor?: string;
-  weight?: string; // Novo: Filtro de Tamanho
+  weight?: string; 
   priceMax?: string;
   order?: "gram" | "discount";
   q?: string;
@@ -48,10 +49,9 @@ export default async function CreatinaPage({
   const selectedBrands = params.brand?.split(",") ?? [];
   const selectedForms = (params.form?.split(",") as CreatineForm[]) ?? [];
   const selectedFlavors = params.flavor?.split(",") ?? [];
-  const selectedWeights = params.weight?.split(",") ?? []; // Novo
+  const selectedWeights = params.weight?.split(",") ?? [];
   const maxPrice = params.priceMax ? Number(params.priceMax) : undefined;
 
-  // Definição dos períodos históricos
   const now = new Date();
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(now.getDate() - 30);
@@ -60,7 +60,7 @@ export default async function CreatinaPage({
   sevenDaysAgo.setDate(now.getDate() - 7);
 
   /* =========================
-      1. BUSCA FILTRADA (Para a lista de produtos)
+      1. BUSCA FILTRADA
       ========================= */
   const products = await prisma.product.findMany({
     where: {
@@ -69,7 +69,6 @@ export default async function CreatinaPage({
       ...(selectedBrands.length && { brand: { in: selectedBrands } }),
       ...(selectedFlavors.length && { flavor: { in: selectedFlavors } }),
       ...(selectedForms.length && { creatineInfo: { form: { in: selectedForms } } }),
-      // Novo: Filtro de Tamanho (Peso ou Unidades)
       ...(selectedWeights.length && { 
         creatineInfo: { totalUnits: { in: selectedWeights.map(Number) } } 
       }),
@@ -94,7 +93,7 @@ export default async function CreatinaPage({
   });
 
   /* =========================
-      2. PROCESSAMENTO DE DADOS (Server-side)
+      2. PROCESSAMENTO DE DADOS
       ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.creatineInfo) return null;
@@ -117,7 +116,6 @@ export default async function CreatinaPage({
     const pricePerGramCreatine = finalPrice / gramasCreatinaPuraNoPote;
     const hasCarbs = info.unitsPerDose > 4;
 
-    /* 📈 LÓGICA DE HISTÓRICO E SELOS INTELIGENTES */
     let isLowestPrice30 = false;
     let isLowestPrice7 = false;
     let avgMonthly: number | null = null;
@@ -211,24 +209,23 @@ export default async function CreatinaPage({
     new Set(allOptions.map((p) => p.flavor).filter((f): f is string => Boolean(f)))
   ).sort();
   
-  // Novo: Coleta de Pesos/Unidades disponíveis
   const availableWeights = Array.from(
     new Set(allOptions.map((p) => p.creatineInfo?.totalUnits).filter((w): w is number => Boolean(w)))
   ).sort((a, b) => a - b);
 
   return (
     <main className="bg-[#EAEDED] min-h-screen">
-      <AmazonHeader />
+      {/* CORREÇÃO: Envolvendo AmazonHeader em Suspense para evitar erro de build */}
+      <Suspense fallback={<div className="h-16 bg-[#232f3e]" />}>
+        <AmazonHeader />
+      </Suspense>
+
       <div className="max-w-[1200px] mx-auto">
-        
-        {/* CORREÇÃO: Envolvendo componentes Client-Side com Suspense */}
         <Suspense fallback={<div className="h-14 bg-white border-b border-zinc-200" />}>
           <FloatingFiltersBar />
         </Suspense>
 
         <div className="px-3">
-          
-          {/* CORREÇÃO: Envolvendo componentes Client-Side com Suspense */}
           <Suspense fallback={null}>
             <MobileFiltersDrawer 
               brands={availableBrands} 
