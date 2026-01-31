@@ -62,9 +62,9 @@ export function FloatingFiltersBar() {
               onChange={(e) => changeOrder(e.target.value)}
               className="w-full appearance-none border border-zinc-300 rounded-lg px-3 py-2 bg-zinc-50 text-[13px] text-zinc-900 shadow-sm outline-none pr-9 border-b-zinc-400 active:border-[#e47911] transition-all"
             >
-              <option value="cost">Melhor custo-benefício (valor do princípio ativo)</option>
-              <option value="discount">Maior desconto</option>
-              <option value="protein">Maior % de proteína</option>
+              <option value="cost">Custo-benefício (valor do princípio ativo)</option>
+              <option value="discount">Desconto</option>
+              <option value="protein">% de proteína</option>
             </select>
             
             {/* Indicador Visual do Select */}

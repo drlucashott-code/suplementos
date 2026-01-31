@@ -56,8 +56,8 @@ export function FloatingFiltersBar() {
               onChange={(e) => changeOrder(e.target.value)}
               className="w-full appearance-none border border-zinc-300 rounded-lg px-3 py-2 bg-zinc-50 text-[13px] text-zinc-900 shadow-sm outline-none pr-9 border-b-zinc-400 active:border-[#e47911] transition-all"
             >
-              <option value="gram">Melhor custo-benefício (valor do princípio ativo)</option>
-              <option value="discount">Maior desconto</option>
+              <option value="gram">Custo-benefício (valor do princípio ativo)</option>
+              <option value="discount">Desconto</option>
             </select>
 
             <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none border-l border-zinc-300 pl-2">
