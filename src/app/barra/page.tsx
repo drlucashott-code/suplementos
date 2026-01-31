@@ -7,13 +7,14 @@ import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 /* =========================
-    PERFORMANCE (Edge Caching)
-    ========================= */
-export const revalidate = 60;
+   PERFORMANCE & CACHE
+   Garante que a leitura dos filtros seja instantânea.
+   ========================= */
+export const dynamic = "force-dynamic";
 
 /* =========================
-    METADATA (SEO)
-    ========================= */
+   METADATA (SEO)
+   ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — Melhores Barras de Proteína",
   description: "Compare o custo-benefício e a quantidade de proteína das melhores barras de proteína na Amazon.",
@@ -26,7 +27,7 @@ export type SearchParams = {
   brand?: string;
   flavor?: string;
   priceMax?: string;
-  order?: "cost" | "discount" | "protein_pct"; // Atualizado para protein_pct
+  order?: "cost" | "discount" | "protein_gram"; // Corrigido para protein_gram
   proteinRange?: string; 
   q?: string;
 };
@@ -38,6 +39,8 @@ export default async function BarraPage({
 }) {
   const params = await searchParams;
   const showFallback = process.env.NEXT_PUBLIC_SHOW_FALLBACK_PRICE === "true";
+  
+  // Padrão: Custo benefício
   const order = params.order ?? "cost";
   const searchQuery = params.q || "";
 
@@ -164,7 +167,7 @@ export default async function BarraPage({
       weightPerBar: info.doseInGrams,
       affiliateUrl: offer.affiliateUrl,
       proteinPerBar: proteinPerBar,
-      proteinPercentage, // Passando para a ordenação
+      proteinPercentage, 
       unitsPerBox: info.unitsPerBox,
       pricePerGramProtein,
       avgPrice: avgMonthly,
@@ -190,9 +193,10 @@ export default async function BarraPage({
         return a.pricePerGramProtein - b.pricePerGramProtein;
       }
       
-      // 2. Maior % de Proteína (Pureza)
-      if (order === "protein_pct") {
-        return b.proteinPercentage - a.proteinPercentage;
+      // 2. Mais proteína por barra (g)
+      if (order === "protein_gram") {
+        // Ordena por quantidade absoluta (b - a = decrescente)
+        return b.proteinPerBar - a.proteinPerBar;
       }
 
       // 3. Custo-benefício (Preço por grama de proteína) - PADRÃO
