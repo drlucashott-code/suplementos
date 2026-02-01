@@ -15,29 +15,63 @@ export type Product = {
   doses: number | null;
   pricePerGram: number;
   discountPercent?: number | null;
-  avgPrice?: number | null; // Ajustado: Nome simplificado para "Média"
-  isLowestPrice?: boolean;  // Adicionado: Flag para o selo "Menor preço em 30 dias"
+  avgPrice?: number | null; 
+  isLowestPrice?: boolean;  
+  isLowestPrice7d?: boolean; // ✅ Adicionado para compatibilidade
   rating?: number;
   reviewsCount?: number;
+  hasCarbs?: boolean;        // ✅ Adicionado para compatibilidade
 };
 
-export function ProductList({ products }: { products: Product[] }) {
+// 1. Recebe "viewEventName" (ex: "view_creatina_list") vindo da página
+export function ProductList({ 
+  products, 
+  viewEventName 
+}: { 
+  products: Product[]; 
+  viewEventName?: string; 
+}) {
   // 🚀 PERFORMANCE RADICAL: 
-  // Iniciamos com 3 itens. Isso minimiza o tempo de execução do JavaScript inicial 
-  // e reduz o peso do DOM, melhorando o FCP (First Contentful Paint).
   const [visibleCount, setVisibleCount] = useState(3);
-
+  
   // Elemento invisível que serve como gatilho para carregar mais itens
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  
+  // Controle para não disparar eventos duplicados
+  const trackedRef = useRef(false);
 
-  // 🔁 Resetar a contagem sempre que a lista de produtos (filtros) mudar
+  // 🔁 Resetar a contagem e o tracking sempre que a lista de produtos (filtros) mudar
   useEffect(() => {
     setVisibleCount(3);
+    trackedRef.current = false;
   }, [products]);
 
-  // ⚠️ NOTA: O useEffect de Analytics foi removido daqui para evitar conflito.
-  // O evento correto (view_creatina_list) agora é disparado exclusivamente
-  // pelo componente TrackCreatinaView no arquivo page.tsx.
+  // 📊 RASTREIO CORRIGIDO: Dispara o evento específico passado pela página
+  useEffect(() => {
+    // Se já rastreou ou não foi passado um nome de evento, ignora
+    if (trackedRef.current || !viewEventName) return;
+
+    if (typeof window !== "undefined") {
+      // Prioriza GTAG para garantir envio rápido
+      if ((window as any).gtag) {
+        (window as any).gtag("event", viewEventName, {
+          category: "creatina",
+          total_products: products.length
+        });
+      } 
+      // Fallback para DataLayer
+      else {
+        (window as any).dataLayer = (window as any).dataLayer || [];
+        (window as any).dataLayer.push({
+          event: viewEventName,
+          category: "creatina",
+          total_products: products.length
+        });
+      }
+    }
+
+    trackedRef.current = true;
+  }, [products, viewEventName]);
 
   // ♾️ Lógica de Infinite Scroll com Intersection Observer
   useEffect(() => {
@@ -81,7 +115,6 @@ export function ProductList({ products }: { products: Product[] }) {
           isBest={index === 0}
           /* ⚡ ESTRATÉGIA LCP: 
               Apenas os 3 primeiros produtos recebem prioridade de carregamento de imagem.
-              Isso remove o atraso de descoberta do navegador para o conteúdo "Above the Fold".
           */
           priority={index < 3} 
         />

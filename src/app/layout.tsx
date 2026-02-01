@@ -97,10 +97,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {/* ✅ GA INICIALIZA ANTES DE QUALQUER EVENTO */}
+        {/* ✅ GA INICIALIZA GLOBALMENTE */}
         <GoogleAnalytics gaId="G-CLEY1YQ80S" />
-
-        {/* O <Header /> foi removido daqui para aparecer somente na Home */}
 
         <Suspense fallback={null}>
           <main>

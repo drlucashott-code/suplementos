@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { CreatineForm } from "@prisma/client";
 import { useState } from "react";
-// Removido sendGAEvent pois vamos usar o método nativo mais rápido
 
 export type Product = {
   id: string;
@@ -45,27 +44,27 @@ export function MobileProductCard({
 
   const shouldShowCarbTag = product.hasCarbs || product.form === "GUMMY";
 
-  // 🚀 FUNÇÃO DE RASTREIO CORRIGIDA (Blindada contra perda de clique)
+  // 🚀 FUNÇÃO DE RASTREIO BLINDADA (Garante o envio no clique de saída)
   const handleTrackClick = () => {
-    // Debug para você ver no console
-    console.log(`⚡ CLIQUE: amazon_click para ${product.name}`);
-
     if (typeof window !== "undefined") {
-      // Tenta usar gtag (mais robusto)
-      if ((window as any).gtag) {
-        (window as any).gtag("event", "amazon_click", {
+      // @ts-ignore
+      const gtag = window.gtag;
+
+      if (gtag) {
+        // Envia com transport: beacon para garantir que o evento saia antes da mudança de página
+        gtag("event", "amazon_click", {
           category: "creatina",
           product_name: product.name,
           value: product.price || 0,
           currency: "BRL",
-          // Garante envio
-          event_timeout: 2000
+          transport_type: "beacon"
         });
-      } 
-      // Fallback para dataLayer direto se gtag falhar
-      else {
-        (window as any).dataLayer = (window as any).dataLayer || [];
-        (window as any).dataLayer.push({
+      } else {
+        // Fallback para DataLayer
+        // @ts-ignore
+        window.dataLayer = window.dataLayer || [];
+        // @ts-ignore
+        window.dataLayer.push({
           event: "amazon_click",
           category: "creatina",
           product_name: product.name,
@@ -228,7 +227,7 @@ export function MobileProductCard({
           href={product.affiliateUrl}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={handleTrackClick} // 🚀 Função de rastreio otimizada chamada aqui
+          onClick={handleTrackClick} 
           className="mt-auto bg-[#FFD814] border border-[#FCD200] rounded-full py-2.5 text-[13px] text-center font-medium shadow-sm active:scale-95 transition-transform text-[#0F1111]"
         >
           Ver na Amazon

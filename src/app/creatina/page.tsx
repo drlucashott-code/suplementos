@@ -1,6 +1,5 @@
 import { Metadata } from "next";
 import { Suspense } from "react";
-import Script from "next/script"; // ✅ ADICIONADO
 import { prisma } from "@/lib/prisma";
 import { ProductList } from "./ProductList";
 import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
@@ -24,27 +23,6 @@ export const metadata: Metadata = {
     canonical: "/creatina",
   },
 };
-
-/**
- * 🚀 RASTREIO PROFISSIONAL GA4 (CORRIGIDO)
- * Evento customizado reconhecido corretamente no App Router
- */
-function TrackCreatinaView() {
-  return (
-    <Script
-      id="ga-view-creatina-list"
-      strategy="afterInteractive"
-      dangerouslySetInnerHTML={{
-        __html: `
-          window.dataLayer = window.dataLayer || [];
-          window.dataLayer.push({
-            event: 'view_creatina_list'
-          });
-        `,
-      }}
-    />
-  );
-}
 
 type SearchParams = {
   brand?: string;
@@ -236,8 +214,6 @@ export default async function CreatinaPage({
 
   return (
     <main className="bg-[#EAEDED] min-h-screen">
-      <TrackCreatinaView />
-
       <Suspense fallback={<div className="h-14 bg-[#232f3e] w-full" />}>
         <AmazonHeader />
       </Suspense>
@@ -262,7 +238,11 @@ export default async function CreatinaPage({
               {finalProducts.length} produtos encontrados em Creatina
             </p>
             <div className="w-full">
-              <ProductList products={finalProducts} />
+              {/* ProductList configurado com viewEventName para o rastreio automático */}
+              <ProductList 
+                products={finalProducts} 
+                viewEventName="view_creatina_list" 
+              />
             </div>
           </div>
         </div>
