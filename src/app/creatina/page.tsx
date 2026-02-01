@@ -7,6 +7,8 @@ import { FloatingFiltersBar } from "@/app/creatina/FloatingFiltersBar";
 import { AmazonHeader } from "./AmazonHeader";
 import { CreatineForm } from "@prisma/client";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
+import { sendGAEvent } from "@next/third-parties/google";
+import { useEffect } from "react";
 
 /* =========================
     PERFORMANCE & BUILD FIX
@@ -23,6 +25,23 @@ export const metadata: Metadata = {
     canonical: "/creatina",
   },
 };
+
+// Componente auxiliar de rastreio (Client Side)
+function TrackCreatinaView() {
+  return (
+    <script
+      dangerouslySetInnerHTML={{
+        __html: `
+          if (typeof window !== 'undefined' && window.gtag) {
+            window.gtag('event', 'view_creatina_list', {
+              category: 'creatina'
+            });
+          }
+        `,
+      }}
+    />
+  );
+}
 
 type SearchParams = {
   brand?: string;
@@ -213,13 +232,13 @@ export default async function CreatinaPage({
 
   return (
     <main className="bg-[#EAEDED] min-h-screen">
-      {/* Fallback com h-14 (56px) evita que o conteúdo suba enquanto o Header carrega */}
+      <TrackCreatinaView />
+      
       <Suspense fallback={<div className="h-14 bg-[#232f3e] w-full" />}>
         <AmazonHeader />
       </Suspense>
 
       <div className="max-w-[1200px] mx-auto">
-        {/* Fallback com altura fixa evita o salto de layout na barra de filtros */}
         <Suspense fallback={<div className="h-14 bg-white border-b border-zinc-200 w-full" />}>
           <FloatingFiltersBar />
         </Suspense>
