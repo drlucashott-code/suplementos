@@ -1,7 +1,8 @@
 "use client";
 
-import { Menu, BarChart3, TrendingUp, ShieldCheck } from "lucide-react";
+import { BarChart3, TrendingUp, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Header from "./Header"; // 🚀 Importado para aparecer apenas na Home
 
 export default function HomePage() {
   const router = useRouter();
@@ -9,30 +10,16 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-[#EAEDED] pb-20 font-sans">
       
-      {/* --- 1. HEADER ESTILO AMAZON --- */}
-      <header className="bg-[#232f3e] sticky top-0 z-50 shadow-md">
-        {/* Topo: Logo e Ícone de Menu */}
-        <div className="flex items-center justify-between px-4 py-3 text-white">
-          <div className="flex items-center gap-3">
-            <button className="p-1">
-              <Menu className="w-6 h-6" />
-            </button>
-            
-            {/* Logo Atualizada */}
-            <div className="font-bold text-xl tracking-tight">
-              amazon<span className="text-[#FF9900]">picks</span>
-            </div>
-          </div>
-        </div>
+      {/* --- 1. HEADER EXCLUSIVO DA HOME (Com busca branca) --- */}
+      <Header />
 
-        {/* Faixa de Localização/Status */}
-        <div className="bg-[#37475A] px-4 py-2.5 flex items-center gap-2 text-white text-[12px] font-medium">
-          <ShieldCheck className="w-4 h-4 text-[#FF9900]" />
-          <span>Comparador verificado de ofertas Amazon</span>
-        </div>
-      </header>
+      {/* --- 2. FAIXA DE STATUS (Sub-header) --- */}
+      <div className="bg-[#37475A] px-4 py-2.5 flex items-center gap-2 text-white text-[12px] font-medium shadow-inner">
+        <ShieldCheck className="w-4 h-4 text-[#FF9900]" />
+        <span>Comparador verificado de ofertas Amazon</span>
+      </div>
 
-      {/* --- 2. HERO SECTION --- */}
+      {/* --- 3. HERO SECTION --- */}
       <div className="bg-white border-b border-gray-200 relative overflow-hidden">
         <div className="px-5 pt-8 pb-8 max-w-lg mx-auto text-center relative z-10">
           
@@ -40,14 +27,13 @@ export default function HomePage() {
             Guia do Consumidor
           </span>
 
-          {/* AJUSTE: Mudei para text-[18px] no mobile para caber em 2 linhas e não quebrar o "você" */}
           <h1 className="text-[18px] sm:text-[20px] leading-snug font-bold text-[#0F1111] mb-8">
             Utilizamos filtros inteligentes para encontrar o melhor produto para você.
           </h1>
 
-          {/* --- MÉTRICAS (Análise Técnica & Preço Justo) --- */}
+          {/* --- MÉTRICAS --- */}
           <div className="grid grid-cols-2 gap-8 mt-2 px-2">
-            <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center gap-2 text-center">
               <BarChart3 className="w-8 h-8 text-[#007185]" />
               <div className="flex flex-col">
                 <span className="text-[14px] font-bold text-[#0F1111]">Análise Técnica</span>
@@ -55,7 +41,7 @@ export default function HomePage() {
               </div>
             </div>
             
-            <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center gap-2 text-center">
               <TrendingUp className="w-8 h-8 text-[#007185]" />
               <div className="flex flex-col">
                 <span className="text-[14px] font-bold text-[#0F1111]">Preço Justo</span>
@@ -66,32 +52,29 @@ export default function HomePage() {
 
         </div>
         
-        {/* Gradiente Inferior */}
+        {/* Gradiente de Transição para o fundo cinza */}
         <div className="absolute bottom-0 w-full h-6 bg-gradient-to-b from-transparent to-[#EAEDED]/50" />
       </div>
 
-      {/* --- 3. GRID DE CATEGORIAS --- */}
+      {/* --- 4. GRID DE CATEGORIAS --- */}
       <div className="px-4 -mt-4 relative z-20 max-w-xl mx-auto space-y-4">
         
         <h2 className="text-[18px] font-bold text-[#0F1111] px-1 pt-4">Comprar por categoria</h2>
 
         <div className="grid grid-cols-2 gap-3">
           
-          {/* CARD 1: CREATINA (Integralmedica) */}
           <CategoryCard 
             title="Creatina"
             imageSrc="https://m.media-amazon.com/images/I/81UashXoAxL._AC_SL1500_.jpg" 
             onClick={() => router.push('/creatina')}
           />
 
-          {/* CARD 2: WHEY PROTEIN (Dux) */}
           <CategoryCard 
             title="Whey Protein"
             imageSrc="https://m.media-amazon.com/images/I/51lOuKbCawL._AC_SL1000_.jpg" 
             onClick={() => router.push('/whey')}
           />
 
-          {/* CARD 3: BARRINHAS (Bold) */}
           <CategoryCard 
             title="Barrinhas"
             imageSrc="https://m.media-amazon.com/images/I/61RDMRO3uCL._AC_SL1200_.jpg" 
@@ -99,7 +82,6 @@ export default function HomePage() {
             disabled
           />
 
-          {/* CARD 4: PRÉ-TREINO (Haze) */}
           <CategoryCard 
             title="Pré-Treino"
             imageSrc="https://m.media-amazon.com/images/I/61fGbsRyDWL._AC_SL1333_.jpg" 
@@ -108,11 +90,11 @@ export default function HomePage() {
           />
         </div>
 
-        {/* --- 4. FOOTER --- */}
+        {/* --- 5. FOOTER --- */}
         <footer className="pt-10 pb-4 text-center px-4">
           <div className="border-t border-gray-300 w-16 mx-auto mb-4" />
-          <p className="text-[11px] text-[#565959] leading-tight">
-             Participamos do Programa de Associados da Amazon Services LLC.
+          <p className="text-[11px] text-[#565959] leading-tight px-6">
+            Participamos do Programa de Associados da Amazon Services LLC.
           </p>
           <p className="text-[11px] text-[#565959] mt-2">
             &copy; 2026 Amazon Picks.
@@ -124,7 +106,7 @@ export default function HomePage() {
   );
 }
 
-// --- COMPONENTE DE CARD SIMPLIFICADO ---
+// --- COMPONENTE DE CARD ---
 interface CategoryCardProps {
   title: string;
   imageSrc: string;
@@ -144,20 +126,20 @@ function CategoryCard({ title, imageSrc, onClick, disabled }: CategoryCardProps)
         }
       `}
     >
-      {/* Texto da Categoria */}
       <h2 className="text-[15px] font-bold text-[#0F1111] w-full text-left mb-2">{title}</h2>
 
-      {/* Imagem Centralizada */}
       <div className="w-24 h-24 relative flex items-center justify-center">
          <img 
-           src={imageSrc} 
-           alt={title}
-           className="w-full h-full object-contain mix-blend-multiply drop-shadow-sm"
+            src={imageSrc} 
+            alt={title}
+            className="w-full h-full object-contain mix-blend-multiply drop-shadow-sm"
          />
       </div>
 
       {disabled && (
-        <span className="text-[10px] text-gray-400 mt-1">(em breve)</span>
+        <span className="absolute bottom-2 right-2 text-[10px] text-gray-400 font-medium bg-gray-100 px-1 rounded">
+          em breve
+        </span>
       )}
     </div>
   );

@@ -22,7 +22,7 @@ const geistMono = Geist_Mono({
    METADATA (SEO & Indexação)
    ========================= */
 export const metadata: Metadata = {
-  metadataBase: new URL('https://amazonpicks.vercel.app'), // 🚀 Necessário para resolver caminhos de imagem absolutos
+  metadataBase: new URL('https://amazonpicks.vercel.app'), // 🚀 Base para icon.png e opengraph-image.png
   title: "amazonpicks — O melhor preço em suplementos",
   description:
     "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
@@ -52,7 +52,6 @@ export const metadata: Metadata = {
     locale: "pt_BR",
     type: "website",
   },
-  // O Next.js 15 detectará automaticamente icon.png e opengraph-image.png na pasta app
 };
 
 /* =========================
@@ -79,7 +78,7 @@ export default function RootLayout({
       <head>
         <meta name="color-scheme" content="light" />
 
-        {/* 🚀 HANDSHAKE TLS ANTECIPADO */}
+        {/* 🚀 Otimização de Carregamento Amazon */}
         <link
           rel="preconnect"
           href="https://m.media-amazon.com"
@@ -97,9 +96,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {/* Camada de proteção para hooks de busca e navegação */}
+        {/* O <Header /> foi removido daqui para aparecer somente na Home */}
+
         <Suspense fallback={null}>
-          {children}
+          <main>
+            {children}
+          </main>
         </Suspense>
 
         <Toaster position="top-right" />
