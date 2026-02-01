@@ -4,12 +4,33 @@ import { BarChart3, TrendingUp, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Header from "./Header"; // 🚀 Importado para aparecer apenas na Home
 
+// 🚀 Componente de Rastreio: Garante que a Home conte como "view_home" 
+// e não use o cache da lista de produtos.
+function TrackHomeView() {
+  return (
+    <script
+      dangerouslySetInnerHTML={{
+        __html: `
+          window.dataLayer = window.dataLayer || [];
+          window.dataLayer.push({
+            'event': 'view_home',
+            'page_path': '/'
+          });
+        `,
+      }}
+    />
+  );
+}
+
 export default function HomePage() {
   const router = useRouter();
 
   return (
     <main className="min-h-screen bg-[#EAEDED] pb-20 font-sans">
       
+      {/* 🚀 Dispara o evento correto assim que a Home carrega */}
+      <TrackHomeView />
+
       {/* --- 1. HEADER EXCLUSIVO DA HOME (Com busca branca) --- */}
       <Header />
 
@@ -78,7 +99,7 @@ export default function HomePage() {
           <CategoryCard 
             title="Barra de proteína"
             imageSrc="https://m.media-amazon.com/images/I/61RDMRO3uCL._AC_SL1200_.jpg" 
-            onClick={() => router.push('/barra')}
+            onClick={() => router.push('/barra')} // Mantido como /barra
           />
 
           <CategoryCard 
@@ -129,9 +150,9 @@ function CategoryCard({ title, imageSrc, onClick, disabled }: CategoryCardProps)
 
       <div className="w-24 h-24 relative flex items-center justify-center">
          <img 
-            src={imageSrc} 
-            alt={title}
-            className="w-full h-full object-contain mix-blend-multiply drop-shadow-sm"
+           src={imageSrc} 
+           alt={title}
+           className="w-full h-full object-contain mix-blend-multiply drop-shadow-sm"
          />
       </div>
 
