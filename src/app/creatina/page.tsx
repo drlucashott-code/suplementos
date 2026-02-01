@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { Suspense } from "react";
+import Script from "next/script"; // ✅ ADICIONADO
 import { prisma } from "@/lib/prisma";
 import { ProductList } from "./ProductList";
 import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
@@ -26,18 +27,18 @@ export const metadata: Metadata = {
 
 /**
  * 🚀 RASTREIO PROFISSIONAL GA4 (CORRIGIDO)
- * Usa dataLayer para garantir que o evento seja capturado mesmo se 
- * o script do Google carregar depois da página.
+ * Evento customizado reconhecido corretamente no App Router
  */
 function TrackCreatinaView() {
   return (
-    <script
+    <Script
+      id="ga-view-creatina-list"
+      strategy="afterInteractive"
       dangerouslySetInnerHTML={{
         __html: `
           window.dataLayer = window.dataLayer || [];
           window.dataLayer.push({
-            'event': 'view_creatina_list',
-            'category': 'creatina'
+            event: 'view_creatina_list'
           });
         `,
       }}
@@ -84,7 +85,7 @@ export default async function CreatinaPage({
   const products = await prisma.product.findMany({
     where: {
       category: "creatina",
-      ...(searchQuery && { name: { contains: searchQuery, mode: 'insensitive' } }),
+      ...(searchQuery && { name: { contains: searchQuery, mode: "insensitive" } }),
       ...(selectedBrands.length && { brand: { in: selectedBrands } }),
       ...(selectedFlavors.length && { flavor: { in: selectedFlavors } }),
       ...(selectedForms.length && { creatineInfo: { form: { in: selectedForms } } }),
@@ -117,7 +118,6 @@ export default async function CreatinaPage({
   const rankedProducts = products.map((product) => {
     if (!product.creatineInfo) return null;
     const offer = product.offers[0];
-    
     if (!offer) return null;
 
     let finalPrice = offer.price;
@@ -131,7 +131,7 @@ export default async function CreatinaPage({
 
     const info = product.creatineInfo;
     const totalDosesNoPote = info.totalUnits / info.unitsPerDose;
-    const gramasCreatinaPuraNoPote = totalDosesNoPote * 3; 
+    const gramasCreatinaPuraNoPote = totalDosesNoPote * 3;
     const pricePerGramCreatine = finalPrice / gramasCreatinaPuraNoPote;
     const hasCarbs = info.unitsPerDose > 4;
 
@@ -143,13 +143,16 @@ export default async function CreatinaPage({
     if (offer.priceHistory.length > 0) {
       const dailyPricesMap = new Map<string, number[]>();
       offer.priceHistory.forEach(h => {
-        const dayKey = h.createdAt.toISOString().split('T')[0];
+        const dayKey = h.createdAt.toISOString().split("T")[0];
         if (!dailyPricesMap.has(dayKey)) dailyPricesMap.set(dayKey, []);
         dailyPricesMap.get(dayKey)!.push(h.price);
       });
 
       const dailyAverages: number[] = [];
-      dailyPricesMap.forEach(p => dailyAverages.push(p.reduce((a, b) => a + b, 0) / p.length));
+      dailyPricesMap.forEach(p => {
+        dailyAverages.push(p.reduce((a, b) => a + b, 0) / p.length);
+      });
+
       avgMonthly = dailyAverages.reduce((a, b) => a + b, 0) / dailyAverages.length;
 
       const prices30d = offer.priceHistory.map(h => h.price);
@@ -158,11 +161,11 @@ export default async function CreatinaPage({
       const history7d = offer.priceHistory.filter(h => h.createdAt >= sevenDaysAgo);
       const lowest7 = history7d.length > 0 ? Math.min(...history7d.map(h => h.price)) : null;
 
-      const isSignificantDrop = avgMonthly ? (finalPrice < avgMonthly * 0.98) : false;
+      const isSignificantDrop = avgMonthly ? finalPrice < avgMonthly * 0.98 : false;
 
-      if (finalPrice <= (lowest30 + 0.01) && isSignificantDrop) {
+      if (finalPrice <= lowest30 + 0.01 && isSignificantDrop) {
         isLowestPrice30 = true;
-      } else if (lowest7 !== null && finalPrice <= (lowest7 + 0.01) && isSignificantDrop) {
+      } else if (lowest7 !== null && finalPrice <= lowest7 + 0.01 && isSignificantDrop) {
         isLowestPrice7 = true;
       }
 
@@ -177,7 +180,7 @@ export default async function CreatinaPage({
       name: product.name,
       imageUrl: getOptimizedAmazonUrl(product.imageUrl, 320),
       flavor: product.flavor,
-      form: product.creatineInfo.form,
+      form: info.form,
       price: finalPrice,
       affiliateUrl: offer.affiliateUrl,
       doses: totalDosesNoPote,
@@ -217,25 +220,24 @@ export default async function CreatinaPage({
       brand: true,
       flavor: true,
       creatineInfo: {
-        select: { totalUnits: true }
-      }
+        select: { totalUnits: true },
+      },
     },
-    distinct: ['brand', 'flavor']
+    distinct: ["brand", "flavor"],
   });
 
-  const availableBrands = Array.from(new Set(allOptions.map((p) => p.brand))).sort();
+  const availableBrands = Array.from(new Set(allOptions.map(p => p.brand))).sort();
   const availableFlavors = Array.from(
-    new Set(allOptions.map((p) => p.flavor).filter((f): f is string => Boolean(f)))
+    new Set(allOptions.map(p => p.flavor).filter((f): f is string => Boolean(f)))
   ).sort();
-  
   const availableWeights = Array.from(
-    new Set(allOptions.map((p) => p.creatineInfo?.totalUnits).filter((w): w is number => Boolean(w)))
+    new Set(allOptions.map(p => p.creatineInfo?.totalUnits).filter((w): w is number => Boolean(w)))
   ).sort((a, b) => a - b);
 
   return (
     <main className="bg-[#EAEDED] min-h-screen">
       <TrackCreatinaView />
-      
+
       <Suspense fallback={<div className="h-14 bg-[#232f3e] w-full" />}>
         <AmazonHeader />
       </Suspense>
@@ -247,9 +249,9 @@ export default async function CreatinaPage({
 
         <div className="px-3">
           <Suspense fallback={null}>
-            <MobileFiltersDrawer 
-              brands={availableBrands} 
-              flavors={availableFlavors} 
+            <MobileFiltersDrawer
+              brands={availableBrands}
+              flavors={availableFlavors}
               weights={availableWeights}
               totalResults={finalProducts.length}
             />
@@ -260,7 +262,7 @@ export default async function CreatinaPage({
               {finalProducts.length} produtos encontrados em Creatina
             </p>
             <div className="w-full">
-               <ProductList products={finalProducts} />
+              <ProductList products={finalProducts} />
             </div>
           </div>
         </div>
