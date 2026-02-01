@@ -78,8 +78,7 @@ export default function HomePage() {
           <CategoryCard 
             title="Barrinhas"
             imageSrc="https://m.media-amazon.com/images/I/61RDMRO3uCL._AC_SL1200_.jpg" 
-            onClick={() => {}}
-            disabled
+            onClick={() => router.push('/barra')}
           />
 
           <CategoryCard 
