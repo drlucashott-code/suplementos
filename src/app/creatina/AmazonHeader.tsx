@@ -45,7 +45,7 @@ export function AmazonHeader() {
           role="search"
         >
           <label htmlFor="creatina-search" className="sr-only">
-            Pesquisar em creatina
+            Pesquisar em Creatina
           </label>
 
           <Search className="w-5 h-5 text-zinc-500 mr-2 flex-shrink-0" />
@@ -55,7 +55,7 @@ export function AmazonHeader() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Pesquisar em Creatinas"
+            placeholder="Pesquisar em creatina"
             className="w-full bg-transparent text-[#0F1111] text-[16px] outline-none placeholder-zinc-500 font-normal"
             enterKeyHint="search"
             autoComplete="off"
