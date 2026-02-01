@@ -22,7 +22,7 @@ const geistMono = Geist_Mono({
    METADATA (SEO & Indexação)
    ========================= */
 export const metadata: Metadata = {
-  metadataBase: new URL('https://amazonpicks.vercel.app'), // 🚀 ADICIONADO PARA FUNCIONAR O ÍCONE NO WHATSAPP
+  metadataBase: new URL('https://amazonpicks.vercel.app'), // 🚀 Necessário para resolver caminhos de imagem absolutos
   title: "amazonpicks — O melhor preço em suplementos",
   description:
     "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
@@ -52,6 +52,7 @@ export const metadata: Metadata = {
     locale: "pt_BR",
     type: "website",
   },
+  // O Next.js 15 detectará automaticamente icon.png e opengraph-image.png na pasta app
 };
 
 /* =========================
@@ -96,6 +97,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {/* Camada de proteção para hooks de busca e navegação */}
         <Suspense fallback={null}>
           {children}
         </Suspense>
