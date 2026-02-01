@@ -4,9 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { extractAmazonASIN } from "@/lib/extractAmazonASIN";
 import { revalidatePath } from "next/cache";
 
-/* =======================
-   CREATE
-======================= */
+/* ==========================================================================
+   CREATE (WHEY)
+   ========================================================================== */
 export async function createWheyAction(formData: FormData) {
   const name = formData.get("name") as string;
   const brand = formData.get("brand") as string;
@@ -15,9 +15,7 @@ export async function createWheyAction(formData: FormData) {
 
   const totalWeightInGrams = Number(formData.get("totalWeightInGrams"));
   const doseInGrams = Number(formData.get("doseInGrams"));
-  const proteinPerDoseInGrams = Number(
-    formData.get("proteinPerDoseInGrams")
-  );
+  const proteinPerDoseInGrams = Number(formData.get("proteinPerDoseInGrams"));
 
   const amazonAsinRaw =
     (formData.get("amazonAsin") as string | null)?.trim() || null;
@@ -29,7 +27,7 @@ export async function createWheyAction(formData: FormData) {
     doseInGrams <= 0 ||
     proteinPerDoseInGrams <= 0
   ) {
-    throw new Error("Campos obrigatórios inválidos");
+    throw new Error("Preencha todos os campos obrigatórios com valores válidos.");
   }
 
   const product = await prisma.product.create({
@@ -57,9 +55,8 @@ export async function createWheyAction(formData: FormData) {
       where: { store: "AMAZON", externalId: asin },
     });
 
-    if (exists) {
-      throw new Error("Este ASIN da Amazon já está cadastrado");
-    }
+    if (exists)
+      throw new Error("Este ASIN já está cadastrado em outro produto.");
 
     await prisma.offer.create({
       data: {
@@ -75,37 +72,28 @@ export async function createWheyAction(formData: FormData) {
   revalidatePath("/admin/whey");
 }
 
-/* =======================
-   UPDATE (🔥 FALTAVA)
-======================= */
+/* ==========================================================================
+   UPDATE (WHEY INDIVIDUAL)
+   ========================================================================== */
 export async function updateWheyAction(formData: FormData) {
   const id = formData.get("id") as string;
-
   const name = formData.get("name") as string;
   const brand = formData.get("brand") as string;
-  const flavor =
-    (formData.get("flavor") as string) || null;
-  const imageUrl =
-    (formData.get("imageUrl") as string) || "";
+  const flavor = (formData.get("flavor") as string) || null;
+  const imageUrl = (formData.get("imageUrl") as string) || "";
 
-  const totalWeightInGrams = Number(
-    formData.get("totalWeightInGrams")
-  );
-  const doseInGrams = Number(
-    formData.get("doseInGrams")
-  );
-  const proteinPerDoseInGrams = Number(
-    formData.get("proteinPerDoseInGrams")
-  );
+  const totalWeightInGrams = Number(formData.get("totalWeightInGrams"));
+  const doseInGrams = Number(formData.get("doseInGrams"));
+  const proteinPerDoseInGrams = Number(formData.get("proteinPerDoseInGrams"));
 
   const amazonAsinRaw =
     (formData.get("amazonAsin") as string | null)?.trim() || null;
 
   if (!id || !name || !brand) {
-    throw new Error("Dados inválidos");
+    throw new Error("ID, nome e marca são obrigatórios.");
   }
 
-  /* Produto */
+  // 1. Produto
   await prisma.product.update({
     where: { id },
     data: {
@@ -116,7 +104,7 @@ export async function updateWheyAction(formData: FormData) {
     },
   });
 
-  /* WheyInfo */
+  // 2. WheyInfo
   await prisma.wheyInfo.update({
     where: { productId: id },
     data: {
@@ -126,7 +114,7 @@ export async function updateWheyAction(formData: FormData) {
     },
   });
 
-  /* ASIN Amazon (opcional) */
+  // 3. ASIN Amazon (opcional)
   if (amazonAsinRaw) {
     const asin = extractAmazonASIN(amazonAsinRaw);
     if (!asin) throw new Error("ASIN inválido");
@@ -139,9 +127,8 @@ export async function updateWheyAction(formData: FormData) {
       },
     });
 
-    if (existing) {
-      throw new Error("Este ASIN já está vinculado a outro produto");
-    }
+    if (existing)
+      throw new Error("Este ASIN já pertence a outro produto.");
 
     const currentOffer = await prisma.offer.findFirst({
       where: { productId: id, store: "AMAZON" },
@@ -168,12 +155,76 @@ export async function updateWheyAction(formData: FormData) {
   revalidatePath("/admin/whey");
 }
 
-/* =======================
-   DELETE
-======================= */
+/* ==========================================================================
+   BULK UPDATE (EDIÇÃO EM LOTE)
+   ========================================================================== */
+export async function bulkUpdateWheyAction(
+  ids: string[],
+  data: {
+    name?: string;
+    brand?: string;
+    totalWeightInGrams?: number;
+    doseInGrams?: number;
+    proteinPerDoseInGrams?: number;
+  }
+) {
+  if (!ids.length) throw new Error("Nenhum produto selecionado.");
+
+  // 1. Atualiza Product (nome / marca)
+  if (data.name || data.brand) {
+    await prisma.product.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        ...(data.name && { name: data.name }),
+        ...(data.brand && { brand: data.brand }),
+      },
+    });
+  }
+
+  // 2. Atualiza WheyInfo
+  const updatePromises = ids.map((id) =>
+    prisma.wheyInfo.update({
+      where: { productId: id },
+      data: {
+        ...(data.totalWeightInGrams !== undefined && {
+          totalWeightInGrams: data.totalWeightInGrams,
+        }),
+        ...(data.doseInGrams !== undefined && {
+          doseInGrams: data.doseInGrams,
+        }),
+        ...(data.proteinPerDoseInGrams !== undefined && {
+          proteinPerDoseInGrams: data.proteinPerDoseInGrams,
+        }),
+      },
+    })
+  );
+
+  await Promise.all(updatePromises);
+
+  revalidatePath("/admin/whey");
+}
+
+/* ==========================================================================
+   BULK DELETE (EXCLUSÃO EM LOTE)
+   ========================================================================== */
+export async function bulkDeleteWheyAction(ids: string[]) {
+  if (!ids.length) throw new Error("Nenhum produto selecionado.");
+
+  // O deleteMany cuidará da exclusão em massa
+  // (requer onDelete: Cascade no schema)
+  await prisma.product.deleteMany({
+    where: { id: { in: ids } },
+  });
+
+  revalidatePath("/admin/whey");
+}
+
+/* ==========================================================================
+   DELETE (WHEY INDIVIDUAL)
+   ========================================================================== */
 export async function deleteWheyAction(formData: FormData) {
   const id = formData.get("id") as string;
-  if (!id) throw new Error("ID inválido");
+  if (!id) throw new Error("ID inválido.");
 
   await prisma.product.delete({
     where: { id },
