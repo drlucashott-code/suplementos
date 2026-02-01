@@ -45,13 +45,15 @@ export function MobileProductCard({
 
   const shouldShowCarbTag = product.hasCarbs || product.form === "GUMMY";
 
-  // 🚀 Função de rastreio de clique
+  // 🚀 Função de rastreio de clique corrigida para GA4
   const handleTrackClick = () => {
     sendGAEvent({
       event: "amazon_click",
-      category: "creatina",
-      product_name: product.name,
-      value: product.price || 0,
+      value: {
+        category: "creatina",
+        product_name: product.name,
+        price: product.price || 0,
+      }
     });
   };
 
@@ -117,7 +119,7 @@ export function MobileProductCard({
           </div>
         )}
 
-        {/* Selos de Menor Preço (Regra de Prioridade: 30d > 7d) */}
+        {/* Selos de Menor Preço */}
         <div className="flex flex-col gap-1 mb-1">
           {product.isLowestPrice ? (
             <div className="inline-block">
@@ -139,7 +141,6 @@ export function MobileProductCard({
           {hasPrice ? (
             <>
               <div className="flex items-baseline gap-2 flex-wrap">
-                {/* Preço Principal */}
                 <div className="flex items-start">
                   <span className={`text-[12px] mt-1.5 font-medium ${product.discountPercent ? "text-[#CC0C39]" : "text-[#0F1111]"}`}>
                     R$
@@ -152,7 +153,6 @@ export function MobileProductCard({
                   </span>
                 </div>
 
-                {/* Linha "De:" (Média Histórica) */}
                 {product.avgPrice && (Math.round(product.avgPrice * 100) > Math.round(product.price! * 100)) && (
                   <div className="relative flex items-center gap-1">
                     <span className="text-[12px] text-zinc-500">
@@ -170,7 +170,6 @@ export function MobileProductCard({
                       </svg>
                     </button>
 
-                    {/* Tooltip explicativo */}
                     {showTooltip && (
                       <div className="absolute bottom-6 left-0 z-50 w-64 bg-white border border-gray-200 shadow-xl rounded p-3 text-[12px] text-zinc-700 leading-snug animate-in fade-in zoom-in duration-150">
                         <p>
@@ -188,7 +187,6 @@ export function MobileProductCard({
                 )}
               </div>
 
-              {/* Preço por grama de creatina */}
               <div className="text-[12px] text-[#0F1111] mt-0.5 font-medium">
                 (R$ {product.pricePerGram.toFixed(2).replace(".", ",")} / g de creatina)
               </div>
