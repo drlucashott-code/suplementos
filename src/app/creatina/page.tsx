@@ -7,8 +7,6 @@ import { FloatingFiltersBar } from "@/app/creatina/FloatingFiltersBar";
 import { AmazonHeader } from "./AmazonHeader";
 import { CreatineForm } from "@prisma/client";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
-import { sendGAEvent } from "@next/third-parties/google";
-import { useEffect } from "react";
 
 /* =========================
     PERFORMANCE & BUILD FIX
@@ -26,7 +24,10 @@ export const metadata: Metadata = {
   },
 };
 
-// Componente auxiliar de rastreio (Client Side)
+/**
+ * 🚀 RASTREIO PROFISSIONAL GA4
+ * Componente auxiliar para disparar o evento de visualização da lista
+ */
 function TrackCreatinaView() {
   return (
     <script
