@@ -10,8 +10,6 @@ import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 /* =========================
     PERFORMANCE & BUILD FIX
-    O uso de force-dynamic resolve o erro de bails out of client-side rendering
-    ao garantir que a página sempre seja renderizada no servidor sob demanda.
    ========================= */
 export const dynamic = "force-dynamic";
 
@@ -61,7 +59,7 @@ export default async function CreatinaPage({
 
   /* =========================
       1. BUSCA FILTRADA
-      ========================= */
+     ========================= */
   const products = await prisma.product.findMany({
     where: {
       category: "creatina",
@@ -94,7 +92,7 @@ export default async function CreatinaPage({
 
   /* =========================
       2. PROCESSAMENTO DE DADOS
-      ========================= */
+     ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.creatineInfo) return null;
     const offer = product.offers[0];
@@ -175,7 +173,7 @@ export default async function CreatinaPage({
 
   /* =========================
       3. RANKING E ORDENAÇÃO
-      ========================= */
+     ========================= */
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => {
@@ -191,7 +189,7 @@ export default async function CreatinaPage({
 
   /* =========================
       4. COLETA DE OPÇÕES PARA FILTROS
-      ========================= */
+     ========================= */
   const allOptions = await prisma.product.findMany({
     where: { category: "creatina" },
     select: {
@@ -215,12 +213,14 @@ export default async function CreatinaPage({
 
   return (
     <main className="bg-[#EAEDED] min-h-screen">
-      <Suspense fallback={<div className="h-16 bg-[#232f3e]" />}>
+      {/* Fallback com h-14 (56px) evita que o conteúdo suba enquanto o Header carrega */}
+      <Suspense fallback={<div className="h-14 bg-[#232f3e] w-full" />}>
         <AmazonHeader />
       </Suspense>
 
       <div className="max-w-[1200px] mx-auto">
-        <Suspense fallback={<div className="h-14 bg-white border-b border-zinc-200" />}>
+        {/* Fallback com altura fixa evita o salto de layout na barra de filtros */}
+        <Suspense fallback={<div className="h-14 bg-white border-b border-zinc-200 w-full" />}>
           <FloatingFiltersBar />
         </Suspense>
 
