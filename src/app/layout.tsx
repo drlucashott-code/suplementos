@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Suspense } from "react"; // <--- ADICIONADO PARA SEGURANÇA GLOBAL
+import { Suspense } from "react"; 
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { GoogleAnalytics } from "@next/third-parties/google";
@@ -22,6 +22,7 @@ const geistMono = Geist_Mono({
    METADATA (SEO & Indexação)
    ========================= */
 export const metadata: Metadata = {
+  metadataBase: new URL('https://amazonpicks.vercel.app'), // 🚀 ADICIONADO PARA FUNCIONAR O ÍCONE NO WHATSAPP
   title: "amazonpicks — O melhor preço em suplementos",
   description:
     "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
@@ -42,6 +43,14 @@ export const metadata: Metadata = {
   manifest: "/site.webmanifest",
   alternates: {
     canonical: "https://amazonpicks.vercel.app",
+  },
+  openGraph: {
+    title: "amazonpicks — O melhor preço em suplementos",
+    description: "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
+    url: "https://amazonpicks.vercel.app",
+    siteName: "amazonpicks",
+    locale: "pt_BR",
+    type: "website",
   },
 };
 
@@ -87,9 +96,6 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {/* Envolver o children em um Suspense global aqui no Layout é uma 
-          camada extra de proteção para o sistema de roteamento do Next.js.
-        */}
         <Suspense fallback={null}>
           {children}
         </Suspense>
