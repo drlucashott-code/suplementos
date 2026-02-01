@@ -46,7 +46,7 @@ export function FloatingFiltersBar() {
             htmlFor="sort-select"
             className="text-[13px] text-zinc-600 whitespace-nowrap leading-none font-normal"
           >
-            Classificar:
+            Ordenar por:
           </label>
 
           <div className="flex-1 relative">
