@@ -9,18 +9,12 @@ import { CreatineForm } from "@prisma/client";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 /* =========================
-    PERFORMANCE & BUILD FI
-    O uso de force-dynamic resolve o erro de bails out of client-side rendering
-    ao garantir que a página sempre seja renderizada no servidor sob demanda.
-   ========================= */
-export const dynamic = "force-dynamic";
-
-/* =========================
     METADATA (SEO & Aba)
    ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — O melhor preço em suplementos",
-  description: "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
+  description:
+    "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
   alternates: {
     canonical: "/creatina",
   },
@@ -30,7 +24,7 @@ type SearchParams = {
   brand?: string;
   form?: string;
   flavor?: string;
-  weight?: string; 
+  weight?: string;
   priceMax?: string;
   order?: "gram" | "discount";
   q?: string;
@@ -42,35 +36,49 @@ export default async function CreatinaPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const showFallback = process.env.NEXT_PUBLIC_SHOW_FALLBACK_PRICE === "true";
+  const showFallback =
+    process.env.NEXT_PUBLIC_SHOW_FALLBACK_PRICE === "true";
   const order = params.order ?? "gram";
   const searchQuery = params.q || "";
 
   const selectedBrands = params.brand?.split(",") ?? [];
-  const selectedForms = (params.form?.split(",") as CreatineForm[]) ?? [];
+  const selectedForms =
+    (params.form?.split(",") as CreatineForm[]) ?? [];
   const selectedFlavors = params.flavor?.split(",") ?? [];
   const selectedWeights = params.weight?.split(",") ?? [];
-  const maxPrice = params.priceMax ? Number(params.priceMax) : undefined;
+  const maxPrice = params.priceMax
+    ? Number(params.priceMax)
+    : undefined;
 
   const now = new Date();
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(now.getDate() - 30);
-  
+
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(now.getDate() - 7);
 
   /* =========================
       1. BUSCA FILTRADA
-      ========================= */
+     ========================= */
   const products = await prisma.product.findMany({
     where: {
       category: "creatina",
-      ...(searchQuery && { name: { contains: searchQuery, mode: 'insensitive' } }),
-      ...(selectedBrands.length && { brand: { in: selectedBrands } }),
-      ...(selectedFlavors.length && { flavor: { in: selectedFlavors } }),
-      ...(selectedForms.length && { creatineInfo: { form: { in: selectedForms } } }),
-      ...(selectedWeights.length && { 
-        creatineInfo: { totalUnits: { in: selectedWeights.map(Number) } } 
+      ...(searchQuery && {
+        name: { contains: searchQuery, mode: "insensitive" },
+      }),
+      ...(selectedBrands.length && {
+        brand: { in: selectedBrands },
+      }),
+      ...(selectedFlavors.length && {
+        flavor: { in: selectedFlavors },
+      }),
+      ...(selectedForms.length && {
+        creatineInfo: { form: { in: selectedForms } },
+      }),
+      ...(selectedWeights.length && {
+        creatineInfo: {
+          totalUnits: { in: selectedWeights.map(Number) },
+        },
       }),
     },
     include: {
@@ -93,12 +101,11 @@ export default async function CreatinaPage({
   });
 
   /* =========================
-      2. PROCESSAMENTO DE DADOS
-      ========================= */
+      2. PROCESSAMENTO
+     ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.creatineInfo) return null;
     const offer = product.offers[0];
-    
     if (!offer) return null;
 
     let finalPrice = offer.price;
@@ -112,8 +119,9 @@ export default async function CreatinaPage({
 
     const info = product.creatineInfo;
     const totalDosesNoPote = info.totalUnits / info.unitsPerDose;
-    const gramasCreatinaPuraNoPote = totalDosesNoPote * 3; 
-    const pricePerGramCreatine = finalPrice / gramasCreatinaPuraNoPote;
+    const gramasCreatinaPuraNoPote = totalDosesNoPote * 3;
+    const pricePerGramCreatine =
+      finalPrice / gramasCreatinaPuraNoPote;
     const hasCarbs = info.unitsPerDose > 4;
 
     let isLowestPrice30 = false;
@@ -123,33 +131,54 @@ export default async function CreatinaPage({
 
     if (offer.priceHistory.length > 0) {
       const dailyPricesMap = new Map<string, number[]>();
-      offer.priceHistory.forEach(h => {
-        const dayKey = h.createdAt.toISOString().split('T')[0];
-        if (!dailyPricesMap.has(dayKey)) dailyPricesMap.set(dayKey, []);
+      offer.priceHistory.forEach((h) => {
+        const dayKey = h.createdAt.toISOString().split("T")[0];
+        if (!dailyPricesMap.has(dayKey))
+          dailyPricesMap.set(dayKey, []);
         dailyPricesMap.get(dayKey)!.push(h.price);
       });
 
       const dailyAverages: number[] = [];
-      dailyPricesMap.forEach(p => dailyAverages.push(p.reduce((a, b) => a + b, 0) / p.length));
-      avgMonthly = dailyAverages.reduce((a, b) => a + b, 0) / dailyAverages.length;
+      dailyPricesMap.forEach((p) =>
+        dailyAverages.push(
+          p.reduce((a, b) => a + b, 0) / p.length
+        )
+      );
 
-      const prices30d = offer.priceHistory.map(h => h.price);
+      avgMonthly =
+        dailyAverages.reduce((a, b) => a + b, 0) /
+        dailyAverages.length;
+
+      const prices30d = offer.priceHistory.map((h) => h.price);
       const lowest30 = Math.min(...prices30d);
 
-      const history7d = offer.priceHistory.filter(h => h.createdAt >= sevenDaysAgo);
-      const lowest7 = history7d.length > 0 ? Math.min(...history7d.map(h => h.price)) : null;
+      const history7d = offer.priceHistory.filter(
+        (h) => h.createdAt >= sevenDaysAgo
+      );
+      const lowest7 =
+        history7d.length > 0
+          ? Math.min(...history7d.map((h) => h.price))
+          : null;
 
-      const isSignificantDrop = avgMonthly ? (finalPrice < avgMonthly * 0.98) : false;
+      const isSignificantDrop = avgMonthly
+        ? finalPrice < avgMonthly * 0.98
+        : false;
 
-      if (finalPrice <= (lowest30 + 0.01) && isSignificantDrop) {
+      if (finalPrice <= lowest30 + 0.01 && isSignificantDrop) {
         isLowestPrice30 = true;
-      } else if (lowest7 !== null && finalPrice <= (lowest7 + 0.01) && isSignificantDrop) {
+      } else if (
+        lowest7 !== null &&
+        finalPrice <= lowest7 + 0.01 &&
+        isSignificantDrop
+      ) {
         isLowestPrice7 = true;
       }
 
       if (avgMonthly > 0) {
-        const rawDiscount = ((avgMonthly - finalPrice) / avgMonthly) * 100;
-        if (rawDiscount >= 5) discountPercent = Math.round(rawDiscount);
+        const rawDiscount =
+          ((avgMonthly - finalPrice) / avgMonthly) * 100;
+        if (rawDiscount >= 5)
+          discountPercent = Math.round(rawDiscount);
       }
     }
 
@@ -158,7 +187,7 @@ export default async function CreatinaPage({
       name: product.name,
       imageUrl: getOptimizedAmazonUrl(product.imageUrl, 320),
       flavor: product.flavor,
-      form: product.creatineInfo.form,
+      form: info.form,
       price: finalPrice,
       affiliateUrl: offer.affiliateUrl,
       doses: totalDosesNoPote,
@@ -174,8 +203,8 @@ export default async function CreatinaPage({
   });
 
   /* =========================
-      3. RANKING E ORDENAÇÃO
-      ========================= */
+      3. ORDENAÇÃO
+     ========================= */
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => {
@@ -184,66 +213,70 @@ export default async function CreatinaPage({
         const bHas = b.discountPercent != null;
         if (aHas && !bHas) return -1;
         if (!aHas && bHas) return 1;
-        if (aHas && bHas) return b.discountPercent! - a.discountPercent!;
+        if (aHas && bHas)
+          return b.discountPercent! - a.discountPercent!;
       }
       return a.pricePerGram - b.pricePerGram;
     });
 
   /* =========================
-      4. COLETA DE OPÇÕES PARA FILTROS
-      ========================= */
+      4. FILTROS
+     ========================= */
   const allOptions = await prisma.product.findMany({
     where: { category: "creatina" },
     select: {
       brand: true,
       flavor: true,
-      creatineInfo: {
-        select: { totalUnits: true }
-      }
+      creatineInfo: { select: { totalUnits: true } },
     },
-    distinct: ['brand', 'flavor']
+    distinct: ["brand", "flavor"],
   });
 
-  const availableBrands = Array.from(new Set(allOptions.map((p) => p.brand))).sort();
-  const availableFlavors = Array.from(
-    new Set(allOptions.map((p) => p.flavor).filter((f): f is string => Boolean(f)))
+  const availableBrands = Array.from(
+    new Set(allOptions.map((p) => p.brand))
   ).sort();
-  
+
+  const availableFlavors = Array.from(
+    new Set(
+      allOptions
+        .map((p) => p.flavor)
+        .filter((f): f is string => Boolean(f))
+    )
+  ).sort();
+
   const availableWeights = Array.from(
-    new Set(allOptions.map((p) => p.creatineInfo?.totalUnits).filter((w): w is number => Boolean(w)))
+    new Set(
+      allOptions
+        .map((p) => p.creatineInfo?.totalUnits)
+        .filter((w): w is number => Boolean(w))
+    )
   ).sort((a, b) => a - b);
 
   return (
-    <main className="bg-[#EAEDED] min-h-screen">
-      <Suspense fallback={<div className="h-16 bg-[#232f3e]" />}>
+    <Suspense fallback={null}>
+      <main className="bg-[#EAEDED] min-h-screen">
         <AmazonHeader />
-      </Suspense>
 
-      <div className="max-w-[1200px] mx-auto">
-        <Suspense fallback={<div className="h-14 bg-white border-b border-zinc-200" />}>
+        <div className="max-w-[1200px] mx-auto">
           <FloatingFiltersBar />
-        </Suspense>
 
-        <div className="px-3">
-          <Suspense fallback={null}>
-            <MobileFiltersDrawer 
-              brands={availableBrands} 
-              flavors={availableFlavors} 
+          <div className="px-3">
+            <MobileFiltersDrawer
+              brands={availableBrands}
+              flavors={availableFlavors}
               weights={availableWeights}
               totalResults={finalProducts.length}
             />
-          </Suspense>
 
-          <div className="mt-4 pb-10 w-full">
-            <p className="text-[13px] text-zinc-800 mb-2 px-1 font-medium">
-              {finalProducts.length} produtos encontrados em Creatina
-            </p>
-            <div className="w-full">
-               <ProductList products={finalProducts} />
+            <div className="mt-4 pb-10 w-full">
+              <p className="text-[13px] text-zinc-800 mb-2 px-1 font-medium">
+                {finalProducts.length} produtos encontrados em Creatina
+              </p>
+              <ProductList products={finalProducts} />
             </div>
           </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </Suspense>
   );
 }
