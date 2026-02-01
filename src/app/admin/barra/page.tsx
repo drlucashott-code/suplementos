@@ -1,5 +1,14 @@
+import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import AdminBarraWrapper from "./AdminBarraWrapper";
+
+/* =========================
+    PERFORMANCE & BUILD FIX
+    Força a renderização dinâmica para evitar que o Next.js tente 
+    pré-renderizar esta página administrativa durante o build, 
+    o que resolve o conflito com o Streaming (loading/skeleton).
+   ========================= */
+export const dynamic = "force-dynamic";
 
 /**
  * Página Server-Side para Gestão de Barras
@@ -31,6 +40,11 @@ export default async function AdminBarraPage() {
     })),
   }));
 
-  // Renderiza o Wrapper que lida com a tipagem e chama o Client
-  return <AdminBarraWrapper products={products as any} />;
+  // Renderiza o Wrapper dentro de um Suspense para garantir que o 
+  // uso de searchParams ou hooks de cliente no Wrapper não quebre o build.
+  return (
+    <Suspense fallback={null}>
+      <AdminBarraWrapper products={products as any} />
+    </Suspense>
+  );
 }
