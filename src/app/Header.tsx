@@ -8,7 +8,7 @@ import { Search } from "lucide-react";
 const CATEGORIES = [
   { name: "Creatina", path: "/creatina" },
   { name: "Whey Protein", path: "/whey" },
-  { name: "Barrinhas", path: "/barrinhas" },
+  { name: "Barra de proteína", path: "/barra" },
 ];
 
 export default function Header() {

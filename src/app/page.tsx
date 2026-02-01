@@ -76,7 +76,7 @@ export default function HomePage() {
           />
 
           <CategoryCard 
-            title="Barrinhas"
+            title="Barra de proteína"
             imageSrc="https://m.media-amazon.com/images/I/61RDMRO3uCL._AC_SL1200_.jpg" 
             onClick={() => router.push('/barra')}
           />

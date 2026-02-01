@@ -45,7 +45,7 @@ export function AmazonHeader() {
           role="search"
         >
           <label htmlFor="creatina-search" className="sr-only">
-            Pesquisar em Creatina
+            Pesquisar em creatina
           </label>
 
           <Search className="w-5 h-5 text-zinc-500 mr-2 flex-shrink-0" />

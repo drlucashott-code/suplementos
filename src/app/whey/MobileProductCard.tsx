@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { sendGAEvent } from "@next/third-parties/google"; // 🚀 Rastreio GA4
 
 export type WheyProduct = {
   id: string;
@@ -48,6 +49,16 @@ export function MobileProductCard({
   const formattedCount = reviewsCount >= 1000
       ? (reviewsCount / 1000).toFixed(1).replace(".", ",") + " mil"
       : reviewsCount.toString();
+
+  // 🚀 Função para rastrear clique em Whey
+  const handleTrackClick = () => {
+    sendGAEvent({
+      event: "amazon_click",
+      category: "whey",
+      product_name: product.name,
+      value: product.price || 0,
+    });
+  };
 
   return (
     <div className="flex gap-3 border-b border-gray-100 bg-white relative items-stretch min-h-[260px]">
@@ -145,9 +156,7 @@ export function MobileProductCard({
                   </span>
                 </div>
 
-                {/* Linha "De:" (Média Histórica) 
-                    Corrigido com Math.round para evitar redundância por erro de precisão decimal
-                */}
+                {/* Linha "De:" (Média Histórica) */}
                 {product.avgPrice && (Math.round(product.avgPrice * 100) > Math.round(product.price! * 100)) && (
                   <div className="relative flex items-center gap-1">
                     <span className="text-[12px] text-zinc-500">
@@ -183,7 +192,7 @@ export function MobileProductCard({
                 )}
               </div>
 
-              {/* Custo por grama de proteína (12px) */}
+              {/* Custo por grama de proteína */}
               <div className="text-[12px] text-[#0F1111] mt-0.5 font-medium">
                 (R$ {product.pricePerGramProtein.toFixed(2).replace(".", ",")} / g de proteína)
               </div>
@@ -206,6 +215,7 @@ export function MobileProductCard({
           href={product.affiliateUrl}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={handleTrackClick} // 🚀 Rastreio inserido aqui
           className="mt-auto bg-[#FFD814] border border-[#FCD200] rounded-full py-2.5 text-[13px] text-center font-medium shadow-sm active:scale-95 transition-transform text-[#0F1111]"
         >
           Ver na Amazon

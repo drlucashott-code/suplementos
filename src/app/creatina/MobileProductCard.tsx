@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { CreatineForm } from "@prisma/client";
 import { useState } from "react";
+import { sendGAEvent } from "@next/third-parties/google"; // 🚀 Importado para rastreio
 
 export type Product = {
   id: string;
@@ -43,6 +44,16 @@ export function MobileProductCard({
     : reviewsCount.toString();
 
   const shouldShowCarbTag = product.hasCarbs || product.form === "GUMMY";
+
+  // 🚀 Função de rastreio de clique
+  const handleTrackClick = () => {
+    sendGAEvent({
+      event: "amazon_click",
+      category: "creatina",
+      product_name: product.name,
+      value: product.price || 0,
+    });
+  };
 
   return (
     <div className="flex gap-3 border-b border-gray-100 bg-white relative items-stretch min-h-[260px]">
@@ -141,9 +152,7 @@ export function MobileProductCard({
                   </span>
                 </div>
 
-                {/* Linha "De:" (Média Histórica)
-                    Corrigido com Math.round para evitar redundância por erro de precisão decimal
-                */}
+                {/* Linha "De:" (Média Histórica) */}
                 {product.avgPrice && (Math.round(product.avgPrice * 100) > Math.round(product.price! * 100)) && (
                   <div className="relative flex items-center gap-1">
                     <span className="text-[12px] text-zinc-500">
@@ -171,7 +180,7 @@ export function MobileProductCard({
                           onClick={() => setShowTooltip(false)}
                           className="mt-2 text-blue-600 font-medium block w-full text-left"
                         >
-                          Fecho
+                          Fechar
                         </button>
                       </div>
                     )}
@@ -179,7 +188,7 @@ export function MobileProductCard({
                 )}
               </div>
 
-              {/* Preço por grama de creatina (12px, entre parênteses) */}
+              {/* Preço por grama de creatina */}
               <div className="text-[12px] text-[#0F1111] mt-0.5 font-medium">
                 (R$ {product.pricePerGram.toFixed(2).replace(".", ",")} / g de creatina)
               </div>
@@ -202,6 +211,7 @@ export function MobileProductCard({
           href={product.affiliateUrl}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={handleTrackClick} // 🚀 Rastreio inserido aqui
           className="mt-auto bg-[#FFD814] border border-[#FCD200] rounded-full py-2.5 text-[13px] text-center font-medium shadow-sm active:scale-95 transition-transform text-[#0F1111]"
         >
           Ver na Amazon

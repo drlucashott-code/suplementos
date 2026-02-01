@@ -58,7 +58,7 @@ export function AmazonHeader() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Pesquisar em Whey Protein"
+            placeholder="Pesquisar em whey protein"
             className="w-full bg-transparent text-[#0F1111] text-[16px] outline-none placeholder-zinc-500 font-normal"
             enterKeyHint="search"
           />

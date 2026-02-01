@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { sendGAEvent } from "@next/third-parties/google"; // 🚀 Rastreio GA4
 
 export type BarraProduct = {
   id: string;
@@ -48,6 +49,16 @@ export function MobileProductCard({
   const proteinPct = product.weightPerBar > 0 
     ? ((product.proteinPerBar / product.weightPerBar) * 100).toFixed(0) 
     : "0";
+
+  // 🚀 Função para rastrear clique em Barrinhas
+  const handleTrackClick = () => {
+    sendGAEvent({
+      event: "amazon_click",
+      category: "barrinhas",
+      product_name: product.name,
+      value: product.price || 0,
+    });
+  };
 
   return (
     <div className="flex gap-3 border-b border-gray-100 bg-white relative items-stretch min-h-[260px]">
@@ -104,11 +115,9 @@ export function MobileProductCard({
 
         {/* Selos Nutricionais (Sincronizados com o padrão Whey) */}
         <div className="flex flex-wrap gap-1.5 mb-1.5 mt-0.5">
-          {/* Porcentagem em AZUL */}
           <span className="text-[10px] bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded border border-blue-200 font-bold uppercase tracking-tight">
             {proteinPct}% PROTEÍNA
           </span>
-          {/* Proteína por unidade em CINZA ITÁLICO */}
           <span className="text-[10px] bg-zinc-50 text-zinc-600 px-1.5 py-0.5 rounded border border-zinc-200 font-medium italic">
             {product.proteinPerBar}g proteína / barra
           </span>
@@ -180,7 +189,6 @@ export function MobileProductCard({
                 )}
               </div>
 
-              {/* Custo-benefício real por g de proteína */}
               <div className="text-[12px] text-[#0F1111] mt-0.5 font-medium">
                 (R$ {product.pricePerGramProtein.toFixed(2).replace(".", ",")} / g de proteína)
               </div>
@@ -203,6 +211,7 @@ export function MobileProductCard({
           href={product.affiliateUrl}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={handleTrackClick} // 🚀 Rastreio inserido aqui
           className="mt-auto bg-[#FFD814] border border-[#FCD200] rounded-full py-2.5 text-[13px] text-center font-medium shadow-sm active:scale-95 transition-transform text-[#0F1111]"
         >
           Ver na Amazon
