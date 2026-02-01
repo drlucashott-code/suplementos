@@ -25,19 +25,20 @@ export const metadata: Metadata = {
 };
 
 /**
- * 🚀 RASTREIO PROFISSIONAL GA4
- * Componente auxiliar para disparar o evento de visualização da lista
+ * 🚀 RASTREIO PROFISSIONAL GA4 (CORRIGIDO)
+ * Usa dataLayer para garantir que o evento seja capturado mesmo se 
+ * o script do Google carregar depois da página.
  */
 function TrackCreatinaView() {
   return (
     <script
       dangerouslySetInnerHTML={{
         __html: `
-          if (typeof window !== 'undefined' && window.gtag) {
-            window.gtag('event', 'view_creatina_list', {
-              category: 'creatina'
-            });
-          }
+          window.dataLayer = window.dataLayer || [];
+          window.dataLayer.push({
+            'event': 'view_creatina_list',
+            'category': 'creatina'
+          });
         `,
       }}
     />

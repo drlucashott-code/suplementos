@@ -26,31 +26,18 @@ export function ProductList({ products }: { products: Product[] }) {
   // Iniciamos com 3 itens. Isso minimiza o tempo de execução do JavaScript inicial 
   // e reduz o peso do DOM, melhorando o FCP (First Contentful Paint).
   const [visibleCount, setVisibleCount] = useState(3);
-  const trackedRef = useRef(false);
 
   // Elemento invisível que serve como gatilho para carregar mais itens
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  // 🔁 Resetar a contagem e o tracking sempre que a lista de produtos (filtros) mudar
+  // 🔁 Resetar a contagem sempre que a lista de produtos (filtros) mudar
   useEffect(() => {
     setVisibleCount(3);
-    trackedRef.current = false;
   }, [products]);
 
-  // 📊 Tracking de Analytics: Dispara quando a lista é renderizada pela primeira vez
-  useEffect(() => {
-    if (trackedRef.current || !products.length) return;
-
-    if (typeof window !== "undefined" && "gtag" in window) {
-      // @ts-ignore
-      window.gtag("event", "view_product_list", {
-        total_products: products.length,
-        best_product_name: products[0]?.name,
-      });
-    }
-
-    trackedRef.current = true;
-  }, [products]);
+  // ⚠️ NOTA: O useEffect de Analytics foi removido daqui para evitar conflito.
+  // O evento correto (view_creatina_list) agora é disparado exclusivamente
+  // pelo componente TrackCreatinaView no arquivo page.tsx.
 
   // ♾️ Lógica de Infinite Scroll com Intersection Observer
   useEffect(() => {
