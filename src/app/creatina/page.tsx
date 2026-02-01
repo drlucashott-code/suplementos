@@ -9,7 +9,7 @@ import { CreatineForm } from "@prisma/client";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 /* =========================
-    PERFORMANCE & BUILD FIX
+    PERFORMANCE & BUILD FI
     O uso de force-dynamic resolve o erro de bails out of client-side rendering
     ao garantir que a página sempre seja renderizada no servidor sob demanda.
    ========================= */
