@@ -2,24 +2,21 @@
 
 import { BarChart3, TrendingUp, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react"; // ✅ ADICIONADO
 import Header from "./Header"; // 🚀 Importado para aparecer apenas na Home
 
 // 🚀 Componente de Rastreio: Garante que a Home conte como "view_home" 
 // e não use o cache da lista de produtos.
 function TrackHomeView() {
-  return (
-    <script
-      dangerouslySetInnerHTML={{
-        __html: `
-          window.dataLayer = window.dataLayer || [];
-          window.dataLayer.push({
-            'event': 'view_home',
-            'page_path': '/'
-          });
-        `,
-      }}
-    />
-  );
+  useEffect(() => {
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: "view_home",
+      page_path: "/",
+    });
+  }, []);
+
+  return null;
 }
 
 export default function HomePage() {
@@ -87,19 +84,19 @@ export default function HomePage() {
           <CategoryCard 
             title="Creatina"
             imageSrc="https://m.media-amazon.com/images/I/81UashXoAxL._AC_SL1500_.jpg" 
-            onClick={() => router.push('/creatina')}
+            onClick={() => router.push("/creatina")}
           />
 
           <CategoryCard 
             title="Whey Protein"
             imageSrc="https://m.media-amazon.com/images/I/51lOuKbCawL._AC_SL1000_.jpg" 
-            onClick={() => router.push('/whey')}
+            onClick={() => router.push("/whey")}
           />
 
           <CategoryCard 
             title="Barra de proteína"
             imageSrc="https://m.media-amazon.com/images/I/61RDMRO3uCL._AC_SL1200_.jpg" 
-            onClick={() => router.push('/barra')} // Mantido como /barra
+            onClick={() => router.push("/barra")} // Mantido como /barra
           />
 
           <CategoryCard 
@@ -141,19 +138,19 @@ function CategoryCard({ title, imageSrc, onClick, disabled }: CategoryCardProps)
       className={`
         relative bg-white p-4 rounded-lg shadow-sm flex flex-col items-center justify-between h-[160px] border transition-all
         ${disabled 
-          ? 'border-gray-100 opacity-60 cursor-not-allowed bg-gray-50' 
-          : 'border-gray-200 cursor-pointer active:scale-[0.98] active:border-[#e47911] hover:shadow-md'
+          ? "border-gray-100 opacity-60 cursor-not-allowed bg-gray-50" 
+          : "border-gray-200 cursor-pointer active:scale-[0.98] active:border-[#e47911] hover:shadow-md"
         }
       `}
     >
       <h2 className="text-[15px] font-bold text-[#0F1111] w-full text-left mb-2">{title}</h2>
 
       <div className="w-24 h-24 relative flex items-center justify-center">
-         <img 
-           src={imageSrc} 
-           alt={title}
-           className="w-full h-full object-contain mix-blend-multiply drop-shadow-sm"
-         />
+        <img 
+          src={imageSrc} 
+          alt={title}
+          className="w-full h-full object-contain mix-blend-multiply drop-shadow-sm"
+        />
       </div>
 
       {disabled && (

@@ -22,7 +22,7 @@ const geistMono = Geist_Mono({
    METADATA (SEO & Indexação)
    ========================= */
 export const metadata: Metadata = {
-  metadataBase: new URL('https://amazonpicks.vercel.app'), // 🚀 Base para icon.png e opengraph-image.png
+  metadataBase: new URL("https://amazonpicks.vercel.app"),
   title: "amazonpicks — O melhor preço em suplementos",
   description:
     "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
@@ -46,7 +46,8 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "amazonpicks — O melhor preço em suplementos",
-    description: "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
+    description:
+      "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
     url: "https://amazonpicks.vercel.app",
     siteName: "amazonpicks",
     locale: "pt_BR",
@@ -96,6 +97,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {/* ✅ GA INICIALIZA ANTES DE QUALQUER EVENTO */}
+        <GoogleAnalytics gaId="G-CLEY1YQ80S" />
+
         {/* O <Header /> foi removido daqui para aparecer somente na Home */}
 
         <Suspense fallback={null}>
@@ -105,8 +109,6 @@ export default function RootLayout({
         </Suspense>
 
         <Toaster position="top-right" />
-
-        <GoogleAnalytics gaId="G-CLEY1YQ80S" />
       </body>
     </html>
   );
