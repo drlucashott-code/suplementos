@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { Suspense } from "react"; // <--- ADICIONADO PARA CORRIGIR O BUILD
+import { Suspense } from "react"; 
 import { prisma } from "@/lib/prisma";
 import { ProductList } from "./ProductList";
 import { FloatingFiltersBar } from "./FloatingFiltersBar";
@@ -9,7 +9,6 @@ import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 /* =========================
     PERFORMANCE & CACHE
-    force-dynamic impede o erro de "missing-suspense" durante o build da Vercel.
    ========================= */
 export const dynamic = "force-dynamic";
 
@@ -28,7 +27,7 @@ export type SearchParams = {
   brand?: string;
   flavor?: string;
   priceMax?: string;
-  order?: "cost" | "discount" | "protein_gram";
+  order?: "cost" | "discount" | "protein_gram" | "cheapest_bar"; // <--- ADICIONADO
   proteinRange?: string; 
   q?: string;
 };
@@ -52,8 +51,6 @@ export default async function BarraPage({
   const now = new Date();
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(now.getDate() - 30);
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(now.getDate() - 7);
 
   const products = await prisma.product.findMany({
     where: {
@@ -94,6 +91,7 @@ export default async function BarraPage({
     const info = product.proteinBarInfo;
     const proteinPercentage = (info.proteinPerDoseInGrams / info.doseInGrams) * 100;
     const proteinPerBar = info.proteinPerDoseInGrams;
+    const pricePerBar = finalPrice / info.unitsPerBox; // <--- CÁLCULO PARA O SELO CINZA
 
     if (selectedProteinRanges.length > 0) {
       const match = selectedProteinRanges.some(r => {
@@ -106,8 +104,6 @@ export default async function BarraPage({
     const totalProteinInBox = info.unitsPerBox * info.proteinPerDoseInGrams;
     const pricePerGramProtein = finalPrice / totalProteinInBox;
 
-    let isLowestPrice30 = false;
-    let isLowestPrice7 = false;
     let avgMonthly: number | null = null;
     let discountPercent: number | null = null;
 
@@ -137,12 +133,11 @@ export default async function BarraPage({
       weightPerBar: info.doseInGrams,
       affiliateUrl: offer.affiliateUrl,
       proteinPerBar: proteinPerBar,
+      pricePerBar: pricePerBar, // <--- ENVIADO PARA O COMPONENTE
       proteinPercentage, 
       unitsPerBox: info.unitsPerBox,
       pricePerGramProtein,
       avgPrice: avgMonthly,
-      isLowestPrice: isLowestPrice30,
-      isLowestPrice7d: isLowestPrice7,
       discountPercent,
       rating: offer.ratingAverage ?? 0,
       reviewsCount: offer.ratingCount ?? 0,
@@ -154,6 +149,7 @@ export default async function BarraPage({
     .sort((a, b) => {
       if (order === "discount") return (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
       if (order === "protein_gram") return b.proteinPerBar - a.proteinPerBar;
+      if (order === "cheapest_bar") return a.pricePerBar - b.pricePerBar; // <--- NOVA ORDENAÇÃO
       return a.pricePerGramProtein - b.pricePerGramProtein;
     });
 
@@ -168,7 +164,6 @@ export default async function BarraPage({
 
   return (
     <main className="bg-[#EAEDED] min-h-screen">
-      {/* 🛡️ BLINDAGEM CONTRA ERRO DE BUILD */}
       <Suspense fallback={<div className="h-16 bg-[#232f3e]" />}>
         <AmazonHeader />
       </Suspense>

@@ -12,6 +12,7 @@ export type BarraProduct = {
   weightPerBar: number;           // g de peso total da barra (para cálculo de %)
   
   price: number | null;
+  pricePerBar: number;             // <--- Custo por unidade calculado
   affiliateUrl: string;
 
   proteinPerBar: number;           // g de proteína por unidade
@@ -44,11 +45,6 @@ export function MobileProductCard({
   const formattedCount = reviewsCount >= 1000
       ? (reviewsCount / 1000).toFixed(1).replace(".", ",") + " mil"
       : reviewsCount.toString();
-
-  // Cálculo da porcentagem de proteína (identidade visual azul)
-  const proteinPct = product.weightPerBar > 0 
-    ? ((product.proteinPerBar / product.weightPerBar) * 100).toFixed(0) 
-    : "0";
 
   // 🚀 Função para rastrear clique em Barrinhas
   const handleTrackClick = () => {
@@ -115,11 +111,13 @@ export function MobileProductCard({
 
         {/* Selos Nutricionais (Sincronizados com o padrão Whey) */}
         <div className="flex flex-wrap gap-1.5 mb-1.5 mt-0.5">
+          {/* Selo Azul: Proteína por barra */}
           <span className="text-[10px] bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded border border-blue-200 font-bold uppercase tracking-tight">
-            {proteinPct}% PROTEÍNA
+            {product.proteinPerBar}G PROTEÍNA / BARRA
           </span>
+          {/* Selo Cinza: Preço por barra */}
           <span className="text-[10px] bg-zinc-50 text-zinc-600 px-1.5 py-0.5 rounded border border-zinc-200 font-medium italic">
-            {product.proteinPerBar}g proteína / barra
+            R$ {product.pricePerBar.toFixed(2).replace(".", ",")} / barra
           </span>
         </div>
 
@@ -211,7 +209,7 @@ export function MobileProductCard({
           href={product.affiliateUrl}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={handleTrackClick} // 🚀 Rastreio inserido aqui
+          onClick={handleTrackClick} 
           className="mt-auto bg-[#FFD814] border border-[#FCD200] rounded-full py-2.5 text-[13px] text-center font-medium shadow-sm active:scale-95 transition-transform text-[#0F1111]"
         >
           Ver na Amazon
