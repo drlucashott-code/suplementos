@@ -59,7 +59,7 @@ export function AmazonHeader() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Pesquisar em Barra de Proteína"
-            className="w-full bg-transparent text-[#0F1111] text-[15px] outline-none placeholder-zinc-500 font-normal"
+            className="w-full bg-transparent text-[#0F1111] text-[16px] outline-none placeholder-zinc-500 font-normal"
             enterKeyHint="search"
           />
         </form>

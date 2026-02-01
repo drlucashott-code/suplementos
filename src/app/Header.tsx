@@ -72,7 +72,7 @@ export default function Header() {
               onChange={handleInputChange}
               onFocus={() => query.length > 0 && setShowSuggestions(true)}
               placeholder="O que você está procurando?"
-              className="w-full h-10 px-3 rounded-l-sm border-none outline-none text-black text-sm bg-white"
+              className="w-full h-10 px-3 rounded-l-sm border-none outline-none text-black text-base bg-white"
             />
             <button type="submit" className="bg-[#febd69] h-10 px-4 rounded-r-sm hover:bg-[#f3a847]">
               <Search className="w-5 h-5 text-[#232f3e]" />
