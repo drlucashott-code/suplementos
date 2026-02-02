@@ -2,11 +2,10 @@
 
 import { BarChart3, TrendingUp, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react"; // ✅ ADICIONADO
-import Header from "./Header"; // 🚀 Importado para aparecer apenas na Home
+import { useEffect } from "react"; 
+import Header from "./Header"; 
 
-// 🚀 Componente de Rastreio: Garante que a Home conte como "view_home" 
-// e não use o cache da lista de produtos.
+// 🚀 Componente de Rastreio
 function TrackHomeView() {
   useEffect(() => {
     window.dataLayer = window.dataLayer || [];
@@ -25,14 +24,13 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-[#EAEDED] pb-20 font-sans">
       
-      {/* 🚀 Dispara o evento correto assim que a Home carrega */}
       <TrackHomeView />
 
-      {/* --- 1. HEADER EXCLUSIVO DA HOME (Com busca branca) --- */}
+      {/* --- 1. HEADER EXCLUSIVO DA HOME --- */}
       <Header />
 
-      {/* --- 2. FAIXA DE STATUS (Sub-header) --- */}
-      <div className="bg-[#37475A] px-4 py-2.5 flex items-center gap-2 text-white text-[12px] font-medium shadow-inner">
+      {/* --- 2. FAIXA DE STATUS (Centralizada) --- */}
+      <div className="bg-[#37475A] px-4 py-2.5 flex items-center justify-center gap-2 text-white text-[12px] font-medium shadow-inner">
         <ShieldCheck className="w-4 h-4 text-[#FF9900]" />
         <span>Comparador verificado de ofertas Amazon</span>
       </div>
@@ -70,14 +68,13 @@ export default function HomePage() {
 
         </div>
         
-        {/* Gradiente de Transição para o fundo cinza */}
         <div className="absolute bottom-0 w-full h-6 bg-gradient-to-b from-transparent to-[#EAEDED]/50" />
       </div>
 
       {/* --- 4. GRID DE CATEGORIAS --- */}
       <div className="px-4 -mt-4 relative z-20 max-w-xl mx-auto space-y-4">
         
-        <h2 className="text-[18px] font-bold text-[#0F1111] px-1 pt-4">Comprar por categoria</h2>
+        <h2 className="text-[18px] font-bold text-[#0F1111] px-1 pt-4 text-center">Comprar por categoria</h2>
 
         <div className="grid grid-cols-2 gap-3">
           
@@ -96,7 +93,7 @@ export default function HomePage() {
           <CategoryCard 
             title="Barra de proteína"
             imageSrc="https://m.media-amazon.com/images/I/61RDMRO3uCL._AC_SL1200_.jpg" 
-            onClick={() => router.push("/barra")} // Mantido como /barra
+            onClick={() => router.push("/barra")}
           />
 
           <CategoryCard 

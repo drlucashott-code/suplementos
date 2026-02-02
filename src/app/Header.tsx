@@ -8,7 +8,7 @@ import { Search } from "lucide-react";
 const CATEGORIES = [
   { name: "Creatina", path: "/creatina" },
   { name: "Whey Protein", path: "/whey" },
-  { name: "Barra de proteína", path: "/barra" },
+  { name: "Barra", path: "/barra" },
 ];
 
 export default function Header() {
@@ -56,15 +56,21 @@ export default function Header() {
 
   return (
     <header className="bg-[#232f3e] w-full py-3 px-4 shadow-md sticky top-0 z-50">
-      <div className="flex items-center justify-between gap-4 max-w-7xl mx-auto">
+      {/* Centralização Total: Logo e Busca alinhados ao centro no Desktop */}
+      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-8">
         
-        <div className="flex-shrink-0 cursor-pointer" onClick={() => router.push("/")}>
+        {/* LOGO */}
+        <div 
+          className="flex-shrink-0 cursor-pointer" 
+          onClick={() => router.push("/")}
+        >
           <h1 className="text-white text-xl font-bold tracking-tight">
             amazon<span className="text-[#febd69]">picks</span>
           </h1>
         </div>
 
-        <div className="relative flex flex-grow max-w-[500px]" ref={wrapperRef}>
+        {/* BUSCA */}
+        <div className="relative flex w-full max-w-[600px]" ref={wrapperRef}>
           <form onSubmit={handleSearch} className="flex flex-grow items-center">
             <input
               type="text"
@@ -74,7 +80,7 @@ export default function Header() {
               placeholder="O que você está procurando?"
               className="w-full h-10 px-3 rounded-l-sm border-none outline-none text-black text-base bg-white"
             />
-            <button type="submit" className="bg-[#febd69] h-10 px-4 rounded-r-sm hover:bg-[#f3a847]">
+            <button type="submit" className="bg-[#febd69] h-10 px-4 rounded-r-sm hover:bg-[#f3a847] transition-colors">
               <Search className="w-5 h-5 text-[#232f3e]" />
             </button>
           </form>
