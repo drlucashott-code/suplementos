@@ -1,21 +1,21 @@
 import "dotenv/config";
 import https from "https";
 import crypto from "node:crypto";
-import { PrismaClient, Store } from "@prisma/client";
 
-const prisma = new PrismaClient();
-
-const REQUEST_DELAY_MS = 2000;
-const BATCH_SIZE = 10;
-
-const AMAZON_ACCESS_KEY = process.env.AMAZON_ACCESS_KEY;
-const AMAZON_SECRET_KEY = process.env.AMAZON_SECRET_KEY;
-const AMAZON_PARTNER_TAG = process.env.AMAZON_PARTNER_TAG;
+/* ======================
+    CONFIGURAÇÕES AWS
+====================== */
+const { AMAZON_ACCESS_KEY, AMAZON_SECRET_KEY, AMAZON_PARTNER_TAG } = process.env;
 const AMAZON_HOST = "webservices.amazon.com.br";
 const AMAZON_REGION = "us-east-1";
 
 /* ======================
-    AWS HELPERS
+    DADOS DE TESTE
+====================== */
+const TARGET_ASINS = ["B0CLDVSB6M", "B0CLQB9QM4"];
+
+/* ======================
+    HELPERS DE ASSINATURA
 ====================== */
 function hmac(key: string | Buffer, data: string): Buffer {
   return crypto.createHmac("sha256", key).update(data).digest();
@@ -31,18 +31,57 @@ function getSignatureKey(key: string, dateStamp: string, region: string, service
 }
 
 /* ======================
-    CAPTURA IGUAL AO SEU ORIGINAL
+    LOGICA DE CAPTURA INTELIGENTE
 ====================== */
-async function fetchAmazonBatch(asins: string[]): Promise<Record<string, any>> {
-  if (asins.length === 0) return {};
+function extractBestOffer(item: any) {
+  const v1Listings = item.Offers?.Listings || [];
+  const v2Listings = item.OffersV2?.Listings || [];
+  const allListings = [...v1Listings, ...v2Listings];
 
+  // 1. Tenta achar a Amazon.com.br primeiro (A "Segunda Chance")
+  const amazonOffer = allListings.find(l => 
+    l.MerchantInfo?.Name?.toLowerCase().includes("amazon")
+  );
+
+  if (amazonOffer) {
+    return {
+      price: amazonOffer.Price?.Money?.Amount || amazonOffer.Price?.Amount,
+      merchant: "Amazon.com.br",
+      source: "Venda Direta Amazon"
+    };
+  }
+
+  // 2. Se não tem Amazon, olha o vencedor da Buybox
+  const buyBox = v2Listings[0] || v1Listings[0];
+  if (!buyBox) return null;
+
+  const merchant = buyBox.MerchantInfo?.Name || "Marketplace";
+  let price = buyBox.Price?.Money?.Amount || buyBox.Price?.Amount || 0;
+
+  // 3. Regra Especial: Se for Loja Suplemento, usamos o preço de segurança (Highest)
+  if (merchant === "Loja Suplemento") {
+    const highest = item.Offers?.Summaries?.[0]?.HighestPrice?.Amount;
+    return {
+      price: highest || price,
+      merchant: "Loja Suplemento",
+      source: highest ? "Preço de Segurança (Highest)" : "Buybox Direta"
+    };
+  }
+
+  return { price, merchant, source: "Marketplace Buybox" };
+}
+
+/* ======================
+    REQUEST PA-API
+====================== */
+async function fetchPrices() {
   const payload = JSON.stringify({
-    ItemIds: asins,
+    ItemIds: TARGET_ASINS,
     Resources: [
       "Offers.Listings.Price",
-      "Offers.Listings.MerchantInfo", // Você já usa e funciona
+      "Offers.Listings.MerchantInfo",
       "OffersV2.Listings.Price",
-      "OffersV2.Listings.MerchantInfo", // Você já usa e funciona
+      "OffersV2.Listings.MerchantInfo",
       "Offers.Summaries.HighestPrice"
     ],
     PartnerTag: AMAZON_PARTNER_TAG,
@@ -54,7 +93,6 @@ async function fetchAmazonBatch(asins: string[]): Promise<Record<string, any>> {
   const dateStamp = amzDate.substring(0, 8);
   const credentialScope = `${dateStamp}/${AMAZON_REGION}/ProductAdvertisingAPI/aws4_request`;
 
-  // Headers exatos do seu script original
   const canonicalHeaders = `content-encoding:amz-1.0\ncontent-type:application/json; charset=utf-8\nhost:${AMAZON_HOST}\nx-amz-date:${amzDate}\n`;
   const signedHeaders = "content-encoding;content-type;host;x-amz-date";
   const canonicalRequest = `POST\n/paapi5/getitems\n\n${canonicalHeaders}\n${signedHeaders}\n${sha256(payload)}`;
@@ -72,92 +110,31 @@ async function fetchAmazonBatch(asins: string[]): Promise<Record<string, any>> {
       "X-Amz-Date": amzDate,
       "X-Amz-Target": "com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems",
       Authorization: `AWS4-HMAC-SHA256 Credential=${AMAZON_ACCESS_KEY}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
-      "Content-Length": Buffer.byteLength(payload)
     },
   };
 
-  return new Promise((resolve) => {
-    const req = https.request(options, (res) => {
-      let data = "";
-      res.on("data", (chunk) => (data += chunk));
-      res.on("end", () => {
-        try {
-          const json = JSON.parse(data);
-          const results: Record<string, any> = {};
-          if (json?.ItemsResult?.Items) {
-            for (const item of json.ItemsResult.Items) {
-              results[item.ASIN] = item;
-            }
-          }
-          resolve(results);
-        } catch { resolve({}); }
+  const req = https.request(options, (res) => {
+    let data = "";
+    res.on("data", (chunk) => data += chunk);
+    res.on("end", () => {
+      const response = JSON.parse(data);
+      console.log(`🛡️ Relatório de Preços [${new Date().toLocaleTimeString()}]\n`);
+
+      response.ItemsResult?.Items?.forEach((item: any) => {
+        const result = extractBestOffer(item);
+        if (result) {
+          console.log(`ASIN: ${item.ASIN}`);
+          console.log(`Preço: R$ ${result.price.toFixed(2)}`);
+          console.log(`Loja: ${result.merchant}`);
+          console.log(`Estratégia: ${result.source}`);
+          console.log("-----------------------------------");
+        }
       });
     });
-    req.write(payload);
-    req.end();
-  });
-}
-
-/* ======================
-    LOOP DE AUDITORIA
-====================== */
-async function runAudit() {
-  console.log("🛡️ Iniciando Auditoria Estabilizada (Estrutura Original)\n");
-
-  const offers = await prisma.offer.findMany({
-    where: { store: Store.AMAZON },
-    select: { externalId: true, product: { select: { name: true } } },
-    orderBy: { product: { name: "asc" } },
   });
 
-  const suspicious = [];
-
-  for (let i = 0; i < offers.length; i += BATCH_SIZE) {
-    const chunk = offers.slice(i, i + BATCH_SIZE);
-    const asins = chunk.map((o) => o.externalId).filter(Boolean);
-    const apiData = await fetchAmazonBatch(asins);
-
-    for (const offer of chunk) {
-      const item = apiData[offer.externalId];
-      let price = 0;
-      let merchant = "N/A";
-
-      if (item) {
-        const v2 = item.OffersV2?.Listings?.[0];
-        const v1 = item.Offers?.Listings?.[0];
-        price = v2?.Price?.Money?.Amount || v1?.Price?.Amount || 0;
-        merchant = v2?.MerchantInfo?.Name || v1?.MerchantInfo?.Name || "Marketplace";
-
-        // Sua regra da Loja Suplemento
-        if (merchant === "Loja Suplemento") {
-          const highest = item?.Offers?.Summaries?.[0]?.HighestPrice?.Amount;
-          if (highest) price = highest;
-        }
-      }
-
-      // CRITÉRIO DE AUDITORIA SEGURO (Baseado no Vendedor)
-      const isAmazon = merchant.toLowerCase().includes("amazon");
-      const isLojaSup = merchant === "Loja Suplemento";
-      const isSafe = isAmazon || isLojaSup;
-
-      if (price > 0) {
-        const icon = isSafe ? "✅" : "❌";
-        console.log(`   ${icon} R$ ${price.toFixed(2).padEnd(8)} | ${offer.product.name.substring(0, 30).padEnd(30)} [${merchant}]`);
-        
-        if (!isSafe) {
-          suspicious.push({ ASIN: offer.externalId, Produto: offer.product.name.substring(0, 30), Vendedor: merchant });
-        }
-      } else {
-        console.log(`   🔻 SEM PREÇO | ${offer.product.name.substring(0, 30).padEnd(30)} [${offer.externalId}]`);
-      }
-    }
-    await new Promise((r) => setTimeout(r, REQUEST_DELAY_MS));
-  }
-
-  console.log("\n--- 🛡️ RELATÓRIO DE REMOÇÃO ---");
-  if (suspicious.length > 0) console.table(suspicious);
-
-  await prisma.$disconnect();
+  req.write(payload);
+  req.end();
 }
 
-runAudit();
+fetchPrices().catch(console.error);

@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
     METADATA (SEO)
    ========================= */
 export const metadata: Metadata = {
-  title: "amazonpicks — Comparador de Whey Protein",
+  title: "amazonpicks — Whey Protein",
   description: "Compare o custo por grama de proteína e a concentração dos melhores Whey Proteins da Amazon.",
   alternates: {
     canonical: "/whey",
