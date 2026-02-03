@@ -70,7 +70,7 @@ async function fetchAmazonPricesBatch(
         "OffersV2.Listings.Price",
         "Offers.Listings.MerchantInfo",   // Necessário para verificar o nome
         "OffersV2.Listings.MerchantInfo", // Necessário para verificar o nome
-        "Offers.Summaries.HighestPrice"   // Necessário para o ajuste
+        "Offers.Summaries.HighestPrice"   // Mantido na request caso precise futuramente, mas não usado na lógica nova
     ],
     PartnerTag: AMAZON_PARTNER_TAG,
     PartnerType: "Associates",
@@ -138,13 +138,10 @@ async function fetchAmazonPricesBatch(
               }
 
               // ====================================================
-              // AJUSTE: Se for Loja Suplemento -> Usa HighestPrice
+              // AJUSTE: Se for Loja Suplemento -> Preço vira 0
               // ====================================================
               if (merchantName === "Loja Suplemento") {
-                  const highest = item?.Offers?.Summaries?.[0]?.HighestPrice?.Amount;
-                  if (typeof highest === "number" && highest > 0) {
-                      price = highest;
-                  }
+                  price = 0; // Força status OUT_OF_STOCK
               }
 
               results[item.ASIN] = price > 0
@@ -243,10 +240,10 @@ async function updateAmazonPrices() {
         }
 
       } else {
-        // ❌ FALHA: Sem estoque, erro ou bloqueio
+        // ❌ FALHA: Sem estoque, erro ou bloqueio (ou Loja Suplemento)
         finalPrice = 0;
         logStatus = result?.status === "OUT_OF_STOCK" 
-            ? "🔻 Sem Estoque" 
+            ? "🔻 Sem Estoque (ou Loja Suplemento)" 
             : "⚠️ API Bloqueada/Sem Dados";
 
         await prisma.offer.update({
