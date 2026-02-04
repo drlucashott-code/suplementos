@@ -2,22 +2,23 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { sendGAEvent } from "@next/third-parties/google"; // 🚀 Rastreio GA4
+// ✅ Importação correta do GA4
+import { sendGAEvent } from "@next/third-parties/google"; 
 
 export type BarraProduct = {
   id: string;
   name: string;
   imageUrl: string;
   flavor: string | null;
-  weightPerBar: number;           // g de peso total da barra (para cálculo de %)
+  weightPerBar: number;           // g de peso total da barra
   
   price: number | null;
-  pricePerBar: number;             // <--- Custo por unidade calculado
+  pricePerBar: number;            // Custo por unidade
   affiliateUrl: string;
 
-  proteinPerBar: number;           // g de proteína por unidade
-  unitsPerBox: number | null;      // Total de barras na caixa
-  pricePerGramProtein: number;     // Custo-benefício real
+  proteinPerBar: number;          // g de proteína por unidade
+  unitsPerBox: number | null;     // Total de barras na caixa
+  pricePerGramProtein: number;    // Custo-benefício real
   
   discountPercent?: number | null;
   avgPrice?: number | null; 
@@ -46,13 +47,22 @@ export function MobileProductCard({
       ? (reviewsCount / 1000).toFixed(1).replace(".", ",") + " mil"
       : reviewsCount.toString();
 
-  // 🚀 Função para rastrear clique em Barrinhas
+  // 🚀 FUNÇÃO DE RASTREIO PADRONIZADA (IGUAL CREATINA)
   const handleTrackClick = () => {
-    sendGAEvent({
-      event: "amazon_click",
-      category: "barrinhas",
-      product_name: product.name,
-      value: product.price || 0,
+    // 1. Extrai ASIN da URL
+    const asinMatch = product.affiliateUrl.match(/\/dp\/([A-Z0-9]{10})/);
+    const asin = asinMatch ? asinMatch[1] : 'SEM_ASIN';
+
+    // 2. Cria nome detalhado
+    const nomeRelatorio = `${product.name} - ${asin}`;
+
+    sendGAEvent('event', 'click_na_oferta', {
+      produto_nome: nomeRelatorio, // Mesmo padrão da creatina
+      produto_id: product.id,
+      valor: product.price || 0,
+      loja: "Amazon",
+      asin: asin,
+      categoria: "barrinhas" // Diferencial para filtrar depois
     });
   };
 

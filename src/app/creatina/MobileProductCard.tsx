@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { CreatineForm } from "@prisma/client";
 import { useState } from "react";
+// ✅ IMPORTAÇÃO CORRETA PARA ANALYTICS NO NEXT.JS
+import { sendGAEvent } from '@next/third-parties/google';
 
 export type Product = {
   id: string;
@@ -44,35 +46,23 @@ export function MobileProductCard({
 
   const shouldShowCarbTag = product.hasCarbs || product.form === "GUMMY";
 
-  // 🚀 FUNÇÃO DE RASTREIO BLINDADA (Garante o envio no clique de saída)
+  // 🚀 FUNÇÃO DE RASTREIO ATUALIZADA (NOME + ASIN + CATEGORIA)
   const handleTrackClick = () => {
-    if (typeof window !== "undefined") {
-      // @ts-ignore
-      const gtag = window.gtag;
+    // 1. Tenta extrair o ASIN da URL (ex: .../dp/B0BBSKK8B7?tag=...)
+    const asinMatch = product.affiliateUrl.match(/\/dp\/([A-Z0-9]{10})/);
+    const asin = asinMatch ? asinMatch[1] : 'SEM_ASIN';
 
-      if (gtag) {
-        // Envia com transport: beacon para garantir que o evento saia antes da mudança de página
-        gtag("event", "amazon_click", {
-          category: "creatina",
-          product_name: product.name,
-          value: product.price || 0,
-          currency: "BRL",
-          transport_type: "beacon"
-        });
-      } else {
-        // Fallback para DataLayer
-        // @ts-ignore
-        window.dataLayer = window.dataLayer || [];
-        // @ts-ignore
-        window.dataLayer.push({
-          event: "amazon_click",
-          category: "creatina",
-          product_name: product.name,
-          price: product.price || 0,
-          currency: "BRL"
-        });
-      }
-    }
+    // 2. Cria o nome combinado para o relatório
+    const nomeRelatorio = `${product.name} - ${asin}`;
+
+    sendGAEvent('event', 'click_na_oferta', {
+      produto_nome: nomeRelatorio, // Nome + ASIN
+      produto_id: product.id,
+      valor: product.price || 0,
+      loja: "Amazon",
+      asin: asin, // Envia o ASIN separado também
+      categoria: "creatina" // ✅ Categoria adicionada para filtrar nos relatórios
+    });
   };
 
   return (

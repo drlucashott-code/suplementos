@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { sendGAEvent } from "@next/third-parties/google"; // 🚀 Rastreio GA4
+// ✅ Importação correta do GA4
+import { sendGAEvent } from "@next/third-parties/google"; 
 
 export type WheyProduct = {
   id: string;
@@ -50,13 +51,22 @@ export function MobileProductCard({
       ? (reviewsCount / 1000).toFixed(1).replace(".", ",") + " mil"
       : reviewsCount.toString();
 
-  // 🚀 Função para rastrear clique em Whey
+  // 🚀 FUNÇÃO DE RASTREIO PADRONIZADA (IGUAL CREATINA/BARRINHA)
   const handleTrackClick = () => {
-    sendGAEvent({
-      event: "amazon_click",
-      category: "whey",
-      product_name: product.name,
-      value: product.price || 0,
+    // 1. Extrai ASIN da URL
+    const asinMatch = product.affiliateUrl.match(/\/dp\/([A-Z0-9]{10})/);
+    const asin = asinMatch ? asinMatch[1] : 'SEM_ASIN';
+
+    // 2. Cria nome detalhado
+    const nomeRelatorio = `${product.name} - ${asin}`;
+
+    sendGAEvent('event', 'click_na_oferta', {
+      produto_nome: nomeRelatorio, // Padrão unificado
+      produto_id: product.id,
+      valor: product.price || 0,
+      loja: "Amazon",
+      asin: asin,
+      categoria: "whey" // Diferencial para filtrar depois
     });
   };
 
@@ -215,7 +225,7 @@ export function MobileProductCard({
           href={product.affiliateUrl}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={handleTrackClick} // 🚀 Rastreio inserido aqui
+          onClick={handleTrackClick} 
           className="mt-auto bg-[#FFD814] border border-[#FCD200] rounded-full py-2.5 text-[13px] text-center font-medium shadow-sm active:scale-95 transition-transform text-[#0F1111]"
         >
           Ver na Amazon
