@@ -109,33 +109,16 @@ export function MobileProductCard({
           )}
         </div>
 
-        {/* --- NOVA ÁREA DE CÁLCULO VISUAL (Preço/Barra | Proteína = Custo Benefício) --- */}
-        <div className="flex flex-wrap items-center gap-1.5 mb-2 mt-1">
-          
-          {/* Bloco Unificado: Dados da conta (Cinza Neutro) */}
-          <div className="flex items-center border border-zinc-300 rounded overflow-hidden text-[10px] bg-white">
-             {/* Parte 1: Preço por barra */}
-             <span className="px-1.5 py-0.5 text-zinc-600 font-medium bg-zinc-50">
-                R$ {product.pricePerBar.toFixed(2).replace(".", ",")}
-             </span>
-             
-             {/* Divisor Vertical */}
-             <div className="w-[1px] self-stretch bg-zinc-300"></div>
-
-             {/* Parte 2: Proteína por barra */}
-             <span className="px-1.5 py-0.5 text-zinc-800 font-bold bg-zinc-50">
-                {product.proteinPerBar}g PROT
-             </span>
-          </div>
-
-          {/* Símbolo de Igual */}
-          <span className="text-zinc-400 text-[12px] font-bold leading-none">=</span>
-
-          {/* Resultado: Custo Benefício (Verde Destaque) */}
-          <span className="text-[10px] bg-green-100 text-green-800 border border-green-300 px-1.5 py-0.5 rounded font-bold uppercase tracking-tight">
-             R$ {product.pricePerGramProtein.toFixed(2).replace(".", ",")} / g
+        {/* Selos Nutricionais (Sincronizados com o padrão Whey) */}
+        <div className="flex flex-wrap gap-1.5 mb-1.5 mt-0.5">
+          {/* Selo Azul: Proteína por barra */}
+          <span className="text-[10px] bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded border border-blue-200 font-bold uppercase tracking-tight">
+            {product.proteinPerBar}G PROTEÍNA / BARRA
           </span>
-
+          {/* Selo Cinza: Preço por barra */}
+          <span className="text-[10px] bg-zinc-50 text-zinc-600 px-1.5 py-0.5 rounded border border-zinc-200 font-medium italic">
+            R$ {product.pricePerBar.toFixed(2).replace(".", ",")} / barra
+          </span>
         </div>
 
         {/* Selos de Menor Preço */}
@@ -203,8 +186,10 @@ export function MobileProductCard({
                   </div>
                 )}
               </div>
-              
-              {/* OBS: O texto antigo de R$/g que ficava aqui foi removido pois agora está em destaque no topo */}
+
+              <div className="text-[12px] text-[#0F1111] mt-0.5 font-medium">
+                (R$ {product.pricePerGramProtein.toFixed(2).replace(".", ",")} / g de proteína)
+              </div>
             </>
           ) : (
             <p className="text-[13px] text-zinc-800 italic">Preço indisponível</p>
