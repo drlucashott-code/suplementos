@@ -5,42 +5,42 @@ import { extractAmazonASIN } from "@/lib/extractAmazonASIN";
 import { revalidatePath } from "next/cache";
 
 /* ==========================================================================
-   CREATE (BEBIDA PROTEICA)
+   CREATE (BARRA)
    ========================================================================== */
-export async function createBebidaProteicaAction(formData: FormData) {
+export async function createBarraAction(formData: FormData) {
   const name = formData.get("name") as string;
   const brand = formData.get("brand") as string;
   const flavor = (formData.get("flavor") as string) || null;
   const imageUrl = (formData.get("imageUrl") as string) || "";
 
-  const unitsPerPack = Math.floor(Number(formData.get("unitsPerPack"))); 
-  const volumePerUnitInMl = Number(formData.get("volumePerUnitInMl"));                  
-  const proteinPerUnitInGrams = Number(formData.get("proteinPerUnitInGrams"));
+  const unitsPerBox = Math.floor(Number(formData.get("unitsPerBox"))); 
+  const doseInGrams = Number(formData.get("doseInGrams"));                  
+  const proteinPerDoseInGrams = Number(formData.get("proteinPerDoseInGrams"));
 
   const amazonAsinRaw = (formData.get("amazonAsin") as string | null)?.trim() || null;
 
   if (
     !name ||
     !brand ||
-    unitsPerPack <= 0 ||
-    volumePerUnitInMl <= 0 ||
-    proteinPerUnitInGrams <= 0
+    unitsPerBox <= 0 ||
+    doseInGrams <= 0 ||
+    proteinPerDoseInGrams <= 0
   ) {
     throw new Error("Preencha todos os campos obrigatórios com valores válidos.");
   }
 
   const product = await prisma.product.create({
     data: {
-      category: "bebidaproteica",
+      category: "barra",
       name,
       brand,
       flavor,
       imageUrl,
-      proteinDrinkInfo: {
+      proteinBarInfo: {
         create: {
-          unitsPerPack,
-          volumePerUnitInMl,
-          proteinPerUnitInGrams,
+          unitsPerBox,
+          doseInGrams,
+          proteinPerDoseInGrams,
         },
       },
     },
@@ -67,22 +67,22 @@ export async function createBebidaProteicaAction(formData: FormData) {
     });
   }
 
-  revalidatePath("/admin/bebidaproteica");
+  revalidatePath("/admin/barra");
 }
 
 /* ==========================================================================
-   UPDATE (BEBIDA PROTEICA INDIVIDUAL)
+   UPDATE (BARRA INDIVIDUAL)
    ========================================================================== */
-export async function updateBebidaProteicaAction(formData: FormData) {
+export async function updateBarraAction(formData: FormData) {
   const id = formData.get("id") as string;
   const name = formData.get("name") as string;
   const brand = formData.get("brand") as string;
   const flavor = (formData.get("flavor") as string) || null;
   const imageUrl = (formData.get("imageUrl") as string) || "";
 
-  const unitsPerPack = Math.floor(Number(formData.get("unitsPerPack")));
-  const volumePerUnitInMl = Number(formData.get("volumePerUnitInMl"));
-  const proteinPerUnitInGrams = Number(formData.get("proteinPerUnitInGrams"));
+  const unitsPerBox = Math.floor(Number(formData.get("unitsPerBox")));
+  const doseInGrams = Number(formData.get("doseInGrams"));
+  const proteinPerDoseInGrams = Number(formData.get("proteinPerDoseInGrams"));
 
   const amazonAsinRaw = (formData.get("amazonAsin") as string | null)?.trim() || null;
 
@@ -100,12 +100,12 @@ export async function updateBebidaProteicaAction(formData: FormData) {
     },
   });
 
-  await prisma.proteinDrinkInfo.update({
+  await prisma.proteinBarInfo.update({
     where: { productId: id },
     data: {
-      unitsPerPack,
-      volumePerUnitInMl,
-      proteinPerUnitInGrams,
+      unitsPerBox,
+      doseInGrams,
+      proteinPerDoseInGrams,
     },
   });
 
@@ -145,21 +145,22 @@ export async function updateBebidaProteicaAction(formData: FormData) {
     }
   }
 
-  revalidatePath("/admin/bebidaproteica");
+  revalidatePath("/admin/barra");
 }
 
 /* ==========================================================================
    BULK UPDATE (EDIÇÃO EM LOTE)
    ========================================================================== */
-export async function bulkUpdateBebidaProteicaAction(ids: string[], data: {
+export async function bulkUpdateBarraAction(ids: string[], data: {
   name?: string;
   brand?: string;
-  unitsPerPack?: number;
-  volumePerUnitInMl?: number;
-  proteinPerUnitInGrams?: number;
+  unitsPerBox?: number;
+  doseInGrams?: number;
+  proteinPerDoseInGrams?: number;
 }) {
   if (!ids.length) throw new Error("Nenhum produto selecionado.");
 
+  // 1. Atualiza os dados na tabela Product (Nome e Marca)
   if (data.name || data.brand) {
     await prisma.product.updateMany({
       where: { id: { in: ids } },
@@ -170,39 +171,42 @@ export async function bulkUpdateBebidaProteicaAction(ids: string[], data: {
     });
   }
 
+  // 2. Atualiza os dados nutricionais e de peso na tabela ProteinBarInfo
   const updatePromises = ids.map(id => 
-    prisma.proteinDrinkInfo.update({
+    prisma.proteinBarInfo.update({
       where: { productId: id },
       data: {
-        ...(data.unitsPerPack !== undefined && { unitsPerPack: data.unitsPerPack }),
-        ...(data.volumePerUnitInMl !== undefined && { volumePerUnitInMl: data.volumePerUnitInMl }),
-        ...(data.proteinPerUnitInGrams !== undefined && { proteinPerUnitInGrams: data.proteinPerUnitInGrams }),
+        ...(data.unitsPerBox !== undefined && { unitsPerBox: data.unitsPerBox }),
+        ...(data.doseInGrams !== undefined && { doseInGrams: data.doseInGrams }),
+        ...(data.proteinPerDoseInGrams !== undefined && { proteinPerDoseInGrams: data.proteinPerDoseInGrams }),
       }
     })
   );
 
   await Promise.all(updatePromises);
 
-  revalidatePath("/admin/bebidaproteica");
+  revalidatePath("/admin/barra");
 }
 
 /* ==========================================================================
    BULK DELETE (EXCLUSÃO EM LOTE)
    ========================================================================== */
-export async function bulkDeleteBebidaProteicaAction(ids: string[]) {
+export async function bulkDeleteBarraAction(ids: string[]) {
   if (!ids.length) throw new Error("Nenhum produto selecionado.");
 
+  // O deleteMany do Prisma cuidará da remoção em massa 
+  // (Certifique-se que o schema possui onDelete: Cascade para as relações)
   await prisma.product.deleteMany({
     where: { id: { in: ids } },
   });
 
-  revalidatePath("/admin/bebidaproteica");
+  revalidatePath("/admin/barra");
 }
 
 /* ==========================================================================
-   DELETE (BEBIDA PROTEICA INDIVIDUAL)
+   DELETE (BARRA INDIVIDUAL)
    ========================================================================== */
-export async function deleteBebidaProteicaAction(formData: FormData) {
+export async function deleteBarraAction(formData: FormData) {
   const id = formData.get("id") as string;
   if (!id) throw new Error("ID inválido.");
 
@@ -210,5 +214,5 @@ export async function deleteBebidaProteicaAction(formData: FormData) {
     where: { id },
   });
 
-  revalidatePath("/admin/bebidaproteica");
+  revalidatePath("/admin/barra");
 }

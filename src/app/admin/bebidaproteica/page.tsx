@@ -1,25 +1,25 @@
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
-import AdminBebidaProteicaWrapper from "./AdminBebidaProteicaWrapper";
+import AdminBarraWrapper from "./AdminBarraWrapper";
 
 /* =========================
     PERFORMANCE & BUILD FIX
     Força a renderização dinâmica para evitar que o Next.js tente 
     pré-renderizar esta página administrativa durante o build, 
     o que resolve o conflito com o Streaming (loading/skeleton).
-    ========================= */
+   ========================= */
 export const dynamic = "force-dynamic";
 
 /**
- * Página Server-Side para Gestão de Bebidas Proteicas
+ * Página Server-Side para Gestão de Barras
  * Agora com suporte total ao schema sincronizado
  */
-export default async function AdminBebidaProteicaPage() {
-  // Busca produtos da categoria 'bebidaproteica' incluindo as tabelas relacionadas
+export default async function AdminBarraPage() {
+  // Busca produtos da categoria 'barra' incluindo as tabelas relacionadas
   const productsRaw = await prisma.product.findMany({
-    where: { category: "bebidaproteica" },
+    where: { category: "barra" },
     include: {
-      proteinDrinkInfo: true, // Tabela específica para bebidas (ml/unid)
+      proteinBarInfo: true, // Agora reconhecido pelo Prisma Client
       offers: {
         where: { store: "AMAZON" },
         orderBy: { createdAt: "desc" },
@@ -44,7 +44,7 @@ export default async function AdminBebidaProteicaPage() {
   // uso de searchParams ou hooks de cliente no Wrapper não quebre o build.
   return (
     <Suspense fallback={null}>
-      <AdminBebidaProteicaWrapper products={products as any} />
+      <AdminBarraWrapper products={products as any} />
     </Suspense>
   );
 }

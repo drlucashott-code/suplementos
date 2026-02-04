@@ -8,9 +8,13 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "update:amazon": "ts-node scripts/updateAmazonPrices.ts",
-    "update:ml": "ts-node scripts/updateMercadoLivrePrices.ts",
-    "import:amazon:creatina": "ts-node scripts/importAmazonCreatines.ts"
+    "update:amazon": "tsx scripts/updateAmazonPrices.ts",
+    "update:ml": "tsx scripts/updateMercadoLivrePrices.ts",
+    "import:amazon:creatina": "tsx scripts/importAmazonCreatines.ts",
+    "db:seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@next/third-parties": "^16.1.1",

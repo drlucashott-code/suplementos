@@ -2,14 +2,16 @@ import "dotenv/config";
 import https from "https";
 import crypto from "node:crypto";
 import { PrismaClient, Store } from "@prisma/client";
+import { chromium } from "playwright";
 
 const prisma = new PrismaClient();
 
 /* ======================
    CONFIGURAÇÕES
 ====================== */
-const REQUEST_DELAY_MS = 2000; // 2 segundos entre lotes (evita erro 429)
-const BATCH_SIZE = 10; // Limite máximo da API por requisição
+const REQUEST_DELAY_MS = 2000; // Delay entre lotes
+const RETRY_DELAY_MS = 3000;   // Delay antes de tentar a API de novo (Double Check)
+const BATCH_SIZE = 10; 
 
 /* ======================
    ENV CHECK
@@ -49,12 +51,68 @@ function getSignatureKey(
 }
 
 /* ======================
+   SCRAPER VALIDATOR (Playwright)
+====================== */
+async function validateOfferWithScraper(asin: string, apiPrice: number): Promise<boolean> {
+  console.log(`      🕵️  Rodando Scraper visual no ASIN ${asin}...`);
+  
+  let browser;
+  try {
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+    
+    // Timeout de 15s para não travar
+    await page.goto(`https://www.amazon.com.br/dp/${asin}`, { timeout: 15000, waitUntil: 'domcontentloaded' });
+    
+    // Seletores comuns de preço
+    const selectors = [
+      '.a-price .a-offscreen', 
+      '#priceblock_ourprice', 
+      '#priceblock_dealprice', 
+      '#corePrice_feature_div .a-offscreen'
+    ];
+
+    let priceText = null;
+    for (const selector of selectors) {
+      try {
+        priceText = await page.$eval(selector, el => el.textContent);
+        if (priceText) break;
+      } catch (e) { continue; }
+    }
+
+    if (!priceText) {
+        console.log(`      ⚠️ Scraper não achou preço visível.`);
+        return false; 
+    }
+
+    // Limpa "R$ 100,00" -> 100.00
+    const scrapedPrice = parseFloat(priceText.replace(/[^\d,]/g, '').replace(',', '.'));
+
+    // Margem de erro de R$ 1,00
+    if (Math.abs(scrapedPrice - apiPrice) < 1.0) {
+      console.log(`      ✅ Validado via HTML! Preço: R$ ${scrapedPrice}`);
+      return true;
+    } else {
+      console.log(`      ⛔ Divergência! API: ${apiPrice} vs HTML: ${scrapedPrice}`);
+      return false;
+    }
+
+  } catch (error) {
+    console.error(`      ❌ Erro no Scraper (Timeou/Captcha):`, error instanceof Error ? error.message : error);
+    return false;
+  } finally {
+    if (browser) await browser.close();
+  }
+}
+
+/* ======================
    API CALL (GetItems)
 ====================== */
-type ApiStatus = "OK" | "OUT_OF_STOCK" | "ERROR";
+type ApiStatus = "OK" | "OUT_OF_STOCK" | "EXCLUDED" | "ERROR";
 
 type PriceResult = {
   price: number;
+  merchantName: string;
   status: ApiStatus;
 };
 
@@ -68,9 +126,8 @@ async function fetchAmazonPricesBatch(
     Resources: [
         "Offers.Listings.Price", 
         "OffersV2.Listings.Price",
-        "Offers.Listings.MerchantInfo",   // Necessário para verificar o nome
-        "OffersV2.Listings.MerchantInfo", // Necessário para verificar o nome
-        "Offers.Summaries.HighestPrice"   // Mantido na request caso precise futuramente, mas não usado na lógica nova
+        "Offers.Listings.MerchantInfo",   
+        "OffersV2.Listings.MerchantInfo"
     ],
     PartnerTag: AMAZON_PARTNER_TAG,
     PartnerType: "Associates",
@@ -114,7 +171,7 @@ async function fetchAmazonPricesBatch(
           if (json?.ItemsResult?.Items) {
             for (const item of json.ItemsResult.Items) {
               let price = 0;
-              let merchantName = "";
+              let merchantName = "Desconhecido";
               
               // Tenta V2 (Buy Box)
               const listingsV2 = item?.OffersV2?.Listings;
@@ -123,7 +180,7 @@ async function fetchAmazonPricesBatch(
                 const p = buyBox?.Price?.Money?.Amount;
                 if (typeof p === "number") {
                     price = p;
-                    merchantName = buyBox?.MerchantInfo?.Name;
+                    merchantName = buyBox?.MerchantInfo?.Name || "Desconhecido";
                 }
               }
 
@@ -133,20 +190,20 @@ async function fetchAmazonPricesBatch(
                  const p1 = listing1?.Price?.Amount;
                  if (typeof p1 === "number") {
                      price = p1;
-                     merchantName = listing1?.MerchantInfo?.Name;
+                     merchantName = listing1?.MerchantInfo?.Name || "Desconhecido";
                  }
               }
 
-              // ====================================================
-              // AJUSTE: Se for Loja Suplemento -> Preço vira 0
-              // ====================================================
+              // Logica de Status
+              let status: ApiStatus = price > 0 ? "OK" : "OUT_OF_STOCK";
+
+              // Filtro de Loja Excluída
               if (merchantName === "Loja Suplemento") {
-                  price = 0; // Força status OUT_OF_STOCK
+                  status = "EXCLUDED";
+                  price = 0; // Zera o preço para não salvar
               }
 
-              results[item.ASIN] = price > 0
-                ? { price, status: "OK" }
-                : { price: 0, status: "OUT_OF_STOCK" };
+              results[item.ASIN] = { price, merchantName, status };
             }
           }
           resolve(results);
@@ -165,14 +222,14 @@ async function fetchAmazonPricesBatch(
    MAIN LOOP
 ====================== */
 async function updateAmazonPrices() {
-  console.log("🚀 Iniciando Update (Modo Estrito: APENAS API)");
-  console.log("ℹ️ Histórico será salvo apenas 1x por dia ou se o preço mudar.\n");
-
+  console.log("🚀 Iniciando Update (API + Double Check + Scraping)");
+  
   const offers = await prisma.offer.findMany({
     where: { store: Store.AMAZON },
     select: {
       id: true,
       externalId: true,
+      price: true,
       product: { select: { name: true } },
     },
     orderBy: { product: { name: "asc" } },
@@ -186,7 +243,7 @@ async function updateAmazonPrices() {
 
     let apiResults: Record<string, PriceResult> = {};
     
-    // Chamada à API
+    // 1. Chamada Principal à API
     try {
       if (asins.length > 0) {
         apiResults = await fetchAmazonPricesBatch(asins);
@@ -202,60 +259,112 @@ async function updateAmazonPrices() {
 
       let finalPrice = 0;
       let logStatus = "";
+      let storeName = result?.merchantName || "---";
 
       if (result && result.status === "OK") {
-        // ✅ SUCESSO: Preço oficial capturado
-        finalPrice = result.price;
-        logStatus = `✅ R$ ${finalPrice}`;
-        
-        // 1. Atualiza Tabela Offer (Sempre)
-        await prisma.offer.update({
-          where: { id: offer.id },
-          data: {
-            price: finalPrice,
-            updatedAt: new Date(),
-            affiliateUrl: `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG}`,
-          },
-        });
+        const proposedPrice = result.price;
+        const currentPrice = offer.price;
+        let isValid = true;
 
-        // 2. Histórico Inteligente (1x por dia ou se mudar)
-        const lastHistory = await prisma.offerPriceHistory.findFirst({
-          where: { offerId: offer.id },
-          orderBy: { createdAt: 'desc' }
-        });
+        // VERIFICAÇÃO DE QUEDA BRUSCA (> 20%)
+        if (currentPrice > 0 && proposedPrice > 0) {
+            const discount = (currentPrice - proposedPrice) / currentPrice;
+            
+            if (discount > 0.20) {
+                console.log(`   ⚠️ Suspeita: Queda de ${(discount * 100).toFixed(0)}% (R$ ${currentPrice} -> R$ ${proposedPrice}). Re-testando...`);
+                
+                // A) Aguarda
+                await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
 
-        const now = new Date();
-        const isSameDay = lastHistory && 
-          lastHistory.createdAt.getDate() === now.getDate() &&
-          lastHistory.createdAt.getMonth() === now.getMonth() &&
-          lastHistory.createdAt.getFullYear() === now.getFullYear();
+                // B) Requisita API novamente (apenas este item)
+                const reCheckResult = await fetchAmazonPricesBatch([asin]);
+                const reCheckData = reCheckResult[asin];
 
-        if (!isSameDay || (lastHistory && lastHistory.price !== finalPrice)) {
-          await prisma.offerPriceHistory.create({
-            data: { offerId: offer.id, price: finalPrice },
-          });
-          logStatus += " | 💾 Histórico +1";
+                if (reCheckData && reCheckData.status === "OK" && reCheckData.price === proposedPrice) {
+                    // C) API confirmou 2x. Agora vai pro Scraping.
+                    const scraped = await validateOfferWithScraper(asin, proposedPrice);
+                    if (!scraped) {
+                        isValid = false;
+                        logStatus = "🛡️ Bloqueado pelo Scraper";
+                        storeName = result.merchantName;
+                    }
+                } else {
+                    // Preço mudou no re-check ou deu erro
+                    isValid = false;
+                    logStatus = "🛡️ Bloqueado no Double Check da API";
+                }
+            }
+        }
+
+        if (isValid) {
+            finalPrice = proposedPrice;
+            logStatus = `✅ R$ ${finalPrice}`;
+            storeName = result.merchantName;
+            
+            // Atualiza Tabela Offer
+            await prisma.offer.update({
+              where: { id: offer.id },
+              data: {
+                price: finalPrice,
+                updatedAt: new Date(),
+                affiliateUrl: `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG}`,
+              },
+            });
+
+            // Histórico Inteligente
+            const lastHistory = await prisma.offerPriceHistory.findFirst({
+              where: { offerId: offer.id },
+              orderBy: { createdAt: 'desc' }
+            });
+
+            const now = new Date();
+            const isSameDay = lastHistory && 
+              lastHistory.createdAt.getDate() === now.getDate() &&
+              lastHistory.createdAt.getMonth() === now.getMonth() &&
+              lastHistory.createdAt.getFullYear() === now.getFullYear();
+
+            if (!isSameDay || (lastHistory && lastHistory.price !== finalPrice)) {
+              await prisma.offerPriceHistory.create({
+                data: { offerId: offer.id, price: finalPrice },
+              });
+              logStatus += " | 💾 Histórico Salvo";
+            } else {
+              logStatus += " | ⏩ Histórico Mantido";
+            }
         } else {
-          logStatus += " | ⏩ Histórico Ignorado";
+            // Se foi invalidado pelo Scraper/Check, mantém o preço antigo
+            finalPrice = currentPrice;
         }
 
       } else {
-        // ❌ FALHA: Sem estoque, erro ou bloqueio (ou Loja Suplemento)
+        // TRATAMENTO DE ERROS / ESTOQUE
         finalPrice = 0;
-        logStatus = result?.status === "OUT_OF_STOCK" 
-            ? "🔻 Sem Estoque (ou Loja Suplemento)" 
-            : "⚠️ API Bloqueada/Sem Dados";
+        
+        if (result?.status === "EXCLUDED") {
+             logStatus = `🚫 Excluída: ${result.merchantName}`;
+             storeName = result.merchantName;
+        } else if (result?.status === "OUT_OF_STOCK") {
+             logStatus = "🔻 Sem Estoque na API";
+             storeName = result?.merchantName || "Amazon";
+        } else {
+             logStatus = "⚠️ Erro/Sem Dados";
+        }
 
+        // Se não tem preço ou é loja proibida, zera.
         await prisma.offer.update({
           where: { id: offer.id },
           data: { price: 0, updatedAt: new Date() },
         });
       }
 
-      console.log(`   ${name.substring(0, 35).padEnd(35)} [${asin}] | ${logStatus}`);
+      // LOG FINAL FORMATADO
+      // Nome Curto | ASIN | Loja | Status | Histórico
+      const logName = name.substring(0, 25).padEnd(25);
+      const logStore = storeName.substring(0, 15).padEnd(15);
+      
+      console.log(`   ${logName} | ${asin} | 🏪 ${logStore} | ${logStatus}`);
     }
 
-    // Delay obrigatório
     await new Promise((r) => setTimeout(r, REQUEST_DELAY_MS));
   }
 
