@@ -51,7 +51,7 @@ export function MobileProductCard({
 
   const shouldShowCarbTag = product.hasCarbs || product.form === "GUMMY";
 
-  // CÁLCULO: Preço por Dose Real (Pode variar conforme o scoop da marca)
+  // CÁLCULO: Preço por Dose Real
   const pricePerDose = (hasPrice && product.doses && product.doses > 0)
     ? (product.price! / product.doses).toFixed(2)
     : null;
@@ -168,7 +168,7 @@ export function MobileProductCard({
            </div>
         </div>
 
-        {/* Selos de Menor Preço (Padrão Original) */}
+        {/* Selos de Menor Preço */}
         {(product.isLowestPrice || product.isLowestPrice7d) && (
           <div className="mb-1">
             <span className="bg-[#B12704] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm">
@@ -177,37 +177,44 @@ export function MobileProductCard({
           </div>
         )}
 
-        {/* Bloco de Preço Estilo Amazon */}
+        {/* Bloco de Preço com Tooltip Alinhado à Direita */}
         <div className="flex flex-col mt-auto">
           {hasPrice ? (
             <>
-              {/* Preço De: */}
-              {product.avgPrice && (Math.round(product.avgPrice * 100) > Math.round(product.price! * 100)) && (
-                  <span className="text-[11px] text-[#565959] line-through">
-                    De: R$ {product.avgPrice.toFixed(2).replace(".", ",")}
+              <div className="flex items-baseline gap-2 flex-wrap">
+                {/* Preço Atual */}
+                <div className="flex items-baseline gap-1">
+                  <span className={`text-[12px] font-medium relative -top-1.5 ${product.discountPercent ? "text-[#CC0C39]" : "text-[#0F1111]"}`}>R$</span>
+                  <span className={`text-[26px] font-medium leading-none ${product.discountPercent ? "text-[#CC0C39]" : "text-[#0F1111]"}`}>
+                    {intCents![0]}
                   </span>
-              )}
+                  <span className={`text-[12px] font-medium relative -top-1.5 ${product.discountPercent ? "text-[#CC0C39]" : "text-[#0F1111]"}`}>
+                    {intCents![1]}
+                  </span>
+                </div>
 
-              {/* Preço Atual */}
-              <div className="flex items-baseline gap-1">
-                <span className={`text-[12px] font-medium relative -top-1.5 ${product.discountPercent ? "text-[#CC0C39]" : "text-[#0F1111]"}`}>R$</span>
-                <span className={`text-[26px] font-medium leading-none ${product.discountPercent ? "text-[#CC0C39]" : "text-[#0F1111]"}`}>
-                  {intCents![0]}
-                </span>
-                <span className={`text-[12px] font-medium relative -top-1.5 ${product.discountPercent ? "text-[#CC0C39]" : "text-[#0F1111]"}`}>
-                  {intCents![1]}
-                </span>
-                
-                {/* Tooltip de Info Preço */}
-                {product.avgPrice && (
-                  <button onClick={() => setShowTooltip(!showTooltip)} className="ml-1 text-zinc-400 relative">
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                {/* Preço Médio e Tooltip à Direita */}
+                {product.avgPrice && (Math.round(product.avgPrice * 100) > Math.round(product.price! * 100)) && (
+                  <div className="flex items-center gap-1 relative">
+                    <span className="text-[11px] text-[#565959] line-through">
+                      De: R$ {product.avgPrice.toFixed(2).replace(".", ",")}
+                    </span>
+                    <button 
+                      onMouseEnter={() => setShowTooltip(true)}
+                      onMouseLeave={() => setShowTooltip(false)}
+                      onClick={() => setShowTooltip(!showTooltip)}
+                      className="text-zinc-400 hover:text-zinc-600 focus:outline-none"
+                    >
+                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                      </svg>
+                    </button>
                     {showTooltip && (
-                      <div className="absolute bottom-5 left-0 z-50 w-48 bg-white border border-gray-200 shadow-xl rounded p-2 text-[10px] text-zinc-600 font-normal leading-tight">
-                        Preço médio dos últimos 30 dias.
+                      <div className="absolute bottom-6 left-0 z-50 w-48 bg-white border border-gray-200 shadow-xl rounded p-2 text-[10px] text-zinc-600 font-normal leading-tight">
+                        O preço &quot;De&quot; é a média dos últimos 30 dias na Amazon.
                       </div>
                     )}
-                  </button>
+                  </div>
                 )}
               </div>
 
@@ -223,11 +230,9 @@ export function MobileProductCard({
 
         {/* Selo Prime e Botão */}
         <div className="mt-2 flex items-center justify-between gap-2">
-            <div className="flex items-center">
-                 <span className="text-[#00A8E1] font-bold italic text-[13px] leading-none flex items-center">
-                    <span className="text-[#FEBD69] text-[16px] mr-0.5">✓</span>prime
-                 </span>
-            </div>
+            <span className="text-[#00A8E1] font-bold italic text-[13px] leading-none flex items-center">
+               <span className="text-[#FEBD69] text-[16px] mr-0.5">✓</span>prime
+            </span>
 
             <a
                 href={product.affiliateUrl}
