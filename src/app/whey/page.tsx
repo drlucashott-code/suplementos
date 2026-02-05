@@ -23,12 +23,13 @@ export const metadata: Metadata = {
   },
 };
 
+// ✅ ATUALIZADO: Tipagem para suportar as novas opções de ordenação
 export type SearchParams = {
   brand?: string;
   flavor?: string;
   weight?: string; 
   priceMax?: string;
-  order?: "cost" | "discount" | "protein";
+  order?: "cost" | "discount" | "protein_percent" | "protein_dose" | "price_dose";
   proteinRange?: string;
   q?: string;
 };
@@ -40,7 +41,9 @@ export default async function WheyPage({
 }) {
   const params = await searchParams;
   const showFallback = process.env.NEXT_PUBLIC_SHOW_FALLBACK_PRICE === "true";
-  const order = params.order ?? "cost";
+  
+  // ✅ Padrão mantido como 'cost' (se vier vazio), mas o front manda 'discount'
+  const order = params.order ?? "discount"; 
   const searchQuery = params.q || "";
 
   const selectedBrands = params.brand?.split(",") ?? [];
@@ -103,7 +106,7 @@ export default async function WheyPage({
     const info = product.wheyInfo;
     const proteinPercentage = (info.proteinPerDoseInGrams / info.doseInGrams) * 100;
 
-    // Filtro de Range de Proteína (Cálculo em tempo real)
+    // Filtro de Range de Proteína
     if (selectedProteinRanges.length > 0) {
       const match = selectedProteinRanges.some(r => {
         const [min, max] = r.split("-").map(Number);
@@ -144,11 +147,11 @@ export default async function WheyPage({
       price: finalPrice,
       affiliateUrl: offer.affiliateUrl,
       
-      // Dados técnicos do Whey
+      // Dados técnicos
       proteinPerDose: info.proteinPerDoseInGrams,
       proteinPercentage: proteinPercentage,
       numberOfDoses: totalDoses,
-      doseWeight: info.doseInGrams, // ✅ ADICIONADO: Campo vindo do DB (wheyInfo)
+      doseWeight: info.doseInGrams, // Campo vindo do DB
       
       pricePerGramProtein,
       avgPrice: avgMonthly,
@@ -158,12 +161,30 @@ export default async function WheyPage({
     };
   });
 
+  // ✅ ORDENAÇÃO CORRIGIDA (5 OPÇÕES)
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => {
+      // 1. Maior desconto
       if (order === "discount") return (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
-      if (order === "protein") return b.proteinPercentage - a.proteinPercentage;
-      return a.pricePerGramProtein - b.pricePerGramProtein;
+      
+      // 2. Maior proteína por dose
+      if (order === "protein_dose") return b.proteinPerDose - a.proteinPerDose;
+      
+      // 3. Maior % de proteína
+      if (order === "protein_percent") return b.proteinPercentage - a.proteinPercentage;
+      
+      // 4. Menor preço por dose
+      if (order === "price_dose") {
+         // Tratamento para evitar divisão por zero (fallback seguro)
+         const priceDoseA = (a.price && a.numberOfDoses) ? (a.price / a.numberOfDoses) : 999999;
+         const priceDoseB = (b.price && b.numberOfDoses) ? (b.price / b.numberOfDoses) : 999999;
+         return priceDoseA - priceDoseB;
+      }
+
+      // 5. Custo-benefício (Padrão e fallback 'cost')
+      // Ordena do menor preço/g para o maior
+      return a.pricePerGramProtein - b.pricePerGramProtein; 
     });
 
   /* =========================
