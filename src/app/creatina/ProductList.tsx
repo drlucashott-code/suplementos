@@ -2,8 +2,9 @@
 
 import { MobileProductCard } from "./MobileProductCard";
 import { CreatineForm } from "@prisma/client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 
+// Definição das propriedades do produto para evitar erros de Build
 export type Product = {
   id: string;
   name: string;
@@ -14,16 +15,23 @@ export type Product = {
   affiliateUrl: string;
   doses: number | null;
   pricePerGram: number;
+  doseWeight: number;
+  creatinePerDose: number;
   discountPercent?: number | null;
   avgPrice?: number | null; 
-  isLowestPrice?: boolean;  
-  isLowestPrice7d?: boolean; // ✅ Adicionado para compatibilidade
+  isLowestPrice?: boolean;   
+  isLowestPrice7d?: boolean; 
   rating?: number;
   reviewsCount?: number;
-  hasCarbs?: boolean;        // ✅ Adicionado para compatibilidade
+  hasCarbs?: boolean;        
 };
 
-// 1. Recebe "viewEventName" (ex: "view_creatina_list") vindo da página
+// ✅ INTERFACE SEM "ANY" PARA PASSAR NO ESLINT
+interface CustomWindow extends Window {
+  gtag?: (command: string, eventName: string, params: Record<string, unknown>) => void;
+  dataLayer?: Record<string, unknown>[];
+}
+
 export function ProductList({ 
   products, 
   viewEventName 
@@ -31,116 +39,88 @@ export function ProductList({
   products: Product[]; 
   viewEventName?: string; 
 }) {
-  // 🚀 PERFORMANCE RADICAL: 
+  const [prevProducts, setPrevProducts] = useState(products);
   const [visibleCount, setVisibleCount] = useState(3);
-  
-  // Elemento invisível que serve como gatilho para carregar mais itens
-  const loadMoreRef = useRef<HTMLDivElement>(null);
-  
-  // Controle para não disparar eventos duplicados
-  const trackedRef = useRef(false);
 
-  // 🔁 Resetar a contagem e o tracking sempre que a lista de produtos (filtros) mudar
-  useEffect(() => {
+  // Reset de estado durante renderização (Performance Fix)
+  if (products !== prevProducts) {
+    setPrevProducts(products);
     setVisibleCount(3);
-    trackedRef.current = false;
-  }, [products]);
+  }
 
-  // 📊 RASTREIO CORRIGIDO: Dispara o evento específico passado pela página
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const trackedRef = useRef<string | null>(null);
+
+  // 📊 RASTREIO (Resolvendo erro de explicit-any no dataLayer)
   useEffect(() => {
-    // Se já rastreou ou não foi passado um nome de evento, ignora
-    if (trackedRef.current || !viewEventName) return;
+    if (!viewEventName || trackedRef.current === viewEventName) return;
 
-    if (typeof window !== "undefined") {
-      // Prioriza GTAG para garantir envio rápido
-      if ((window as any).gtag) {
-        (window as any).gtag("event", viewEventName, {
-          category: "creatina",
-          total_products: products.length
-        });
-      } 
-      // Fallback para DataLayer
-      else {
-        (window as any).dataLayer = (window as any).dataLayer || [];
-        (window as any).dataLayer.push({
-          event: viewEventName,
-          category: "creatina",
-          total_products: products.length
-        });
-      }
+    const win = window as unknown as CustomWindow;
+
+    if (win.gtag) {
+      win.gtag("event", viewEventName, {
+        category: "creatina",
+        total_products: products.length
+      });
+    } else {
+      // ✅ Inicialização e push tipados corretamente
+      win.dataLayer = win.dataLayer || [];
+      win.dataLayer.push({
+        event: viewEventName,
+        category: "creatina",
+        total_products: products.length
+      });
     }
 
-    trackedRef.current = true;
-  }, [products, viewEventName]);
+    trackedRef.current = viewEventName;
+  }, [products.length, viewEventName]);
 
-  // ♾️ Lógica de Infinite Scroll com Intersection Observer
+  // ♾️ INFINITE SCROLL
   useEffect(() => {
+    const currentTarget = loadMoreRef.current;
+    
     const observer = new IntersectionObserver(
       (entries) => {
-        const firstEntry = entries[0];
-
-        // Se o sentinela entrar na viewport, carregamos mais 20 produtos
-        if (firstEntry.isIntersecting && products.length > visibleCount) {
+        if (entries[0].isIntersecting && products.length > visibleCount) {
           setVisibleCount((prev) => prev + 20);
         }
       },
-      { 
-        threshold: 0.1,
-        // rootMargin de 200px faz o carregamento começar ANTES do usuário chegar no fim
-        rootMargin: "200px" 
-      }
+      { threshold: 0.1, rootMargin: "200px" }
     );
 
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
-    }
+    if (currentTarget) observer.observe(currentTarget);
 
     return () => {
-      if (loadMoreRef.current) {
-        observer.unobserve(loadMoreRef.current);
-      }
+      if (currentTarget) observer.unobserve(currentTarget);
     };
   }, [visibleCount, products.length]);
 
-  const visibleProducts = products.slice(0, visibleCount);
+  const visibleProducts = useMemo(() => products.slice(0, visibleCount), [products, visibleCount]);
   const hasMore = products.length > visibleCount;
 
   return (
     <section className="flex-1 space-y-4">
-      {/* Listagem de Cards */}
       {visibleProducts.map((product, index) => (
         <MobileProductCard
           key={product.id}
           product={product}
           isBest={index === 0}
-          /* ⚡ ESTRATÉGIA LCP: 
-              Apenas os 3 primeiros produtos recebem prioridade de carregamento de imagem.
-          */
           priority={index < 3} 
         />
       ))}
 
-      {/* Indicador de Carregamento (Sentinela) */}
       {hasMore && (
-        <div
-          ref={loadMoreRef}
-          className="h-28 flex items-center justify-center"
-        >
+        <div ref={loadMoreRef} className="h-28 flex items-center justify-center">
           <div className="flex flex-col items-center gap-2">
             <div className="w-6 h-6 border-2 border-zinc-300 border-t-blue-500 rounded-full animate-spin" />
-            <p className="text-[12px] text-zinc-600 font-medium">
-              Buscando mais ofertas...
-            </p>
+            <p className="text-[12px] text-zinc-600 font-medium">Buscando mais ofertas...</p>
           </div>
         </div>
       )}
 
-      {/* Estado Vazio (Zero Results) com Cores de Alto Contraste */}
       {products.length === 0 && (
         <div className="text-center py-20 bg-white rounded-xl border border-dashed border-zinc-300 mx-1">
-          <p className="text-zinc-500 text-[14px]">
-            Nenhum suplemento encontrado com estes filtros.
-          </p>
+          <p className="text-zinc-500 text-[14px]">Nenhum suplemento encontrado com estes filtros.</p>
         </div>
       )}
     </section>
