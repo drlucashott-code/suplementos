@@ -1,10 +1,11 @@
 "use server";
 
-import { PrismaClient, Store, CreatineForm } from "@prisma/client";
+import { Store, CreatineForm } from "@prisma/client";
+import { prisma } from "@/lib/prisma"; // 👈 Usando sua instância centralizada
 import { extractAmazonASIN } from "@/lib/extractAmazonASIN";
 import { revalidatePath } from "next/cache";
 
-const prisma = new PrismaClient();
+// ❌ Removida a linha: const prisma = new PrismaClient();
 
 /* =========================
    CREATE (MANUAL)

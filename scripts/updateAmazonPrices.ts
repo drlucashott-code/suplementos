@@ -1,20 +1,17 @@
 import "dotenv/config";
 import https from "https";
 import crypto from "node:crypto";
-import { PrismaClient, Store } from "@prisma/client";
-import { chromium } from "playwright";
-
-const prisma = new PrismaClient();
+import { Store } from "@prisma/client";
+import { prisma } from "../src/lib/prisma";
 
 /* ======================
-   CONFIGURAÇÕES
+    CONFIGURAÇÕES
 ====================== */
-const REQUEST_DELAY_MS = 2000; // Delay entre lotes
-const RETRY_DELAY_MS = 3000;   // Delay antes de tentar a API de novo (Double Check)
+const REQUEST_DELAY_MS = 2000; 
 const BATCH_SIZE = 10; 
 
 /* ======================
-   ENV CHECK
+    ENV CHECK
 ====================== */
 const AMAZON_ACCESS_KEY = process.env.AMAZON_ACCESS_KEY;
 const AMAZON_SECRET_KEY = process.env.AMAZON_SECRET_KEY;
@@ -28,7 +25,7 @@ if (!AMAZON_ACCESS_KEY || !AMAZON_SECRET_KEY || !AMAZON_PARTNER_TAG) {
 }
 
 /* ======================
-   AWS HELPERS (Assinatura)
+    AWS HELPERS (Assinatura)
 ====================== */
 function hmac(key: string | Buffer, data: string): Buffer {
   return crypto.createHmac("sha256", key).update(data).digest();
@@ -38,12 +35,7 @@ function sha256(data: string): string {
   return crypto.createHash("sha256").update(data).digest("hex");
 }
 
-function getSignatureKey(
-  key: string,
-  dateStamp: string,
-  region: string,
-  service: string
-): Buffer {
+function getSignatureKey(key: string, dateStamp: string, region: string, service: string): Buffer {
   const kDate = hmac(`AWS4${key}`, dateStamp);
   const kRegion = hmac(kDate, region);
   const kService = hmac(kRegion, service);
@@ -51,62 +43,7 @@ function getSignatureKey(
 }
 
 /* ======================
-   SCRAPER VALIDATOR (Playwright)
-====================== */
-async function validateOfferWithScraper(asin: string, apiPrice: number): Promise<boolean> {
-  console.log(`      🕵️  Rodando Scraper visual no ASIN ${asin}...`);
-  
-  let browser;
-  try {
-    browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage();
-    
-    // Timeout de 15s para não travar
-    await page.goto(`https://www.amazon.com.br/dp/${asin}`, { timeout: 15000, waitUntil: 'domcontentloaded' });
-    
-    // Seletores comuns de preço
-    const selectors = [
-      '.a-price .a-offscreen', 
-      '#priceblock_ourprice', 
-      '#priceblock_dealprice', 
-      '#corePrice_feature_div .a-offscreen'
-    ];
-
-    let priceText = null;
-    for (const selector of selectors) {
-      try {
-        priceText = await page.$eval(selector, el => el.textContent);
-        if (priceText) break;
-      } catch (e) { continue; }
-    }
-
-    if (!priceText) {
-        console.log(`      ⚠️ Scraper não achou preço visível.`);
-        return false; 
-    }
-
-    // Limpa "R$ 100,00" -> 100.00
-    const scrapedPrice = parseFloat(priceText.replace(/[^\d,]/g, '').replace(',', '.'));
-
-    // Margem de erro de R$ 1,00
-    if (Math.abs(scrapedPrice - apiPrice) < 1.0) {
-      console.log(`      ✅ Validado via HTML! Preço: R$ ${scrapedPrice}`);
-      return true;
-    } else {
-      console.log(`      ⛔ Divergência! API: ${apiPrice} vs HTML: ${scrapedPrice}`);
-      return false;
-    }
-
-  } catch (error) {
-    console.error(`      ❌ Erro no Scraper (Timeou/Captcha):`, error instanceof Error ? error.message : error);
-    return false;
-  } finally {
-    if (browser) await browser.close();
-  }
-}
-
-/* ======================
-   API CALL (GetItems)
+    API CALL (GetItems)
 ====================== */
 type ApiStatus = "OK" | "OUT_OF_STOCK" | "EXCLUDED" | "ERROR";
 
@@ -116,9 +53,14 @@ type PriceResult = {
   status: ApiStatus;
 };
 
-async function fetchAmazonPricesBatch(
-  asins: string[]
-): Promise<Record<string, PriceResult>> {
+// Interface para evitar erros de 'any' no TS
+interface AmazonListing {
+  IsBuyBoxWinner?: boolean;
+  Price?: { Amount?: number; Money?: { Amount: number } };
+  MerchantInfo?: { Name: string };
+}
+
+async function fetchAmazonPricesBatch(asins: string[]): Promise<Record<string, PriceResult>> {
   if (asins.length === 0) return {};
 
   const payload = JSON.stringify({
@@ -131,6 +73,7 @@ async function fetchAmazonPricesBatch(
     ],
     PartnerTag: AMAZON_PARTNER_TAG,
     PartnerType: "Associates",
+    Marketplace: "www.amazon.com.br"
   });
 
   const now = new Date();
@@ -173,10 +116,9 @@ async function fetchAmazonPricesBatch(
               let price = 0;
               let merchantName = "Desconhecido";
               
-              // Tenta V2 (Buy Box)
-              const listingsV2 = item?.OffersV2?.Listings;
+              const listingsV2 = item?.OffersV2?.Listings as AmazonListing[] | undefined;
               if (Array.isArray(listingsV2)) {
-                const buyBox = listingsV2.find((l: any) => l?.IsBuyBoxWinner) ?? listingsV2[0];
+                const buyBox = listingsV2.find((l) => l?.IsBuyBoxWinner) ?? listingsV2[0];
                 const p = buyBox?.Price?.Money?.Amount;
                 if (typeof p === "number") {
                     price = p;
@@ -184,9 +126,8 @@ async function fetchAmazonPricesBatch(
                 }
               }
 
-              // Fallback V1
               if (price === 0) {
-                 const listing1 = item?.Offers?.Listings?.[0];
+                 const listing1 = item?.Offers?.Listings?.[0] as AmazonListing | undefined;
                  const p1 = listing1?.Price?.Amount;
                  if (typeof p1 === "number") {
                      price = p1;
@@ -194,13 +135,11 @@ async function fetchAmazonPricesBatch(
                  }
               }
 
-              // Logica de Status
               let status: ApiStatus = price > 0 ? "OK" : "OUT_OF_STOCK";
 
-              // Filtro de Loja Excluída
               if (merchantName === "Loja Suplemento") {
                   status = "EXCLUDED";
-                  price = 0; // Zera o preço para não salvar
+                  price = 0;
               }
 
               results[item.ASIN] = { price, merchantName, status };
@@ -219,10 +158,10 @@ async function fetchAmazonPricesBatch(
 }
 
 /* ======================
-   MAIN LOOP
+    MAIN LOOP
 ====================== */
 async function updateAmazonPrices() {
-  console.log("🚀 Iniciando Update (API + Double Check + Scraping)");
+  console.log("🚀 Iniciando Update (Lógica original | Sem Scraper | Logs Completos)");
   
   const offers = await prisma.offer.findMany({
     where: { store: Store.AMAZON },
@@ -239,11 +178,10 @@ async function updateAmazonPrices() {
 
   for (let i = 0; i < offers.length; i += BATCH_SIZE) {
     const chunk = offers.slice(i, i + BATCH_SIZE);
-    const asins = chunk.map((o) => o.externalId).filter(Boolean);
+    const asins = chunk.map((o) => o.externalId).filter((id): id is string => !!id);
 
     let apiResults: Record<string, PriceResult> = {};
     
-    // 1. Chamada Principal à API
     try {
       if (asins.length > 0) {
         apiResults = await fetchAmazonPricesBatch(asins);
@@ -253,127 +191,79 @@ async function updateAmazonPrices() {
     }
 
     for (const offer of chunk) {
-      const asin = offer.externalId;
+      const asin = offer.externalId || "---";
       const name = offer.product.name;
       const result = apiResults[asin];
 
       let finalPrice = 0;
       let logStatus = "";
-      let storeName = result?.merchantName || "---";
+      const storeName = result?.merchantName || "---";
 
       if (result && result.status === "OK") {
-        const proposedPrice = result.price;
-        const currentPrice = offer.price;
-        let isValid = true;
+        finalPrice = result.price;
+        logStatus = `✅ R$ ${finalPrice}`;
 
-        // VERIFICAÇÃO DE QUEDA BRUSCA (> 20%)
-        if (currentPrice > 0 && proposedPrice > 0) {
-            const discount = (currentPrice - proposedPrice) / currentPrice;
-            
-            if (discount > 0.20) {
-                console.log(`   ⚠️ Suspeita: Queda de ${(discount * 100).toFixed(0)}% (R$ ${currentPrice} -> R$ ${proposedPrice}). Re-testando...`);
-                
-                // A) Aguarda
-                await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        await prisma.offer.update({
+          where: { id: offer.id },
+          data: {
+            price: finalPrice,
+            updatedAt: new Date(),
+            affiliateUrl: `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG}`,
+          },
+        });
 
-                // B) Requisita API novamente (apenas este item)
-                const reCheckResult = await fetchAmazonPricesBatch([asin]);
-                const reCheckData = reCheckResult[asin];
+        const lastHistory = await prisma.offerPriceHistory.findFirst({
+          where: { offerId: offer.id },
+          orderBy: { createdAt: 'desc' }
+        });
 
-                if (reCheckData && reCheckData.status === "OK" && reCheckData.price === proposedPrice) {
-                    // C) API confirmou 2x. Agora vai pro Scraping.
-                    const scraped = await validateOfferWithScraper(asin, proposedPrice);
-                    if (!scraped) {
-                        isValid = false;
-                        logStatus = "🛡️ Bloqueado pelo Scraper";
-                        storeName = result.merchantName;
-                    }
-                } else {
-                    // Preço mudou no re-check ou deu erro
-                    isValid = false;
-                    logStatus = "🛡️ Bloqueado no Double Check da API";
-                }
-            }
-        }
+        const now = new Date();
+        const isSameDay = lastHistory && 
+          lastHistory.createdAt.toDateString() === now.toDateString();
 
-        if (isValid) {
-            finalPrice = proposedPrice;
-            logStatus = `✅ R$ ${finalPrice}`;
-            storeName = result.merchantName;
-            
-            // Atualiza Tabela Offer
-            await prisma.offer.update({
-              where: { id: offer.id },
-              data: {
-                price: finalPrice,
-                updatedAt: new Date(),
-                affiliateUrl: `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG}`,
-              },
-            });
-
-            // Histórico Inteligente
-            const lastHistory = await prisma.offerPriceHistory.findFirst({
-              where: { offerId: offer.id },
-              orderBy: { createdAt: 'desc' }
-            });
-
-            const now = new Date();
-            const isSameDay = lastHistory && 
-              lastHistory.createdAt.getDate() === now.getDate() &&
-              lastHistory.createdAt.getMonth() === now.getMonth() &&
-              lastHistory.createdAt.getFullYear() === now.getFullYear();
-
-            if (!isSameDay || (lastHistory && lastHistory.price !== finalPrice)) {
-              await prisma.offerPriceHistory.create({
-                data: { offerId: offer.id, price: finalPrice },
-              });
-              logStatus += " | 💾 Histórico Salvo";
-            } else {
-              logStatus += " | ⏩ Histórico Mantido";
-            }
+        if (!isSameDay || (lastHistory && lastHistory.price !== finalPrice)) {
+          await prisma.offerPriceHistory.create({
+            data: { offerId: offer.id, price: finalPrice },
+          });
+          logStatus += " | 💾 Histórico Salvo";
         } else {
-            // Se foi invalidado pelo Scraper/Check, mantém o preço antigo
-            finalPrice = currentPrice;
+          logStatus += " | ⏩ Histórico Mantido";
         }
 
       } else {
-        // TRATAMENTO DE ERROS / ESTOQUE
         finalPrice = 0;
         
         if (result?.status === "EXCLUDED") {
              logStatus = `🚫 Excluída: ${result.merchantName}`;
-             storeName = result.merchantName;
         } else if (result?.status === "OUT_OF_STOCK") {
              logStatus = "🔻 Sem Estoque na API";
-             storeName = result?.merchantName || "Amazon";
         } else {
-             logStatus = "⚠️ Erro/Sem Dados";
+             logStatus = "⚠️ Erro/Sem Dados API"; // Diferenciando erro de falta de estoque
         }
 
-        // Se não tem preço ou é loja proibida, zera.
         await prisma.offer.update({
           where: { id: offer.id },
           data: { price: 0, updatedAt: new Date() },
         });
       }
 
-      // LOG FINAL FORMATADO
-      // Nome Curto | ASIN | Loja | Status | Histórico
       const logName = name.substring(0, 25).padEnd(25);
       const logStore = storeName.substring(0, 15).padEnd(15);
       
-      console.log(`   ${logName} | ${asin} | 🏪 ${logStore} | ${logStatus}`);
+      console.log(`   ${logName} | ${asin.padEnd(10)} | 🏪 ${logStore} | ${logStatus}`);
     }
 
-    await new Promise((r) => setTimeout(r, REQUEST_DELAY_MS));
+    if (i + BATCH_SIZE < offers.length) {
+        await new Promise((r) => setTimeout(r, REQUEST_DELAY_MS));
+    }
   }
 
   console.log("\n🏁 Finalizado.");
-  await prisma.$disconnect();
 }
 
 updateAmazonPrices().catch(async (err) => {
   console.error(err);
-  await prisma.$disconnect();
   process.exit(1);
+}).finally(async () => {
+  await prisma.$disconnect();
 });
