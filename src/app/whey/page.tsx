@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { Suspense } from "react"; // <--- ADICIONADO PARA CORRIGIR O BUILD
+import { Suspense } from "react"; 
 import { prisma } from "@/lib/prisma";
 import { ProductList } from "./ProductList";
 import { FloatingFiltersBar } from "./FloatingFiltersBar";
@@ -8,14 +8,12 @@ import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 /* =========================
-    PERFORMANCE & BUILD FIX
-    O uso de force-dynamic resolve o erro de 'missing-suspense' na Vercel
-    ao garantir que a página seja processada dinamicamente no servidor.
+   PERFORMANCE & BUILD FIX
    ========================= */
 export const dynamic = "force-dynamic";
 
 /* =========================
-    METADATA (SEO)
+   METADATA (SEO)
    ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — Whey Protein",
@@ -105,6 +103,7 @@ export default async function WheyPage({
     const info = product.wheyInfo;
     const proteinPercentage = (info.proteinPerDoseInGrams / info.doseInGrams) * 100;
 
+    // Filtro de Range de Proteína (Cálculo em tempo real)
     if (selectedProteinRanges.length > 0) {
       const match = selectedProteinRanges.some(r => {
         const [min, max] = r.split("-").map(Number);
@@ -144,9 +143,13 @@ export default async function WheyPage({
       flavor: product.flavor,
       price: finalPrice,
       affiliateUrl: offer.affiliateUrl,
+      
+      // Dados técnicos do Whey
       proteinPerDose: info.proteinPerDoseInGrams,
       proteinPercentage: proteinPercentage,
       numberOfDoses: totalDoses,
+      doseWeight: info.doseInGrams, // ✅ ADICIONADO: Campo vindo do DB (wheyInfo)
+      
       pricePerGramProtein,
       avgPrice: avgMonthly,
       discountPercent,
