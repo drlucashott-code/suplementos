@@ -170,7 +170,7 @@ export function MobileProductCard({
         {(product.isLowestPrice || product.isLowestPrice7d) && (
           <div className="mb-1">
             <span className="bg-[#B12704] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm">
-              {product.isLowestPrice ? "Menor preço em 30 dias" : "Menor preço em 7 dias"}
+              {product.isLowestPrice ? "Menor preço dos últimos 30 dias" : "Menor preço dos últimos 7 dias"}
             </span>
           </div>
         )}
