@@ -53,7 +53,6 @@ type PriceResult = {
   status: ApiStatus;
 };
 
-// Interface para evitar erros de 'any' no TS
 interface AmazonListing {
   IsBuyBoxWinner?: boolean;
   Price?: { Amount?: number; Money?: { Amount: number } };
@@ -161,7 +160,7 @@ async function fetchAmazonPricesBatch(asins: string[]): Promise<Record<string, P
     MAIN LOOP
 ====================== */
 async function updateAmazonPrices() {
-  console.log("🚀 Iniciando Update (Lógica original | Sem Scraper | Logs Completos)");
+  console.log("🚀 Iniciando Update (Com Verificação de Variação > 20%)");
   
   const offers = await prisma.offer.findMany({
     where: { store: Store.AMAZON },
@@ -193,7 +192,24 @@ async function updateAmazonPrices() {
     for (const offer of chunk) {
       const asin = offer.externalId || "---";
       const name = offer.product.name;
-      const result = apiResults[asin];
+      let result = apiResults[asin];
+
+      // 🔍 LÓGICA DE VERIFICAÇÃO DE VARIAÇÃO (> 20%)
+      if (result && result.status === "OK" && offer.price > 0) {
+        const variation = Math.abs(result.price - offer.price) / offer.price;
+        
+        if (variation > 0.20) {
+          // ✅ Log atualizado: Porcentagem - Valor encontrado
+          console.log(`   ⏳ Variação Brusca (${(variation * 100).toFixed(1)}% - R$ ${result.price}) em ${asin}. Re-checando em 60s...`);
+          await new Promise((r) => setTimeout(r, 60000));
+          
+          const secondCheck = await fetchAmazonPricesBatch([asin]);
+          if (secondCheck[asin]) {
+            result = secondCheck[asin];
+            console.log(`   🎯 Verificação final para ${asin}: R$ ${result.price}`);
+          }
+        }
+      }
 
       let finalPrice = 0;
       let logStatus = "";
@@ -238,7 +254,7 @@ async function updateAmazonPrices() {
         } else if (result?.status === "OUT_OF_STOCK") {
              logStatus = "🔻 Sem Estoque na API";
         } else {
-             logStatus = "⚠️ Erro/Sem Dados API"; // Diferenciando erro de falta de estoque
+             logStatus = "⚠️ Erro/Sem Dados API";
         }
 
         await prisma.offer.update({
