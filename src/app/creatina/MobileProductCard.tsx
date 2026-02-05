@@ -211,7 +211,7 @@ export function MobileProductCard({
                     </button>
                     {showTooltip && (
                       <div className="absolute bottom-6 left-0 z-50 w-48 bg-white border border-gray-200 shadow-xl rounded p-2 text-[10px] text-zinc-600 font-normal leading-tight">
-                        O preço &quot;De&quot; é a média dos últimos 30 dias na Amazon.
+                        Preço médio dos últimos 30 dias.
                       </div>
                     )}
                   </div>
