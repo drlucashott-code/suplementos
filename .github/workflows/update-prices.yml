@@ -2,20 +2,16 @@ name: Update Prices (Amazon API Only)
 
 on:
   schedule:
-    # Ajustado para 6 em 6 horas (00, 06, 12, 18 UTC)
-    # Estratégia: O SQS cuida das urgências e este faz a manutenção preventiva.
-    - cron: "0 */6 * * *"
+    # Retornado para 4 em 4 horas (00, 04, 08, 12, 16, 20 UTC)
+    - cron: "0 */4 * * *"
 
-  workflow_dispatch: # Permite rodar manualmente pelo botão no GitHub se precisar
+  workflow_dispatch: # Permite rodar manualmente pelo botão se precisar
 
 jobs:
   update-prices:
     runs-on: ubuntu-latest
 
     steps:
-      # =========================
-      # 1. SETUP BÁSICO
-      # =========================
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -28,27 +24,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # =========================
-      # 2. BANCO DE DADOS
-      # =========================
       - name: Generate Prisma Client
         run: npx prisma generate
 
-      # =========================
-      # 3. EXECUÇÃO (API ONLY)
-      # =========================
       - name: Update Amazon prices
-        # TSX executa o script TypeScript diretamente no ambiente Node
         run: npx tsx scripts/updateAmazonPrices.ts
         env:
-          # Banco de Dados (Configurado nos Secrets do GitHub)
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
-          # Credenciais Amazon (Configuradas nos Secrets do GitHub)
           AMAZON_ACCESS_KEY: ${{ secrets.AMAZON_ACCESS_KEY }}
           AMAZON_SECRET_KEY: ${{ secrets.AMAZON_SECRET_KEY }}
           AMAZON_PARTNER_TAG: ${{ secrets.AMAZON_PARTNER_TAG }}
-          
-          # Configurações Padrão (Fixas para Amazon BR)
           AMAZON_REGION: "us-east-1"
           AMAZON_HOST: "webservices.amazon.com.br"

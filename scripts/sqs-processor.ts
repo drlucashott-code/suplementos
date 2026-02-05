@@ -71,8 +71,8 @@ async function processQueue() {
     try {
       const data = await sqsClient.send(new ReceiveMessageCommand({
         QueueUrl: queueUrl,
-        MaxNumberOfMessages: 10, // Processa em lotes de 10
-        WaitTimeSeconds: 5,      // Long Polling
+        MaxNumberOfMessages: 10, // Processa em lotes de 10 (máximo SQS)
+        WaitTimeSeconds: 5,      // Long Polling para eficiência
       }));
 
       if (!data.Messages || data.Messages.length === 0) {
@@ -202,19 +202,19 @@ async function processQueue() {
           console.log(`   ${logName} | ${asin.padEnd(10)} | 🏪 ${merchantName.padEnd(15)} | ${logStatus}`);
         }
 
-        // Deleta a mensagem após o processamento
+        // Deleta a mensagem após o processamento bem-sucedido
         await sqsClient.send(new DeleteMessageCommand({
           QueueUrl: queueUrl,
           ReceiptHandle: message.ReceiptHandle
         }));
       }
       
-      // Delay de 1s entre mensagens do lote para respeitar o rate limit da Amazon
+      // Delay preventivo para respeitar o rate limit da Amazon dentro do loop
       await new Promise(r => setTimeout(r, 1000));
 
     } catch (err) {
       console.error("💥 Erro no ciclo de processamento:", err);
-      hasMessages = false; // Interrompe o loop em caso de erro crítico
+      hasMessages = false; 
     }
   }
 }
