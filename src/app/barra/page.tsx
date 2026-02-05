@@ -8,12 +8,12 @@ import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 /* =========================
-    PERFORMANCE & CACHE
+   PERFORMANCE & CACHE
    ========================= */
 export const dynamic = "force-dynamic";
 
 /* =========================
-    METADATA (SEO)
+   METADATA (SEO)
    ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — Barra de proteína",
@@ -27,7 +27,8 @@ export type SearchParams = {
   brand?: string;
   flavor?: string;
   priceMax?: string;
-  order?: "cost" | "discount" | "protein_gram" | "cheapest_bar"; // <--- ADICIONADO
+  // ✅ Novas opções de ordenação para Barrinhas
+  order?: "cost" | "discount" | "protein_gram" | "cheapest_bar";
   proteinRange?: string; 
   q?: string;
 };
@@ -40,7 +41,8 @@ export default async function BarraPage({
   const params = await searchParams;
   const showFallback = process.env.NEXT_PUBLIC_SHOW_FALLBACK_PRICE === "true";
   
-  const order = params.order ?? "cost";
+  // Padrão definido para 'cost' (Custo benefício)
+  const order = params.order ?? "discount";
   const searchQuery = params.q || "";
 
   const selectedBrands = params.brand?.split(",") ?? [];
@@ -89,10 +91,13 @@ export default async function BarraPage({
     if (maxPrice !== undefined && finalPrice > maxPrice) return null;
 
     const info = product.proteinBarInfo;
-    const proteinPercentage = (info.proteinPerDoseInGrams / info.doseInGrams) * 100;
+    
+    // Cálculos de Barrinha
     const proteinPerBar = info.proteinPerDoseInGrams;
-    const pricePerBar = finalPrice / info.unitsPerBox; // <--- CÁLCULO PARA O SELO CINZA
-
+    const unitsPerBox = info.unitsPerBox || 1; // Evita divisão por zero
+    const pricePerBar = finalPrice / unitsPerBox; // ✅ Preço unitário calculado
+    
+    // Filtro de Proteína (Gramas por barra)
     if (selectedProteinRanges.length > 0) {
       const match = selectedProteinRanges.some(r => {
         const [min, max] = r.split("-").map(Number);
@@ -101,7 +106,7 @@ export default async function BarraPage({
       if (!match) return null;
     }
 
-    const totalProteinInBox = info.unitsPerBox * info.proteinPerDoseInGrams;
+    const totalProteinInBox = unitsPerBox * proteinPerBar;
     const pricePerGramProtein = finalPrice / totalProteinInBox;
 
     let avgMonthly: number | null = null;
@@ -130,13 +135,15 @@ export default async function BarraPage({
       imageUrl: getOptimizedAmazonUrl(product.imageUrl, 320),
       flavor: product.flavor,
       price: finalPrice,
-      weightPerBar: info.doseInGrams,
       affiliateUrl: offer.affiliateUrl,
+      
+      // Dados Específicos para o Card de Barrinha
+      weightPerBar: info.doseInGrams,
       proteinPerBar: proteinPerBar,
-      pricePerBar: pricePerBar, // <--- ENVIADO PARA O COMPONENTE
-      proteinPercentage, 
       unitsPerBox: info.unitsPerBox,
+      pricePerBar: pricePerBar, // Campo calculado para ordenação
       pricePerGramProtein,
+      
       avgPrice: avgMonthly,
       discountPercent,
       rating: offer.ratingAverage ?? 0,
@@ -147,9 +154,16 @@ export default async function BarraPage({
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => {
+      // 1. Maior desconto
       if (order === "discount") return (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
+      
+      // 2. Maior proteína por unidade (barra)
       if (order === "protein_gram") return b.proteinPerBar - a.proteinPerBar;
-      if (order === "cheapest_bar") return a.pricePerBar - b.pricePerBar; // <--- NOVA ORDENAÇÃO
+      
+      // 3. Menor preço por unidade (barra)
+      if (order === "cheapest_bar") return a.pricePerBar - b.pricePerBar;
+      
+      // 4. Custo-benefício (Preço por grama de proteína) - PADRÃO
       return a.pricePerGramProtein - b.pricePerGramProtein;
     });
 

@@ -41,7 +41,7 @@ export default async function CreatinaPage({
 }) {
   const params = await searchParams;
   const showFallback = process.env.NEXT_PUBLIC_SHOW_FALLBACK_PRICE === "true";
-  const order = params.order ?? "gram";
+  const order = params.order ?? "discount";
   const searchQuery = params.q || "";
 
   const selectedBrands = params.brand?.split(",") ?? [];
@@ -108,10 +108,17 @@ export default async function CreatinaPage({
     if (maxPrice !== undefined && finalPrice > maxPrice) return null;
 
     const info = product.creatineInfo;
-    const totalDosesNoPote = info.totalUnits / info.unitsPerDose;
-    const gramasCreatinaPuraNoPote = totalDosesNoPote * 3;
+    
+    // ✅ CORREÇÃO DE ERRO TS: Usando campos confirmados no seu schema
+    const doseWeight = info.unitsPerDose; // Peso do Scoop (ex: 3g ou 6g)
+    const creatinePerDose = 3; // Valor padrão fixo, já que não existe no seu DB
+    
+    const totalDosesNoPote = info.totalUnits / doseWeight;
+    const gramasCreatinaPuraNoPote = totalDosesNoPote * creatinePerDose;
     const pricePerGramCreatine = finalPrice / gramasCreatinaPuraNoPote;
-    const hasCarbs = info.unitsPerDose > 4;
+    
+    // Identifica carboidratos se o scoop for maior que a creatina pura (ex: scoop de 6g para 3g de creatina)
+    const hasCarbs = doseWeight > (creatinePerDose + 0.5);
 
     let isLowestPrice30 = false;
     let isLowestPrice7 = false;
@@ -161,7 +168,12 @@ export default async function CreatinaPage({
       form: info.form,
       price: finalPrice,
       affiliateUrl: offer.affiliateUrl,
+      
+      // ✅ CAMPOS ENVIADOS PARA O CARD
       doses: totalDosesNoPote,
+      doseWeight: doseWeight,
+      creatinePerDose: creatinePerDose,
+      
       pricePerGram: pricePerGramCreatine,
       hasCarbs,
       avgPrice: avgMonthly,
@@ -238,7 +250,6 @@ export default async function CreatinaPage({
               {finalProducts.length} produtos encontrados em Creatina
             </p>
             <div className="w-full">
-              {/* ProductList configurado com viewEventName para o rastreio automático */}
               <ProductList 
                 products={finalProducts} 
                 viewEventName="view_creatina_list" 

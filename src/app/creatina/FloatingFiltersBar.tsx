@@ -9,8 +9,8 @@ export function FloatingFiltersBar() {
   const router = useRouter();
   const scrollDirection = useScrollDirection();
 
-  // Padrão da creatina: custo por grama
-  const order = searchParams.get("order") ?? "gram";
+  // ✅ CORRIGIDO: Agora o padrão é 'discount' para bater com o que a page.tsx envia
+  const order = searchParams.get("order") ?? "discount";
 
   function openFilters() {
     window.dispatchEvent(new CustomEvent("open-filters"));
@@ -19,7 +19,8 @@ export function FloatingFiltersBar() {
   function changeOrder(value: string) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("order", value);
-    router.push(`/creatina?${params.toString()}`);
+    // scroll: false evita o "pulo" visual ao trocar a ordem
+    router.push(`/creatina?${params.toString()}`, { scroll: false });
   }
 
   const isVisible = scrollDirection !== "down";
@@ -56,8 +57,9 @@ export function FloatingFiltersBar() {
               onChange={(e) => changeOrder(e.target.value)}
               className="w-full appearance-none border border-zinc-300 rounded-lg px-3 py-2 bg-zinc-50 text-[13px] text-zinc-900 shadow-sm outline-none pr-9 border-b-zinc-400 active:border-[#e47911] transition-all"
             >
-              <option value="gram">Custo-benefício (valor do princípio ativo)</option>
-              <option value="discount">Desconto</option>
+              {/* ✅ A ordem das opções aqui não afeta a lógica, mas o 'value' deve bater com o padrão acima */}
+              <option value="discount">Maior desconto</option>
+              <option value="gram">Melhor custo-benefício (valor do princípio ativo)</option>
             </select>
 
             <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none border-l border-zinc-300 pl-2">

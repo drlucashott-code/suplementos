@@ -9,8 +9,8 @@ export function FloatingFiltersBar() {
   const router = useRouter();
   const scrollDirection = useScrollDirection();
 
-  // O padrão é 'cost' (custo por grama de proteína)
-  const order = searchParams.get("order") ?? "cost";
+  // O padrão é 'discount' (Maior desconto), igual ao Whey
+  const order = searchParams.get("order") ?? "discount";
 
   function openFilters() {
     // Dispara o evento global que o MobileFiltersDrawer está escutando
@@ -21,12 +21,11 @@ export function FloatingFiltersBar() {
     const params = new URLSearchParams(searchParams.toString());
     params.set("order", value);
     
-    // Navegação garantida na rota de barra
-    router.push(`/barra?${params.toString()}`);
+    // Navegação garantida na rota de barra com scroll false para suavidade
+    router.push(`/barra?${params.toString()}`, { scroll: false });
   }
 
   // Lógica de Performance e UX: 
-  // A barra utiliza translate-y para evitar repaints caros ao esconder/mostrar no scroll.
   const isVisible = scrollDirection !== "down";
 
   return (
@@ -63,10 +62,10 @@ export function FloatingFiltersBar() {
               onChange={(e) => changeOrder(e.target.value)}
               className="w-full appearance-none border border-zinc-300 rounded-lg px-3 py-2 bg-zinc-50 text-[13px] text-zinc-900 shadow-sm outline-none pr-9 border-b-zinc-400 active:border-[#e47911] transition-all"
             >
-              <option value="cost">Custo-benefício (valor do princípio ativo)</option>
-              <option value="discount">Desconto</option>
-              <option value="cheapest_bar">Preço por barra (unidade)</option>
-                            <option value="protein_gram">Proteína por barra (g)</option>
+              <option value="discount">Maior desconto</option>
+              <option value="protein_gram">Maior proteína/unidade</option>
+              <option value="cheapest_bar">Menor preço/unidade</option>
+              <option value="cost">Melhor custo-benefício (valor do princípio ativo)</option>
             </select>
             
             {/* Indicador Visual do Select (Seta) */}

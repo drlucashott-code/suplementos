@@ -16,6 +16,11 @@ export type Product = {
   affiliateUrl: string;
   doses: number | null;
   pricePerGram: number;
+  
+  // ✅ CAMPOS VINDOS DO BANCO DE DADOS
+  doseWeight: number;         // Peso do Scoop (ex: 3g, 5g)
+  creatinePerDose: number;    // Qtd de Creatina pura no scoop (ex: 3g)
+
   discountPercent?: number | null;
   avgPrice?: number | null; 
   isLowestPrice?: boolean;   // Menor preço em 30 dias
@@ -46,67 +51,71 @@ export function MobileProductCard({
 
   const shouldShowCarbTag = product.hasCarbs || product.form === "GUMMY";
 
-  // 🚀 FUNÇÃO DE RASTREIO ATUALIZADA (NOME + ASIN + CATEGORIA)
+  // CÁLCULO: Preço por Dose Real (Pode variar conforme o scoop da marca)
+  const pricePerDose = (hasPrice && product.doses && product.doses > 0)
+    ? (product.price! / product.doses).toFixed(2)
+    : null;
+
+  // 🚀 FUNÇÃO DE RASTREIO ATUALIZADA
   const handleTrackClick = () => {
-    // 1. Tenta extrair o ASIN da URL (ex: .../dp/B0BBSKK8B7?tag=...)
     const asinMatch = product.affiliateUrl.match(/\/dp\/([A-Z0-9]{10})/);
     const asin = asinMatch ? asinMatch[1] : 'SEM_ASIN';
-
-    // 2. Cria o nome combinado para o relatório
     const nomeRelatorio = `${product.name} - ${asin}`;
 
     sendGAEvent('event', 'click_na_oferta', {
-      produto_nome: nomeRelatorio, // Nome + ASIN
+      produto_nome: nomeRelatorio, 
       produto_id: product.id,
       valor: product.price || 0,
       loja: "Amazon",
-      asin: asin, // Envia o ASIN separado também
-      categoria: "creatina" // ✅ Categoria adicionada para filtrar nos relatórios
+      asin: asin, 
+      categoria: "creatina" 
     });
   };
 
   return (
-    <div className="flex gap-3 border-b border-gray-100 bg-white relative items-stretch min-h-[260px]">
+    <div className="flex gap-3 border-b border-gray-100 bg-white relative items-stretch min-h-[290px] font-sans">
       
-      {/* Selo de % OFF (Estilo Amazon) */}
+      {/* Selo de % OFF */}
       {hasPrice && product.discountPercent && (
-        <div className="absolute top-4 left-0 z-10 bg-[#CC0C39] text-white text-[11px] font-bold px-2 py-0.5 rounded-r-sm shadow-sm">
+        <div className="absolute top-3 left-0 z-10 bg-[#CC0C39] text-white text-[11px] font-bold px-2 py-0.5 rounded-r-sm shadow-sm">
           {product.discountPercent}% OFF
         </div>
       )}
 
-      {/* Coluna da Imagem */}
-      <div className="w-[140px] bg-[#f3f3f3] flex-shrink-0 overflow-hidden relative flex items-center justify-center p-2">
+      {/* Coluna da Imagem (Fundo Branco Padrão) */}
+      <div className="w-[130px] bg-white flex-shrink-0 flex items-center justify-center p-2 relative">
+        <div className="absolute inset-2 bg-zinc-50 rounded-lg -z-10" />
         <Image
           src={product.imageUrl}
           alt={product.name}
-          width={230}
-          height={230}
-          sizes="140px"
+          width={200}
+          height={200}
+          sizes="130px"
           priority={priority} 
-          className="w-full h-auto max-h-[220px] object-contain mix-blend-multiply"
+          className="w-full h-auto max-h-[180px] object-contain mix-blend-multiply"
         />
       </div>
 
       {/* Coluna de Informações */}
-      <div className="flex flex-col flex-1 pr-2 py-4">
-        <h2 className="text-[14px] text-[#0F1111] leading-tight line-clamp-3 mb-1 font-normal">
+      <div className="flex flex-col flex-1 pr-3 py-3">
+        {/* Título */}
+        <h2 className="text-[14px] text-[#0F1111] leading-[1.2] line-clamp-2 mb-1 font-normal hover:text-[#C7511F] transition-colors cursor-pointer">
           {product.name}
         </h2>
 
         {/* Avaliações */}
-        <div className="flex items-center gap-1 mb-1 text-[12px]">
-          <span className="font-normal text-[#0F1111]">{rating.toFixed(1)}</span>
-          <div className="flex text-[#e47911] text-[10px] tracking-tighter" aria-hidden="true">
+        <div className="flex items-center gap-1 mb-1">
+          <span className="text-[12px] font-normal text-[#0F1111]">{rating.toFixed(1)}</span>
+          <div className="flex text-[#DE7921] text-[12px] tracking-tighter" aria-hidden="true">
             {[...Array(5)].map((_, i) => (
               <span key={i}>{i < Math.floor(rating) ? "★" : "☆"}</span>
             ))}
           </div>
-          <span className="text-[#007185]">({formattedCount})</span>
+          <span className="text-[11px] text-[#565959]">({formattedCount})</span>
         </div>
 
         {/* Info secundária: Sabor e Doses */}
-        <div className="flex flex-wrap items-center gap-x-1.5 text-[12px] text-zinc-600 mb-1">
+        <div className="flex flex-wrap items-center gap-x-1.5 text-[12px] text-zinc-600 mb-2">
           {product.flavor && (
             <span>Sabor: <b className="text-[#0F1111] font-medium">{product.flavor}</b></span>
           )}
@@ -120,108 +129,116 @@ export function MobileProductCard({
 
         {/* Tag de Carboidrato */}
         {shouldShowCarbTag && (
-          <div className="mb-1">
+          <div className="mb-2">
             <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 font-medium">
-              Contém carboidratos
+              ⚠️ Contém carboidratos
             </span>
           </div>
         )}
 
-        {/* Selos de Menor Preço */}
-        <div className="flex flex-col gap-1 mb-1">
-          {product.isLowestPrice ? (
-            <div className="inline-block">
-              <span className="bg-[#CC0C39] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm">
-                Menor preço em 30 dias
-              </span>
-            </div>
-          ) : product.isLowestPrice7d ? (
-            <div className="inline-block">
-              <span className="bg-[#CC0C39] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm">
-                Menor preço em 7 dias
-              </span>
-            </div>
-          ) : null}
+        {/* --- TABELA TÉCNICA --- */}
+        <div className="bg-zinc-50 border border-zinc-200 rounded p-2 mb-2">
+           <p className="text-[10px] uppercase font-bold text-zinc-500 mb-2 tracking-wide text-center border-b border-zinc-200 pb-1">
+             Análise por dose ({product.doseWeight}g)
+           </p>
+           
+           <div className="flex items-center justify-around text-center pt-1">
+              {/* Coluna 1: Creatina na dose */}
+              <div className="flex flex-col flex-1">
+                 <span className="text-[13px] font-bold text-[#0F1111] leading-none">
+                    {product.creatinePerDose}g
+                 </span>
+                 <span className="text-[9px] text-zinc-500 mt-0.5">creatina</span>
+              </div>
+
+              {/* Divisor Vertical */}
+              <div className="w-[1px] h-6 bg-zinc-300 mx-1"></div>
+
+              {/* Coluna 2: Preço da dose */}
+              <div className="flex flex-col flex-1">
+                 {pricePerDose ? (
+                   <span className="text-[13px] font-bold text-green-700 leading-none">
+                      R$ {pricePerDose.replace('.', ',')}
+                   </span>
+                 ) : (
+                   <span className="text-[13px] font-bold text-zinc-400">-</span>
+                 )}
+                 <span className="text-[9px] text-green-700 font-medium mt-0.5">preço</span>
+              </div>
+           </div>
         </div>
 
+        {/* Selos de Menor Preço (Padrão Original) */}
+        {(product.isLowestPrice || product.isLowestPrice7d) && (
+          <div className="mb-1">
+            <span className="bg-[#B12704] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm">
+              {product.isLowestPrice ? "Menor preço em 30 dias" : "Menor preço em 7 dias"}
+            </span>
+          </div>
+        )}
+
         {/* Bloco de Preço Estilo Amazon */}
-        <div className="flex flex-col mt-1">
+        <div className="flex flex-col mt-auto">
           {hasPrice ? (
             <>
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <div className="flex items-start">
-                  <span className={`text-[12px] mt-1.5 font-medium ${product.discountPercent ? "text-[#CC0C39]" : "text-[#0F1111]"}`}>
-                    R$
+              {/* Preço De: */}
+              {product.avgPrice && (Math.round(product.avgPrice * 100) > Math.round(product.price! * 100)) && (
+                  <span className="text-[11px] text-[#565959] line-through">
+                    De: R$ {product.avgPrice.toFixed(2).replace(".", ",")}
                   </span>
-                  <span className={`text-3xl font-medium tracking-tight leading-none ${product.discountPercent ? "text-[#CC0C39]" : "text-[#0F1111]"}`}>
-                    {intCents![0]}
-                  </span>
-                  <span className={`text-[12px] mt-1.5 font-medium ${product.discountPercent ? "text-[#CC0C39]" : "text-[#0F1111]"}`}>
-                    {intCents![1]}
-                  </span>
-                </div>
+              )}
 
-                {product.avgPrice && (Math.round(product.avgPrice * 100) > Math.round(product.price! * 100)) && (
-                  <div className="relative flex items-center gap-1">
-                    <span className="text-[12px] text-zinc-500">
-                      De: <span className="line-through">R${product.avgPrice.toFixed(2).replace(".", ",")}</span>
-                    </span>
-                    <button 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setShowTooltip(!showTooltip);
-                      }}
-                      className="text-zinc-400 hover:text-zinc-600 focus:outline-none p-0.5"
-                    >
-                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-                      </svg>
-                    </button>
-
+              {/* Preço Atual */}
+              <div className="flex items-baseline gap-1">
+                <span className={`text-[12px] font-medium relative -top-1.5 ${product.discountPercent ? "text-[#CC0C39]" : "text-[#0F1111]"}`}>R$</span>
+                <span className={`text-[26px] font-medium leading-none ${product.discountPercent ? "text-[#CC0C39]" : "text-[#0F1111]"}`}>
+                  {intCents![0]}
+                </span>
+                <span className={`text-[12px] font-medium relative -top-1.5 ${product.discountPercent ? "text-[#CC0C39]" : "text-[#0F1111]"}`}>
+                  {intCents![1]}
+                </span>
+                
+                {/* Tooltip de Info Preço */}
+                {product.avgPrice && (
+                  <button onClick={() => setShowTooltip(!showTooltip)} className="ml-1 text-zinc-400 relative">
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
                     {showTooltip && (
-                      <div className="absolute bottom-6 left-0 z-50 w-64 bg-white border border-gray-200 shadow-xl rounded p-3 text-[12px] text-zinc-700 leading-snug animate-in fade-in zoom-in duration-150">
-                        <p>
-                          Isto é determinado usando o preço médio que os clientes pagaram pelo produto na Amazon nos últimos 30 dias. 
-                        </p>
-                        <button 
-                          onClick={() => setShowTooltip(false)}
-                          className="mt-2 text-blue-600 font-medium block w-full text-left"
-                        >
-                          Fechar
-                        </button>
+                      <div className="absolute bottom-5 left-0 z-50 w-48 bg-white border border-gray-200 shadow-xl rounded p-2 text-[10px] text-zinc-600 font-normal leading-tight">
+                        Preço médio dos últimos 30 dias.
                       </div>
                     )}
-                  </div>
+                  </button>
                 )}
               </div>
 
-              <div className="text-[12px] text-[#0F1111] mt-0.5 font-medium">
+              {/* Preço por Grama */}
+              <div className="text-[10px] text-[#565959] mt-0.5">
                 (R$ {product.pricePerGram.toFixed(2).replace(".", ",")} / g de creatina)
               </div>
             </>
           ) : (
-            <p className="text-[13px] text-zinc-800 italic">Preço indisponível</p>
+            <p className="text-[13px] text-zinc-800 italic">Indisponível</p>
           )}
         </div>
 
-        {/* Selo Prime */}
-        <div className="mt-1.5 flex items-center gap-1">
-          <span className="font-black italic text-[14px] leading-none">
-            <span className="not-italic text-[16px] text-[#FEBD69] mr-0.5" aria-hidden="true">✓</span>
-            <span className="text-[#00A8E1]">prime</span>
-          </span>
-        </div>
+        {/* Selo Prime e Botão */}
+        <div className="mt-2 flex items-center justify-between gap-2">
+            <div className="flex items-center">
+                 <span className="text-[#00A8E1] font-bold italic text-[13px] leading-none flex items-center">
+                    <span className="text-[#FEBD69] text-[16px] mr-0.5">✓</span>prime
+                 </span>
+            </div>
 
-        {/* Botão de Conversão */}
-        <a
-          href={product.affiliateUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={handleTrackClick} 
-          className="mt-auto bg-[#FFD814] border border-[#FCD200] rounded-full py-2.5 text-[13px] text-center font-medium shadow-sm active:scale-95 transition-transform text-[#0F1111]"
-        >
-          Ver na Amazon
-        </a>
+            <a
+                href={product.affiliateUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={handleTrackClick}
+                className="bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-full px-4 py-1.5 text-[12px] text-[#0F1111] font-medium shadow-sm active:scale-95 transition-all text-center whitespace-nowrap"
+            >
+                Ver na Amazon
+            </a>
+        </div>
       </div>
     </div>
   );

@@ -18,7 +18,7 @@ export type WheyProduct = {
   numberOfDoses: number | null;
   pricePerGramProtein: number;
   
-  // ✅ NOVO CAMPO: Vindo do banco de dados
+  // ✅ Campo vindo do banco de dados
   doseWeight: number; 
   
   discountPercent?: number | null;
@@ -83,7 +83,7 @@ export function MobileProductCard({
         </div>
       )}
 
-      {/* Coluna da Imagem */}
+      {/* Coluna da Imagem (Fundo Branco) */}
       <div className="w-[130px] bg-white flex-shrink-0 flex items-center justify-center p-2 relative">
         <div className="absolute inset-2 bg-zinc-50 rounded-lg -z-10" />
         <Image
@@ -204,7 +204,7 @@ export function MobileProductCard({
                 </span>
               </div>
               
-              {/* Preço por grama (MANTIDO ONDE ERA) */}
+              {/* Preço por grama */}
               <div className="text-[10px] text-[#565959] mt-0.5">
                 (R$ {product.pricePerGramProtein.toFixed(2).replace(".", ",")} / g de proteína)
               </div>
@@ -229,7 +229,7 @@ export function MobileProductCard({
                 onClick={handleTrackClick}
                 className="bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-full px-4 py-1.5 text-[12px] text-[#0F1111] font-medium shadow-sm active:scale-95 transition-all text-center whitespace-nowrap"
             >
-                Ver Oferta
+                Ver na Amazon
             </a>
         </div>
       </div>
