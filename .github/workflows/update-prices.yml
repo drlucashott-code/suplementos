@@ -2,10 +2,12 @@ name: Update Prices (Amazon API Only)
 
 on:
   schedule:
-    # Retornado para 4 em 4 horas (00, 04, 08, 12, 16, 20 UTC)
-    - cron: "0 */4 * * *"
+    # De 2 em 2 horas, das 08:00 às 00:00 (Horário de Brasília)
+    # Horários BRT: 08, 10, 12, 14, 16, 18, 20, 22, 00
+    # Horários UTC: 11, 13, 15, 17, 19, 21, 23, 01, 03
+    - cron: "0 1,3,11,13,15,17,19,21,23 * * *"
 
-  workflow_dispatch: # Permite rodar manualmente pelo botão se precisar
+  workflow_dispatch: # Permite rodar manualmente pelo botão Actions
 
 jobs:
   update-prices:
