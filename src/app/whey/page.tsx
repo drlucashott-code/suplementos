@@ -1,8 +1,8 @@
 import { Metadata } from "next";
-import { Suspense } from "react"; 
+import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { ProductList } from "./ProductList";
-import { FloatingFiltersBar } from "./FloatingFiltersBar";
+import { FloatingFiltersBar } from "./FloatingFiltersBar"; // Whey usa o SEU FloatingFilter
 import { AmazonHeader } from "./AmazonHeader";
 import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
@@ -17,17 +17,17 @@ export const dynamic = "force-dynamic";
    ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — Whey Protein",
-  description: "Compare o custo por grama de proteína e a concentração dos melhores Whey Proteins da Amazon.",
+  description:
+    "Compare o custo por grama de proteína e a concentração dos melhores Whey Proteins da Amazon.",
   alternates: {
     canonical: "/whey",
   },
 };
 
-// ✅ ATUALIZADO: Tipagem para suportar as novas opções de ordenação
 export type SearchParams = {
   brand?: string;
   flavor?: string;
-  weight?: string; 
+  weight?: string;
   priceMax?: string;
   order?: "cost" | "discount" | "protein_percent" | "protein_dose" | "price_dose";
   proteinRange?: string;
@@ -41,34 +41,33 @@ export default async function WheyPage({
 }) {
   const params = await searchParams;
   const showFallback = process.env.NEXT_PUBLIC_SHOW_FALLBACK_PRICE === "true";
-  
-  // ✅ Padrão mantido como 'cost' (se vier vazio), mas o front manda 'discount'
-  const order = params.order ?? "discount"; 
+  const order = params.order ?? "discount";
   const searchQuery = params.q || "";
 
   const selectedBrands = params.brand?.split(",") ?? [];
   const selectedFlavors = params.flavor?.split(",") ?? [];
-  const selectedWeights = params.weight?.split(",") ?? []; 
+  const selectedWeights = params.weight?.split(",") ?? [];
   const selectedProteinRanges = params.proteinRange?.split(",") ?? [];
   const maxPrice = params.priceMax ? Number(params.priceMax) : undefined;
 
-  const now = new Date();
   const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(now.getDate() - 30);
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(now.getDate() - 7);
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   /* =========================
-      1. BUSCA NO BANCO
-      ========================= */
+      1. BUSCA FILTRADA
+     ========================= */
   const products = await prisma.product.findMany({
     where: {
       category: "whey",
-      ...(searchQuery && { name: { contains: searchQuery, mode: 'insensitive' } }),
-      ...(selectedBrands.length > 0 && { brand: { in: selectedBrands } }),
-      ...(selectedFlavors.length > 0 && { flavor: { in: selectedFlavors } }),
-      ...(selectedWeights.length > 0 && { 
-        wheyInfo: { totalWeightInGrams: { in: selectedWeights.map(Number) } } 
+      ...(searchQuery && {
+        name: { contains: searchQuery, mode: "insensitive" },
+      }),
+      ...(selectedBrands.length && { brand: { in: selectedBrands } }),
+      ...(selectedFlavors.length && { flavor: { in: selectedFlavors } }),
+      ...(selectedWeights.length && {
+        wheyInfo: {
+          totalWeightInGrams: { in: selectedWeights.map(Number) },
+        },
       }),
     },
     include: {
@@ -88,14 +87,15 @@ export default async function WheyPage({
   });
 
   /* =========================
-      2. PROCESSAMENTO E CÁLCULOS
-      ========================= */
+      2. PROCESSAMENTO
+     ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.wheyInfo) return null;
     const offer = product.offers[0];
     if (!offer) return null;
 
     let finalPrice = offer.price;
+
     if (showFallback && (!finalPrice || finalPrice <= 0)) {
       finalPrice = offer.priceHistory[0]?.price ?? null;
     }
@@ -104,38 +104,45 @@ export default async function WheyPage({
     if (maxPrice !== undefined && finalPrice > maxPrice) return null;
 
     const info = product.wheyInfo;
-    const proteinPercentage = (info.proteinPerDoseInGrams / info.doseInGrams) * 100;
+    const proteinPercentage =
+      (info.proteinPerDoseInGrams / info.doseInGrams) * 100;
 
-    // Filtro de Range de Proteína
     if (selectedProteinRanges.length > 0) {
-      const match = selectedProteinRanges.some(r => {
+      const match = selectedProteinRanges.some((r) => {
         const [min, max] = r.split("-").map(Number);
-        return proteinPercentage >= min && proteinPercentage < (max === 100 ? 101 : max);
+        return (
+          proteinPercentage >= min &&
+          proteinPercentage < (max === 100 ? 101 : max)
+        );
       });
       if (!match) return null;
     }
 
     const totalDoses = info.totalWeightInGrams / info.doseInGrams;
-    const totalProteinInGrams = totalDoses * info.proteinPerDoseInGrams;
-    const pricePerGramProtein = finalPrice / totalProteinInGrams;
+    const totalProtein = totalDoses * info.proteinPerDoseInGrams;
+    const pricePerGramProtein = finalPrice / totalProtein;
 
     let avgMonthly: number | null = null;
     let discountPercent: number | null = null;
 
     if (offer.priceHistory.length > 0) {
-      const dailyPricesMap = new Map<string, number[]>();
-      offer.priceHistory.forEach(h => {
-        const dayKey = h.createdAt.toISOString().split('T')[0];
-        if (!dailyPricesMap.has(dayKey)) dailyPricesMap.set(dayKey, []);
-        dailyPricesMap.get(dayKey)!.push(h.price);
+      const dailyPrices = new Map<string, number[]>();
+      offer.priceHistory.forEach((h) => {
+        const day = h.createdAt.toISOString().split("T")[0];
+        if (!dailyPrices.has(day)) dailyPrices.set(day, []);
+        dailyPrices.get(day)!.push(h.price);
       });
-      const dailyAverages: number[] = [];
-      dailyPricesMap.forEach(p => dailyAverages.push(p.reduce((a, b) => a + b, 0) / p.length));
-      avgMonthly = dailyAverages.reduce((a, b) => a + b, 0) / dailyAverages.length;
+
+      const averages = Array.from(dailyPrices.values()).map(
+        (p) => p.reduce((a, b) => a + b, 0) / p.length
+      );
+
+      avgMonthly =
+        averages.reduce((a, b) => a + b, 0) / averages.length;
 
       if (avgMonthly > 0) {
-        const rawDiscount = ((avgMonthly - finalPrice) / avgMonthly) * 100;
-        if (rawDiscount >= 5) discountPercent = Math.round(rawDiscount);
+        const raw = ((avgMonthly - finalPrice) / avgMonthly) * 100;
+        if (raw >= 5) discountPercent = Math.round(raw);
       }
     }
 
@@ -146,13 +153,12 @@ export default async function WheyPage({
       flavor: product.flavor,
       price: finalPrice,
       affiliateUrl: offer.affiliateUrl,
-      
-      // Dados técnicos
+
       proteinPerDose: info.proteinPerDoseInGrams,
-      proteinPercentage: proteinPercentage,
+      proteinPercentage,
       numberOfDoses: totalDoses,
-      doseWeight: info.doseInGrams, // Campo vindo do DB
-      
+      doseWeight: info.doseInGrams,
+
       pricePerGramProtein,
       avgPrice: avgMonthly,
       discountPercent,
@@ -161,79 +167,93 @@ export default async function WheyPage({
     };
   });
 
-  // ✅ ORDENAÇÃO CORRIGIDA (5 OPÇÕES)
+  /* =========================
+      3. ORDENAÇÃO
+     ========================= */
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => {
-      // 1. Maior desconto
-      if (order === "discount") return (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
-      
-      // 2. Maior proteína por dose
-      if (order === "protein_dose") return b.proteinPerDose - a.proteinPerDose;
-      
-      // 3. Maior % de proteína
-      if (order === "protein_percent") return b.proteinPercentage - a.proteinPercentage;
-      
-      // 4. Menor preço por dose
+      if (order === "discount")
+        return (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
+      if (order === "protein_dose")
+        return b.proteinPerDose - a.proteinPerDose;
+      if (order === "protein_percent")
+        return b.proteinPercentage - a.proteinPercentage;
       if (order === "price_dose") {
-         // Tratamento para evitar divisão por zero (fallback seguro)
-         const priceDoseA = (a.price && a.numberOfDoses) ? (a.price / a.numberOfDoses) : 999999;
-         const priceDoseB = (b.price && b.numberOfDoses) ? (b.price / b.numberOfDoses) : 999999;
-         return priceDoseA - priceDoseB;
+        const aPrice =
+          a.price && a.numberOfDoses ? a.price / a.numberOfDoses : Infinity;
+        const bPrice =
+          b.price && b.numberOfDoses ? b.price / b.numberOfDoses : Infinity;
+        return aPrice - bPrice;
       }
-
-      // 5. Custo-benefício (Padrão e fallback 'cost')
-      // Ordena do menor preço/g para o maior
-      return a.pricePerGramProtein - b.pricePerGramProtein; 
+      return a.pricePerGramProtein - b.pricePerGramProtein;
     });
 
   /* =========================
-      3. COLETA DE OPÇÕES
-      ========================= */
+      4. FILTROS
+     ========================= */
   const allOptions = await prisma.product.findMany({
     where: { category: "whey" },
     select: {
-      brand: true, flavor: true,
-      wheyInfo: { select: { totalWeightInGrams: true } }
+      brand: true,
+      flavor: true,
+      wheyInfo: { select: { totalWeightInGrams: true } },
     },
-    distinct: ['brand', 'flavor']
+    distinct: ["brand", "flavor"],
   });
 
-  const availableBrands = Array.from(new Set(allOptions.map((p) => p.brand))).sort();
-  const availableFlavors = Array.from(new Set(allOptions.map((p) => p.flavor).filter((f): f is string => Boolean(f)))).sort();
-  const availableWeights = Array.from(new Set(allOptions.map((p) => p.wheyInfo?.totalWeightInGrams).filter((w): w is number => Boolean(w)))).sort((a, b) => a - b);
+  const availableBrands = Array.from(
+    new Set(allOptions.map((p) => p.brand))
+  ).sort();
+
+  const availableFlavors = Array.from(
+    new Set(
+      allOptions
+        .map((p) => p.flavor)
+        .filter((f): f is string => Boolean(f))
+    )
+  ).sort();
+
+  const availableWeights = Array.from(
+    new Set(
+      allOptions
+        .map((p) => p.wheyInfo?.totalWeightInGrams)
+        .filter((w): w is number => Boolean(w))
+    )
+  ).sort((a, b) => a - b);
 
   return (
     <main className="bg-[#EAEDED] min-h-screen">
-      {/* 🛡️ PROTEÇÃO CONTRA ERRO DE BUILD VERCEL */}
-      <Suspense fallback={<div className="h-16 bg-[#232f3e]" />}>
+      <Suspense fallback={<div className="h-14 bg-[#232f3e] w-full" />}>
         <AmazonHeader />
       </Suspense>
-      
+
       <div className="max-w-[1200px] mx-auto">
-        <Suspense fallback={<div className="h-14 bg-white border-b border-zinc-200" />}>
+        <Suspense
+          fallback={
+            <div className="h-14 bg-white border-b border-zinc-200 w-full" />
+          }
+        >
           <FloatingFiltersBar />
         </Suspense>
-        
+
         <div className="px-3">
           <Suspense fallback={null}>
-            <MobileFiltersDrawer 
-              brands={availableBrands} 
-              flavors={availableFlavors} 
+            <MobileFiltersDrawer
+              brands={availableBrands}
+              flavors={availableFlavors}
               weights={availableWeights}
               totalResults={finalProducts.length}
             />
           </Suspense>
-          
-          <div className="flex flex-col lg:flex-row gap-6 mt-4">
-            <div className="w-full pb-10">
-              <p className="text-[13px] text-zinc-600 mb-2 px-1 font-medium">
-                {finalProducts.length} produtos encontrados em Whey Protein
-              </p>
-              
-              <div className="w-full">
-                <ProductList products={finalProducts} />
-              </div>
+
+          <div className="mt-4 pb-10 w-full">
+            <p className="text-[13px] text-zinc-800 mb-2 px-1 font-medium">
+              {finalProducts.length} produtos encontrados em Whey Protein
+            </p>
+
+            <div className="w-full">
+              <ProductList products={finalProducts} />
             </div>
           </div>
         </div>

@@ -1,109 +1,113 @@
 "use client";
 
 import { MobileProductCard, BarraProduct } from "./MobileProductCard";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 
-export function ProductList({ products }: { products: BarraProduct[] }) {
-  // 🚀 PERFORMANCE: Iniciamos com 3 itens para priorizar o LCP no mobile.
+// Interface para rastreio (GA / dataLayer)
+interface CustomWindow extends Window {
+  gtag?: (command: string, eventName: string, params: Record<string, unknown>) => void;
+  dataLayer?: Record<string, unknown>[];
+}
+
+export function ProductList({
+  products,
+  viewEventName = "view_barra_list",
+}: {
+  products: BarraProduct[];
+  viewEventName?: string;
+}) {
+  const [prevProducts, setPrevProducts] = useState(products);
   const [visibleCount, setVisibleCount] = useState(3);
-  const trackedRef = useRef(false);
 
-  // Sentinela para o Infinite Scroll
-  const loadMoreRef = useRef<HTMLDivElement>(null);
-
-  // 🔁 Resetar o estado ao mudar os filtros
-  useEffect(() => {
+  // Reset ao mudar filtros
+  if (products !== prevProducts) {
+    setPrevProducts(products);
     setVisibleCount(3);
-    trackedRef.current = false;
-  }, [products]);
+  }
 
-  // 📊 Analytics Tracking (Adaptado para Barras)
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const trackedRef = useRef<string | null>(null);
+
+  // 📊 Tracking de visualização (padrão creatina)
   useEffect(() => {
-    if (trackedRef.current || !products.length) return;
+    if (!viewEventName || trackedRef.current === viewEventName) return;
 
-    if (typeof window !== "undefined" && "gtag" in window) {
-      // @ts-ignore
-      window.gtag("event", "view_barra_list", {
+    const win = window as unknown as CustomWindow;
+
+    if (win.gtag) {
+      win.gtag("event", viewEventName, {
+        category: "barra",
         total_products: products.length,
-        best_product_name: products[0]?.name,
+      });
+    } else {
+      win.dataLayer = win.dataLayer || [];
+      win.dataLayer.push({
+        event: viewEventName,
+        category: "barra",
+        total_products: products.length,
       });
     }
 
-    trackedRef.current = true;
-  }, [products]);
+    trackedRef.current = viewEventName;
+  }, [products.length, viewEventName]);
 
-  // ♾️ Infinite Scroll Progressivo
+  // ♾️ Scroll infinito (igual creatina)
   useEffect(() => {
+    const currentTarget = loadMoreRef.current;
     const observer = new IntersectionObserver(
       (entries) => {
-        const firstEntry = entries[0];
-
-        if (firstEntry.isIntersecting && products.length > visibleCount) {
-          // Carrega mais 20 itens por vez
+        if (entries[0].isIntersecting && products.length > visibleCount) {
           setVisibleCount((prev) => prev + 20);
         }
       },
-      { 
-        threshold: 0.1,
-        rootMargin: "300px" // Inicia o carregamento antes do fim da rolagem
-      }
+      { threshold: 0.1, rootMargin: "200px" }
     );
 
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
-    }
-
+    if (currentTarget) observer.observe(currentTarget);
     return () => {
-      if (loadMoreRef.current) {
-        observer.unobserve(loadMoreRef.current);
-      }
+      if (currentTarget) observer.unobserve(currentTarget);
     };
   }, [visibleCount, products.length]);
 
-  const visibleProducts = products.slice(0, visibleCount);
+  const visibleProducts = useMemo(
+    () => products.slice(0, visibleCount),
+    [products, visibleCount]
+  );
+
   const hasMore = products.length > visibleCount;
 
   return (
-    <section className="flex-1 space-y-4" style={{ fontFamily: 'Arial, sans-serif' }}>
+    <section className="flex-1 space-y-4">
       {visibleProducts.map((product, index) => (
         <MobileProductCard
           key={product.id}
           product={product}
-          // 🔥 PRIORIDADE DE CARREGAMENTO: 
-          // Instruímos o Next.js a carregar as 3 primeiras imagens imediatamente (LCP).
-          priority={index < 3} 
+          priority={index < 3}
+          isBest={index === 0}
         />
       ))}
 
-      {/* Sentinela com Visual de Carregamento Amazon */}
       {hasMore && (
-        <div
-          ref={loadMoreRef}
-          className="h-28 flex items-center justify-center"
-        >
+        <div ref={loadMoreRef} className="h-28 flex items-center justify-center">
           <div className="flex flex-col items-center gap-2">
-            <div className="w-8 h-8 border-2 border-zinc-200 border-t-[#007185] rounded-full animate-spin" />
-            <p className="text-[12px] text-zinc-500 font-medium">
-              Buscando mais ofertas de Barras...
+            <div className="w-6 h-6 border-2 border-zinc-300 border-t-blue-500 rounded-full animate-spin" />
+            <p className="text-[12px] text-zinc-600 font-medium">
+              Buscando mais ofertas...
             </p>
           </div>
         </div>
       )}
 
-      {/* Estado Vazio Otimizado */}
       {products.length === 0 && (
         <div className="text-center py-20 bg-white rounded-xl border border-dashed border-zinc-300 mx-1">
-          <p className="text-zinc-600 text-[15px] px-4">
+          <p className="text-zinc-500 text-[14px]">
             Nenhuma Barra de Proteína encontrada com estes filtros.
           </p>
-          <button 
-            onClick={() => window.location.href = '/barra'}
-            className="mt-4 text-[#007185] font-bold hover:underline text-[14px]"
-          >
-            Limpar todos os filtros
-          </button>
         </div>
       )}
     </section>
   );
 }
+
+// Compatibilidade com import default
+export default ProductList;
