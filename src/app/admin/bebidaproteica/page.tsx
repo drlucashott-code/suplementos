@@ -1,25 +1,16 @@
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
-import AdminBarraWrapper from "./AdminBarraWrapper";
+import AdminBebidaProteicaWrapper from "./AdminBebidaProteicaWrapper";
+// Precisamos importar o tipo do CLIENT para fazer o cast correto dos dados serializados
+import { BebidaProduct } from "./AdminBebidaProteicaClient";
 
-/* =========================
-    PERFORMANCE & BUILD FIX
-    Força a renderização dinâmica para evitar que o Next.js tente 
-    pré-renderizar esta página administrativa durante o build, 
-    o que resolve o conflito com o Streaming (loading/skeleton).
-   ========================= */
 export const dynamic = "force-dynamic";
 
-/**
- * Página Server-Side para Gestão de Barras
- * Agora com suporte total ao schema sincronizado
- */
-export default async function AdminBarraPage() {
-  // Busca produtos da categoria 'barra' incluindo as tabelas relacionadas
+export default async function AdminBebidaPage() {
   const productsRaw = await prisma.product.findMany({
-    where: { category: "barra" },
+    where: { category: "bebida_proteica" },
     include: {
-      proteinBarInfo: true, // Agora reconhecido pelo Prisma Client
+      proteinDrinkInfo: true,
       offers: {
         where: { store: "AMAZON" },
         orderBy: { createdAt: "desc" },
@@ -28,7 +19,6 @@ export default async function AdminBarraPage() {
     orderBy: { createdAt: "desc" },
   });
 
-  // Serialização: Converte objetos Date em String para o Client Component
   const products = productsRaw.map((p) => ({
     ...p,
     createdAt: p.createdAt.toISOString(),
@@ -40,11 +30,12 @@ export default async function AdminBarraPage() {
     })),
   }));
 
-  // Renderiza o Wrapper dentro de um Suspense para garantir que o 
-  // uso de searchParams ou hooks de cliente no Wrapper não quebre o build.
   return (
     <Suspense fallback={null}>
-      <AdminBarraWrapper products={products as any} />
+      {/* O 'unknown' é necessário porque o Prisma diz que é Date, 
+        mas nós convertemos para String manualmente acima.
+      */}
+      <AdminBebidaProteicaWrapper products={products as unknown as BebidaProduct[]} />
     </Suspense>
   );
 }

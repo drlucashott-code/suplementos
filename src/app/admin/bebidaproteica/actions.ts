@@ -4,48 +4,53 @@ import { prisma } from "@/lib/prisma";
 import { extractAmazonASIN } from "@/lib/extractAmazonASIN";
 import { revalidatePath } from "next/cache";
 
+// AJUSTE AQUI SE SUA ROTA FOR DIFERENTE (Ex: /admin/bebida)
+const PATH_TO_REVALIDATE = "/admin/bebidaproteica";
+
 /* ==========================================================================
-   CREATE (BARRA)
+   CREATE (BEBIDA)
    ========================================================================== */
-export async function createBarraAction(formData: FormData) {
+export async function createBebidaAction(formData: FormData) {
   const name = formData.get("name") as string;
   const brand = formData.get("brand") as string;
   const flavor = (formData.get("flavor") as string) || null;
   const imageUrl = (formData.get("imageUrl") as string) || "";
 
-  const unitsPerBox = Math.floor(Number(formData.get("unitsPerBox"))); 
-  const doseInGrams = Number(formData.get("doseInGrams"));                  
-  const proteinPerDoseInGrams = Number(formData.get("proteinPerDoseInGrams"));
+  // Conversão dos novos campos numéricos
+  const unitsPerPack = Math.floor(Number(formData.get("unitsPerPack"))); // Int
+  const volumePerUnitInMl = Number(formData.get("volumePerUnitInMl"));   // Float
+  const proteinPerUnitInGrams = Number(formData.get("proteinPerUnitInGrams")); // Float
 
   const amazonAsinRaw = (formData.get("amazonAsin") as string | null)?.trim() || null;
 
   if (
     !name ||
     !brand ||
-    unitsPerBox <= 0 ||
-    doseInGrams <= 0 ||
-    proteinPerDoseInGrams <= 0
+    unitsPerPack <= 0 ||
+    volumePerUnitInMl <= 0 ||
+    proteinPerUnitInGrams <= 0
   ) {
     throw new Error("Preencha todos os campos obrigatórios com valores válidos.");
   }
 
   const product = await prisma.product.create({
     data: {
-      category: "barra",
+      category: "bebida_proteica", // Categoria fixa
       name,
       brand,
       flavor,
       imageUrl,
-      proteinBarInfo: {
+      proteinDrinkInfo: {
         create: {
-          unitsPerBox,
-          doseInGrams,
-          proteinPerDoseInGrams,
+          unitsPerPack,
+          volumePerUnitInMl,
+          proteinPerUnitInGrams,
         },
       },
     },
   });
 
+  // Lógica de criação de Oferta (ASIN)
   if (amazonAsinRaw) {
     const asin = extractAmazonASIN(amazonAsinRaw);
     if (!asin) throw new Error("ASIN inválido");
@@ -67,22 +72,22 @@ export async function createBarraAction(formData: FormData) {
     });
   }
 
-  revalidatePath("/admin/barra");
+  revalidatePath(PATH_TO_REVALIDATE);
 }
 
 /* ==========================================================================
-   UPDATE (BARRA INDIVIDUAL)
+   UPDATE (BEBIDA INDIVIDUAL)
    ========================================================================== */
-export async function updateBarraAction(formData: FormData) {
+export async function updateBebidaAction(formData: FormData) {
   const id = formData.get("id") as string;
   const name = formData.get("name") as string;
   const brand = formData.get("brand") as string;
   const flavor = (formData.get("flavor") as string) || null;
   const imageUrl = (formData.get("imageUrl") as string) || "";
 
-  const unitsPerBox = Math.floor(Number(formData.get("unitsPerBox")));
-  const doseInGrams = Number(formData.get("doseInGrams"));
-  const proteinPerDoseInGrams = Number(formData.get("proteinPerDoseInGrams"));
+  const unitsPerPack = Math.floor(Number(formData.get("unitsPerPack")));
+  const volumePerUnitInMl = Number(formData.get("volumePerUnitInMl"));
+  const proteinPerUnitInGrams = Number(formData.get("proteinPerUnitInGrams"));
 
   const amazonAsinRaw = (formData.get("amazonAsin") as string | null)?.trim() || null;
 
@@ -90,6 +95,7 @@ export async function updateBarraAction(formData: FormData) {
     throw new Error("ID, nome e marca são obrigatórios.");
   }
 
+  // Atualiza dados base do Produto
   await prisma.product.update({
     where: { id },
     data: {
@@ -100,15 +106,23 @@ export async function updateBarraAction(formData: FormData) {
     },
   });
 
-  await prisma.proteinBarInfo.update({
+  // Atualiza dados específicos da Bebida (Upsert garante que cria se não existir)
+  await prisma.proteinDrinkInfo.upsert({
     where: { productId: id },
-    data: {
-      unitsPerBox,
-      doseInGrams,
-      proteinPerDoseInGrams,
+    update: {
+      unitsPerPack,
+      volumePerUnitInMl,
+      proteinPerUnitInGrams,
+    },
+    create: {
+      productId: id,
+      unitsPerPack,
+      volumePerUnitInMl,
+      proteinPerUnitInGrams,
     },
   });
 
+  // Lógica de atualização de Oferta (ASIN)
   if (amazonAsinRaw) {
     const asin = extractAmazonASIN(amazonAsinRaw);
     if (!asin) throw new Error("ASIN inválido");
@@ -145,18 +159,18 @@ export async function updateBarraAction(formData: FormData) {
     }
   }
 
-  revalidatePath("/admin/barra");
+  revalidatePath(PATH_TO_REVALIDATE);
 }
 
 /* ==========================================================================
-   BULK UPDATE (EDIÇÃO EM LOTE)
+   BULK UPDATE (EDIÇÃO EM LOTE - BEBIDA)
    ========================================================================== */
-export async function bulkUpdateBarraAction(ids: string[], data: {
+export async function bulkUpdateBebidaAction(ids: string[], data: {
   name?: string;
   brand?: string;
-  unitsPerBox?: number;
-  doseInGrams?: number;
-  proteinPerDoseInGrams?: number;
+  unitsPerPack?: number;
+  volumePerUnitInMl?: number;
+  proteinPerUnitInGrams?: number;
 }) {
   if (!ids.length) throw new Error("Nenhum produto selecionado.");
 
@@ -171,42 +185,40 @@ export async function bulkUpdateBarraAction(ids: string[], data: {
     });
   }
 
-  // 2. Atualiza os dados nutricionais e de peso na tabela ProteinBarInfo
+  // 2. Atualiza os dados nutricionais e de volume na tabela ProteinDrinkInfo
   const updatePromises = ids.map(id => 
-    prisma.proteinBarInfo.update({
+    prisma.proteinDrinkInfo.update({
       where: { productId: id },
       data: {
-        ...(data.unitsPerBox !== undefined && { unitsPerBox: data.unitsPerBox }),
-        ...(data.doseInGrams !== undefined && { doseInGrams: data.doseInGrams }),
-        ...(data.proteinPerDoseInGrams !== undefined && { proteinPerDoseInGrams: data.proteinPerDoseInGrams }),
+        ...(data.unitsPerPack !== undefined && { unitsPerPack: data.unitsPerPack }),
+        ...(data.volumePerUnitInMl !== undefined && { volumePerUnitInMl: data.volumePerUnitInMl }),
+        ...(data.proteinPerUnitInGrams !== undefined && { proteinPerUnitInGrams: data.proteinPerUnitInGrams }),
       }
     })
   );
 
   await Promise.all(updatePromises);
 
-  revalidatePath("/admin/barra");
+  revalidatePath(PATH_TO_REVALIDATE);
 }
 
 /* ==========================================================================
    BULK DELETE (EXCLUSÃO EM LOTE)
    ========================================================================== */
-export async function bulkDeleteBarraAction(ids: string[]) {
+export async function bulkDeleteBebidaAction(ids: string[]) {
   if (!ids.length) throw new Error("Nenhum produto selecionado.");
 
-  // O deleteMany do Prisma cuidará da remoção em massa 
-  // (Certifique-se que o schema possui onDelete: Cascade para as relações)
   await prisma.product.deleteMany({
     where: { id: { in: ids } },
   });
 
-  revalidatePath("/admin/barra");
+  revalidatePath(PATH_TO_REVALIDATE);
 }
 
 /* ==========================================================================
-   DELETE (BARRA INDIVIDUAL)
+   DELETE (BEBIDA INDIVIDUAL)
    ========================================================================== */
-export async function deleteBarraAction(formData: FormData) {
+export async function deleteBebidaAction(formData: FormData) {
   const id = formData.get("id") as string;
   if (!id) throw new Error("ID inválido.");
 
@@ -214,5 +226,5 @@ export async function deleteBarraAction(formData: FormData) {
     where: { id },
   });
 
-  revalidatePath("/admin/barra");
+  revalidatePath(PATH_TO_REVALIDATE);
 }

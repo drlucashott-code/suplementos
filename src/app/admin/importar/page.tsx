@@ -3,8 +3,12 @@
 import { useState } from "react";
 import { importarAmazonAction } from "./actions";
 
-type Categoria = "whey" | "creatina" | "barra" | "bebidaproteica";
+// ✅ Atualizado para incluir bebida_proteica
+type Categoria = "whey" | "creatina" | "barra" | "bebida_proteica";
 
+/* =======================
+   FIELD (PADRÃO DA EDIÇÃO)
+======================= */
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-12 gap-2 items-center">
@@ -21,14 +25,20 @@ export default function ImportadorUniversalPage() {
   const [asins, setAsins] = useState("");
   const [mode, setMode] = useState<"getItem" | "getVariation">("getItem");
   const [titlePattern, setTitlePattern] = useState("{brand} {weight} {title}");
+
+  // Controle de quais campos preencher em massa (Chips)
   const [activeFields, setActiveFields] = useState<string[]>([]);
 
+  // Valores dos campos nutricionais/técnicos
+  // ✅ Adicionados campos específicos de bebida
   const [values, setValues] = useState({
     brand: "",
     totalWeight: "" as number | "",
     dose: "" as number | "",
     protein: "" as number | "",
     unitsPerBox: "" as number | "", 
+    unitsPerPack: "" as number | "",      // Novo
+    volumePerUnitInMl: "" as number | "", // Novo
   });
 
   const [logs, setLogs] = useState<string[]>([]);
@@ -37,6 +47,7 @@ export default function ImportadorUniversalPage() {
 
   const inputClass = "w-full border rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-100 outline-none transition-all";
 
+  // Definição dos campos por categoria
   const bulkFieldOptions: Record<Categoria, { key: string; label: string }[]> = {
     whey: [
       { key: "brand", label: "Marca" },
@@ -55,10 +66,11 @@ export default function ImportadorUniversalPage() {
       { key: "dose", label: "Peso Unidade (g)" },
       { key: "protein", label: "Prot. por Barra (g)" },
     ],
-    bebidaproteica: [
+    // ✅ Configuração da Bebida
+    bebida_proteica: [
       { key: "brand", label: "Marca" },
-      { key: "unitsPerBox", label: "Unidades no Fardo" },
-      { key: "dose", label: "Volume Unidade (ml)" },
+      { key: "unitsPerPack", label: "Unidades Fardo" },
+      { key: "volumePerUnitInMl", label: "Volume (ml)" },
       { key: "protein", label: "Prot. por Unidade (g)" },
     ],
   };
@@ -80,18 +92,22 @@ export default function ImportadorUniversalPage() {
         mode,
         category,
         titlePattern,
+        // Envia o valor apenas se o chip estiver ativo e converte tipos com segurança
         brand: activeFields.includes("brand") ? values.brand : "",
-        totalWeight: activeFields.includes("totalWeight") && values.totalWeight !== "" ? values.totalWeight : 0,
-        dose: activeFields.includes("dose") && values.dose !== "" ? values.dose : 0,
-        protein: activeFields.includes("protein") && values.protein !== "" ? values.protein : 0,
-        unitsPerBox: activeFields.includes("unitsPerBox") && values.unitsPerBox !== "" ? values.unitsPerBox : 0,
+        totalWeight: activeFields.includes("totalWeight") && values.totalWeight !== "" ? Number(values.totalWeight) : 0,
+        dose: activeFields.includes("dose") && values.dose !== "" ? Number(values.dose) : 0,
+        protein: activeFields.includes("protein") && values.protein !== "" ? Number(values.protein) : 0,
+        unitsPerBox: activeFields.includes("unitsPerBox") && values.unitsPerBox !== "" ? Number(values.unitsPerBox) : 0,
+        // ✅ Novos campos mapeados
+        unitsPerPack: activeFields.includes("unitsPerPack") && values.unitsPerPack !== "" ? Number(values.unitsPerPack) : 0,
+        volumePerUnitInMl: activeFields.includes("volumePerUnitInMl") && values.volumePerUnitInMl !== "" ? Number(values.volumePerUnitInMl) : 0,
       });
 
       if (!res.ok) setError(res.error ?? "Erro desconhecido");
       if (res.logs?.length) setLogs(res.logs);
-      // ✅ FIX: Tipagem correta do Erro (Linha 99)
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Erro desconhecido";
+      // ✅ Tratamento de erro tipado
+      const errorMessage = err instanceof Error ? err.message : "Erro crítico desconhecido";
       setError("Erro crítico: " + errorMessage);
     } finally {
       setLoading(false);
@@ -105,6 +121,14 @@ export default function ImportadorUniversalPage() {
         <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-bold uppercase tracking-wider">Modo Inteligente</span>
       </div>
 
+      {/* ✅ Exibição de Erros (Correção do Lint unused var) */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg text-sm font-bold animate-pulse">
+          🚨 {error}
+        </div>
+      )}
+
+      {/* CATEGORIA E ASINS */}
       <div className="space-y-4">
         <Field label="Categoria">
           <select
@@ -112,13 +136,13 @@ export default function ImportadorUniversalPage() {
             value={category}
             onChange={(e) => {
               setCategory(e.target.value as Categoria);
-              setActiveFields([]); 
+              setActiveFields([]); // Reseta campos ao trocar categoria
             }}
           >
             <option value="whey">Whey Protein</option>
             <option value="creatina">Creatina</option>
             <option value="barra">Barra de Proteína</option>
-            <option value="bebidaproteica">Bebida Proteica</option>
+            <option value="bebida_proteica">Bebida Proteica</option>
           </select>
         </Field>
 
@@ -133,6 +157,7 @@ export default function ImportadorUniversalPage() {
         </Field>
       </div>
 
+      {/* SELETOR DE CHIPS */}
       <div className="space-y-3">
         <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">
           O que deseja preencher em massa?
@@ -154,6 +179,7 @@ export default function ImportadorUniversalPage() {
         </div>
       </div>
 
+      {/* FORMULÁRIO DINÂMICO */}
       {activeFields.length > 0 && (
         <div className="p-6 bg-gray-50 border rounded-xl space-y-4 shadow-inner animate-in fade-in slide-in-from-top-2 duration-300">
           {activeFields.includes("brand") && (
@@ -179,7 +205,7 @@ export default function ImportadorUniversalPage() {
           )}
 
           {activeFields.includes("unitsPerBox") && (
-            <Field label={category === "bebidaproteica" ? "Unidades no Fardo" : "Unidades na Caixa"}>
+            <Field label="Unidades na Caixa">
               <input
                 type="number"
                 step="1"
@@ -191,14 +217,36 @@ export default function ImportadorUniversalPage() {
             </Field>
           )}
 
+          {/* ✅ Novos Campos para Bebida */}
+          {activeFields.includes("unitsPerPack") && (
+            <Field label="Unidades no Fardo">
+              <input
+                type="number"
+                step="1"
+                className={inputClass}
+                value={values.unitsPerPack}
+                onChange={(e) => setValues({ ...values, unitsPerPack: e.target.value === "" ? "" : Math.floor(Number(e.target.value)) })}
+                placeholder="Ex: 6 ou 12"
+              />
+            </Field>
+          )}
+
+          {activeFields.includes("volumePerUnitInMl") && (
+            <Field label="Volume (ml)">
+              <input
+                type="number"
+                step="0.1"
+                className={inputClass}
+                value={values.volumePerUnitInMl}
+                onChange={(e) => setValues({ ...values, volumePerUnitInMl: e.target.value === "" ? "" : Number(e.target.value) })}
+                placeholder="Ex: 250"
+              />
+            </Field>
+          )}
+
+          {/* Campo Dose (compartilhado entre Whey/Barra) */}
           {activeFields.includes("dose") && (
-            <Field 
-              label={
-                category === "barra" ? "Peso da Unidade (g)" : 
-                category === "bebidaproteica" ? "Volume Unidade (ml)" : 
-                "Dose (g)"
-              }
-            >
+            <Field label={category === "barra" ? "Peso da Unidade (g)" : "Dose (g)"}>
               <input
                 type="number"
                 className={inputClass}
@@ -209,13 +257,7 @@ export default function ImportadorUniversalPage() {
           )}
 
           {activeFields.includes("protein") && (
-            <Field 
-              label={
-                category === "barra" ? "Prot. por Barra (g)" : 
-                category === "bebidaproteica" ? "Prot. por Unidade (g)" : 
-                "Proteína (g)"
-              }
-            >
+            <Field label={category === "barra" || category === "bebida_proteica" ? "Prot. por Unidade (g)" : "Proteína (g)"}>
               <input
                 type="number"
                 className={inputClass}
@@ -227,14 +269,11 @@ export default function ImportadorUniversalPage() {
         </div>
       )}
 
+      {/* CONFIGS TÉCNICAS */}
       <div className="pt-4 space-y-4 border-t">
         <Field label="Método">
-          {/* ✅ FIX: Cast correto para o modo (Linha 241) */}
-          <select 
-            className={inputClass} 
-            value={mode} 
-            onChange={(e) => setMode(e.target.value as "getItem" | "getVariation")}
-          >
+          {/* ✅ Correção do Type Assertion no onChange */}
+          <select className={inputClass} value={mode} onChange={(e) => setMode(e.target.value as "getItem" | "getVariation")}>
             <option value="getItem">GetItem (Simples)</option>
             <option value="getVariation">GetVariation (Variações)</option>
           </select>
@@ -253,6 +292,7 @@ export default function ImportadorUniversalPage() {
         </button>
       </div>
 
+      {/* LOGS */}
       {logs.length > 0 && (
         <div className="bg-[#0b1220] text-green-400 rounded-lg p-4 font-mono text-[11px] max-h-[300px] overflow-auto border border-gray-800 shadow-2xl">
           {logs.map((log, idx) => (
@@ -260,7 +300,6 @@ export default function ImportadorUniversalPage() {
           ))}
         </div>
       )}
-      {error && <p className="text-red-500 text-sm font-bold mt-2">{error}</p>}
     </main>
   );
 }

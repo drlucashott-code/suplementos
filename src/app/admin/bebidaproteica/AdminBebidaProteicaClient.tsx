@@ -1,18 +1,30 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import React, { useMemo, useState } from "react";
 import {
-  createBarraAction,
-  deleteBarraAction,
-  updateBarraAction,
-  bulkUpdateBarraAction,
-  bulkDeleteBarraAction,
+  createBebidaAction,
+  deleteBebidaAction,
+  updateBebidaAction,
+  bulkUpdateBebidaAction,
+  bulkDeleteBebidaAction,
 } from "./actions";
-import type { BarraProduct } from "./AdminBarraWrapper";
+import type { Product, ProteinDrinkInfo, Offer } from "@prisma/client";
 import { ToastOnSubmit } from "../creatina/ToastOnSubmit";
 
 /* =======================
-    FIELD HELPER
+   TYPE DEFINITION CORRIGIDO
+   Usamos Omit para sobrescrever as datas do Prisma (Date -> string)
+======================= */
+export type BebidaProduct = Omit<Product, "createdAt" | "updatedAt"> & {
+  proteinDrinkInfo: ProteinDrinkInfo | null;
+  offers: Offer[];
+  createdAt: string; // ✅ Agora aceita a string que vem do servidor
+  updatedAt: string; // ✅ Agora aceita a string que vem do servidor
+};
+
+/* =======================
+   FIELD HELPER
 ======================= */
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -23,7 +35,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-const ITEMS_PER_PAGE = 100; // 🚀 Atualizado para 100 itens
+const ITEMS_PER_PAGE = 100;
 const inputStyle = "w-full border rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-100 outline-none transition-all";
 
 type SortConfig = {
@@ -31,7 +43,7 @@ type SortConfig = {
   direction: "asc" | "desc";
 };
 
-export default function AdminBarraClient({ products }: { products: BarraProduct[] }) {
+export default function AdminBebidaProteicaClient({ products }: { products: BebidaProduct[] }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -55,7 +67,8 @@ export default function AdminBarraClient({ products }: { products: BarraProduct[
   /* ======================= FILTRO + ORDENAÇÃO ======================= */
   const filteredProducts = useMemo(() => {
     const term = search.toLowerCase();
-    let result = products.filter(p => 
+    
+    const result = products.filter(p => 
       p.name.toLowerCase().includes(term) || 
       p.brand.toLowerCase().includes(term) ||
       (p.flavor?.toLowerCase().includes(term))
@@ -99,26 +112,26 @@ export default function AdminBarraClient({ products }: { products: BarraProduct[
     const name = formData.get("bulkName") as string;
     const brand = formData.get("bulkBrand") as string;
     const units = formData.get("bulkUnits") ? Number(formData.get("bulkUnits")) : undefined;
-    const dose = formData.get("bulkDose") ? Number(formData.get("bulkDose")) : undefined;
+    const volume = formData.get("bulkVolume") ? Number(formData.get("bulkVolume")) : undefined;
     const protein = formData.get("bulkProtein") ? Number(formData.get("bulkProtein")) : undefined;
 
-    await bulkUpdateBarraAction(Array.from(selectedIds), {
+    await bulkUpdateBebidaAction(Array.from(selectedIds), {
       name: name || undefined,
       brand: brand || undefined,
-      unitsPerBox: units,
-      doseInGrams: dose,
-      proteinPerDoseInGrams: protein,
+      unitsPerPack: units,          
+      volumePerUnitInMl: volume,    
+      proteinPerUnitInGrams: protein,
     });
     
     setSelectedIds(new Set());
-    alert("🚀 Lote atualizado!");
+    alert("🚀 Lote de bebidas atualizado!");
   };
 
   const handleBulkDelete = async () => {
-    if (!confirm(`Deseja excluir permanentemente ${selectedIds.size} produtos?`)) return;
-    await bulkDeleteBarraAction(Array.from(selectedIds));
+    if (!confirm(`Deseja excluir permanentemente ${selectedIds.size} bebidas?`)) return;
+    await bulkDeleteBebidaAction(Array.from(selectedIds));
     setSelectedIds(new Set());
-    alert("🗑️ Produtos excluídos!");
+    alert("🗑️ Bebidas excluídas!");
   };
 
   return (
@@ -134,10 +147,12 @@ export default function AdminBarraClient({ products }: { products: BarraProduct[
 
       <div className="flex justify-between items-end mb-8">
         <div>
-          <h1 className="text-3xl font-black tracking-tighter text-gray-900 uppercase">Gestão de Barras</h1>
+          <h1 className="text-3xl font-black tracking-tighter text-gray-900 uppercase">Gestão de Bebidas</h1>
           <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">Controle de Catálogo</p>
         </div>
-        <div className="bg-gray-100 px-4 py-1 rounded font-mono text-xs text-gray-500">{products.length} itens</div>
+        <div className="bg-orange-100 px-4 py-1 rounded font-mono text-xs text-orange-600 font-bold border border-orange-200">
+          {products.length} itens
+        </div>
       </div>
 
       {/* PAINEL DE LOTE STICKY */}
@@ -152,14 +167,12 @@ export default function AdminBarraClient({ products }: { products: BarraProduct[
           </div>
           
           <form onSubmit={handleBulkUpdate} className="grid grid-cols-6 gap-2">
-            {/* Nome preenchendo toda a linha superior do form de lote */}
             <input name="bulkName" placeholder="Novo Nome em Massa" className="col-span-6 bg-gray-900 border border-gray-800 rounded p-2 text-xs outline-none focus:ring-1 ring-blue-500" />
-            
             <input name="bulkBrand" placeholder="Marca" className="bg-gray-900 border border-gray-800 rounded p-2 text-xs outline-none focus:ring-1 ring-blue-500" />
-            <input name="bulkUnits" type="number" placeholder="Un/Cx" className="bg-gray-900 border border-gray-800 rounded p-2 text-xs" />
-            <input name="bulkDose" type="number" placeholder="Peso (g)" className="bg-gray-900 border border-gray-800 rounded p-2 text-xs" />
-            <input name="bulkProtein" type="number" placeholder="Prot/un" className="bg-gray-900 border border-gray-800 rounded p-2 text-xs" />
-            <button type="submit" className="col-span-2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded text-xs transition-colors uppercase">Aplicar em todos</button>
+            <input name="bulkUnits" type="number" placeholder="Un/Fardo" className="bg-gray-900 border border-gray-800 rounded p-2 text-xs" />
+            <input name="bulkVolume" type="number" step="0.1" placeholder="Vol (ml)" className="bg-gray-900 border border-gray-800 rounded p-2 text-xs" />
+            <input name="bulkProtein" type="number" step="0.1" placeholder="Prot/un" className="bg-gray-900 border border-gray-800 rounded p-2 text-xs" />
+            <button type="submit" className="col-span-2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded text-xs transition-colors uppercase">Aplicar</button>
           </form>
         </div>
       )}
@@ -172,8 +185,8 @@ export default function AdminBarraClient({ products }: { products: BarraProduct[
       </div>
 
       {showCreate && (
-        <form action={createBarraAction} className="space-y-4 mb-10 border border-gray-200 rounded-2xl p-6 bg-gray-50 shadow-inner">
-          <ToastOnSubmit message="✅ Barra cadastrada!" />
+        <form action={createBebidaAction} className="space-y-4 mb-10 border border-gray-200 rounded-2xl p-6 bg-gray-50 shadow-inner">
+          <ToastOnSubmit message="✅ Bebida cadastrada!" />
           <div className="space-y-4">
             <Field label="Nome"><input name="name" className={inputStyle} required /></Field>
             <div className="grid grid-cols-2 gap-4">
@@ -182,13 +195,13 @@ export default function AdminBarraClient({ products }: { products: BarraProduct[
             </div>
             <Field label="URL Imagem"><input name="imageUrl" className={inputStyle} /></Field>
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Unid. Caixa"><input name="unitsPerBox" type="number" className={inputStyle} required /></Field>
-              <Field label="Peso Unid (g)"><input name="doseInGrams" type="number" className={inputStyle} required /></Field>
-              <Field label="Prot./un (g)"><input name="proteinPerDoseInGrams" type="number" className={inputStyle} required /></Field>
+              <Field label="Unid. Fardo"><input name="unitsPerPack" type="number" className={inputStyle} required /></Field>
+              <Field label="Volume (ml)"><input name="volumePerUnitInMl" type="number" step="0.1" className={inputStyle} required /></Field>
+              <Field label="Prot./un (g)"><input name="proteinPerUnitInGrams" type="number" step="0.1" className={inputStyle} required /></Field>
               <Field label="ASIN"><input name="amazonAsin" className={inputStyle} /></Field>
             </div>
           </div>
-          <button className="w-full bg-black text-white py-3 rounded-xl font-bold mt-4">SALVAR NOVO PRODUTO</button>
+          <button className="w-full bg-black text-white py-3 rounded-xl font-bold mt-4">SALVAR NOVA BEBIDA</button>
         </form>
       )}
 
@@ -213,7 +226,8 @@ export default function AdminBarraClient({ products }: { products: BarraProduct[
                     <td className="p-4 text-center"><input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => toggleSelect(p.id)} /></td>
                     <td className="p-4 flex justify-center">
                       <div className="group relative w-12 h-12 bg-white border rounded flex items-center justify-center cursor-pointer" onClick={() => p.imageUrl && setZoomedImage(p.imageUrl)}>
-                        {p.imageUrl ? <><img src={p.imageUrl} className="w-full h-full object-contain" /><div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px]">🔍</div></> : <span className="text-[8px] text-gray-300 font-bold uppercase">N/A</span>}
+                        {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-contain" /> : <span className="text-[8px] text-gray-300 font-bold uppercase">N/A</span>}
+                        {p.imageUrl && <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px]">🔍</div>}
                       </div>
                     </td>
                     <td className="p-4 font-bold text-gray-900">{p.name}</td>
@@ -221,7 +235,7 @@ export default function AdminBarraClient({ products }: { products: BarraProduct[
                     <td className="p-4 italic text-blue-600 font-medium">{p.flavor || "—"}</td>
                     <td className="p-4 text-right space-x-3 text-nowrap">
                       <button onClick={() => setEditingId(isEditing ? null : p.id)} className="text-xs font-bold text-blue-600 underline">{isEditing ? "Fechar" : "Editar"}</button>
-                      <form action={deleteBarraAction} className="inline" onSubmit={(e) => !confirm("Excluir?") && e.preventDefault()}>
+                      <form action={deleteBebidaAction} className="inline" onSubmit={(e) => !confirm("Excluir esta bebida?") && e.preventDefault()}>
                         <input type="hidden" name="id" value={p.id} /><button className="text-xs font-bold text-red-400">Excluir</button>
                       </form>
                     </td>
@@ -229,10 +243,9 @@ export default function AdminBarraClient({ products }: { products: BarraProduct[
                   {isEditing && (
                     <tr className="bg-blue-50/30">
                       <td colSpan={6} className="p-6">
-                        <form action={updateBarraAction} className="bg-white border p-6 rounded-2xl shadow-xl space-y-4">
+                        <form action={updateBebidaAction} className="bg-white border p-6 rounded-2xl shadow-xl space-y-4">
                           <input type="hidden" name="id" value={p.id} />
                           
-                          {/* Edição individual agora preenche toda a linha */}
                           <Field label="Nome Completo"><input name="name" defaultValue={p.name} className={inputStyle} /></Field>
                           
                           <div className="grid grid-cols-2 gap-4">
@@ -243,9 +256,9 @@ export default function AdminBarraClient({ products }: { products: BarraProduct[
                           <Field label="URL Imagem"><input name="imageUrl" defaultValue={p.imageUrl} className={inputStyle} /></Field>
 
                           <div className="grid grid-cols-2 gap-4 border-t pt-4">
-                            <Field label="Unid. Caixa"><input name="unitsPerBox" type="number" defaultValue={p.proteinBarInfo?.unitsPerBox} className={inputStyle} /></Field>
-                            <Field label="Peso Unid."><input name="doseInGrams" type="number" defaultValue={p.proteinBarInfo?.doseInGrams} className={inputStyle} /></Field>
-                            <Field label="Prot./un"><input name="proteinPerDoseInGrams" type="number" defaultValue={p.proteinBarInfo?.proteinPerDoseInGrams} className={inputStyle} /></Field>
+                            <Field label="Unid. Fardo"><input name="unitsPerPack" type="number" defaultValue={p.proteinDrinkInfo?.unitsPerPack} className={inputStyle} /></Field>
+                            <Field label="Volume (ml)"><input name="volumePerUnitInMl" type="number" step="0.1" defaultValue={p.proteinDrinkInfo?.volumePerUnitInMl} className={inputStyle} /></Field>
+                            <Field label="Prot./un (g)"><input name="proteinPerUnitInGrams" type="number" step="0.1" defaultValue={p.proteinDrinkInfo?.proteinPerUnitInGrams} className={inputStyle} /></Field>
                             <Field label="ASIN"><input name="amazonAsin" defaultValue={p.offers[0]?.externalId} className={inputStyle} /></Field>
                           </div>
                           
