@@ -1,70 +1,60 @@
 /**
- * ImportAmazonGetItem v1.6
- * - Corrigido: Remoção de Resources inválidos (evita Bad Request)
- * - Suporte a Lote (Batch) com Delay de 1.5s
+ * ImportAmazonGetItem v2.2.0 - Edição Resiliência Máxima
+ * - Fix: PrismaClientInitializationError (Contorno total ao Hoisting do ESM)
+ * - Lógica: O Prisma só é carregado após a validação manual do DATABASE_URL
  */
 
-import "dotenv/config";
+import path from "path";
+import dotenv from "dotenv";
+
+// 1️⃣ Localiza o .env na raiz, independente de onde o script seja chamado
+dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+
 import paapi from "amazon-paapi";
-import { PrismaClient, Store } from "@prisma/client";
 
-const prisma = new PrismaClient();
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+// ⚠️ NÃO importe o PrismaClient aqui no topo! 
+// Isso evita que ele tente validar a URL antes do dotenv rodar.
 
-const commonParameters = {
-  AccessKey: process.env.AMAZON_ACCESS_KEY!,
-  SecretKey: process.env.AMAZON_SECRET_KEY!,
-  PartnerTag: process.env.AMAZON_PARTNER_TAG!,
-  PartnerType: "Associates",
-  Marketplace: "www.amazon.com.br",
-};
-
-/* ======================= HELPERS ======================= */
-function extractFlavor(text?: string): string | null {
-  if (!text) return null;
-  const flavors = ["chocolate", "baunilha", "morango", "cookies", "banana", "coco", "doce de leite", "neutro", "natural"];
-  const n = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  for (const f of flavors) {
-    if (n.includes(f)) return f.charAt(0).toUpperCase() + f.slice(1);
+async function run(): Promise<void> {
+  // 2️⃣ Verificação de sanidade (Combustível no tanque)
+  if (!process.env.DATABASE_URL) {
+    console.error("❌ ERRO: DATABASE_URL não encontrada no ambiente.");
+    console.error("Verifique se o arquivo .env está na raiz do projeto e sem aspas.");
+    process.exit(1);
   }
-  return null;
-}
 
-function extractWeight(text: string): number {
-  const g = text.match(/(\d+)\s?g/i);
-  return g ? parseInt(g[1], 10) : 0;
-}
+  // 3️⃣ Carga Dinâmica: O Prisma só nasce agora, com o ambiente garantido.
+  const { PrismaClient, Store } = await import("@prisma/client");
+  const prisma = new PrismaClient();
 
-/* ======================= MAIN ======================= */
-async function run() {
   const args = process.argv.slice(2);
-  const [asinsRaw, titlePattern, category, brandInput, totalWeightInput, unitsBoxInput, doseInput, proteinInput] = args;
+  const [
+    asinsRaw, titlePattern, category, brandInput, 
+    totalWeightInput, unitsBoxInput, doseInput, proteinInput
+  ] = args;
 
   if (!asinsRaw || !category) {
     console.error("❌ Erro: Argumentos insuficientes.");
     process.exit(1);
   }
 
-  const asinList = asinsRaw.split(",").map(a => a.trim()).filter(Boolean);
-  const mUnitsPerBox = Math.floor(Number(unitsBoxInput)) || 0;
-  const mDose = Number(doseInput) || 0;
-  const mProtein = Number(proteinInput) || 0;
-  const mTotalWeight = Number(totalWeightInput) || 0;
-
-  console.log(`🚀 [${category.toUpperCase()}] Iniciando lote simples de ${asinList.length} produtos...`);
+  const asinList = asinsRaw.split(",").map((a) => a.trim()).filter(Boolean);
+  console.log(`🚀 [${category.toUpperCase()}] Iniciando lote com ${asinList.length} ASINs...`);
 
   for (const asin of asinList) {
     try {
-      await delay(1500); // Respiro anti-bloqueio
+      // Delay de 1.5s para evitar bloqueio da Amazon
+      await new Promise((res) => setTimeout(res, 1500));
 
-      // RECURSOS CORRIGIDOS: Removido DetailPageURL (causava Bad Request)
-      const res = await paapi.GetItems(commonParameters, {
+      const res = await paapi.GetItems({
+        AccessKey: process.env.AMAZON_ACCESS_KEY || "",
+        SecretKey: process.env.AMAZON_SECRET_KEY || "",
+        PartnerTag: process.env.AMAZON_PARTNER_TAG || "",
+        PartnerType: "Associates",
+        Marketplace: "www.amazon.com.br",
+      }, {
         ItemIds: [asin],
-        Resources: [
-          "ItemInfo.Title",
-          "ItemInfo.ByLineInfo",
-          "Images.Primary.Large"
-        ],
+        Resources: ["ItemInfo.Title", "ItemInfo.ByLineInfo", "Images.Primary.Large"],
       });
 
       const item = res?.ItemsResult?.Items?.[0];
@@ -76,14 +66,11 @@ async function run() {
       const amazonTitle = item.ItemInfo?.Title?.DisplayValue ?? "";
       const amazonBrand = item.ItemInfo?.ByLineInfo?.Brand?.DisplayValue ?? "Desconhecida";
       const finalBrand = brandInput || amazonBrand;
-      const weight = mTotalWeight || extractWeight(amazonTitle);
+      
+      const exists = await prisma.offer.findFirst({ 
+        where: { store: Store.AMAZON, externalId: asin } 
+      });
 
-      const finalName = titlePattern
-        .replace("{brand}", finalBrand)
-        .replace("{weight}", weight ? `${weight}g` : "")
-        .replace("{title}", amazonTitle);
-
-      const exists = await prisma.offer.findFirst({ where: { store: Store.AMAZON, externalId: asin } });
       if (exists) {
         console.log(`⚠️ ${asin} já cadastrado.`);
         continue;
@@ -92,23 +79,37 @@ async function run() {
       await prisma.product.create({
         data: {
           category,
-          name: finalName,
+          name: titlePattern.replace("{title}", amazonTitle).replace("{brand}", finalBrand),
           brand: finalBrand,
-          flavor: extractFlavor(amazonTitle),
           imageUrl: item.Images?.Primary?.Large?.URL ?? "",
           
-          ...(category === "barra" && {
-            proteinBarInfo: { create: { unitsPerBox: mUnitsPerBox, doseInGrams: mDose, proteinPerDoseInGrams: mProtein } }
+          // Mapeamento para Bebida Proteica
+          ...(category === "bebidaproteica" && {
+            proteinDrinkInfo: {
+              create: {
+                unitsPerPack: Math.floor(Number(unitsBoxInput)) || 0,
+                volumePerUnitInMl: Number(doseInput) || 0,
+                proteinPerUnitInGrams: Number(proteinInput) || 0
+              }
+            }
           }),
-          ...(category === "whey" && {
-            wheyInfo: { create: { totalWeightInGrams: weight, doseInGrams: mDose, proteinPerDoseInGrams: mProtein } }
+
+          // Lógica para Barra
+          ...(category === "barra" && {
+            proteinBarInfo: { 
+              create: { 
+                unitsPerBox: Math.floor(Number(unitsBoxInput)) || 0, 
+                doseInGrams: Number(doseInput) || 0, 
+                proteinPerDoseInGrams: Number(proteinInput) || 0 
+              } 
+            }
           }),
           
           offers: { 
             create: { 
               store: Store.AMAZON, 
               externalId: asin, 
-              affiliateUrl: item.DetailPageURL, // O link já vem aqui por padrão!
+              affiliateUrl: item.DetailPageURL ?? "",
               price: 0 
             } 
           }
@@ -117,10 +118,16 @@ async function run() {
 
       console.log(`✅ Sucesso: ${asin}`);
 
-    } catch (err: any) {
-      console.error(`❌ Erro no ASIN ${asin}: ${err.message}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro desconhecido";
+      console.error(`❌ Erro no ASIN ${asin}: ${msg}`);
     }
   }
+
+  await prisma.$disconnect();
 }
 
-run().catch(console.error).finally(() => prisma.$disconnect());
+run().catch((err) => {
+  console.error("❌ Erro Crítico:", err instanceof Error ? err.message : err);
+  process.exit(1);
+});

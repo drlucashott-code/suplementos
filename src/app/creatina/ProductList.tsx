@@ -104,7 +104,6 @@ export function ProductList({
         <MobileProductCard
           key={product.id}
           product={product}
-          isBest={index === 0}
           priority={index < 3} 
         />
       ))}

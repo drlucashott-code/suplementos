@@ -3,11 +3,8 @@
 import { useState } from "react";
 import { importarAmazonAction } from "./actions";
 
-type Categoria = "whey" | "creatina" | "barra";
+type Categoria = "whey" | "creatina" | "barra" | "bebidaproteica";
 
-/* =======================
-    FIELD (PADRÃO DA EDIÇÃO)
-======================= */
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-12 gap-2 items-center">
@@ -24,17 +21,14 @@ export default function ImportadorUniversalPage() {
   const [asins, setAsins] = useState("");
   const [mode, setMode] = useState<"getItem" | "getVariation">("getItem");
   const [titlePattern, setTitlePattern] = useState("{brand} {weight} {title}");
-
-  // Controle de quais campos preencher em massa (Chips)
   const [activeFields, setActiveFields] = useState<string[]>([]);
 
-  // Valores dos campos nutricionais/técnicos
   const [values, setValues] = useState({
     brand: "",
     totalWeight: "" as number | "",
     dose: "" as number | "",
     protein: "" as number | "",
-    unitsPerBox: "" as number | "", // Alterado: De boxWeight para unitsPerBox
+    unitsPerBox: "" as number | "", 
   });
 
   const [logs, setLogs] = useState<string[]>([]);
@@ -43,7 +37,6 @@ export default function ImportadorUniversalPage() {
 
   const inputClass = "w-full border rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-100 outline-none transition-all";
 
-  // Definição dos campos por categoria (Sincronizado com o novo padrão de Barras)
   const bulkFieldOptions: Record<Categoria, { key: string; label: string }[]> = {
     whey: [
       { key: "brand", label: "Marca" },
@@ -58,9 +51,15 @@ export default function ImportadorUniversalPage() {
     ],
     barra: [
       { key: "brand", label: "Marca" },
-      { key: "unitsPerBox", label: "Unidades Caixa" }, // Alterado para Unidades
+      { key: "unitsPerBox", label: "Unidades Caixa" },
       { key: "dose", label: "Peso Unidade (g)" },
       { key: "protein", label: "Prot. por Barra (g)" },
+    ],
+    bebidaproteica: [
+      { key: "brand", label: "Marca" },
+      { key: "unitsPerBox", label: "Unidades no Fardo" },
+      { key: "dose", label: "Volume Unidade (ml)" },
+      { key: "protein", label: "Prot. por Unidade (g)" },
     ],
   };
 
@@ -81,7 +80,6 @@ export default function ImportadorUniversalPage() {
         mode,
         category,
         titlePattern,
-        // Envia o valor apenas se o chip estiver ativo
         brand: activeFields.includes("brand") ? values.brand : "",
         totalWeight: activeFields.includes("totalWeight") && values.totalWeight !== "" ? values.totalWeight : 0,
         dose: activeFields.includes("dose") && values.dose !== "" ? values.dose : 0,
@@ -91,8 +89,10 @@ export default function ImportadorUniversalPage() {
 
       if (!res.ok) setError(res.error ?? "Erro desconhecido");
       if (res.logs?.length) setLogs(res.logs);
-    } catch (err: any) {
-      setError("Erro crítico: " + err.message);
+      // ✅ FIX: Tipagem correta do Erro (Linha 99)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Erro desconhecido";
+      setError("Erro crítico: " + errorMessage);
     } finally {
       setLoading(false);
     }
@@ -105,7 +105,6 @@ export default function ImportadorUniversalPage() {
         <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-bold uppercase tracking-wider">Modo Inteligente</span>
       </div>
 
-      {/* CATEGORIA E ASINS */}
       <div className="space-y-4">
         <Field label="Categoria">
           <select
@@ -113,12 +112,13 @@ export default function ImportadorUniversalPage() {
             value={category}
             onChange={(e) => {
               setCategory(e.target.value as Categoria);
-              setActiveFields([]); // Reseta campos ao trocar categoria
+              setActiveFields([]); 
             }}
           >
             <option value="whey">Whey Protein</option>
             <option value="creatina">Creatina</option>
             <option value="barra">Barra de Proteína</option>
+            <option value="bebidaproteica">Bebida Proteica</option>
           </select>
         </Field>
 
@@ -133,7 +133,6 @@ export default function ImportadorUniversalPage() {
         </Field>
       </div>
 
-      {/* SELETOR DE CHIPS */}
       <div className="space-y-3">
         <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">
           O que deseja preencher em massa?
@@ -155,7 +154,6 @@ export default function ImportadorUniversalPage() {
         </div>
       </div>
 
-      {/* FORMULÁRIO DINÂMICO */}
       {activeFields.length > 0 && (
         <div className="p-6 bg-gray-50 border rounded-xl space-y-4 shadow-inner animate-in fade-in slide-in-from-top-2 duration-300">
           {activeFields.includes("brand") && (
@@ -181,7 +179,7 @@ export default function ImportadorUniversalPage() {
           )}
 
           {activeFields.includes("unitsPerBox") && (
-            <Field label="Unidades na Caixa">
+            <Field label={category === "bebidaproteica" ? "Unidades no Fardo" : "Unidades na Caixa"}>
               <input
                 type="number"
                 step="1"
@@ -194,7 +192,13 @@ export default function ImportadorUniversalPage() {
           )}
 
           {activeFields.includes("dose") && (
-            <Field label={category === "barra" ? "Peso da Unidade (g)" : "Dose (g)"}>
+            <Field 
+              label={
+                category === "barra" ? "Peso da Unidade (g)" : 
+                category === "bebidaproteica" ? "Volume Unidade (ml)" : 
+                "Dose (g)"
+              }
+            >
               <input
                 type="number"
                 className={inputClass}
@@ -205,7 +209,13 @@ export default function ImportadorUniversalPage() {
           )}
 
           {activeFields.includes("protein") && (
-            <Field label={category === "barra" ? "Prot. por Barra (g)" : "Proteína (g)"}>
+            <Field 
+              label={
+                category === "barra" ? "Prot. por Barra (g)" : 
+                category === "bebidaproteica" ? "Prot. por Unidade (g)" : 
+                "Proteína (g)"
+              }
+            >
               <input
                 type="number"
                 className={inputClass}
@@ -217,10 +227,14 @@ export default function ImportadorUniversalPage() {
         </div>
       )}
 
-      {/* CONFIGS TÉCNICAS */}
       <div className="pt-4 space-y-4 border-t">
         <Field label="Método">
-          <select className={inputClass} value={mode} onChange={(e) => setMode(e.target.value as any)}>
+          {/* ✅ FIX: Cast correto para o modo (Linha 241) */}
+          <select 
+            className={inputClass} 
+            value={mode} 
+            onChange={(e) => setMode(e.target.value as "getItem" | "getVariation")}
+          >
             <option value="getItem">GetItem (Simples)</option>
             <option value="getVariation">GetVariation (Variações)</option>
           </select>
@@ -239,7 +253,6 @@ export default function ImportadorUniversalPage() {
         </button>
       </div>
 
-      {/* LOGS */}
       {logs.length > 0 && (
         <div className="bg-[#0b1220] text-green-400 rounded-lg p-4 font-mono text-[11px] max-h-[300px] overflow-auto border border-gray-800 shadow-2xl">
           {logs.map((log, idx) => (
@@ -247,6 +260,7 @@ export default function ImportadorUniversalPage() {
           ))}
         </div>
       )}
+      {error && <p className="text-red-500 text-sm font-bold mt-2">{error}</p>}
     </main>
   );
 }

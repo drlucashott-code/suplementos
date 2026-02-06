@@ -16,11 +16,11 @@ export type ImportResult = {
 type ImportInput = {
   asins: string;
   mode: "getItem" | "getVariation";
-  category: "whey" | "creatina" | "barra";
+  category: "whey" | "creatina" | "barra" | "bebidaproteica";
   titlePattern: string;
   brand: string;
   totalWeight: number;
-  unitsPerBox: number; // Sincronizado com o Schema
+  unitsPerBox: number;
   dose: number;
   protein: number;
 };
@@ -57,19 +57,19 @@ export async function importarAmazonAction(
   );
 
   try {
-    // 3. Preparação do comando em lote
-    // Unimos os ASINs por vírgula para que o script v1.8 processe tudo em uma única execução
     const asinsJoined = asins.join(",");
 
-    const command = `npx ts-node ${scriptPath} "${asinsJoined}" "${input.titlePattern}" "${input.category}" "${input.brand}" ${input.totalWeight} ${input.unitsPerBox} ${input.dose} ${input.protein}`;
+    // ✅ A GRANDE CORREÇÃO:
+    // Adicionamos "-r dotenv/config" para forçar o carregamento do .env 
+    // ANTES do script do Prisma tentar rodar os imports.
+    const command = `npx ts-node -r dotenv/config ${scriptPath} "${asinsJoined}" "${input.titlePattern}" "${input.category}" "${input.brand}" ${input.totalWeight} ${input.unitsPerBox} ${input.dose} ${input.protein}`;
 
     logs.push(`🚀 [${input.category.toUpperCase()}] Iniciando processamento de lote (${asins.length} ASINs)...`);
 
-    // 4. Execução única (para suportar a memória de ParentASIN)
+    // 3. Execução do comando
     const { stdout, stderr } = await execAsync(command);
 
     if (stdout) {
-      // Divide o stdout por linhas para popular os logs da interface
       logs.push(...stdout.trim().split("\n"));
     }
     
@@ -77,22 +77,28 @@ export async function importarAmazonAction(
       logs.push(`⚠️ Alertas do sistema: ${stderr.trim()}`);
     }
 
-    // 5. Revalidação das rotas para atualizar as tabelas de administração
+    // 4. Revalidação de cache (importante para Next.js)
     revalidatePath("/admin/whey");
     revalidatePath("/admin/creatina");
     revalidatePath("/admin/barra");
+    revalidatePath("/admin/bebidaproteica");
+    revalidatePath("/bebidaproteica");
 
     return {
       ok: true,
       logs,
     };
-  } catch (err: any) {
-    logs.push(`❌ Erro crítico na execução do lote: ${err.message}`);
+
+  } catch (err: unknown) {
+    // ✅ CORREÇÃO DE ANY: Tipagem segura para o ESLint
+    const errorMessage = err instanceof Error ? err.message : "Erro desconhecido na execução do comando shell";
+    
+    logs.push(`❌ Erro crítico na execução do lote: ${errorMessage}`);
 
     return {
       ok: false,
       logs,
-      error: err.message,
+      error: errorMessage,
     };
   }
 }
