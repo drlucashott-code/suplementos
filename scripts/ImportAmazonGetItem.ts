@@ -29,8 +29,14 @@ async function run(): Promise<void> {
 
   const args = process.argv.slice(2);
   const [
-    asinsRaw, titlePattern, category, brandInput, 
-    totalWeightInput, unitsBoxInput, doseInput, proteinInput
+    asinsRaw, 
+    titlePattern, 
+    category, 
+    brandInput, 
+    , // ✅ totalWeightInput pulado com uma vírgula vazia para zerar erro do ESLint
+    unitsBoxInput, 
+    doseInput, 
+    proteinInput
   ] = args;
 
   if (!asinsRaw || !category) {

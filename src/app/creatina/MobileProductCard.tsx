@@ -29,9 +29,11 @@ export type Product = {
 export function MobileProductCard({
   product,
   priority,
+  // ✅ isBest removido da desestruturação para o ESLint não reclamar de variável não usada
 }: {
   product: Product;
   priority: boolean;
+  isBest?: boolean; // ✅ Mantido na tipagem para o ProductList não dar erro de build
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
 
@@ -44,11 +46,21 @@ export function MobileProductCard({
     ? (reviewsCount / 1000).toFixed(1).replace(".", ",") + " mil"
     : reviewsCount.toString();
 
-  const shouldShowCarbTag = product.hasCarbs || product.form === "GUMMY";
-
   const pricePerDose = (hasPrice && product.doses && product.doses > 0)
     ? (product.price! / product.doses).toFixed(2)
     : null;
+
+  // ✅ Lógica para o rótulo dinâmico da dose (Gummy, Capsule ou Pó)
+  const getDoseLabel = () => {
+    const weight = product.doseWeight;
+    if (product.form === "GUMMY") {
+      return `ANÁLISE POR DOSE (${weight} ${weight > 1 ? 'GUMMIES' : 'GUMMY'})`;
+    }
+    if (product.form === "CAPSULE") {
+      return `ANÁLISE POR DOSE (${weight} ${weight > 1 ? 'CÁPSULAS' : 'CÁPSULA'})`;
+    }
+    return `Análise por dose (${weight}g)`;
+  };
 
   const handleTrackClick = () => {
     const asinMatch = product.affiliateUrl.match(/\/dp\/([A-Z0-9]{10})/);
@@ -122,7 +134,7 @@ export function MobileProductCard({
         {/* TABELA TÉCNICA */}
         <div className="bg-white border border-zinc-200 rounded p-2 mb-2">
            <p className="text-[10px] uppercase font-bold text-zinc-500 mb-2 tracking-wide text-center border-b border-zinc-200 pb-1">
-             Análise por dose ({product.doseWeight}g)
+             {getDoseLabel()}
            </p>
            
            <div className="flex items-center justify-around text-center pt-1">
@@ -146,7 +158,7 @@ export function MobileProductCard({
            </div>
         </div>
 
-        {/* ✅ AJUSTE 1: Menor preço sem caixa alta */}
+        {/* Menor preço */}
         {(product.isLowestPrice || product.isLowestPrice7d) && (
           <div className="mb-2">
             <span className="bg-[#CC0C39] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm">
@@ -195,7 +207,6 @@ export function MobileProductCard({
                 (R$ {product.pricePerGram.toFixed(2).replace(".", ",")} / g de creatina)
               </div>
               
-              {/* ✅ AJUSTE 2: Tamanho do selo Prime reduzido */}
               <div className="mt-1 flex items-center">
                 <span className="font-black italic text-[12px] leading-none flex items-center">
                   <span className="not-italic text-[13px] text-[#FEBD69] mr-0.5" aria-hidden="true">✓</span>

@@ -4,7 +4,7 @@ import { MobileProductCard } from "./MobileProductCard";
 import { CreatineForm } from "@prisma/client";
 import { useEffect, useRef, useState, useMemo } from "react";
 
-// Definição das propriedades do produto para evitar erros de Build
+// ✅ Tipo exportado para ser usado em outros arquivos (como o page.tsx e o card)
 export type Product = {
   id: string;
   name: string;
@@ -26,7 +26,7 @@ export type Product = {
   hasCarbs?: boolean;        
 };
 
-// ✅ INTERFACE SEM "ANY" PARA PASSAR NO ESLINT
+// Interface para o rastreio (Google Analytics)
 interface CustomWindow extends Window {
   gtag?: (command: string, eventName: string, params: Record<string, unknown>) => void;
   dataLayer?: Record<string, unknown>[];
@@ -42,7 +42,7 @@ export function ProductList({
   const [prevProducts, setPrevProducts] = useState(products);
   const [visibleCount, setVisibleCount] = useState(3);
 
-  // Reset de estado durante renderização (Performance Fix)
+  // Reset de estado ao mudar a lista de produtos (filtros)
   if (products !== prevProducts) {
     setPrevProducts(products);
     setVisibleCount(3);
@@ -51,19 +51,17 @@ export function ProductList({
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const trackedRef = useRef<string | null>(null);
 
-  // 📊 RASTREIO (Resolvendo erro de explicit-any no dataLayer)
+  // 📊 RASTREIO DE VISUALIZAÇÃO
   useEffect(() => {
     if (!viewEventName || trackedRef.current === viewEventName) return;
-
     const win = window as unknown as CustomWindow;
-
+    
     if (win.gtag) {
       win.gtag("event", viewEventName, {
         category: "creatina",
         total_products: products.length
       });
     } else {
-      // ✅ Inicialização e push tipados corretamente
       win.dataLayer = win.dataLayer || [];
       win.dataLayer.push({
         event: viewEventName,
@@ -71,14 +69,12 @@ export function ProductList({
         total_products: products.length
       });
     }
-
     trackedRef.current = viewEventName;
   }, [products.length, viewEventName]);
 
-  // ♾️ INFINITE SCROLL
+  // ♾️ SCROLL INFINITO
   useEffect(() => {
     const currentTarget = loadMoreRef.current;
-    
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && products.length > visibleCount) {
@@ -89,7 +85,6 @@ export function ProductList({
     );
 
     if (currentTarget) observer.observe(currentTarget);
-
     return () => {
       if (currentTarget) observer.unobserve(currentTarget);
     };
@@ -104,7 +99,9 @@ export function ProductList({
         <MobileProductCard
           key={product.id}
           product={product}
-          priority={index < 3} 
+          priority={index < 3}
+          // Passamos isBest para o card; o card já foi ajustado para aceitar isso sem erro de ESLint
+          isBest={index === 0} 
         />
       ))}
 
@@ -125,3 +122,6 @@ export function ProductList({
     </section>
   );
 }
+
+// ✅ Garante que tanto "import { ProductList }" quanto "import ProductList" funcionem no page.tsx
+export default ProductList;

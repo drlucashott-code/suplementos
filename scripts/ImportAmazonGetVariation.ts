@@ -6,7 +6,7 @@
 
 import "dotenv/config";
 import paapi from "amazon-paapi";
-import { PrismaClient, Store, CreatineForm } from "@prisma/client";
+import { PrismaClient, Store } from "@prisma/client"; // ✅ CreatineForm removido
 
 const prisma = new PrismaClient();
 const processedParents = new Set<string>(); // A nossa "Memória" da rodada
@@ -79,7 +79,7 @@ async function run() {
           Resources: ["ItemInfo.Title", "ItemInfo.ByLineInfo", "Images.Primary.Large", "DetailPageURL"],
         });
         itemsToProcess = variations?.VariationsResult?.Items ?? [];
-      } catch (vErr) {
+      } catch { // ✅ vErr removido pois não era usado
         console.log(`⚠️ GetVariations recusado. Usando apenas o item individual.`);
       }
 
@@ -116,8 +116,9 @@ async function run() {
       // 5. REGISTRAR NA MEMÓRIA: Marcamos este pai como concluído
       processedParents.add(parentAsin);
 
-    } catch (err: any) {
-      console.log(`❌ Erro no ASIN ${currentAsin}: ${err.message}`);
+    } catch (err: unknown) { // ✅ Trocado de 'any' para 'unknown'
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.log(`❌ Erro no ASIN ${currentAsin}: ${errorMessage}`);
     }
   }
 }
