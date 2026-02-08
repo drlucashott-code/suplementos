@@ -6,9 +6,10 @@ import { useEffect } from "react";
 import Image from "next/image";
 import Header from "./Header"; 
 
-// 🚀 Componente de Rastreio Atualizado
+// 🚀 Componente de Rastreio de Visualização
 function TrackHomeView() {
   useEffect(() => {
+    // Cast para garantir que o TypeScript aceite a propriedade dataLayer no objeto window
     const win = window as typeof window & { dataLayer?: object[] };
     win.dataLayer = win.dataLayer || [];
     win.dataLayer.push({
@@ -23,7 +24,7 @@ function TrackHomeView() {
 export default function HomePage() {
   const router = useRouter();
 
-  // Função para centralizar o tracking de cliques em categorias
+  // Função para tracking de cliques em categorias
   const handleCategoryClick = (path: string, categoryName: string) => {
     const win = window as typeof window & { dataLayer?: object[] };
     if (win.dataLayer) {
@@ -158,7 +159,8 @@ function CategoryCard({ title, imageSrc, onClick, disabled }: CategoryCardProps)
         }
       `}
     >
-      <h2 className="text-[14px] font-bold text-[#0F1111] w-full text-left mb-2 leading-tight">
+      {/* Título centralizado com text-center */}
+      <h2 className="text-[14px] font-bold text-[#0F1111] w-full text-center mb-2 leading-tight">
         {title}
       </h2>
 
