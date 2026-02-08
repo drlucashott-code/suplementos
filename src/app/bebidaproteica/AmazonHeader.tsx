@@ -8,16 +8,13 @@ export function AmazonHeader() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // Pegamos o valor da URL
+  // Sincronização automática com a URL
   const urlQuery = searchParams.get("q") || "";
 
-  /** * SOLUÇÃO: Em vez de usar useEffect para sincronizar, 
-   * usamos o valor da URL para resetar o estado local apenas quando necessário.
-   * Isso evita o erro 'react-hooks/set-state-in-effect'.
-   */
   const [query, setQuery] = useState(urlQuery);
   const [prevUrlQuery, setPrevUrlQuery] = useState(urlQuery);
 
+  // Sincroniza o input se a URL mudar (ex: ao limpar filtros)
   if (urlQuery !== prevUrlQuery) {
     setQuery(urlQuery);
     setPrevUrlQuery(urlQuery);
@@ -33,13 +30,15 @@ export function AmazonHeader() {
       params.delete("q");
     }
     
-    router.push(`/barra?${params.toString()}`);
+    // ATUALIZADO: Rota corrigida para bebidaproteica
+    router.push(`/bebidaproteica?${params.toString()}`);
   }
 
   return (
     <header className="bg-[#232f3e] text-white sticky top-0 z-40 w-full shadow-md">
       <div className="flex items-center px-3 h-14 gap-2 max-w-[1200px] mx-auto">
         
+        {/* Botão de Voltar */}
         <button 
           onClick={() => router.back()}
           className="p-1 active:bg-white/10 rounded-full transition-colors flex-shrink-0"
@@ -48,21 +47,22 @@ export function AmazonHeader() {
           <ArrowLeft className="w-6 h-6 stroke-[2.5px]" />
         </button>
         
+        {/* Barra de Busca Estilo Amazon */}
         <form 
           onSubmit={handleSearch}
           className="flex-1 flex items-center bg-white rounded-md px-3 py-1.5 shadow-inner"
           role="search"
         >
-          <label htmlFor="barra-search" className="sr-only">
-            Pesquisar em Barra de Proteína
+          <label htmlFor="drink-search" className="sr-only">
+            Pesquisar em Bebida Proteica
           </label>
           <Search className="w-5 h-5 text-zinc-500 mr-2 flex-shrink-0" aria-hidden="true" />
           <input 
-            id="barra-search"
+            id="drink-search"
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Pesquisar em barra de proteína"
+            placeholder="Pesquisar em bebida proteica"
             className="w-full bg-transparent text-[#0F1111] text-[16px] outline-none placeholder-zinc-500 font-normal"
             enterKeyHint="search"
           />

@@ -16,13 +16,21 @@ const commonParameters = {
   Marketplace: "www.amazon.com.br",
 };
 
+// Interface para evitar o uso de 'any' no loop
+interface AmazonVariationItem {
+  ASIN: string;
+}
+
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const processedParents = new Set<string>();
 const finalChildAsins = new Set<string>();
 
 async function run() {
   const asinsRaw = process.argv[2];
-  if (!asinsRaw) return console.log("❌ Uso: npx ts-node scripts/ExpandVariations.ts \"ASIN1,ASIN2...\"");
+  if (!asinsRaw) {
+    console.log("❌ Uso: npx ts-node scripts/ExpandVariations.ts \"ASIN1,ASIN2...\"");
+    return;
+  }
 
   const asinList = asinsRaw.split(",").map(a => a.trim()).filter(Boolean);
   console.log(`🚀 Iniciando expansão de ${asinList.length} ASINs base (Modo Fail-Safe)...`);
@@ -76,7 +84,7 @@ async function run() {
           foundAnyVariation = true;
           console.log(`     📄 Página ${currentPage}: +${children.length} variações.`);
           
-          children.forEach((c: any) => {
+          children.forEach((c: AmazonVariationItem) => {
             // Filtra o Parent apenas se ele for um container (actualParent definido)
             if (c.ASIN !== actualParent) {
               finalChildAsins.add(c.ASIN);
@@ -98,9 +106,11 @@ async function run() {
 
       processedParents.add(parentAsin);
 
-    } catch (err: any) {
-      // CORREÇÃO: Em caso de erro (429, Timeout, etc), o ASIN original é salvo para não ser perdido
-      console.error(`   ❌ ERRO no ASIN ${currentAsin}: ${err.message}`);
+    } catch (err: unknown) {
+      // CORREÇÃO: Tipagem segura de erro
+      const errorMessage = err instanceof Error ? err.message : String(err);
+
+      console.error(`   ❌ ERRO no ASIN ${currentAsin}: ${errorMessage}`);
       console.log(`   🛡️ Fail-Safe: Adicionando ${currentAsin} à lista final para garantir.`);
       finalChildAsins.add(currentAsin);
     }

@@ -8,12 +8,12 @@ type Props = {
   brands: string[];
   flavors: string[];
   weights: number[]; // Pesos/Unidades vindos do banco
-  totalResults: number; 
+  // Removido totalResults pois não está sendo utilizado na UI
 };
 
 type FilterTab = "form" | "brand" | "flavor" | "weight";
 
-export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: Props) {
+export function MobileFiltersDrawer({ brands, flavors, weights }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
 

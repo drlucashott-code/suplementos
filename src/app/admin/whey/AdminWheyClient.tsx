@@ -12,7 +12,7 @@ import type { WheyProduct } from "./AdminWheyWrapper";
 import { ToastOnSubmit } from "../creatina/ToastOnSubmit";
 
 /* =======================
-   FIELD HELPER
+    FIELD HELPER
 ======================= */
 function Field({
   label,
@@ -71,7 +71,7 @@ export default function AdminWheyClient({
   /* ======================= FILTRO + ORDENAÇÃO ======================= */
   const filteredProducts = useMemo(() => {
     const term = search.toLowerCase();
-    let result = products.filter(
+    const result = products.filter(
       (p) =>
         p.name.toLowerCase().includes(term) ||
         p.brand.toLowerCase().includes(term) ||
@@ -107,7 +107,11 @@ export default function AdminWheyClient({
   /* ======================= SELEÇÃO EM LOTE ======================= */
   const toggleSelect = (id: string) => {
     const next = new Set(selectedIds);
-    next.has(id) ? next.delete(id) : next.add(id);
+    if (next.has(id)) {
+        next.delete(id);
+    } else {
+        next.add(id);
+    }
     setSelectedIds(next);
   };
 
@@ -155,10 +159,11 @@ export default function AdminWheyClient({
           onClick={() => setZoomedImage(null)}
         >
           <div className="relative max-w-4xl w-full h-full flex items-center justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={zoomedImage}
               className="max-w-full max-h-full object-contain rounded-lg"
-              alt="Zoom"
+              alt="Zoom do produto"
             />
             <button className="absolute top-0 right-0 text-white text-4xl p-4">
               &times;
@@ -231,7 +236,7 @@ export default function AdminWheyClient({
               placeholder="Prot/dose"
               className="bg-gray-900 border p-2 text-xs"
             />
-            <button className="col-span-2 bg-blue-600 text-white text-xs font-bold rounded">
+            <button type="submit" className="col-span-2 bg-blue-600 text-white text-xs font-bold rounded">
               Aplicar
             </button>
           </form>
@@ -256,6 +261,28 @@ export default function AdminWheyClient({
           {showCreate ? "Fechar" : "＋ Novo"}
         </button>
       </div>
+
+      {/* FORMULÁRIO DE CRIAÇÃO */}
+      {showCreate && (
+        <form action={createWheyAction} className="space-y-4 mb-10 border border-gray-200 rounded-2xl p-6 bg-gray-50 shadow-inner">
+          <ToastOnSubmit message="✅ Whey cadastrado!" />
+          <div className="space-y-4">
+            <Field label="Nome"><input name="name" className={inputStyle} required /></Field>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Marca"><input name="brand" className={inputStyle} required /></Field>
+              <Field label="Sabor"><input name="flavor" className={inputStyle} /></Field>
+            </div>
+            <Field label="URL Imagem"><input name="imageUrl" className={inputStyle} /></Field>
+            <div className="grid grid-cols-3 gap-4">
+              <Field label="Peso Total (g)"><input name="totalWeightInGrams" type="number" className={inputStyle} required /></Field>
+              <Field label="Dose (g)"><input name="doseInGrams" type="number" className={inputStyle} required /></Field>
+              <Field label="Prot./Dose (g)"><input name="proteinPerDoseInGrams" type="number" className={inputStyle} required /></Field>
+            </div>
+            <Field label="ASIN"><input name="amazonAsin" className={inputStyle} /></Field>
+          </div>
+          <button type="submit" className="w-full bg-black text-white py-3 rounded-xl font-bold mt-4">SALVAR NOVO PRODUTO</button>
+        </form>
+      )}
 
       {/* TABELA */}
       <div className="border rounded-2xl overflow-hidden bg-white">
@@ -308,9 +335,11 @@ export default function AdminWheyClient({
                       >
                         {p.imageUrl ? (
                           <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={p.imageUrl}
                               className="w-full h-full object-contain"
+                              alt={p.name}
                             />
                             <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px]">
                               🔍
@@ -347,7 +376,7 @@ export default function AdminWheyClient({
                         }
                       >
                         <input type="hidden" name="id" value={p.id} />
-                        <button className="text-red-400 text-xs">
+                        <button type="submit" className="text-red-400 text-xs">
                           Excluir
                         </button>
                       </form>
@@ -426,7 +455,7 @@ export default function AdminWheyClient({
                           </Field>
 
                           <div className="flex justify-end pt-4">
-                            <button className="bg-blue-600 text-white px-10 py-2 rounded-xl text-xs font-bold">
+                            <button type="submit" className="bg-blue-600 text-white px-10 py-2 rounded-xl text-xs font-bold">
                               Salvar
                             </button>
                           </div>

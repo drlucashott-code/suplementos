@@ -3,6 +3,13 @@
 import { CreatineForm } from "@prisma/client";
 import { useRouter, useSearchParams } from "next/navigation";
 
+// CORREÇÃO: Define a tipagem do gtag para o objeto window sem usar 'any'
+declare global {
+  interface Window {
+    gtag?: (command: string, event: string, data?: object) => void;
+  }
+}
+
 type Props = {
   brands: string[];
   flavors: string[];
@@ -24,8 +31,8 @@ export function DesktopFiltersSidebar({ brands, flavors, weights }: Props) {
   };
 
   function track(event: string, data?: object) {
-    if (typeof window !== "undefined" && "gtag" in window) {
-      // @ts-ignore
+    if (typeof window !== "undefined" && window.gtag) {
+      // Agora o TS sabe o que é gtag e o ESLint não reclama de 'any'
       window.gtag("event", event, data);
     }
   }

@@ -1,11 +1,9 @@
 "use client";
 
-import { CreatineForm } from "@prisma/client";
 import { useRouter, useSearchParams } from "next/navigation";
 
 /**
- * Extensão da interface global para o objeto window.
- * Isso resolve os erros de tipagem do Google Tag sem precisar de @ts-ignore ou casts para 'any'.
+ * Extensão da interface global para o objeto window para GA
  */
 declare global {
   interface Window {
@@ -16,7 +14,7 @@ declare global {
 type Props = {
   brands: string[];
   flavors: string[];
-  weights: number[]; // Novo: Pesos disponíveis vindos do banco
+  weights: number[]; // Representa o Volume Total em ML
 };
 
 export function DesktopFiltersSidebar({ brands, flavors, weights }: Props) {
@@ -27,11 +25,12 @@ export function DesktopFiltersSidebar({ brands, flavors, weights }: Props) {
     return searchParams.get(param)?.split(",") ?? [];
   }
 
-  // Helper para formatar o peso na UI (ex: 300g ou 1kg)
-  const formatWeight = (g: number) => (g >= 1000 ? `${g / 1000}kg` : `${g}g`);
+  // Helper adaptado para Volume (ex: 250ml ou 1L)
+  const formatSize = (val: number) => {
+    return val >= 1000 ? `${val / 1000}L` : `${val}ml`;
+  };
 
   function track(event: string, data?: object) {
-    // Agora o TypeScript reconhece o 'gtag' nativamente através da interface estendida acima
     if (typeof window !== "undefined" && window.gtag) {
       window.gtag("event", event, data);
     }
@@ -40,8 +39,8 @@ export function DesktopFiltersSidebar({ brands, flavors, weights }: Props) {
   const hasActiveFilters = 
     searchParams.get("brand") || 
     searchParams.get("flavor") || 
-    searchParams.get("form") || 
     searchParams.get("weight") || 
+    searchParams.get("proteinRange") || 
     searchParams.get("q");
 
   function toggleParam(param: string, value: string) {
@@ -52,6 +51,7 @@ export function DesktopFiltersSidebar({ brands, flavors, weights }: Props) {
       filter_type: param,
       filter_value: value,
       action: isRemoving ? "remove" : "add",
+      category: "bebidaproteica"
     });
 
     const next = isRemoving
@@ -66,12 +66,13 @@ export function DesktopFiltersSidebar({ brands, flavors, weights }: Props) {
       params.set(param, next.join(","));
     }
 
-    router.push(`/creatina?${params.toString()}`);
+    // Rota atualizada para Bebida Proteica
+    router.push(`/bebidaproteica?${params.toString()}`);
   }
 
   function clearFilters() {
-    track("clear_filters_desktop");
-    router.push("/creatina");
+    track("clear_filters_desktop", { category: "bebidaproteica" });
+    router.push("/bebidaproteica");
   }
 
   return (
@@ -88,33 +89,11 @@ export function DesktopFiltersSidebar({ brands, flavors, weights }: Props) {
         )}
       </div>
 
-      {/* APRESENTAÇÃO */}
+      {/* VOLUME / TAMANHO */}
       <div>
-        <p className="font-bold text-sm mb-2 text-[#0F1111]">Apresentação</p>
-        <div className="space-y-1">
-          {[
-            { value: CreatineForm.CAPSULE, label: "Cápsula" },
-            { value: CreatineForm.GUMMY, label: "Gummy" },
-            { value: CreatineForm.POWDER, label: "Pó" },
-          ].map((f) => (
-            <label key={f.value} className="flex items-center gap-2 text-sm cursor-pointer hover:text-[#e47911]">
-              <input
-                type="checkbox"
-                className="w-4 h-4 accent-[#e47911]"
-                checked={getSelected("form").includes(f.value)}
-                onChange={() => toggleParam("form", f.value)}
-              />
-              {f.label}
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* TAMANHO (NOVO) */}
-      <div>
-        <p className="font-bold text-sm mb-2 text-[#0F1111]">Tamanho</p>
+        <p className="font-bold text-sm mb-2 text-[#0F1111]">Volume Total</p>
         <div className="space-y-1 max-h-40 overflow-auto pr-2 custom-scrollbar">
-          {weights.map((w) => (
+          {weights.sort((a,b) => a-b).map((w) => (
             <label key={w} className="flex items-center gap-2 text-sm cursor-pointer hover:text-[#e47911]">
               <input
                 type="checkbox"
@@ -122,7 +101,7 @@ export function DesktopFiltersSidebar({ brands, flavors, weights }: Props) {
                 checked={getSelected("weight").includes(w.toString())}
                 onChange={() => toggleParam("weight", w.toString())}
               />
-              {formatWeight(w)}
+              {formatSize(w)}
             </label>
           ))}
         </div>

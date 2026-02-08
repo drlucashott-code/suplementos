@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 type Props = {
   brands: string[];
-  flavors: string[];
+  // Removido 'flavors' pois não estava sendo utilizado no componente
 };
 
 const PROTEIN_RANGES = [
@@ -14,7 +14,7 @@ const PROTEIN_RANGES = [
   { label: "Abaixo de 10g por barra", value: "0-10" },
 ];
 
-export function DesktopFiltersSidebar({ brands, flavors }: Props) {
+export function DesktopFiltersSidebar({ brands }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
 

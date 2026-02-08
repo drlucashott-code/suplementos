@@ -3,12 +3,6 @@
 import { MobileProductCard, BarraProduct } from "./MobileProductCard";
 import { useEffect, useRef, useState, useMemo } from "react";
 
-// Interface para rastreio (GA / dataLayer)
-interface CustomWindow extends Window {
-  gtag?: (command: string, eventName: string, params: Record<string, unknown>) => void;
-  dataLayer?: Record<string, unknown>[];
-}
-
 export function ProductList({
   products,
   viewEventName = "view_barra_list",
@@ -16,31 +10,44 @@ export function ProductList({
   products: BarraProduct[];
   viewEventName?: string;
 }) {
-  const [prevProducts, setPrevProducts] = useState(products);
   const [visibleCount, setVisibleCount] = useState(3);
+  const [prevProducts, setPrevProducts] = useState(products);
+  
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const trackedRef = useRef<string | null>(null);
 
-  // Reset ao mudar filtros
+  /**
+   * CORREÇÃO: Sincronização durante a renderização.
+   * Resetamos o estado local quando os produtos mudam.
+   * Não alteramos o ref aqui para evitar o erro 'react-hooks/refs'.
+   */
   if (products !== prevProducts) {
     setPrevProducts(products);
     setVisibleCount(3);
   }
 
-  const loadMoreRef = useRef<HTMLDivElement>(null);
-  const trackedRef = useRef<string | null>(null);
+  // 📊 Tracking de visualização
+  useEffect(() => {
+    // CORREÇÃO: O reset do trackedRef.current acontece aqui dentro do Effect
+    // Toda vez que 'products' muda, este efeito roda. Se os produtos mudarem,
+    // limpamos o tracking antigo para permitir um novo disparo.
+    trackedRef.current = null; 
+  }, [products]);
 
-  // 📊 Tracking de visualização (padrão creatina)
   useEffect(() => {
     if (!viewEventName || trackedRef.current === viewEventName) return;
 
-    const win = window as unknown as CustomWindow;
+    const win = window as typeof window & { 
+      gtag?: (c: string, e: string, p: Record<string, unknown>) => void;
+      dataLayer?: object[];
+    };
 
     if (win.gtag) {
       win.gtag("event", viewEventName, {
         category: "barra",
         total_products: products.length,
       });
-    } else {
-      win.dataLayer = win.dataLayer || [];
+    } else if (win.dataLayer) {
       win.dataLayer.push({
         event: viewEventName,
         category: "barra",
@@ -51,9 +58,11 @@ export function ProductList({
     trackedRef.current = viewEventName;
   }, [products.length, viewEventName]);
 
-  // ♾️ Scroll infinito (igual creatina)
+  // ♾️ Scroll infinito
   useEffect(() => {
     const currentTarget = loadMoreRef.current;
+    if (!currentTarget) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && products.length > visibleCount) {
@@ -63,10 +72,8 @@ export function ProductList({
       { threshold: 0.1, rootMargin: "200px" }
     );
 
-    if (currentTarget) observer.observe(currentTarget);
-    return () => {
-      if (currentTarget) observer.unobserve(currentTarget);
-    };
+    observer.observe(currentTarget);
+    return () => observer.disconnect();
   }, [visibleCount, products.length]);
 
   const visibleProducts = useMemo(
@@ -109,5 +116,4 @@ export function ProductList({
   );
 }
 
-// Compatibilidade com import default
 export default ProductList;

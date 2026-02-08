@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminBebidaPage() {
   const productsRaw = await prisma.product.findMany({
-    where: { category: "bebida_proteica" },
+    where: { category: "bebidaproteica" },
     include: {
       proteinDrinkInfo: true,
       offers: {

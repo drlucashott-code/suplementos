@@ -55,7 +55,7 @@ export default function AdminBarraClient({ products }: { products: BarraProduct[
   /* ======================= FILTRO + ORDENAÇÃO ======================= */
   const filteredProducts = useMemo(() => {
     const term = search.toLowerCase();
-    let result = products.filter(p => 
+    const result = products.filter(p => 
       p.name.toLowerCase().includes(term) || 
       p.brand.toLowerCase().includes(term) ||
       (p.flavor?.toLowerCase().includes(term))
@@ -126,7 +126,8 @@ export default function AdminBarraClient({ products }: { products: BarraProduct[
       {zoomedImage && (
         <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out" onClick={() => setZoomedImage(null)}>
           <div className="relative max-w-4xl w-full h-full flex items-center justify-center">
-            <img src={zoomedImage} className="max-w-full max-h-full object-contain rounded-lg" alt="Zoom" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={zoomedImage} className="max-w-full max-h-full object-contain rounded-lg" alt="Visualização ampliada do produto" />
             <button className="absolute top-0 right-0 text-white text-4xl p-4">&times;</button>
           </div>
         </div>
@@ -152,7 +153,6 @@ export default function AdminBarraClient({ products }: { products: BarraProduct[
           </div>
           
           <form onSubmit={handleBulkUpdate} className="grid grid-cols-6 gap-2">
-            {/* Nome preenchendo toda a linha superior do form de lote */}
             <input name="bulkName" placeholder="Novo Nome em Massa" className="col-span-6 bg-gray-900 border border-gray-800 rounded p-2 text-xs outline-none focus:ring-1 ring-blue-500" />
             
             <input name="bulkBrand" placeholder="Marca" className="bg-gray-900 border border-gray-800 rounded p-2 text-xs outline-none focus:ring-1 ring-blue-500" />
@@ -213,7 +213,15 @@ export default function AdminBarraClient({ products }: { products: BarraProduct[
                     <td className="p-4 text-center"><input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => toggleSelect(p.id)} /></td>
                     <td className="p-4 flex justify-center">
                       <div className="group relative w-12 h-12 bg-white border rounded flex items-center justify-center cursor-pointer" onClick={() => p.imageUrl && setZoomedImage(p.imageUrl)}>
-                        {p.imageUrl ? <><img src={p.imageUrl} className="w-full h-full object-contain" /><div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px]">🔍</div></> : <span className="text-[8px] text-gray-300 font-bold uppercase">N/A</span>}
+                        {p.imageUrl ? (
+                          <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={p.imageUrl} className="w-full h-full object-contain" alt={p.name} />
+                            <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px]">🔍</div>
+                          </>
+                        ) : (
+                          <span className="text-[8px] text-gray-300 font-bold uppercase">N/A</span>
+                        )}
                       </div>
                     </td>
                     <td className="p-4 font-bold text-gray-900">{p.name}</td>
@@ -232,7 +240,6 @@ export default function AdminBarraClient({ products }: { products: BarraProduct[
                         <form action={updateBarraAction} className="bg-white border p-6 rounded-2xl shadow-xl space-y-4">
                           <input type="hidden" name="id" value={p.id} />
                           
-                          {/* Edição individual agora preenche toda a linha */}
                           <Field label="Nome Completo"><input name="name" defaultValue={p.name} className={inputStyle} /></Field>
                           
                           <div className="grid grid-cols-2 gap-4">

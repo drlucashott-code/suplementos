@@ -4,12 +4,97 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  
+  url      = env("DATABASE_URL")
 }
 
-/* =======================
-    ENUMS
-======================= */
+model Product {
+  id               String            @id @default(cuid())
+  category         String
+  name             String
+  brand            String
+  flavor           String?
+  imageUrl         String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  creatineInfo     CreatineInfo?
+  offers           Offer[]
+  proteinBarInfo   ProteinBarInfo?
+  proteinDrinkInfo ProteinDrinkInfo?
+  wheyInfo         WheyInfo?
+}
+
+model CreatineInfo {
+  id           String       @id @default(cuid())
+  productId    String       @unique
+  form         CreatineForm
+  totalUnits   Float
+  unitsPerDose Float
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([form])
+}
+
+model WheyInfo {
+  id                    String  @id @default(cuid())
+  productId             String  @unique
+  totalWeightInGrams    Float
+  doseInGrams           Float
+  proteinPerDoseInGrams Float
+  product               Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ProteinBarInfo {
+  id                    String  @id @default(cuid())
+  productId             String  @unique
+  doseInGrams           Float
+  proteinPerDoseInGrams Float
+  unitsPerBox           Int
+  product               Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ProteinDrinkInfo {
+  id                    String  @id @default(cuid())
+  productId             String  @unique
+  unitsPerPack          Int
+  volumePerUnitInMl     Float
+  proteinPerUnitInGrams Float
+  product               Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Offer {
+  id            String              @id @default(cuid())
+  productId     String
+  store         Store
+  externalId    String
+  price         Float
+  affiliateUrl  String
+  createdAt     DateTime            @default(now())
+  ratingAverage Float?
+  ratingCount   Int?
+  updatedAt     DateTime            @updatedAt
+  product       Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  priceHistory  OfferPriceHistory[]
+
+  @@unique([store, externalId])
+  @@index([productId])
+  @@index([store])
+}
+
+model OfferPriceHistory {
+  id        String   @id @default(cuid())
+  offerId   String
+  price     Float
+  createdAt DateTime @default(now())
+  offer     Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@index([offerId, createdAt])
+}
+
+model AmazonImportQueue {
+  id        String   @id @default(cuid())
+  asin      String   @unique
+  createdAt DateTime @default(now())
+}
 
 enum Store {
   AMAZON
@@ -20,144 +105,4 @@ enum CreatineForm {
   POWDER
   CAPSULE
   GUMMY
-}
-
-/* =======================
-    PRODUCT
-======================= */
-model Product {
-  id             String      @id @default(cuid())
-
-  category       String
-  name           String
-  brand          String
-  flavor         String?
-  imageUrl       String
-
-  // Dados específicos da creatina
-  creatineInfo   CreatineInfo?
-
-  // Dados específicos do whey
-  wheyInfo       WheyInfo?
-
-  // Dados específicos da barra de proteína
-  proteinBarInfo ProteinBarInfo?
-
-  // Dados específicos da bebida proteica
-  proteinDrinkInfo ProteinDrinkInfo?
-
-  // Ofertas por loja
-  offers         Offer[]
-
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-}
-
-/* =======================
-    CREATINE INFO
-======================= */
-model CreatineInfo {
-  id           String       @id @default(cuid())
-  productId    String       @unique
-  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  form         CreatineForm
-  totalUnits   Float
-  unitsPerDose Float
-
-  @@index([form])
-}
-
-/* =======================
-    WHEY INFO
-======================= */
-model WheyInfo {
-  id                    String  @id @default(cuid())
-  productId             String  @unique
-  product               Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  totalWeightInGrams    Float
-  doseInGrams           Float
-  proteinPerDoseInGrams Float
-}
-
-/* =======================
-    PROTEIN BAR INFO
-======================= */
-model ProteinBarInfo {
-  id                    String  @id @default(cuid())
-  productId             String  @unique
-  product               Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  unitsPerBox           Int     // Unidades por caixa (Ex: 12)
-  doseInGrams           Float   // Peso de uma unidade (barrinha)
-  proteinPerDoseInGrams Float   // Proteína por unidade
-}
-
-/* =======================
-    PROTEIN DRINK INFO (NOVO)
-======================= */
-model ProteinDrinkInfo {
-  id                    String  @id @default(cuid())
-  productId             String  @unique
-  product               Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  unitsPerPack          Int     // Unidades por fardo/pack (Ex: 6 ou 12)
-  volumePerUnitInMl     Float   // Volume de uma unidade (Ex: 250ml)
-  proteinPerUnitInGrams Float   // Proteína por unidade
-}
-
-/* =======================
-    OFFER
-======================= */
-model Offer {
-  id            String   @id @default(cuid())
-
-  productId     String
-  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  store         Store
-  externalId    String
-
-  price         Float
-  affiliateUrl  String
-
-  ratingAverage Float?
-  ratingCount   Int?
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // 🔗 Histórico de preços
-  priceHistory  OfferPriceHistory[]
-
-  @@unique([store, externalId])
-  @@index([productId])
-  @@index([store])
-}
-
-/* =======================
-    OFFER PRICE HISTORY
-======================= */
-model OfferPriceHistory {
-  id        String   @id @default(cuid())
-
-  offerId   String
-  offer     Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
-
-  price     Float
-  createdAt DateTime @default(now())
-
-  @@index([offerId, createdAt])
-}
-
-/* =======================
-    AMAZON IMPORT QUEUE
-======================= */
-model AmazonImportQueue {
-  id        String   @id @default(cuid())
-  asin      String
-  createdAt DateTime @default(now())
-
-  @@unique([asin])
 }

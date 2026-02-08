@@ -2,17 +2,26 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Search } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 export function AmazonHeader() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [query, setQuery] = useState(searchParams.get("q") || "");
+  // Valor atual vindo da URL
+  const urlQuery = searchParams.get("q") || "";
 
-  useEffect(() => {
-    setQuery(searchParams.get("q") || "");
-  }, [searchParams]);
+  /** * CORREÇÃO: Sincronização de estado sem useEffect.
+   * Armazenamos o valor da URL atual e um "snapshot" do anterior.
+   * Se a URL mudar (ex: filtros limpos), atualizamos o input durante a renderização.
+   */
+  const [query, setQuery] = useState(urlQuery);
+  const [prevUrlQuery, setPrevUrlQuery] = useState(urlQuery);
+
+  if (urlQuery !== prevUrlQuery) {
+    setQuery(urlQuery);
+    setPrevUrlQuery(urlQuery);
+  }
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -48,7 +57,7 @@ export function AmazonHeader() {
             Pesquisar em Creatina
           </label>
 
-          <Search className="w-5 h-5 text-zinc-500 mr-2 flex-shrink-0" />
+          <Search className="w-5 h-5 text-zinc-500 mr-2 flex-shrink-0" aria-hidden="true" />
 
           <input
             id="creatina-search"

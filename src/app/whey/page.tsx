@@ -2,18 +2,18 @@ import { Metadata } from "next";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { ProductList } from "./ProductList";
-import { FloatingFiltersBar } from "./FloatingFiltersBar"; // Whey usa o SEU FloatingFilter
+import { FloatingFiltersBar } from "./FloatingFiltersBar"; 
 import { AmazonHeader } from "./AmazonHeader";
 import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 /* =========================
-   PERFORMANCE & BUILD FIX
+    PERFORMANCE & BUILD FIX
    ========================= */
 export const dynamic = "force-dynamic";
 
 /* =========================
-   METADATA (SEO)
+    METADATA (SEO)
    ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — Whey Protein",
@@ -190,7 +190,7 @@ export default async function WheyPage({
     });
 
   /* =========================
-      4. FILTROS
+      4. FILTROS (AJUSTADOS)
      ========================= */
   const allOptions = await prisma.product.findMany({
     where: { category: "whey" },
@@ -199,7 +199,7 @@ export default async function WheyPage({
       flavor: true,
       wheyInfo: { select: { totalWeightInGrams: true } },
     },
-    distinct: ["brand", "flavor"],
+    // Removido o distinct restrito para capturar variações de peso (ex: 945g vs 900g)
   });
 
   const availableBrands = Array.from(
@@ -243,7 +243,6 @@ export default async function WheyPage({
               brands={availableBrands}
               flavors={availableFlavors}
               weights={availableWeights}
-              totalResults={finalProducts.length}
             />
           </Suspense>
 

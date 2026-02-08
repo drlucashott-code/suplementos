@@ -1,7 +1,7 @@
 /**
  * GroupAsinsByParent
  * Ferramenta para organizar ASINs por família antes da importação.
- * Versão: 1.1 - Exibição de Nome Completo
+ * Versão: 1.2 - Correção de Tipagem (ESLint)
  */
 
 import "dotenv/config";
@@ -19,10 +19,20 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function run() {
   const asinsRaw = process.argv[2];
-  if (!asinsRaw) return console.log("❌ Uso: npx ts-node scripts/GroupAsinsByParent.ts \"ASIN1,ASIN2...\"");
+  if (!asinsRaw) {
+    console.log("❌ Uso: npx ts-node scripts/GroupAsinsByParent.ts \"ASIN1,ASIN2...\"");
+    return;
+  }
 
   const asinList = asinsRaw.split(",").map(a => a.trim()).filter(Boolean);
-  const groups: Record<string, { title: string, children: string[] }> = {};
+  
+  // Interface para o objeto de agrupamento
+  interface GroupData {
+    title: string;
+    children: string[];
+  }
+
+  const groups: Record<string, GroupData> = {};
 
   console.log(`🔍 Analisando ${asinList.length} ASINs e agrupando por família...`);
 
@@ -45,7 +55,7 @@ async function run() {
       // Se não tiver pai (ParentASIN), o produto é o próprio mestre da família
       const parentAsin = item.ParentASIN || asin; 
       
-      // Captura o título completo sem truncar (removido o substring)
+      // Captura o título completo sem truncar
       const title = item.ItemInfo?.Title?.DisplayValue;
 
       if (!groups[parentAsin]) {
@@ -55,8 +65,10 @@ async function run() {
       groups[parentAsin].children.push(asin);
       console.log(`   📌 ${asin} -> Pertence à família ${parentAsin}`);
 
-    } catch (err: any) {
-      console.error(`   ❌ Erro no ${asin}: ${err.message}`);
+    } catch (err: unknown) {
+      // CORREÇÃO: Tipagem segura de erro
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error(`   ❌ Erro no ${asin}: ${errorMessage}`);
     }
   }
 

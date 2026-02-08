@@ -109,15 +109,13 @@ export default async function CreatinaPage({
 
     const info = product.creatineInfo;
     
-    // ✅ CORREÇÃO DE ERRO TS: Usando campos confirmados no seu schema
-    const doseWeight = info.unitsPerDose; // Peso do Scoop (ex: 3g ou 6g)
-    const creatinePerDose = 3; // Valor padrão fixo, já que não existe no seu DB
+    const doseWeight = info.unitsPerDose; 
+    const creatinePerDose = 3; 
     
     const totalDosesNoPote = info.totalUnits / doseWeight;
     const gramasCreatinaPuraNoPote = totalDosesNoPote * creatinePerDose;
     const pricePerGramCreatine = finalPrice / gramasCreatinaPuraNoPote;
     
-    // Identifica carboidratos se o scoop for maior que a creatina pura (ex: scoop de 6g para 3g de creatina)
     const hasCarbs = doseWeight > (creatinePerDose + 0.5);
 
     let isLowestPrice30 = false;
@@ -169,7 +167,6 @@ export default async function CreatinaPage({
       price: finalPrice,
       affiliateUrl: offer.affiliateUrl,
       
-      // ✅ CAMPOS ENVIADOS PARA O CARD
       doses: totalDosesNoPote,
       doseWeight: doseWeight,
       creatinePerDose: creatinePerDose,
@@ -213,13 +210,15 @@ export default async function CreatinaPage({
         select: { totalUnits: true },
       },
     },
-    distinct: ["brand", "flavor"],
+    // CORREÇÃO: Removido distinct restrito para garantir que todos os tamanhos apareçam
   });
 
   const availableBrands = Array.from(new Set(allOptions.map(p => p.brand))).sort();
   const availableFlavors = Array.from(
     new Set(allOptions.map(p => p.flavor).filter((f): f is string => Boolean(f)))
   ).sort();
+  
+  // Captura todos os tamanhos únicos cadastrados
   const availableWeights = Array.from(
     new Set(allOptions.map(p => p.creatineInfo?.totalUnits).filter((w): w is number => Boolean(w)))
   ).sort((a, b) => a - b);
@@ -241,7 +240,6 @@ export default async function CreatinaPage({
               brands={availableBrands}
               flavors={availableFlavors}
               weights={availableWeights}
-              totalResults={finalProducts.length}
             />
           </Suspense>
 

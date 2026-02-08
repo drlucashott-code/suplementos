@@ -1,8 +1,13 @@
+import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import axios from "axios";
 import * as cheerio from "cheerio";
 
-const prisma = new PrismaClient();
+// CORREÇÃO: Usamos 'log' para satisfazer a exigência de "opções não vazias"
+// e deixamos o dotenv carregar a URL do banco automaticamente via process.env
+const prisma = new PrismaClient({
+  log: ['warn', 'error'],
+});
 
 async function fetchAmazonData(asin: string) {
   const url = `https://www.amazon.com.br/dp/${asin}`;
@@ -26,8 +31,8 @@ async function fetchAmazonData(asin: string) {
     const count = countRaw ? parseInt(countRaw.replace(/[^0-9]/g, "")) : null;
 
     return { rating, count };
-  } catch (error: any) {
-    console.error(`  ❌ Erro no ASIN ${asin}: ${error.message}`);
+  } catch (error: unknown) {
+    console.error(`  ❌ Erro no ASIN ${asin}: ${(error as Error).message}`);
     return null;
   }
 }
@@ -66,13 +71,12 @@ async function main() {
         data: {
           ratingAverage: result.rating,
           ratingCount: result.count,
-          // O Prisma atualiza o updatedAt automaticamente aqui
         }
       });
       console.log(`  ✅ Sucesso: ${result.rating}⭐ (${result.count} reviews)`);
     }
 
-    // Delay de 3.5 segundos para maior segurança contra o bot detector da Amazon
+    // Delay de 3.5 segundos para evitar bloqueio
     await new Promise(res => setTimeout(res, 3500));
   }
 

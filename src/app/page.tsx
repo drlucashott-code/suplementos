@@ -3,13 +3,15 @@
 import { BarChart3, TrendingUp, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react"; 
+import Image from "next/image";
 import Header from "./Header"; 
 
-// 🚀 Componente de Rastreio
+// 🚀 Componente de Rastreio Atualizado
 function TrackHomeView() {
   useEffect(() => {
-    window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push({
+    const win = window as typeof window & { dataLayer?: object[] };
+    win.dataLayer = win.dataLayer || [];
+    win.dataLayer.push({
       event: "view_home",
       page_path: "/",
     });
@@ -21,6 +23,18 @@ function TrackHomeView() {
 export default function HomePage() {
   const router = useRouter();
 
+  // Função para centralizar o tracking de cliques em categorias
+  const handleCategoryClick = (path: string, categoryName: string) => {
+    const win = window as typeof window & { dataLayer?: object[] };
+    if (win.dataLayer) {
+      win.dataLayer.push({
+        event: "click_category",
+        category_name: categoryName,
+      });
+    }
+    router.push(path);
+  };
+
   return (
     <main className="min-h-screen bg-[#EAEDED] pb-20 font-sans">
       
@@ -29,7 +43,7 @@ export default function HomePage() {
       {/* --- 1. HEADER EXCLUSIVO DA HOME --- */}
       <Header />
 
-      {/* --- 2. FAIXA DE STATUS (Centralizada) --- */}
+      {/* --- 2. FAIXA DE STATUS --- */}
       <div className="bg-[#37475A] px-4 py-2.5 flex items-center justify-center gap-2 text-white text-[12px] font-medium shadow-inner">
         <ShieldCheck className="w-4 h-4 text-[#FF9900]" />
         <span>Comparador verificado de ofertas Amazon</span>
@@ -47,7 +61,6 @@ export default function HomePage() {
             Utilizamos filtros inteligentes para encontrar o melhor produto para você.
           </h1>
 
-          {/* --- MÉTRICAS --- */}
           <div className="grid grid-cols-2 gap-8 mt-2 px-2">
             <div className="flex flex-col items-center gap-2 text-center">
               <BarChart3 className="w-8 h-8 text-[#007185]" />
@@ -65,13 +78,12 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-
         </div>
         
         <div className="absolute bottom-0 w-full h-6 bg-gradient-to-b from-transparent to-[#EAEDED]/50" />
       </div>
 
-      {/* --- 4. GRID DE CATEGORIAS --- */}
+      {/* --- 4. GRID DE CATEGORIAS (Ordem Alfabética) --- */}
       <div className="px-4 -mt-4 relative z-20 max-w-xl mx-auto space-y-4">
         
         <h2 className="text-[18px] font-bold text-[#0F1111] px-1 pt-4 text-center">Comprar por categoria</h2>
@@ -79,25 +91,31 @@ export default function HomePage() {
         <div className="grid grid-cols-2 gap-3">
           
           <CategoryCard 
+            title="Barra de proteína"
+            imageSrc="https://m.media-amazon.com/images/I/61RDMRO3uCL._AC_SL1200_.jpg" 
+            onClick={() => handleCategoryClick("/barra", "Barra de proteína")}
+          />
+
+          <CategoryCard 
+            title="Bebida proteica"
+            imageSrc="https://m.media-amazon.com/images/I/51npzHic1NL._AC_SL1000_.jpg" 
+            onClick={() => handleCategoryClick("/bebidaproteica", "Bebida proteica")}
+          />
+
+          <CategoryCard 
             title="Creatina"
             imageSrc="https://m.media-amazon.com/images/I/81UashXoAxL._AC_SL1500_.jpg" 
-            onClick={() => router.push("/creatina")}
+            onClick={() => handleCategoryClick("/creatina", "Creatina")}
           />
 
           <CategoryCard 
             title="Whey Protein"
             imageSrc="https://m.media-amazon.com/images/I/51lOuKbCawL._AC_SL1000_.jpg" 
-            onClick={() => router.push("/whey")}
+            onClick={() => handleCategoryClick("/whey", "Whey Protein")}
           />
 
           <CategoryCard 
-            title="Barra de proteína"
-            imageSrc="https://m.media-amazon.com/images/I/61RDMRO3uCL._AC_SL1200_.jpg" 
-            onClick={() => router.push("/barra")}
-          />
-
-          <CategoryCard 
-            title="Pré-Treino"
+            title="Pré-treino"
             imageSrc="https://m.media-amazon.com/images/I/61fGbsRyDWL._AC_SL1333_.jpg" 
             onClick={() => {}}
             disabled
@@ -140,18 +158,23 @@ function CategoryCard({ title, imageSrc, onClick, disabled }: CategoryCardProps)
         }
       `}
     >
-      <h2 className="text-[15px] font-bold text-[#0F1111] w-full text-left mb-2">{title}</h2>
+      <h2 className="text-[14px] font-bold text-[#0F1111] w-full text-left mb-2 leading-tight">
+        {title}
+      </h2>
 
       <div className="w-24 h-24 relative flex items-center justify-center">
-        <img 
+        <Image 
           src={imageSrc} 
           alt={title}
-          className="w-full h-full object-contain mix-blend-multiply drop-shadow-sm"
+          fill
+          sizes="96px"
+          className="object-contain mix-blend-multiply drop-shadow-sm p-1"
+          unoptimized
         />
       </div>
 
       {disabled && (
-        <span className="absolute bottom-2 right-2 text-[10px] text-gray-400 font-medium bg-gray-100 px-1 rounded">
+        <span className="absolute bottom-2 right-2 text-[9px] text-gray-400 font-bold bg-gray-100 px-1.5 py-0.5 rounded uppercase border border-gray-200">
           em breve
         </span>
       )}

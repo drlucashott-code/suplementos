@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import AdminWheyWrapper from "./AdminWheyWrapper";
+import type { WheyProduct } from "./AdminWheyWrapper";
 
 /* =========================
     PERFORMANCE & BUILD FIX
@@ -28,12 +29,18 @@ export default async function AdminWheyPage() {
   });
 
   // Serialização: Converte objetos Date em String para o Client Component
-  const products = productsRaw.map((p) => ({
+  // Mapeamos garantindo que o tipo final seja WheyProduct[]
+  const products: WheyProduct[] = productsRaw.map((p) => ({
     ...p,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
+    wheyInfo: p.wheyInfo ? {
+      ...p.wheyInfo,
+    } : null,
     offers: p.offers.map((o) => ({
       ...o,
+      // Cast de store para garantir compatibilidade com o tipo esperado pelo Wrapper
+      store: o.store as "AMAZON" | "MERCADO_LIVRE",
       createdAt: o.createdAt.toISOString(),
       updatedAt: o.updatedAt.toISOString(),
     })),
@@ -43,7 +50,7 @@ export default async function AdminWheyPage() {
   // uso de searchParams ou hooks de cliente no Wrapper não quebre o build.
   return (
     <Suspense fallback={null}>
-      <AdminWheyWrapper products={products as any} />
+      <AdminWheyWrapper products={products} />
     </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 /**
- * DiscoverProducts v2.2
- * Filtro Nativo por Marca + Palavra-Chave + Paginação
+ * DiscoverProducts v3.0
+ * Filtro Nativo por Marca + Múltiplas Palavras-Chave Independentes + Paginação
  */
 
 import "dotenv/config";
@@ -14,67 +14,103 @@ const commonParameters = {
   Marketplace: "www.amazon.com.br",
 };
 
+// Interface mínima para satisfazer o TypeScript no loop de itens
+interface AmazonItem {
+  ASIN: string;
+  ItemInfo: {
+    Title: {
+      DisplayValue: string;
+    };
+  };
+}
+
 async function run() {
   const brand = process.argv[2];
-  const keyword = process.argv[3] || "barra de proteína";
-  const maxPages = 10; 
+  // Aceita palavras separadas por vírgula. Ex: "barra, whey, creatina"
+  const rawKeywords = process.argv[3] || "barra de proteína";
+  
+  // Transforma a string em array e limpa espaços extras
+  const keywordsList = rawKeywords.split(",").map(k => k.trim());
+  
+  const maxPages = 5; // Reduzi para 5 por palavra para não estourar o limite rápido, ajuste se necessário.
 
   if (!brand) {
-    console.log("❌ Uso: npx ts-node scripts/DiscoverProducts.ts \"Integralmedica\" \"barra\"");
+    console.log("❌ Uso: npx ts-node scripts/DiscoverProducts.ts \"Integralmedica\" \"barra, whey\"");
     process.exit(1);
   }
 
-  console.log(`🔍 Buscando produtos da marca [${brand}] com o termo "${keyword}"...`);
-  let allAsins: string[] = [];
+  // Set global para evitar duplicatas entre palavras-chave diferentes
+  const globalAsins = new Set<string>();
 
-  for (let page = 1; page <= maxPages; page++) {
-    console.log(`📄 Carregando página ${page}...`);
+  console.log(`🚀 Iniciando busca para a marca [${brand}]`);
+  console.log(`📋 Palavras-chave: ${keywordsList.join(" | ")}\n`);
 
-    try {
-      const res = await paapi.SearchItems(commonParameters, {
-        // Filtros combinados
-        Keywords: keyword, 
-        Brand: brand,       // <--- FILTRO NATIVO POR MARCA
-        SearchIndex: "All",
+  // --- LOOP EXTERNO: Itera sobre cada palavra-chave ---
+  for (const currentKeyword of keywordsList) {
+    console.log(`\n🔍 --- Buscando termo: "${currentKeyword}" ---`);
+    
+    let foundForThisKeyword = 0;
+
+    // --- LOOP INTERNO: Paginação ---
+    for (let page = 1; page <= maxPages; page++) {
+      console.log(`   📄 Pág ${page} (${currentKeyword})...`);
+
+      try {
+        const res = await paapi.SearchItems(commonParameters, {
+          Keywords: currentKeyword, // Usa a palavra da vez
+          Brand: brand,
+          SearchIndex: "All",
+          ItemCount: 10,
+          ItemPage: page,
+          Resources: ["ItemInfo.Title", "ItemInfo.ByLineInfo"],
+        });
+
+        const items = res?.SearchResult?.Items || [];
         
-        ItemCount: 10,
-        ItemPage: page,
-        Resources: ["ItemInfo.Title", "ItemInfo.ByLineInfo"], // Incluído ByLine para conferência
-      });
+        if (items.length === 0) {
+          console.log("      🏁 Sem mais resultados para este termo.");
+          break;
+        }
 
-      const items = res?.SearchResult?.Items || [];
-      
-      if (items.length === 0) {
-        console.log("🏁 Fim dos resultados.");
-        break;
+        items.forEach((item: AmazonItem) => {
+          // Só loga no console para visualização, a limpeza final é no fim do script
+          console.log(`      [${item.ASIN}] ${item.ItemInfo.Title.DisplayValue.substring(0, 40)}...`);
+          
+          globalAsins.add(item.ASIN); // Adiciona ao Set global (o Set já ignora duplicatas automaticamente)
+          foundForThisKeyword++;
+        });
+
+        // Delay de segurança entre páginas
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+      } catch (err: unknown) {
+        const errorMessage = (err as Error).message;
+        if (errorMessage.includes("429")) {
+          console.log("⚠️ Limite de requisições (429). Aguardando 5s antes de continuar...");
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        } else {
+          console.error(`❌ Erro na página ${page}:`, errorMessage);
+          break; // Sai do loop de páginas se der erro grave, mas tenta a próxima palavra-chave
+        }
       }
-
-      items.forEach((item: any) => {
-        const itemBrand = item.ItemInfo?.ByLineInfo?.Brand?.DisplayValue || "N/A";
-        console.log(`   [${item.ASIN}] (${itemBrand}) ${item.ItemInfo.Title.DisplayValue.substring(0, 50)}...`);
-        allAsins.push(item.ASIN);
-      });
-
-      // Delay de 1.5s para evitar Throttling (Erro 429)
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-    } catch (err: any) {
-      if (err.message.includes("429")) {
-        console.log("⚠️ Limite de requisições atingido. O script parou para segurança.");
-      } else {
-        console.error(`❌ Erro na página ${page}:`, err.message);
-      }
-      break;
     }
+    console.log(`   ✅ Termo "${currentKeyword}" finalizado. Encontrados: ${foundForThisKeyword}`);
+    
+    // Delay extra entre mudança de palavras-chave para ser gentil com a API
+    await new Promise(resolve => setTimeout(resolve, 2000));
   }
 
-  if (allAsins.length > 0) {
-    // Garante que a lista final não tenha duplicatas
-    const uniqueAsins = Array.from(new Set(allAsins));
-    
-    console.log("\n--- LISTA PARA O IMPORTADOR ---");
+  // --- FINALIZAÇÃO ---
+  const uniqueAsins = Array.from(globalAsins);
+
+  if (uniqueAsins.length > 0) {
+    console.log("\n===========================================");
+    console.log("🏁 LISTA CONSOLIDADA PARA O IMPORTADOR");
+    console.log("===========================================");
     console.log(uniqueAsins.join(", "));
-    console.log(`\n✅ Total de ASINs únicos da ${brand}: ${uniqueAsins.length}`);
+    console.log(`\n📦 Total de ASINs únicos coletados: ${uniqueAsins.length}`);
+  } else {
+    console.log("\n❌ Nenhum produto encontrado para os termos informados.");
   }
 }
 

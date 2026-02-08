@@ -2,19 +2,27 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Search } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 export function AmazonHeader() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // Sincroniza o input com o valor da URL ("q")
-  const [query, setQuery] = useState(searchParams.get("q") || "");
+  // Pegamos o valor da URL atual para sincronização
+  const urlQuery = searchParams.get("q") || "";
 
-  // Atualiza o estado interno se a URL mudar externamente (ex: limpar filtros)
-  useEffect(() => {
-    setQuery(searchParams.get("q") || "");
-  }, [searchParams]);
+  /**
+   * CORREÇÃO: Em vez de useEffect, usamos a sincronização no corpo da função.
+   * Isso detecta mudanças na URL (como quando o usuário limpa filtros) e 
+   * atualiza o input local sem disparar erros de 'cascading renders'.
+   */
+  const [query, setQuery] = useState(urlQuery);
+  const [prevUrlQuery, setPrevUrlQuery] = useState(urlQuery);
+
+  if (urlQuery !== prevUrlQuery) {
+    setQuery(urlQuery);
+    setPrevUrlQuery(urlQuery);
+  }
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();

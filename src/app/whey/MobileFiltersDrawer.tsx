@@ -3,38 +3,41 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 
+// Props sincronizadas com a page.tsx
 type Props = {
   brands: string[];
   flavors: string[];
-  weights: number[]; // Novo: Array de pesos vindos do banco
-  totalResults: number; 
+  weights: number[]; 
 };
 
+// Ordem das abas conforme solicitado
 type FilterTab = "protein" | "brand" | "flavor" | "weight";
 
-const PROTEIN_RANGES = [
-  { label: "Acima de 90%", value: "90-100" },
-  { label: "80% a 90%", value: "80-90" },
-  { label: "70% a 80%", value: "70-80" },
-  { label: "60% a 70%", value: "60-70" },
-  { label: "Abaixo de 60%", value: "0-60" },
+// Faixas de Proteína (%)
+const PROTEIN_PERCENT_RANGES = [
+  { label: "Acima de 80% de proteína", value: "80-100" },
+  { label: "70% a 80% de proteína", value: "70-80" },
+  { label: "60% a 70% de proteína", value: "60-70" },
+  { label: "Abaixo de 60% de proteína", value: "0-60" },
 ];
 
-export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: Props) {
+export function MobileFiltersDrawer({ brands, flavors, weights }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>("protein");
 
-  // Estados dos Filtros (Internos ao Drawer para permitir cancelamento)
+  // Estados dos Filtros internos
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
   const [selectedProteinRanges, setSelectedProteinRanges] = useState<string[]>([]);
-  const [selectedWeights, setSelectedWeights] = useState<string[]>([]); // Novo
+  const [selectedWeights, setSelectedWeights] = useState<string[]>([]);
 
-  // Helper para formatar o peso na UI
-  const formatWeight = (g: number) => (g >= 1000 ? `${g / 1000}kg` : `${g}g`);
+  // Helper para formatar peso (ex: 900g ou 2kg)
+  const formatSize = (val: number) => {
+    return val >= 1000 ? `${val / 1000}kg` : `${val}g`;
+  };
 
   // 🔒 Scroll Lock
   useEffect(() => {
@@ -46,7 +49,7 @@ export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: 
     return () => { document.body.style.overflow = "unset"; };
   }, [open]);
 
-  // Sincronização com a URL ao abrir através do evento global
+  // Sincronização com a URL ao abrir
   useEffect(() => {
     function handleOpen() {
       setSelectedBrands(searchParams.get("brand")?.split(",") ?? []);
@@ -59,7 +62,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: 
     return () => window.removeEventListener("open-filters", handleOpen);
   }, [searchParams]);
 
-  // Lógica de Seleção de Tags
   const toggle = <T,>(value: T, list: T[], setList: (v: T[]) => void) => {
     setList(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
   };
@@ -98,6 +100,7 @@ export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: 
     if (selectedWeights.length) params.set("weight", selectedWeights.join(","));
     else params.delete("weight");
 
+    // Mantém ou define ordenação padrão por custo-benefício
     if (!params.has("order")) params.set("order", "cost");
 
     router.push(`/whey?${params.toString()}`);
@@ -106,6 +109,7 @@ export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: 
 
   const sortedBrands = useMemo(() => [...brands].sort((a, b) => a.localeCompare(b)), [brands]);
   const sortedFlavors = useMemo(() => [...flavors].sort((a, b) => a.localeCompare(b)), [flavors]);
+  const sortedWeights = useMemo(() => [...weights].sort((a, b) => a - b), [weights]);
 
   if (!open) return null;
 
@@ -131,18 +135,19 @@ export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: 
           <button 
             onClick={() => setOpen(false)} 
             className="text-zinc-500 hover:text-zinc-900 text-3xl font-light p-1 leading-none"
+            aria-label="Fechar menu de filtros"
           >
             &times;
           </button>
         </div>
 
         <div className="flex flex-1 overflow-hidden">
-          <nav className="w-[130px] bg-[#f0f2f2] border-r border-zinc-200 overflow-y-auto">
+          <nav className="w-[140px] bg-[#f0f2f2] border-r border-zinc-200 overflow-y-auto">
             {[
               { id: "protein", label: "Proteína (%)" },
-              { id: "brand", label: "Marcas" },
+              { id: "brand", label: "Marca" },
               { id: "flavor", label: "Sabor" },
-              { id: "weight", label: "Tamanho" }, // Nova Aba
+              { id: "weight", label: "Tamanho" },
             ].map((tab) => {
               const isActive = activeTab === tab.id;
               
@@ -157,11 +162,15 @@ export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: 
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as FilterTab)}
                   className={`w-full text-left px-4 py-4 text-[13px] leading-tight font-bold transition-all border-l-[4px] relative ${
-                    isActive ? "bg-white border-[#007185] text-[#007185]" : "border-transparent text-zinc-600 hover:bg-[#e3e6e6]"
+                    isActive 
+                      ? "bg-white border-[#007185] text-[#007185]" 
+                      : "border-transparent text-zinc-600 hover:bg-[#e3e6e6]"
                   }`}
                 >
                   {tab.label}
-                  {badgeCount > 0 && <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#007185]" />}
+                  {badgeCount > 0 && (
+                     <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#007185]" />
+                  )}
                 </button>
               );
             })}
@@ -169,7 +178,9 @@ export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: 
 
           <div className="flex-1 p-4 overflow-y-auto bg-white">
             <div className="flex flex-wrap gap-2 content-start">
-              {activeTab === "protein" && PROTEIN_RANGES.map((r) => (
+              
+              {/* PROTEÍNA (%) */}
+              {activeTab === "protein" && PROTEIN_PERCENT_RANGES.map((r) => (
                 <Tag 
                   key={r.value} 
                   label={r.label} 
@@ -178,6 +189,7 @@ export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: 
                 />
               ))}
 
+              {/* MARCA */}
               {activeTab === "brand" && sortedBrands.map((b) => (
                 <Tag 
                   key={b} 
@@ -187,6 +199,7 @@ export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: 
                 />
               ))}
 
+              {/* SABOR */}
               {activeTab === "flavor" && sortedFlavors.map((f) => (
                 <Tag 
                   key={f} 
@@ -196,12 +209,13 @@ export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: 
                 />
               ))}
 
-              {activeTab === "weight" && weights.map((w) => (
+              {/* TAMANHO */}
+              {activeTab === "weight" && sortedWeights.map((w) => (
                 <Tag 
                   key={w} 
-                  label={formatWeight(w)} 
-                  active={selectedWeights.includes(w.toString())} 
-                  onClick={() => toggle(w.toString(), selectedWeights, setSelectedWeights)} 
+                  label={formatSize(w)} 
+                  active={selectedWeights.includes(String(w))} 
+                  onClick={() => toggle(String(w), selectedWeights, setSelectedWeights)} 
                 />
               ))}
             </div>
@@ -212,7 +226,7 @@ export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: 
           {hasAnyFilter && (
             <button
               onClick={clearInternalFilters}
-              className="flex-1 py-3 border border-zinc-300 rounded-full text-[13px] font-medium text-zinc-800 bg-white"
+              className="flex-1 py-3 border border-zinc-300 rounded-full text-[13px] font-medium text-zinc-800 bg-white shadow-sm hover:bg-zinc-50"
             >
               Limpar tudo
             </button>
@@ -220,7 +234,7 @@ export function MobileFiltersDrawer({ brands, flavors, weights, totalResults }: 
 
           <button
             onClick={applyFilters}
-            className={`${hasAnyFilter ? 'flex-[2]' : 'w-full'} bg-[#FFD814] border border-[#FCD200] text-[#0F1111] font-medium py-3 rounded-full text-[13px]`}
+            className={`${hasAnyFilter ? 'flex-[2]' : 'w-full'} bg-[#FFD814] border border-[#FCD200] text-[#0F1111] font-medium py-3 rounded-full shadow-sm active:scale-95 transition-all text-[13px]`}
           >
             Mostrar resultados
           </button>
@@ -235,7 +249,9 @@ function Tag({ label, active, onClick }: { label: string; active: boolean; onCli
     <button
       onClick={onClick}
       className={`px-3 py-2 rounded-lg text-[13px] border transition-all text-left ${
-        active ? "bg-[#EDFDFF] border-[#007185] text-[#007185] font-bold ring-1 ring-[#007185]" : "bg-white border-zinc-300 text-zinc-700 hover:bg-zinc-50"
+        active
+          ? "bg-[#EDFDFF] border-[#007185] text-[#007185] font-bold ring-1 ring-[#007185]"
+          : "bg-white border-zinc-300 text-zinc-700 hover:bg-zinc-50"
       }`}
     >
       {label}

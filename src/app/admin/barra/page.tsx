@@ -1,13 +1,14 @@
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import AdminBarraWrapper from "./AdminBarraWrapper";
+import type { BarraProduct } from "./AdminBarraWrapper";
 
 /* =========================
     PERFORMANCE & BUILD FIX
     Força a renderização dinâmica para evitar que o Next.js tente 
     pré-renderizar esta página administrativa durante o build, 
     o que resolve o conflito com o Streaming (loading/skeleton).
-   ========================= */
+    ========================= */
 export const dynamic = "force-dynamic";
 
 /**
@@ -19,7 +20,7 @@ export default async function AdminBarraPage() {
   const productsRaw = await prisma.product.findMany({
     where: { category: "barra" },
     include: {
-      proteinBarInfo: true, // Agora reconhecido pelo Prisma Client
+      proteinBarInfo: true,
       offers: {
         where: { store: "AMAZON" },
         orderBy: { createdAt: "desc" },
@@ -28,23 +29,27 @@ export default async function AdminBarraPage() {
     orderBy: { createdAt: "desc" },
   });
 
-  // Serialização: Converte objetos Date em String para o Client Component
-  const products = productsRaw.map((p) => ({
+  // Serialização: Converte objetos Date em String respeitando o tipo BarraProduct
+  const products: BarraProduct[] = productsRaw.map((p) => ({
     ...p,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
+    proteinBarInfo: p.proteinBarInfo ? {
+      ...p.proteinBarInfo,
+    } : null,
     offers: p.offers.map((o) => ({
       ...o,
+      // Fazemos o cast de store para garantir que o TS aceite como o Enum correto
+      store: o.store as "AMAZON" | "MERCADO_LIVRE",
       createdAt: o.createdAt.toISOString(),
       updatedAt: o.updatedAt.toISOString(),
     })),
   }));
 
-  // Renderiza o Wrapper dentro de um Suspense para garantir que o 
-  // uso de searchParams ou hooks de cliente no Wrapper não quebre o build.
+  // Renderiza o Wrapper dentro de um Suspense
   return (
     <Suspense fallback={null}>
-      <AdminBarraWrapper products={products as any} />
+      <AdminBarraWrapper products={products} />
     </Suspense>
   );
 }
