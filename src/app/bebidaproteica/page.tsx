@@ -8,14 +8,8 @@ import { AmazonHeader } from "./AmazonHeader";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 import { DrinkProduct } from "./MobileProductCard";
 
-/* =========================
-   PERFORMANCE & BUILD FIX
-   ========================= */
 export const dynamic = "force-dynamic";
 
-/* =========================
-   METADATA (SEO)
-   ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — Bebida Proteica",
   description: "Compare o custo-benefício das melhores bebidas proteicas na Amazon.",
@@ -49,12 +43,12 @@ export default async function BebidaProteicaPage({
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  /* =========================
-     1. BUSCA NO BANCO
-     ========================= */
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
   const products = await prisma.product.findMany({
     where: {
-      category: "bebidaproteica", // Mantido conforme seu DB
+      category: "bebidaproteica",
       ...(searchQuery && {
         name: { contains: searchQuery, mode: "insensitive" },
       }),
@@ -76,16 +70,12 @@ export default async function BebidaProteicaPage({
     },
   });
 
-  /* =========================
-     2. PROCESSAMENTO
-     ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.proteinDrinkInfo) return null;
     const offer = product.offers[0];
     if (!offer) return null;
 
     let finalPrice = offer.price;
-    // Fallback de preço se estiver zerado
     if (showFallback && (!finalPrice || finalPrice <= 0)) {
       finalPrice = offer.priceHistory[0]?.price ?? null;
     }
@@ -97,7 +87,6 @@ export default async function BebidaProteicaPage({
     const unitsPerPack = info.unitsPerPack || 1;
     const proteinPerDose = info.proteinPerUnitInGrams;
 
-    // Filtro de Proteína (vindo do Drawer)
     if (selectedProteinRanges.length > 0) {
       const match = selectedProteinRanges.some((r) => {
         const [min, max] = r.split("-").map(Number);
@@ -109,13 +98,44 @@ export default async function BebidaProteicaPage({
     const totalProtein = unitsPerPack * proteinPerDose;
     const pricePerGramProtein = finalPrice / totalProtein;
 
-    // ✅ CÁLCULO DE DESCONTO (CORREÇÃO APLICADA AQUI)
-    // Procura o maior preço registrado nos últimos 30 dias que seja maior que o atual
-    const historyPrice = offer.priceHistory.find(h => h.price > finalPrice)?.price ?? finalPrice;
-    
-    const discountPercent = historyPrice > finalPrice 
-      ? Math.round(((historyPrice - finalPrice) / historyPrice) * 100) 
-      : 0;
+    // --- LÓGICA DE PREÇO MÉDIO E DESCONTO (IGUAL BARRA) ---
+    let avgMonthly: number | null = null;
+    let discountPercent: number | null = null;
+
+    if (offer.priceHistory.length > 0) {
+      // Agrupa preços por dia para evitar distorção se houver várias coletas no mesmo dia
+      const dailyPrices = new Map<string, number[]>();
+      offer.priceHistory.forEach((h) => {
+        const day = h.createdAt.toISOString().split("T")[0];
+        if (!dailyPrices.has(day)) dailyPrices.set(day, []);
+        dailyPrices.get(day)!.push(h.price);
+      });
+
+      // Média de cada dia
+      const averages = Array.from(dailyPrices.values()).map(
+        (p) => p.reduce((a, b) => a + b, 0) / p.length
+      );
+
+      // Média global dos últimos 30 dias
+      avgMonthly = averages.reduce((a, b) => a + b, 0) / averages.length;
+
+      // Calcula desconto se preço atual for menor que a média
+      if (avgMonthly > finalPrice) {
+        const raw = ((avgMonthly - finalPrice) / avgMonthly) * 100;
+        // Só considera desconto se for >= 5%
+        if (raw >= 5) discountPercent = Math.round(raw);
+      }
+    }
+
+    // --- MENOR PREÇO EM X DIAS ---
+    const prices30d = offer.priceHistory.map(h => h.price).concat(finalPrice);
+    const minPrice30d = Math.min(...prices30d);
+    const isLowestPrice = finalPrice <= minPrice30d && offer.priceHistory.length >= 10;
+
+    const history7d = offer.priceHistory.filter(h => h.createdAt >= sevenDaysAgo);
+    const prices7d = history7d.map(h => h.price).concat(finalPrice);
+    const minPrice7d = Math.min(...prices7d);
+    const isLowestPrice7d = finalPrice <= minPrice7d && history7d.length >= 5;
 
     return {
       id: product.id,
@@ -124,23 +144,25 @@ export default async function BebidaProteicaPage({
       flavor: product.flavor,
       price: finalPrice,
       affiliateUrl: offer.affiliateUrl,
+      
       doseWeight: info.volumePerUnitInMl,
       proteinPerDose: proteinPerDose,
       numberOfDoses: unitsPerPack,
       pricePerGramProtein: pricePerGramProtein,
-      discountPercent: discountPercent, // ✅ Campo adicionado ao objeto
+      
+      avgPrice: avgMonthly, // Passando o preço médio calculado
+      discountPercent: discountPercent,
+      isLowestPrice: isLowestPrice,       
+      isLowestPrice7d: isLowestPrice7d,   
+      
       rating: offer.ratingAverage ?? 0,
       reviewsCount: offer.ratingCount ?? 0,
     } as DrinkProduct;
   });
 
-  /* =========================
-     3. ORDENAÇÃO
-     ========================= */
   const finalProducts = rankedProducts
     .filter((p): p is DrinkProduct => p !== null)
     .sort((a, b) => {
-      // Garantindo que price e doses não são nulos para o TS
       const priceA = a.price ?? 0;
       const priceB = b.price ?? 0;
       const unitsA = a.numberOfDoses ?? 1;
@@ -152,9 +174,6 @@ export default async function BebidaProteicaPage({
       return a.pricePerGramProtein - b.pricePerGramProtein;
     });
 
-  /* =========================
-     4. OPÇÕES DOS FILTROS
-     ========================= */
   const allOptions = await prisma.product.findMany({
     where: { category: "bebidaproteica" },
     select: { brand: true, flavor: true }
@@ -179,7 +198,6 @@ export default async function BebidaProteicaPage({
             <MobileFiltersDrawer
               brands={availableBrands}
               flavors={availableFlavors}
-              //weights removido para casar com o Drawer tipo barrinha
             />
           </Suspense>
 
