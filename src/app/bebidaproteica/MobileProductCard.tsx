@@ -65,8 +65,8 @@ export function MobileProductCard({
 
   return (
     <div className="flex gap-3 border-b border-gray-100 bg-white relative items-stretch min-h-[290px] font-sans">
-      {/* Selo OFF */}
-      {hasPrice && product.discountPercent && (
+      {/* Selo OFF - CORREÇÃO DO 0 AQUI */}
+      {hasPrice && (product.discountPercent ?? 0) > 0 && (
         <div className="absolute top-4 left-0 z-10 bg-[#CC0C39] text-white text-[11px] font-bold px-2 py-0.5 rounded-r-sm shadow-sm">
           {product.discountPercent}% OFF
         </div>
@@ -126,7 +126,7 @@ export function MobileProductCard({
           )}
         </div>
 
-        {/* Tabela técnica (AJUSTADA PARA ML) */}
+        {/* Tabela técnica (Adaptado para Bebida) */}
         <div className="bg-white border border-zinc-200 rounded p-2 mb-2">
           <p className="text-[10px] uppercase font-bold text-zinc-500 mb-2 tracking-wide text-center border-b border-zinc-200 pb-1">
             Análise por unidade ({product.doseWeight}ml)
@@ -137,7 +137,7 @@ export function MobileProductCard({
               <span className="text-[13px] font-bold text-[#0F1111] leading-none">
                 {product.proteinPerDose}g
               </span>
-              <span className="text-[9px] text-zinc-500 mt-0.5 uppercase">
+              <span className="text-[9px] text-zinc-500 mt-0.5">
                 proteína
               </span>
             </div>
@@ -152,7 +152,7 @@ export function MobileProductCard({
               ) : (
                 <span className="text-[13px] font-bold text-zinc-400">-</span>
               )}
-              <span className="text-[9px] text-green-700 font-medium mt-0.5 uppercase">
+              <span className="text-[9px] text-green-700 font-medium mt-0.5">
                 unidade
               </span>
             </div>
@@ -178,7 +178,7 @@ export function MobileProductCard({
                 <div className="flex items-start">
                   <span
                     className={`text-[12px] mt-1.5 font-medium ${
-                      product.discountPercent
+                      (product.discountPercent ?? 0) > 0
                         ? "text-[#CC0C39]"
                         : "text-[#0F1111]"
                     }`}
@@ -187,7 +187,7 @@ export function MobileProductCard({
                   </span>
                   <span
                     className={`text-3xl font-medium tracking-tight leading-none ${
-                      product.discountPercent
+                      (product.discountPercent ?? 0) > 0
                         ? "text-[#CC0C39]"
                         : "text-[#0F1111]"
                     }`}
@@ -196,7 +196,7 @@ export function MobileProductCard({
                   </span>
                   <span
                     className={`text-[12px] mt-1.5 font-medium ${
-                      product.discountPercent
+                      (product.discountPercent ?? 0) > 0
                         ? "text-[#CC0C39]"
                         : "text-[#0F1111]"
                     }`}

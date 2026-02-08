@@ -9,12 +9,12 @@ import { getOptimizedAmazonUrl } from "@/lib/utils";
 import { DrinkProduct } from "./MobileProductCard";
 
 /* =========================
-    PERFORMANCE & BUILD FIX
+   PERFORMANCE & BUILD FIX
    ========================= */
 export const dynamic = "force-dynamic";
 
 /* =========================
-    METADATA (SEO)
+   METADATA (SEO)
    ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — Bebida Proteica",
@@ -50,11 +50,11 @@ export default async function BebidaProteicaPage({
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   /* =========================
-      1. BUSCA NO BANCO
+     1. BUSCA NO BANCO
      ========================= */
   const products = await prisma.product.findMany({
     where: {
-      category: "bebidaproteica",
+      category: "bebidaproteica", // Mantido conforme seu DB
       ...(searchQuery && {
         name: { contains: searchQuery, mode: "insensitive" },
       }),
@@ -77,7 +77,7 @@ export default async function BebidaProteicaPage({
   });
 
   /* =========================
-      2. PROCESSAMENTO
+     2. PROCESSAMENTO
      ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.proteinDrinkInfo) return null;
@@ -85,6 +85,7 @@ export default async function BebidaProteicaPage({
     if (!offer) return null;
 
     let finalPrice = offer.price;
+    // Fallback de preço se estiver zerado
     if (showFallback && (!finalPrice || finalPrice <= 0)) {
       finalPrice = offer.priceHistory[0]?.price ?? null;
     }
@@ -108,6 +109,14 @@ export default async function BebidaProteicaPage({
     const totalProtein = unitsPerPack * proteinPerDose;
     const pricePerGramProtein = finalPrice / totalProtein;
 
+    // ✅ CÁLCULO DE DESCONTO (CORREÇÃO APLICADA AQUI)
+    // Procura o maior preço registrado nos últimos 30 dias que seja maior que o atual
+    const historyPrice = offer.priceHistory.find(h => h.price > finalPrice)?.price ?? finalPrice;
+    
+    const discountPercent = historyPrice > finalPrice 
+      ? Math.round(((historyPrice - finalPrice) / historyPrice) * 100) 
+      : 0;
+
     return {
       id: product.id,
       name: product.name,
@@ -119,13 +128,14 @@ export default async function BebidaProteicaPage({
       proteinPerDose: proteinPerDose,
       numberOfDoses: unitsPerPack,
       pricePerGramProtein: pricePerGramProtein,
+      discountPercent: discountPercent, // ✅ Campo adicionado ao objeto
       rating: offer.ratingAverage ?? 0,
       reviewsCount: offer.ratingCount ?? 0,
     } as DrinkProduct;
   });
 
   /* =========================
-      3. ORDENAÇÃO
+     3. ORDENAÇÃO
      ========================= */
   const finalProducts = rankedProducts
     .filter((p): p is DrinkProduct => p !== null)
@@ -143,7 +153,7 @@ export default async function BebidaProteicaPage({
     });
 
   /* =========================
-      4. OPÇÕES DOS FILTROS
+     4. OPÇÕES DOS FILTROS
      ========================= */
   const allOptions = await prisma.product.findMany({
     where: { category: "bebidaproteica" },
