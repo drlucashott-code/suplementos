@@ -63,7 +63,7 @@ export function FloatingFiltersBar() {
               className="w-full appearance-none border border-zinc-300 rounded-lg px-3 py-2 bg-zinc-50 text-[13px] text-zinc-900 shadow-sm outline-none pr-9 border-b-zinc-400 active:border-[#e47911] transition-all"
             >
               <option value="discount">Maior desconto</option>
-              <option value="protein_gram">Maior proteína/unidade</option>
+              <option value="protein_gram">Mais proteína/unidade</option>
               <option value="cheapest_bar">Menor preço/unidade</option>
               <option value="cost">Melhor custo-benefício (valor do princípio ativo)</option>
             </select>
