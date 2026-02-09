@@ -9,12 +9,12 @@ import { CreatineForm } from "@prisma/client";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 /* =========================
-    PERFORMANCE & BUILD FIX
+   PERFORMANCE & BUILD FIX
    ========================= */
 export const dynamic = "force-dynamic";
 
 /* =========================
-    METADATA (SEO & Aba)
+   METADATA (SEO & Aba)
    ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — Creatina",
@@ -50,15 +50,14 @@ export default async function CreatinaPage({
   const selectedWeights = params.weight?.split(",") ?? [];
   const maxPrice = params.priceMax ? Number(params.priceMax) : undefined;
 
-  const now = new Date();
   const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(now.getDate() - 30);
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   
   const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(now.getDate() - 7);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
   /* =========================
-      1. BUSCA FILTRADA
+     1. BUSCA FILTRADA
      ========================= */
   const products = await prisma.product.findMany({
     where: {
@@ -91,7 +90,7 @@ export default async function CreatinaPage({
   });
 
   /* =========================
-      2. PROCESSAMENTO DE DADOS
+     2. PROCESSAMENTO DE DADOS
      ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.creatineInfo) return null;
@@ -118,11 +117,11 @@ export default async function CreatinaPage({
     
     const hasCarbs = doseWeight > (creatinePerDose + 0.5);
 
-    let isLowestPrice30 = false;
-    let isLowestPrice7 = false;
+    // --- LÓGICA DE PREÇOS (PADRÃO SUPREMO) ---
     let avgMonthly: number | null = null;
     let discountPercent: number | null = null;
-
+    
+    // 1. Média Mensal e Desconto
     if (offer.priceHistory.length > 0) {
       const dailyPricesMap = new Map<string, number[]>();
       offer.priceHistory.forEach(h => {
@@ -138,25 +137,22 @@ export default async function CreatinaPage({
 
       avgMonthly = dailyAverages.reduce((a, b) => a + b, 0) / dailyAverages.length;
 
-      const prices30d = offer.priceHistory.map(h => h.price);
-      const lowest30 = Math.min(...prices30d);
-
-      const history7d = offer.priceHistory.filter(h => h.createdAt >= sevenDaysAgo);
-      const lowest7 = history7d.length > 0 ? Math.min(...history7d.map(h => h.price)) : null;
-
-      const isSignificantDrop = avgMonthly ? finalPrice < avgMonthly * 0.98 : false;
-
-      if (finalPrice <= lowest30 + 0.01 && isSignificantDrop) {
-        isLowestPrice30 = true;
-      } else if (lowest7 !== null && finalPrice <= lowest7 + 0.01 && isSignificantDrop) {
-        isLowestPrice7 = true;
-      }
-
-      if (avgMonthly > 0) {
+      if (avgMonthly > finalPrice) {
         const rawDiscount = ((avgMonthly - finalPrice) / avgMonthly) * 100;
         if (rawDiscount >= 5) discountPercent = Math.round(rawDiscount);
       }
     }
+
+    // 2. Menor Preço em 30 Dias (Com trava de 10 dias)
+    const prices30d = offer.priceHistory.map(h => h.price).concat(finalPrice);
+    const minPrice30d = Math.min(...prices30d);
+    const isLowestPrice30 = finalPrice <= minPrice30d && offer.priceHistory.length >= 10;
+
+    // 3. Menor Preço em 7 Dias (Com trava de 5 dias)
+    const history7d = offer.priceHistory.filter(h => h.createdAt >= sevenDaysAgo);
+    const prices7d = history7d.map(h => h.price).concat(finalPrice);
+    const minPrice7d = Math.min(...prices7d);
+    const isLowestPrice7 = finalPrice <= minPrice7d && history7d.length >= 5;
 
     return {
       id: product.id,
@@ -174,32 +170,30 @@ export default async function CreatinaPage({
       pricePerGram: pricePerGramCreatine,
       hasCarbs,
       avgPrice: avgMonthly,
-      isLowestPrice: isLowestPrice30,
-      isLowestPrice7d: isLowestPrice7,
+      
+      isLowestPrice: isLowestPrice30,      // Atualizado
+      isLowestPrice7d: isLowestPrice7,     // Atualizado
       discountPercent,
+      
       rating: offer.ratingAverage ?? 0,
       reviewsCount: offer.ratingCount ?? 0,
     };
   });
 
   /* =========================
-      3. RANKING E ORDENAÇÃO
+     3. RANKING E ORDENAÇÃO
      ========================= */
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => {
       if (order === "discount") {
-        const aHas = a.discountPercent != null;
-        const bHas = b.discountPercent != null;
-        if (aHas && !bHas) return -1;
-        if (!aHas && bHas) return 1;
-        if (aHas && bHas) return b.discountPercent! - a.discountPercent!;
+        return (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
       }
       return a.pricePerGram - b.pricePerGram;
     });
 
   /* =========================
-      4. COLETA DE OPÇÕES PARA FILTROS
+     4. COLETA DE OPÇÕES PARA FILTROS
      ========================= */
   const allOptions = await prisma.product.findMany({
     where: { category: "creatina" },
@@ -210,7 +204,6 @@ export default async function CreatinaPage({
         select: { totalUnits: true },
       },
     },
-    // CORREÇÃO: Removido distinct restrito para garantir que todos os tamanhos apareçam
   });
 
   const availableBrands = Array.from(new Set(allOptions.map(p => p.brand))).sort();
@@ -218,7 +211,6 @@ export default async function CreatinaPage({
     new Set(allOptions.map(p => p.flavor).filter((f): f is string => Boolean(f)))
   ).sort();
   
-  // Captura todos os tamanhos únicos cadastrados
   const availableWeights = Array.from(
     new Set(allOptions.map(p => p.creatineInfo?.totalUnits).filter((w): w is number => Boolean(w)))
   ).sort((a, b) => a - b);
@@ -248,6 +240,7 @@ export default async function CreatinaPage({
               {finalProducts.length} produtos encontrados em Creatina
             </p>
             <div className="w-full">
+              {/* Garanta que o MobileProductCard da creatina suporte as props isLowestPrice/7d */}
               <ProductList 
                 products={finalProducts} 
                 viewEventName="view_creatina_list" 

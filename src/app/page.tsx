@@ -9,7 +9,6 @@ import Header from "./Header";
 // 🚀 Componente de Rastreio de Visualização
 function TrackHomeView() {
   useEffect(() => {
-    // Cast para garantir que o TypeScript aceite a propriedade dataLayer no objeto window
     const win = window as typeof window & { dataLayer?: object[] };
     win.dataLayer = win.dataLayer || [];
     win.dataLayer.push({
@@ -24,7 +23,6 @@ function TrackHomeView() {
 export default function HomePage() {
   const router = useRouter();
 
-  // Função para tracking de cliques em categorias
   const handleCategoryClick = (path: string, categoryName: string) => {
     const win = window as typeof window & { dataLayer?: object[] };
     if (win.dataLayer) {
@@ -84,7 +82,7 @@ export default function HomePage() {
         <div className="absolute bottom-0 w-full h-6 bg-gradient-to-b from-transparent to-[#EAEDED]/50" />
       </div>
 
-      {/* --- 4. GRID DE CATEGORIAS (Ordem Alfabética) --- */}
+      {/* --- 4. GRID DE CATEGORIAS --- */}
       <div className="px-4 -mt-4 relative z-20 max-w-xl mx-auto space-y-4">
         
         <h2 className="text-[18px] font-bold text-[#0F1111] px-1 pt-4 text-center">Comprar por categoria</h2>
@@ -121,6 +119,37 @@ export default function HomePage() {
             onClick={() => {}}
             disabled
           />
+
+          {/* --- TOP 10 - BANNER ABAIXO DAS CATEGORIAS --- */}
+          <div 
+            onClick={() => handleCategoryClick("/top10", "Top 10 Ofertas")}
+            className="col-span-2 bg-white border border-gray-200 rounded-lg shadow-sm p-5 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all hover:border-[#e47911] group overflow-hidden relative"
+          >
+            <div className="z-10 flex-1">
+              <h3 className="text-[20px] font-bold text-[#0F1111] leading-tight">Top 10 ofertas de hoje</h3>
+              <p className="text-[13px] text-[#565959] mt-1 leading-snug">
+                As maiores quedas de preço em <br className="hidden sm:block" /> suplementos detectadas agora.
+              </p>
+              <div className="mt-4 inline-flex items-center text-[13px] font-bold text-[#007185] group-hover:underline">
+                Explorar o ranking completo →
+              </div>
+            </div>
+
+            {/* Imagem solicitada */}
+            <div className="relative w-28 h-24 flex-shrink-0">
+              <Image 
+                src="https://m.media-amazon.com/images/G/32/Campanhas/BTS2026/EventsPage/24545_BTS26_EventsPage_VIsualNav_todasofertas_540x432._CB777710855_UC432,290_.jpg" 
+                alt="Top 10 Ofertas de hoje"
+                fill
+                className="object-contain"
+                unoptimized
+              />
+            </div>
+
+            {/* Detalhe estético de fundo */}
+            <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-yellow-50 rounded-full opacity-50 blur-2xl group-hover:bg-orange-50 transition-colors" />
+          </div>
+
         </div>
 
         {/* --- 5. FOOTER --- */}
@@ -139,7 +168,7 @@ export default function HomePage() {
   );
 }
 
-// --- COMPONENTE DE CARD ---
+// --- COMPONENTE DE CARD DE CATEGORIA ---
 interface CategoryCardProps {
   title: string;
   imageSrc: string;
@@ -159,7 +188,6 @@ function CategoryCard({ title, imageSrc, onClick, disabled }: CategoryCardProps)
         }
       `}
     >
-      {/* Título centralizado com text-center */}
       <h2 className="text-[14px] font-bold text-[#0F1111] w-full text-center mb-2 leading-tight">
         {title}
       </h2>

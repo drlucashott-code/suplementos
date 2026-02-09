@@ -150,7 +150,7 @@ export default async function BebidaProteicaPage({
       numberOfDoses: unitsPerPack,
       pricePerGramProtein: pricePerGramProtein,
       
-      avgPrice: avgMonthly, // Passando o preço médio calculado
+      avgPrice: avgMonthly,
       discountPercent: discountPercent,
       isLowestPrice: isLowestPrice,       
       isLowestPrice7d: isLowestPrice7d,   
