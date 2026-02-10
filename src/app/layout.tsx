@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import { ScrollToTop } from "@/components/ScrollToTop"; // ✅ Importação do componente
 import "./globals.css";
 
 // 🚀 Otimização de Fontes
@@ -97,6 +98,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {/* ✅ COMPONENTE QUE CORRIGE A POSIÇÃO DO SCROLL */}
+        <ScrollToTop />
+
         {/* ✅ GA INICIALIZA GLOBALMENTE */}
         <GoogleAnalytics gaId="G-CLEY1YQ80S" />
 
