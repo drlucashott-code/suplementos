@@ -50,7 +50,7 @@ export function MobileProductCard({
 
   // Rótulo da dose
   const getDoseLabel = () => {
-    return `ANÁLISE POR SCOOP (${product.doseWeight}g)`;
+    return `ANÁLISE POR DOSE (${product.doseWeight}g)`;
   };
 
   const handleTrackClick = () => {
