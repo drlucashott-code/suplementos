@@ -40,7 +40,7 @@
     "types",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
-  ],
+, "teste_amazon.js", "teste_frete.js", "teste-amazon.mjs", "check-amazon.js"  ],
 
   "exclude": [
     "node_modules"

@@ -13,23 +13,24 @@ export type ImportResult = {
   error?: string;
 };
 
-// Tipagem expandida para suportar Bebidas
+// Tipagem expandida para suportar Bebidas e Pré-Treino
 type ImportInput = {
   asins: string;
   mode: "getItem" | "getVariation";
-  // ✅ Garante que a string corresponda exatamente ao valor enviado pelo front-end
-  category: "whey" | "creatina" | "barra" | "bebida_proteica";
+  // ✅ Incluído pre_treino
+  category: "whey" | "creatina" | "barra" | "bebida_proteica" | "pre_treino";
   titlePattern: string;
   brand: string;
   
   // Campos Genéricos / Específicos
-  totalWeight: number;       // Whey, Creatina
-  dose: number;              // Whey, Creatina, Barra (peso unitário)
+  totalWeight: number;       // Whey, Creatina, Pré-Treino
+  dose: number;              // Whey, Creatina, Barra, Pré-Treino
   protein: number;           // Whey, Barra, Bebida
   
   unitsPerBox: number;       // Barra
   unitsPerPack: number;      // Bebida
   volumePerUnitInMl: number; // Bebida
+  caffeine: number;          // ✅ Pré-Treino (Novo)
 };
 
 export async function importarAmazonAction(
@@ -67,22 +68,37 @@ export async function importarAmazonAction(
     // 3. Preparação do comando em lote
     const asinsJoined = asins.join(",");
 
-    // Lógica de Unificação de Parâmetros para o CLI
-    // O script espera: category brand totalWeight units dose protein
+    // =================================================================
+    // Lógica de Unificação de Parâmetros (CLI Mapping)
+    // O script espera a ordem: 
+    // category brand weight units dose nutrient(prot/caffeine)
+    // =================================================================
     
-    let paramUnits = input.unitsPerBox;
-    let paramDoseOrVolume = input.dose;
+    // Valores padrão (Whey/Creatina/Barra)
+    let paramUnits = input.unitsPerBox || 0;
+    let paramDoseOrVolume = input.dose || 0;
+    let paramNutrient = input.protein || 0; // Por padrão é proteína
 
-    // ✅ Lógica específica para mapear os campos de bebida
+    // Caso 1: Bebida Proteica
     if (input.category === "bebida_proteica") {
-      paramUnits = input.unitsPerPack;          // Mapeia Pack -> Units
-      paramDoseOrVolume = input.volumePerUnitInMl; // Mapeia Volume -> Dose
+      paramUnits = input.unitsPerPack || 0;          // Units = Fardo
+      paramDoseOrVolume = input.volumePerUnitInMl || 0; // Dose = Volume ML
+      paramNutrient = input.protein || 0;            // Nutrient = Proteína
     }
 
-    // ✅ ALTERAÇÃO IMPORTANTE: Usando 'tsx' em vez de 'ts-node' para melhor compatibilidade com Prisma Adapter
-    const command = `npx tsx ${scriptPath} "${asinsJoined}" "${input.titlePattern}" "${input.category}" "${input.brand}" ${input.totalWeight} ${paramUnits} ${paramDoseOrVolume} ${input.protein}`;
+    // Caso 2: Pré-Treino
+    if (input.category === "pre_treino") {
+      paramUnits = 0;                                // Não usa unidades
+      paramDoseOrVolume = input.dose || 0;           // Dose = Tamanho do Scoop (g)
+      paramNutrient = input.caffeine || 0;           // ✅ Nutrient = Cafeína (mg)
+    }
+
+    // Montagem do Comando
+    // A ordem dos argumentos aqui DEVE bater com o que seu script TS espera receber em process.argv
+    const command = `npx tsx ${scriptPath} "${asinsJoined}" "${input.titlePattern}" "${input.category}" "${input.brand}" ${input.totalWeight || 0} ${paramUnits} ${paramDoseOrVolume} ${paramNutrient}`;
 
     logs.push(`🚀 [${input.category.toUpperCase()}] Iniciando processamento de lote (${asins.length} ASINs)...`);
+    logs.push(`⚙️ Params: Peso=${input.totalWeight}, Units=${paramUnits}, Dose/Vol=${paramDoseOrVolume}, Prot/Caf=${paramNutrient}`);
 
     // 4. Execução única
     const { stdout, stderr } = await execAsync(command);
@@ -92,6 +108,7 @@ export async function importarAmazonAction(
     }
     
     if (stderr) {
+      // Filtrar warnings chatos do node se quiser, ou exibir tudo
       logs.push(`⚠️ Alertas do sistema: ${stderr.trim()}`);
     }
 
@@ -99,7 +116,8 @@ export async function importarAmazonAction(
     revalidatePath("/admin/whey");
     revalidatePath("/admin/creatina");
     revalidatePath("/admin/barra");
-    revalidatePath("/admin/bebidaproteica"); // ✅ Atualiza a tabela de bebidas
+    revalidatePath("/admin/bebidaproteica");
+    revalidatePath("/admin/pre-treino"); // ✅ Atualiza a nova página
 
     return {
       ok: true,

@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { importarAmazonAction } from "./actions";
 
-// ✅ Atualizado para incluir bebida_proteica
-type Categoria = "whey" | "creatina" | "barra" | "bebida_proteica";
+// ✅ Atualizado para incluir pre_treino
+type Categoria = "whey" | "creatina" | "barra" | "bebida_proteica" | "pre_treino";
 
 /* =======================
    FIELD (PADRÃO DA EDIÇÃO)
@@ -30,15 +30,15 @@ export default function ImportadorUniversalPage() {
   const [activeFields, setActiveFields] = useState<string[]>([]);
 
   // Valores dos campos nutricionais/técnicos
-  // ✅ Adicionados campos específicos de bebida
   const [values, setValues] = useState({
     brand: "",
     totalWeight: "" as number | "",
     dose: "" as number | "",
     protein: "" as number | "",
     unitsPerBox: "" as number | "", 
-    unitsPerPack: "" as number | "",      // Novo
-    volumePerUnitInMl: "" as number | "", // Novo
+    unitsPerPack: "" as number | "",      
+    volumePerUnitInMl: "" as number | "", 
+    caffeine: "" as number | "", // ✅ Novo campo para Pré-Treino
   });
 
   const [logs, setLogs] = useState<string[]>([]);
@@ -66,12 +66,18 @@ export default function ImportadorUniversalPage() {
       { key: "dose", label: "Peso Unidade (g)" },
       { key: "protein", label: "Prot. por Barra (g)" },
     ],
-    // ✅ Configuração da Bebida
     bebida_proteica: [
       { key: "brand", label: "Marca" },
       { key: "unitsPerPack", label: "Unidades Fardo" },
       { key: "volumePerUnitInMl", label: "Volume (ml)" },
       { key: "protein", label: "Prot. por Unidade (g)" },
+    ],
+    // ✅ Configuração do Pré-Treino
+    pre_treino: [
+      { key: "brand", label: "Marca" },
+      { key: "totalWeight", label: "Peso Pote (g)" },
+      { key: "dose", label: "Dose Scoop (g)" },
+      { key: "caffeine", label: "Cafeína (mg)" },
     ],
   };
 
@@ -98,15 +104,15 @@ export default function ImportadorUniversalPage() {
         dose: activeFields.includes("dose") && values.dose !== "" ? Number(values.dose) : 0,
         protein: activeFields.includes("protein") && values.protein !== "" ? Number(values.protein) : 0,
         unitsPerBox: activeFields.includes("unitsPerBox") && values.unitsPerBox !== "" ? Number(values.unitsPerBox) : 0,
-        // ✅ Novos campos mapeados
         unitsPerPack: activeFields.includes("unitsPerPack") && values.unitsPerPack !== "" ? Number(values.unitsPerPack) : 0,
         volumePerUnitInMl: activeFields.includes("volumePerUnitInMl") && values.volumePerUnitInMl !== "" ? Number(values.volumePerUnitInMl) : 0,
+        // ✅ Envia cafeína
+        caffeine: activeFields.includes("caffeine") && values.caffeine !== "" ? Number(values.caffeine) : 0,
       });
 
       if (!res.ok) setError(res.error ?? "Erro desconhecido");
       if (res.logs?.length) setLogs(res.logs);
     } catch (err) {
-      // ✅ Tratamento de erro tipado
       const errorMessage = err instanceof Error ? err.message : "Erro crítico desconhecido";
       setError("Erro crítico: " + errorMessage);
     } finally {
@@ -121,7 +127,6 @@ export default function ImportadorUniversalPage() {
         <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-bold uppercase tracking-wider">Modo Inteligente</span>
       </div>
 
-      {/* ✅ Exibição de Erros (Correção do Lint unused var) */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg text-sm font-bold animate-pulse">
           🚨 {error}
@@ -141,6 +146,7 @@ export default function ImportadorUniversalPage() {
           >
             <option value="whey">Whey Protein</option>
             <option value="creatina">Creatina</option>
+            <option value="pre_treino">Pré-Treino</option> {/* ✅ Nova Opção */}
             <option value="barra">Barra de Proteína</option>
             <option value="bebida_proteica">Bebida Proteica</option>
           </select>
@@ -182,6 +188,9 @@ export default function ImportadorUniversalPage() {
       {/* FORMULÁRIO DINÂMICO */}
       {activeFields.length > 0 && (
         <div className="p-6 bg-gray-50 border rounded-xl space-y-4 shadow-inner animate-in fade-in slide-in-from-top-2 duration-300">
+          
+          {/* --- CAMPOS COMUNS --- */}
+          
           {activeFields.includes("brand") && (
             <Field label="Marca">
               <input
@@ -204,6 +213,30 @@ export default function ImportadorUniversalPage() {
             </Field>
           )}
 
+          {activeFields.includes("dose") && (
+            <Field label={category === "barra" ? "Peso da Unidade (g)" : "Dose (g)"}>
+              <input
+                type="number"
+                className={inputClass}
+                value={values.dose}
+                onChange={(e) => setValues({ ...values, dose: e.target.value === "" ? "" : Number(e.target.value) })}
+              />
+            </Field>
+          )}
+
+          {activeFields.includes("protein") && (
+            <Field label={category === "barra" || category === "bebida_proteica" ? "Prot. por Unidade (g)" : "Proteína (g)"}>
+              <input
+                type="number"
+                className={inputClass}
+                value={values.protein}
+                onChange={(e) => setValues({ ...values, protein: e.target.value === "" ? "" : Number(e.target.value) })}
+              />
+            </Field>
+          )}
+
+          {/* --- CAMPOS ESPECÍFICOS --- */}
+
           {activeFields.includes("unitsPerBox") && (
             <Field label="Unidades na Caixa">
               <input
@@ -217,7 +250,6 @@ export default function ImportadorUniversalPage() {
             </Field>
           )}
 
-          {/* ✅ Novos Campos para Bebida */}
           {activeFields.includes("unitsPerPack") && (
             <Field label="Unidades no Fardo">
               <input
@@ -244,35 +276,26 @@ export default function ImportadorUniversalPage() {
             </Field>
           )}
 
-          {/* Campo Dose (compartilhado entre Whey/Barra) */}
-          {activeFields.includes("dose") && (
-            <Field label={category === "barra" ? "Peso da Unidade (g)" : "Dose (g)"}>
+          {/* ✅ Novo Input de Cafeína */}
+          {activeFields.includes("caffeine") && (
+            <Field label="Cafeína (mg)">
               <input
                 type="number"
+                step="1"
                 className={inputClass}
-                value={values.dose}
-                onChange={(e) => setValues({ ...values, dose: e.target.value === "" ? "" : Number(e.target.value) })}
+                value={values.caffeine}
+                onChange={(e) => setValues({ ...values, caffeine: e.target.value === "" ? "" : Number(e.target.value) })}
+                placeholder="Ex: 200"
               />
             </Field>
           )}
 
-          {activeFields.includes("protein") && (
-            <Field label={category === "barra" || category === "bebida_proteica" ? "Prot. por Unidade (g)" : "Proteína (g)"}>
-              <input
-                type="number"
-                className={inputClass}
-                value={values.protein}
-                onChange={(e) => setValues({ ...values, protein: e.target.value === "" ? "" : Number(e.target.value) })}
-              />
-            </Field>
-          )}
         </div>
       )}
 
       {/* CONFIGS TÉCNICAS */}
       <div className="pt-4 space-y-4 border-t">
         <Field label="Método">
-          {/* ✅ Correção do Type Assertion no onChange */}
           <select className={inputClass} value={mode} onChange={(e) => setMode(e.target.value as "getItem" | "getVariation")}>
             <option value="getItem">GetItem (Simples)</option>
             <option value="getVariation">GetVariation (Variações)</option>

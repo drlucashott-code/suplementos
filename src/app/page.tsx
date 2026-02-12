@@ -115,11 +115,11 @@ export default function HomePage() {
             onClick={() => handleCategoryClick("/whey", "Whey Protein")}
           />
 
+          {/* ✅ PRÉ-TREINO ATIVADO AGORA */}
           <CategoryCard 
             title="Pré-treino"
             imageSrc="https://m.media-amazon.com/images/I/61fGbsRyDWL._AC_SL1333_.jpg" 
-            onClick={() => {}}
-            disabled
+            onClick={() => handleCategoryClick("/pre-treino", "Pré-treino")}
           />
         </div>
 

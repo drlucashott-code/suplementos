@@ -8,19 +8,22 @@ datasource db {
 }
 
 model Product {
-  id               String            @id @default(cuid())
-  category         String
-  name             String
-  brand            String
-  flavor           String?
-  imageUrl         String
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  creatineInfo     CreatineInfo?
-  offers           Offer[]
-  proteinBarInfo   ProteinBarInfo?
-  proteinDrinkInfo ProteinDrinkInfo?
-  wheyInfo         WheyInfo?
+  id        String   @id @default(cuid())
+  category  String
+  name      String
+  brand     String
+  flavor    String?
+  imageUrl  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  offers               Offer[]
+  creatineInfo         CreatineInfo?
+  wheyInfo             WheyInfo?
+  proteinBarInfo       ProteinBarInfo?
+  proteinDrinkInfo     ProteinDrinkInfo?
+  functionalCoffeeInfo FunctionalCoffeeInfo?
+  preWorkoutInfo       PreWorkoutInfo?       
 }
 
 model CreatineInfo {
@@ -61,18 +64,37 @@ model ProteinDrinkInfo {
   product               Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
+model FunctionalCoffeeInfo {
+  id          String  @id @default(cuid())
+  productId   String  @unique
+  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  totalWeight Float
+  doseWeight  Float
+  caffeine    Float
+}
+
+// --- MODELO ATUALIZADO (PADRÃO WHEY) ---
+model PreWorkoutInfo {
+  id                  String  @id @default(cuid())
+  productId           String  @unique
+  totalWeightInGrams  Float   // Peso total do pote (ex: 300g)
+  doseInGrams         Float   // Tamanho do scoop (ex: 10g)
+  caffeinePerDoseInMg Float   // Cafeína por dose (ex: 200mg)
+  product             Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
 model Offer {
-  id            String              @id @default(cuid())
+  id            String            @id @default(cuid())
   productId     String
   store         Store
   externalId    String
   price         Float
   affiliateUrl  String
-  createdAt     DateTime            @default(now())
+  createdAt     DateTime          @default(now())
   ratingAverage Float?
   ratingCount   Int?
-  updatedAt     DateTime            @updatedAt
-  product       Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  updatedAt     DateTime          @updatedAt
+  product       Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
   priceHistory  OfferPriceHistory[]
 
   @@unique([store, externalId])
