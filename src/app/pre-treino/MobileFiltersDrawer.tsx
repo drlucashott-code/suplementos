@@ -148,7 +148,7 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines }: Pro
           {/* Navegação Lateral */}
           <nav className="w-[130px] bg-[#f0f2f2] border-r border-zinc-200 overflow-y-auto">
             {[
-              { id: "caffeine", label: "Cafeína" },
+              { id: "caffeine", label: "Cafeína/dose" },
               { id: "brand", label: "Marcas" },
               { id: "flavor", label: "Sabor" },
               { id: "weight", label: "Tamanho" },

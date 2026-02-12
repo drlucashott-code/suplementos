@@ -98,12 +98,10 @@ export default async function BebidaProteicaPage({
     const totalProtein = unitsPerPack * proteinPerDose;
     const pricePerGramProtein = finalPrice / totalProtein;
 
-    // --- LÓGICA DE PREÇO MÉDIO E DESCONTO (IGUAL BARRA) ---
     let avgMonthly: number | null = null;
     let discountPercent: number | null = null;
 
     if (offer.priceHistory.length > 0) {
-      // Agrupa preços por dia para evitar distorção se houver várias coletas no mesmo dia
       const dailyPrices = new Map<string, number[]>();
       offer.priceHistory.forEach((h) => {
         const day = h.createdAt.toISOString().split("T")[0];
@@ -111,23 +109,18 @@ export default async function BebidaProteicaPage({
         dailyPrices.get(day)!.push(h.price);
       });
 
-      // Média de cada dia
       const averages = Array.from(dailyPrices.values()).map(
         (p) => p.reduce((a, b) => a + b, 0) / p.length
       );
 
-      // Média global dos últimos 30 dias
       avgMonthly = averages.reduce((a, b) => a + b, 0) / averages.length;
 
-      // Calcula desconto se preço atual for menor que a média
       if (avgMonthly > finalPrice) {
         const raw = ((avgMonthly - finalPrice) / avgMonthly) * 100;
-        // Só considera desconto se for >= 5%
         if (raw >= 5) discountPercent = Math.round(raw);
       }
     }
 
-    // --- MENOR PREÇO EM X DIAS ---
     const prices30d = offer.priceHistory.map(h => h.price).concat(finalPrice);
     const minPrice30d = Math.min(...prices30d);
     const isLowestPrice = finalPrice <= minPrice30d && offer.priceHistory.length >= 10;
@@ -168,10 +161,31 @@ export default async function BebidaProteicaPage({
       const unitsA = a.numberOfDoses ?? 1;
       const unitsB = b.numberOfDoses ?? 1;
 
-      if (order === "discount") return (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
-      if (order === "protein_gram") return b.proteinPerDose - a.proteinPerDose;
-      if (order === "cheapest_unit") return (priceA / unitsA) - (priceB / unitsB);
-      return a.pricePerGramProtein - b.pricePerGramProtein;
+      // 1. Desconto: Maior -> Menor (Desempate: Preço Total)
+      if (order === "discount") {
+        const diff = (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
+        if (diff !== 0) return diff;
+        return priceA - priceB;
+      }
+
+      // 2. Proteína: Maior -> Menor (Desempate: Preço Total)
+      if (order === "protein_gram") {
+        const diff = b.proteinPerDose - a.proteinPerDose;
+        if (diff !== 0) return diff;
+        return priceA - priceB;
+      }
+
+      // 3. Unidade: Menor -> Maior (Desempate: Preço Total)
+      if (order === "cheapest_unit") {
+        const diff = (priceA / unitsA) - (priceB / unitsB);
+        if (diff !== 0) return diff;
+        return priceA - priceB;
+      }
+
+      // 4. Custo/Proteína (Default): Menor -> Maior (Desempate: Preço Total)
+      const diff = a.pricePerGramProtein - b.pricePerGramProtein;
+      if (diff !== 0) return diff;
+      return priceA - priceB;
     });
 
   const allOptions = await prisma.product.findMany({

@@ -52,7 +52,7 @@ export default async function BarraPage({
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   /* =========================
-      1. BUSCA FILTRADA
+       1. BUSCA FILTRADA
      ========================= */
   const products = await prisma.product.findMany({
     where: {
@@ -83,7 +83,7 @@ export default async function BarraPage({
   });
 
   /* =========================
-      2. PROCESSAMENTO
+       2. PROCESSAMENTO
      ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.proteinBarInfo) return null;
@@ -163,28 +163,41 @@ export default async function BarraPage({
   });
 
   /* =========================
-      3. ORDENAÇÃO
+       3. ORDENAÇÃO
      ========================= */
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => {
-      if (order === "discount")
-        return (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
-      if (order === "protein_gram")
-        return b.proteinPerBar - a.proteinPerBar;
-      if (order === "cheapest_bar")
-        return a.pricePerBar - b.pricePerBar;
-      return a.pricePerGramProtein - b.pricePerGramProtein;
+      if (order === "discount") {
+        const diff = (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
+        if (diff !== 0) return diff;
+        return a.price - b.price; // Desempate por preço total
+      }
+      
+      if (order === "protein_gram") {
+        const diff = b.proteinPerBar - a.proteinPerBar;
+        if (diff !== 0) return diff;
+        return a.price - b.price; // Desempate por preço total
+      }
+      
+      if (order === "cheapest_bar") {
+        const diff = a.pricePerBar - b.pricePerBar;
+        if (diff !== 0) return diff;
+        return a.price - b.price; // Desempate por preço total
+      }
+
+      // Default: cost (Preço por grama de proteína)
+      const diff = a.pricePerGramProtein - b.pricePerGramProtein;
+      if (diff !== 0) return diff;
+      return a.price - b.price; // Desempate por preço total
     });
 
   /* =========================
-      4. FILTROS
+       4. FILTROS
      ========================= */
   const allOptions = await prisma.product.findMany({
     where: { category: "barra" },
     select: { brand: true, flavor: true },
-    // CORREÇÃO: Removido o distinct engessado para garantir 
-    // que variações de packs apareçam corretamente se necessário
   });
 
   const availableBrands = Array.from(
@@ -216,7 +229,6 @@ export default async function BarraPage({
 
         <div className="px-3">
           <Suspense fallback={null}>
-            {/* CORREÇÃO: Props limpas para evitar erro de tipagem no build */}
             <MobileFiltersDrawer
               brands={availableBrands}
               flavors={availableFlavors}

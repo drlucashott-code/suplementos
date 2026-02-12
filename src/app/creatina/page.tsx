@@ -9,12 +9,12 @@ import { CreatineForm } from "@prisma/client";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 /* =========================
-   PERFORMANCE & BUILD FIX
+    PERFORMANCE & BUILD FIX
    ========================= */
 export const dynamic = "force-dynamic";
 
 /* =========================
-   METADATA (SEO & Aba)
+    METADATA (SEO & Aba)
    ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — Creatina",
@@ -57,7 +57,7 @@ export default async function CreatinaPage({
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
   /* =========================
-     1. BUSCA FILTRADA
+      1. BUSCA FILTRADA
      ========================= */
   const products = await prisma.product.findMany({
     where: {
@@ -90,7 +90,7 @@ export default async function CreatinaPage({
   });
 
   /* =========================
-     2. PROCESSAMENTO DE DADOS
+      2. PROCESSAMENTO DE DADOS
      ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.creatineInfo) return null;
@@ -121,7 +121,6 @@ export default async function CreatinaPage({
     let avgMonthly: number | null = null;
     let discountPercent: number | null = null;
     
-    // 1. Média Mensal e Desconto
     if (offer.priceHistory.length > 0) {
       const dailyPricesMap = new Map<string, number[]>();
       offer.priceHistory.forEach(h => {
@@ -143,12 +142,10 @@ export default async function CreatinaPage({
       }
     }
 
-    // 2. Menor Preço em 30 Dias (Com trava de 10 dias)
     const prices30d = offer.priceHistory.map(h => h.price).concat(finalPrice);
     const minPrice30d = Math.min(...prices30d);
     const isLowestPrice30 = finalPrice <= minPrice30d && offer.priceHistory.length >= 10;
 
-    // 3. Menor Preço em 7 Dias (Com trava de 5 dias)
     const history7d = offer.priceHistory.filter(h => h.createdAt >= sevenDaysAgo);
     const prices7d = history7d.map(h => h.price).concat(finalPrice);
     const minPrice7d = Math.min(...prices7d);
@@ -171,8 +168,8 @@ export default async function CreatinaPage({
       hasCarbs,
       avgPrice: avgMonthly,
       
-      isLowestPrice: isLowestPrice30,      // Atualizado
-      isLowestPrice7d: isLowestPrice7,     // Atualizado
+      isLowestPrice: isLowestPrice30,      
+      isLowestPrice7d: isLowestPrice7,     
       discountPercent,
       
       rating: offer.ratingAverage ?? 0,
@@ -181,19 +178,26 @@ export default async function CreatinaPage({
   });
 
   /* =========================
-     3. RANKING E ORDENAÇÃO
+      3. RANKING E ORDENAÇÃO
      ========================= */
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => {
+      // 1. Desconto: Maior -> Menor (Desempate: Preço Total)
       if (order === "discount") {
-        return (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
+        const diff = (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
+        if (diff !== 0) return diff;
+        return a.price - b.price;
       }
-      return a.pricePerGram - b.pricePerGram;
+      
+      // 2. Preço por Grama (Default): Menor -> Maior (Desempate: Preço Total)
+      const diff = a.pricePerGram - b.pricePerGram;
+      if (diff !== 0) return diff;
+      return a.price - b.price;
     });
 
   /* =========================
-     4. COLETA DE OPÇÕES PARA FILTROS
+      4. COLETA DE OPÇÕES PARA FILTROS
      ========================= */
   const allOptions = await prisma.product.findMany({
     where: { category: "creatina" },
@@ -240,7 +244,6 @@ export default async function CreatinaPage({
               {finalProducts.length} produtos encontrados em Creatina
             </p>
             <div className="w-full">
-              {/* Garanta que o MobileProductCard da creatina suporte as props isLowestPrice/7d */}
               <ProductList 
                 products={finalProducts} 
                 viewEventName="view_creatina_list" 

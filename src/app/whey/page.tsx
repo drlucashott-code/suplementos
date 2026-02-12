@@ -54,7 +54,7 @@ export default async function WheyPage({
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   /* =========================
-      1. BUSCA FILTRADA
+       1. BUSCA FILTRADA
      ========================= */
   const products = await prisma.product.findMany({
     where: {
@@ -87,7 +87,7 @@ export default async function WheyPage({
   });
 
   /* =========================
-      2. PROCESSAMENTO
+       2. PROCESSAMENTO
      ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.wheyInfo) return null;
@@ -168,29 +168,49 @@ export default async function WheyPage({
   });
 
   /* =========================
-      3. ORDENAÇÃO
+       3. ORDENAÇÃO
      ========================= */
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => {
-      if (order === "discount")
-        return (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
-      if (order === "protein_dose")
-        return b.proteinPerDose - a.proteinPerDose;
-      if (order === "protein_percent")
-        return b.proteinPercentage - a.proteinPercentage;
-      if (order === "price_dose") {
-        const aPrice =
-          a.price && a.numberOfDoses ? a.price / a.numberOfDoses : Infinity;
-        const bPrice =
-          b.price && b.numberOfDoses ? b.price / b.numberOfDoses : Infinity;
-        return aPrice - bPrice;
+      // 1. Desconto: Maior -> Menor (Desempate: Menor Preço Total)
+      if (order === "discount") {
+        const diff = (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
+        if (diff !== 0) return diff;
+        return a.price - b.price;
       }
-      return a.pricePerGramProtein - b.pricePerGramProtein;
+      
+      // 2. Proteína por Dose: Maior -> Menor (Desempate: Menor Preço Total)
+      if (order === "protein_dose") {
+        const diff = b.proteinPerDose - a.proteinPerDose;
+        if (diff !== 0) return diff;
+        return a.price - b.price;
+      }
+      
+      // 3. Concentração (%): Maior -> Menor (Desempate: Menor Preço Total)
+      if (order === "protein_percent") {
+        const diff = b.proteinPercentage - a.proteinPercentage;
+        if (diff !== 0) return diff;
+        return a.price - b.price;
+      }
+      
+      // 4. Preço por Dose: Menor -> Maior (Desempate: Menor Preço Total)
+      if (order === "price_dose") {
+        const aPriceDose = a.price / a.numberOfDoses;
+        const bPriceDose = b.price / b.numberOfDoses;
+        const diff = aPriceDose - bPriceDose;
+        if (diff !== 0) return diff;
+        return a.price - b.price;
+      }
+
+      // 5. Custo por Grama de Proteína (Default): Menor -> Maior (Desempate: Menor Preço Total)
+      const diff = a.pricePerGramProtein - b.pricePerGramProtein;
+      if (diff !== 0) return diff;
+      return a.price - b.price;
     });
 
   /* =========================
-      4. FILTROS (AJUSTADOS)
+       4. FILTROS
      ========================= */
   const allOptions = await prisma.product.findMany({
     where: { category: "whey" },
@@ -199,7 +219,6 @@ export default async function WheyPage({
       flavor: true,
       wheyInfo: { select: { totalWeightInGrams: true } },
     },
-    // Removido o distinct restrito para capturar variações de peso (ex: 945g vs 900g)
   });
 
   const availableBrands = Array.from(
