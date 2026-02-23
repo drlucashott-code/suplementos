@@ -16,7 +16,7 @@ const commonParameters = {
   Marketplace: "www.amazon.com.br",
 };
 
-const MAX_PAGES_SEARCH = 5; // Páginas de busca por termo
+const MAX_PAGES_SEARCH = 10; // Páginas de busca por termo
 const MAX_PAGES_VARIATIONS = 10; // Páginas de variação por família
 
 // --- UTILITÁRIOS ---

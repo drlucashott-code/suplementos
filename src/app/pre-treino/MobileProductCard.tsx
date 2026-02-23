@@ -196,10 +196,6 @@ export function MobileProductCard({
                   </div>
                 )}
               </div>
-
-              <div className="text-[12px] text-[#0F1111] mt-0.5 font-medium">
-                (R$ {product.pricePerDose.toFixed(2).replace(".", ",")} / dose)
-              </div>
               
               <div className="mt-1 flex items-center">
                 <span className="font-black italic text-[12px] leading-none flex items-center">

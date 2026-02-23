@@ -32,7 +32,7 @@ async function run() {
   // Transforma a string em array e limpa espaços extras
   const keywordsList = rawKeywords.split(",").map(k => k.trim());
   
-  const maxPages = 5; // Reduzi para 5 por palavra para não estourar o limite rápido, ajuste se necessário.
+  const maxPages = 10; // Reduzi para 5 por palavra para não estourar o limite rápido, ajuste se necessário.
 
   if (!brand) {
     console.log("❌ Uso: npx ts-node scripts/DiscoverProducts.ts \"Integralmedica\" \"barra, whey\"");
