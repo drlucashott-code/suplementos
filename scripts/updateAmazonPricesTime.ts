@@ -2,7 +2,7 @@ import "dotenv/config";
 import https from "https";
 import crypto from "node:crypto";
 import { Store } from "@prisma/client";
-import { prisma } from "../src/lib/prisma.ts";
+import { prisma } from "../src/lib/prisma";
 
 /* ======================
    CONFIGURAÇÕES
