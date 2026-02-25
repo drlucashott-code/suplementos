@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react"; 
 import Image from "next/image";
 import Header from "./Header"; 
+import FeedbackModal from "./FeedbackModal"; // ✅ Importação do Modal adicionada aqui
 
 // 🚀 Componente de Rastreio de Visualização
 function TrackHomeView() {
@@ -124,7 +125,11 @@ export default function HomePage() {
         </div>
 
         {/* --- 5. FOOTER --- */}
-        <footer className="pt-10 pb-4 text-center px-4">
+        <footer className="pt-10 pb-6 text-center px-4 flex flex-col items-center">
+          
+          {/* ✅ Modal de Feedback adicionado aqui */}
+          <FeedbackModal />
+
           <div className="border-t border-gray-300 w-16 mx-auto mb-4" />
           <p className="text-[11px] text-[#565959] leading-tight px-6">
             Participamos do Programa de Associados da Amazon Services LLC.
@@ -175,6 +180,7 @@ function CategoryCard({ title, imageSrc, onClick, disabled }: CategoryCardProps)
         />
       </div>
 
+      {/* Flag de em breve, condicional se a prop disabled for true */}
       {disabled && (
         <span className="absolute bottom-2 right-2 text-[9px] text-gray-400 font-bold bg-gray-100 px-1.5 py-0.5 rounded uppercase border border-gray-200">
           em breve
