@@ -8,11 +8,12 @@ type Props = {
   flavors: string[];
   weights: number[];
   caffeines: number[];
+  sellers: string[];
 };
 
-type FilterTab = "caffeine" | "brand" | "flavor" | "weight";
+type FilterTab = "caffeine" | "brand" | "flavor" | "weight" | "seller";
 
-export function MobileFiltersDrawer({ brands, flavors, weights, caffeines }: Props) {
+export function MobileFiltersDrawer({ brands, flavors, weights, caffeines, sellers }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -24,6 +25,7 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines }: Pro
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
   const [selectedWeights, setSelectedWeights] = useState<string[]>([]);
   const [selectedCaffeines, setSelectedCaffeines] = useState<string[]>([]);
+  const [selectedSellers, setSelectedSellers] = useState<string[]>([]);
 
   // Helpers de Formatação
   const formatSize = (val: number) => {
@@ -52,6 +54,7 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines }: Pro
       setSelectedFlavors(searchParams.get("flavor")?.split(",") ?? []);
       setSelectedWeights(searchParams.get("weight")?.split(",") ?? []);
       setSelectedCaffeines(searchParams.get("caffeine")?.split(",") ?? []);
+      setSelectedSellers(searchParams.get("seller")?.split(",") ?? []);
       setOpen(true);
     }
     window.addEventListener("open-filters", handleOpen);
@@ -67,19 +70,22 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines }: Pro
     selectedBrands.length > 0 || 
     selectedFlavors.length > 0 || 
     selectedWeights.length > 0 ||
-    selectedCaffeines.length > 0;
+    selectedCaffeines.length > 0 ||
+    selectedSellers.length > 0;
 
   const countFilters = 
     selectedBrands.length + 
     selectedFlavors.length + 
     selectedWeights.length +
-    selectedCaffeines.length;
+    selectedCaffeines.length +
+    selectedSellers.length;
 
   const clearInternalFilters = () => {
     setSelectedBrands([]);
     setSelectedFlavors([]);
     setSelectedWeights([]);
     setSelectedCaffeines([]);
+    setSelectedSellers([]);
   };
 
   const applyFilters = () => {
@@ -96,6 +102,9 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines }: Pro
 
     if (selectedCaffeines.length) params.set("caffeine", selectedCaffeines.join(","));
     else params.delete("caffeine");
+
+    if (selectedSellers.length) params.set("seller", selectedSellers.join(","));
+    else params.delete("seller");
 
     if (!params.has("order")) params.set("order", "dose");
 
@@ -152,6 +161,7 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines }: Pro
               { id: "brand", label: "Marcas" },
               { id: "flavor", label: "Sabor" },
               { id: "weight", label: "Tamanho" },
+              { id: "seller", label: "Vendido por" },
             ].map((tab) => {
               const isActive = activeTab === tab.id;
               
@@ -160,6 +170,7 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines }: Pro
               if (tab.id === 'flavor') badgeCount = selectedFlavors.length;
               if (tab.id === 'weight') badgeCount = selectedWeights.length;
               if (tab.id === 'caffeine') badgeCount = selectedCaffeines.length;
+              if (tab.id === 'seller') badgeCount = selectedSellers.length;
 
               return (
                 <button
@@ -221,6 +232,16 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines }: Pro
                   label={formatSize(w)} 
                   active={selectedWeights.includes(w.toString())} 
                   onClick={() => toggle(w.toString(), selectedWeights, setSelectedWeights)} 
+                />
+              ))}
+
+              {/* Aba Vendedor */}
+              {activeTab === "seller" && sellers.map((s) => (
+                <Tag 
+                  key={s} 
+                  label={s} 
+                  active={selectedSellers.includes(s)} 
+                  onClick={() => toggle(s, selectedSellers, setSelectedSellers)} 
                 />
               ))}
             </div>

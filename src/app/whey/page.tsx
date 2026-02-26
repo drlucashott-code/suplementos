@@ -8,12 +8,12 @@ import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 /* =========================
-    PERFORMANCE & BUILD FIX
+   PERFORMANCE & BUILD FIX
    ========================= */
 export const dynamic = "force-dynamic";
 
 /* =========================
-    METADATA (SEO)
+   METADATA (SEO)
    ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — Whey Protein",
@@ -32,6 +32,7 @@ export type SearchParams = {
   order?: "cost" | "discount" | "protein_percent" | "protein_dose" | "price_dose";
   proteinRange?: string;
   q?: string;
+  seller?: string;
 };
 
 export default async function WheyPage({
@@ -48,6 +49,7 @@ export default async function WheyPage({
   const selectedFlavors = params.flavor?.split(",") ?? [];
   const selectedWeights = params.weight?.split(",") ?? [];
   const selectedProteinRanges = params.proteinRange?.split(",") ?? [];
+  const selectedSellers = params.seller?.split(",") ?? [];
   const maxPrice = params.priceMax ? Number(params.priceMax) : undefined;
 
   const thirtyDaysAgo = new Date();
@@ -73,7 +75,11 @@ export default async function WheyPage({
     include: {
       wheyInfo: true,
       offers: {
-        where: { store: "AMAZON", affiliateUrl: { not: "" } },
+        where: { 
+          store: "AMAZON", 
+          affiliateUrl: { not: "" },
+          ...(selectedSellers.length && { seller: { in: selectedSellers } }),
+        },
         include: {
           priceHistory: {
             where: { createdAt: { gte: thirtyDaysAgo } },
@@ -241,6 +247,28 @@ export default async function WheyPage({
     )
   ).sort((a, b) => a - b);
 
+  // --- NOVA LÓGICA: VENDEDORES DISPONÍVEIS ---
+  const rawSellers = await prisma.offer.findMany({
+    where: { 
+      store: "AMAZON",
+      seller: { not: null },
+      product: { category: "whey" }
+    },
+    distinct: ["seller"],
+    select: { seller: true },
+  });
+
+  let availableSellers = rawSellers.map((s) => s.seller as string);
+  const amazonOfficial = "Amazon.com.br";
+
+  availableSellers = availableSellers
+    .filter((seller) => seller !== amazonOfficial && seller !== "Desconhecido")
+    .sort((a, b) => a.localeCompare(b));
+
+  if (rawSellers.some((s) => s.seller === amazonOfficial)) {
+    availableSellers.unshift(amazonOfficial);
+  }
+
   return (
     <main className="bg-[#EAEDED] min-h-screen">
       <Suspense fallback={<div className="h-14 bg-[#232f3e] w-full" />}>
@@ -262,6 +290,7 @@ export default async function WheyPage({
               brands={availableBrands}
               flavors={availableFlavors}
               weights={availableWeights}
+              sellers={availableSellers}
             />
           </Suspense>
 

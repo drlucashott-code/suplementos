@@ -9,12 +9,12 @@ import { CreatineForm } from "@prisma/client";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 /* =========================
-    PERFORMANCE & BUILD FIX
+   PERFORMANCE & BUILD FIX
    ========================= */
 export const dynamic = "force-dynamic";
 
 /* =========================
-    METADATA (SEO & Aba)
+   METADATA (SEO & Aba)
    ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — Creatina",
@@ -32,6 +32,7 @@ type SearchParams = {
   priceMax?: string;
   order?: "gram" | "discount";
   q?: string;
+  seller?: string;
 };
 
 export default async function CreatinaPage({
@@ -48,6 +49,7 @@ export default async function CreatinaPage({
   const selectedForms = (params.form?.split(",") as CreatineForm[]) ?? [];
   const selectedFlavors = params.flavor?.split(",") ?? [];
   const selectedWeights = params.weight?.split(",") ?? [];
+  const selectedSellers = params.seller?.split(",") ?? [];
   const maxPrice = params.priceMax ? Number(params.priceMax) : undefined;
 
   const thirtyDaysAgo = new Date();
@@ -76,6 +78,7 @@ export default async function CreatinaPage({
         where: {
           store: "AMAZON",
           affiliateUrl: { not: "" },
+          ...(selectedSellers.length && { seller: { in: selectedSellers } }),
         },
         include: {
           priceHistory: {
@@ -219,6 +222,28 @@ export default async function CreatinaPage({
     new Set(allOptions.map(p => p.creatineInfo?.totalUnits).filter((w): w is number => Boolean(w)))
   ).sort((a, b) => a - b);
 
+  // --- NOVA LÓGICA: VENDEDORES DISPONÍVEIS ---
+  const rawSellers = await prisma.offer.findMany({
+    where: { 
+      store: "AMAZON",
+      seller: { not: null },
+      product: { category: "creatina" }
+    },
+    distinct: ["seller"],
+    select: { seller: true },
+  });
+
+  let availableSellers = rawSellers.map((s) => s.seller as string);
+  const amazonOfficial = "Amazon.com.br";
+
+  availableSellers = availableSellers
+    .filter((seller) => seller !== amazonOfficial && seller !== "Desconhecido")
+    .sort((a, b) => a.localeCompare(b));
+
+  if (rawSellers.some((s) => s.seller === amazonOfficial)) {
+    availableSellers.unshift(amazonOfficial);
+  }
+
   return (
     <main className="bg-[#EAEDED] min-h-screen">
       <Suspense fallback={<div className="h-14 bg-[#232f3e] w-full" />}>
@@ -236,6 +261,7 @@ export default async function CreatinaPage({
               brands={availableBrands}
               flavors={availableFlavors}
               weights={availableWeights}
+              sellers={availableSellers}
             />
           </Suspense>
 

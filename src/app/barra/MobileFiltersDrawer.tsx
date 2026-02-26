@@ -7,9 +7,10 @@ import { useEffect, useState, useMemo } from "react";
 type Props = {
   brands: string[];
   flavors: string[];
+  sellers: string[]; // <-- ADICIONADO: Lista de vendedores
 };
 
-type FilterTab = "protein" | "brand" | "flavor";
+type FilterTab = "protein" | "brand" | "flavor" | "seller"; // <-- ADICIONADO "seller"
 
 // Faixas adaptadas para gramas por barra
 const PROTEIN_RANGES = [
@@ -19,7 +20,7 @@ const PROTEIN_RANGES = [
   { label: "Abaixo de 10g por unidade", value: "0-10" },
 ];
 
-export function MobileFiltersDrawer({ brands, flavors }: Props) {
+export function MobileFiltersDrawer({ brands, flavors, sellers }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -30,6 +31,7 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
   const [selectedProteinRanges, setSelectedProteinRanges] = useState<string[]>([]);
+  const [selectedSellers, setSelectedSellers] = useState<string[]>([]); // <-- ADICIONADO
 
   // 🔒 Scroll Lock
   useEffect(() => {
@@ -47,6 +49,7 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
       setSelectedBrands(searchParams.get("brand")?.split(",") ?? []);
       setSelectedFlavors(searchParams.get("flavor")?.split(",") ?? []);
       setSelectedProteinRanges(searchParams.get("proteinRange")?.split(",") ?? []);
+      setSelectedSellers(searchParams.get("seller")?.split(",") ?? []); // <-- ADICIONADO
       setOpen(true);
     }
     window.addEventListener("open-filters", handleOpen);
@@ -58,13 +61,23 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
     setList(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
   };
 
-  const hasAnyFilter = selectedBrands.length > 0 || selectedFlavors.length > 0 || selectedProteinRanges.length > 0;
-  const countFilters = selectedBrands.length + selectedFlavors.length + selectedProteinRanges.length;
+  const hasAnyFilter = 
+    selectedBrands.length > 0 || 
+    selectedFlavors.length > 0 || 
+    selectedProteinRanges.length > 0 ||
+    selectedSellers.length > 0; // <-- ADICIONADO
+
+  const countFilters = 
+    selectedBrands.length + 
+    selectedFlavors.length + 
+    selectedProteinRanges.length +
+    selectedSellers.length; // <-- ADICIONADO
 
   const clearInternalFilters = () => {
     setSelectedBrands([]);
     setSelectedFlavors([]);
     setSelectedProteinRanges([]);
+    setSelectedSellers([]); // <-- ADICIONADO
   };
 
   const applyFilters = () => {
@@ -78,6 +91,9 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
 
     if (selectedProteinRanges.length) params.set("proteinRange", selectedProteinRanges.join(","));
     else params.delete("proteinRange");
+
+    if (selectedSellers.length) params.set("seller", selectedSellers.join(",")); // <-- ADICIONADO
+    else params.delete("seller");
 
     // Mantém a ordenação atual se existir, senão define padrão
     if (!params.has("order")) params.set("order", "cost");
@@ -133,6 +149,7 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
               { id: "protein", label: "Proteína/unidade" },
               { id: "brand", label: "Marcas" },
               { id: "flavor", label: "Sabor" },
+              { id: "seller", label: "Vendido por" }, // <-- ADICIONADO NA NAVEGAÇÃO
             ].map((tab) => {
               const isActive = activeTab === tab.id;
               
@@ -140,6 +157,7 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
               if (tab.id === 'brand') badgeCount = selectedBrands.length;
               if (tab.id === 'flavor') badgeCount = selectedFlavors.length;
               if (tab.id === 'protein') badgeCount = selectedProteinRanges.length;
+              if (tab.id === 'seller') badgeCount = selectedSellers.length; // <-- ADICIONADO
 
               return (
                 <button
@@ -190,6 +208,17 @@ export function MobileFiltersDrawer({ brands, flavors }: Props) {
                   onClick={() => toggle(f, selectedFlavors, setSelectedFlavors)} 
                 />
               ))}
+
+              {/* ADICIONADO: Renderização das tags de Vendedor */}
+              {activeTab === "seller" && sellers.map((s) => (
+                <Tag 
+                  key={s} 
+                  label={s} 
+                  active={selectedSellers.includes(s)} 
+                  onClick={() => toggle(s, selectedSellers, setSelectedSellers)} 
+                />
+              ))}
+
             </div>
           </div>
         </div>

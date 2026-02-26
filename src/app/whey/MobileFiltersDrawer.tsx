@@ -8,10 +8,11 @@ type Props = {
   brands: string[];
   flavors: string[];
   weights: number[]; 
+  sellers: string[];
 };
 
 // Ordem das abas conforme solicitado
-type FilterTab = "protein" | "brand" | "flavor" | "weight";
+type FilterTab = "protein" | "brand" | "flavor" | "weight" | "seller";
 
 // Faixas de Proteína (%)
 const PROTEIN_PERCENT_RANGES = [
@@ -21,7 +22,7 @@ const PROTEIN_PERCENT_RANGES = [
   { label: "Abaixo de 60% de proteína", value: "0-60" },
 ];
 
-export function MobileFiltersDrawer({ brands, flavors, weights }: Props) {
+export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -33,6 +34,7 @@ export function MobileFiltersDrawer({ brands, flavors, weights }: Props) {
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
   const [selectedProteinRanges, setSelectedProteinRanges] = useState<string[]>([]);
   const [selectedWeights, setSelectedWeights] = useState<string[]>([]);
+  const [selectedSellers, setSelectedSellers] = useState<string[]>([]);
 
   // Helper para formatar peso (ex: 900g ou 2kg)
   const formatSize = (val: number) => {
@@ -56,6 +58,7 @@ export function MobileFiltersDrawer({ brands, flavors, weights }: Props) {
       setSelectedFlavors(searchParams.get("flavor")?.split(",") ?? []);
       setSelectedProteinRanges(searchParams.get("proteinRange")?.split(",") ?? []);
       setSelectedWeights(searchParams.get("weight")?.split(",") ?? []);
+      setSelectedSellers(searchParams.get("seller")?.split(",") ?? []);
       setOpen(true);
     }
     window.addEventListener("open-filters", handleOpen);
@@ -70,19 +73,22 @@ export function MobileFiltersDrawer({ brands, flavors, weights }: Props) {
     selectedBrands.length > 0 || 
     selectedFlavors.length > 0 || 
     selectedProteinRanges.length > 0 ||
-    selectedWeights.length > 0;
+    selectedWeights.length > 0 ||
+    selectedSellers.length > 0;
 
   const countFilters = 
     selectedBrands.length + 
     selectedFlavors.length + 
     selectedProteinRanges.length +
-    selectedWeights.length;
+    selectedWeights.length +
+    selectedSellers.length;
 
   const clearInternalFilters = () => {
     setSelectedBrands([]);
     setSelectedFlavors([]);
     setSelectedProteinRanges([]);
     setSelectedWeights([]);
+    setSelectedSellers([]);
   };
 
   const applyFilters = () => {
@@ -99,6 +105,9 @@ export function MobileFiltersDrawer({ brands, flavors, weights }: Props) {
 
     if (selectedWeights.length) params.set("weight", selectedWeights.join(","));
     else params.delete("weight");
+
+    if (selectedSellers.length) params.set("seller", selectedSellers.join(","));
+    else params.delete("seller");
 
     // Mantém ou define ordenação padrão por custo-benefício
     if (!params.has("order")) params.set("order", "cost");
@@ -148,6 +157,7 @@ export function MobileFiltersDrawer({ brands, flavors, weights }: Props) {
               { id: "brand", label: "Marca" },
               { id: "flavor", label: "Sabor" },
               { id: "weight", label: "Tamanho" },
+              { id: "seller", label: "Vendido por" },
             ].map((tab) => {
               const isActive = activeTab === tab.id;
               
@@ -156,6 +166,7 @@ export function MobileFiltersDrawer({ brands, flavors, weights }: Props) {
               if (tab.id === 'flavor') badgeCount = selectedFlavors.length;
               if (tab.id === 'protein') badgeCount = selectedProteinRanges.length;
               if (tab.id === 'weight') badgeCount = selectedWeights.length;
+              if (tab.id === 'seller') badgeCount = selectedSellers.length;
 
               return (
                 <button
@@ -218,6 +229,17 @@ export function MobileFiltersDrawer({ brands, flavors, weights }: Props) {
                   onClick={() => toggle(String(w), selectedWeights, setSelectedWeights)} 
                 />
               ))}
+
+              {/* VENDEDOR */}
+              {activeTab === "seller" && sellers.map((s) => (
+                <Tag 
+                  key={s} 
+                  label={s} 
+                  active={selectedSellers.includes(s)} 
+                  onClick={() => toggle(s, selectedSellers, setSelectedSellers)} 
+                />
+              ))}
+
             </div>
           </div>
         </div>

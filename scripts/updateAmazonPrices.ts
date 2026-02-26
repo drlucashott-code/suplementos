@@ -223,6 +223,7 @@ async function updateAmazonPrices() {
           where: { id: offer.id },
           data: {
             price: finalPrice,
+            seller: result.merchantName, // <--- ADICIONADO AQUI
             updatedAt: new Date(),
             affiliateUrl: `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG}`,
           },
@@ -259,7 +260,11 @@ async function updateAmazonPrices() {
 
         await prisma.offer.update({
           where: { id: offer.id },
-          data: { price: 0, updatedAt: new Date() },
+          data: { 
+            price: 0, 
+            seller: result?.merchantName || null, // <--- ADICIONADO AQUI (Limpa ou atualiza caso fique sem estoque)
+            updatedAt: new Date() 
+          },
         });
       }
 

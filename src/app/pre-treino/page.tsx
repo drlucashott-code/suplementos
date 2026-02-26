@@ -31,6 +31,7 @@ type SearchParams = {
   priceMax?: string;
   order?: "dose" | "discount" | "caffeine";
   q?: string;
+  seller?: string;
 };
 
 export default async function PreTreinoPage({
@@ -48,6 +49,7 @@ export default async function PreTreinoPage({
   const selectedFlavors = params.flavor?.split(",") ?? [];
   const selectedWeights = params.weight?.split(",") ?? [];
   const selectedCaffeines = params.caffeine?.split(",") ?? []; // ✅ Lista de cafeínas selecionadas
+  const selectedSellers = params.seller?.split(",") ?? [];
   const maxPrice = params.priceMax ? Number(params.priceMax) : undefined;
 
   const thirtyDaysAgo = new Date();
@@ -78,6 +80,7 @@ export default async function PreTreinoPage({
         where: {
           store: "AMAZON",
           affiliateUrl: { not: "" },
+          ...(selectedSellers.length && { seller: { in: selectedSellers } }),
         },
         include: {
           priceHistory: {
@@ -236,6 +239,28 @@ export default async function PreTreinoPage({
     .filter((c): c is number => c !== null && c !== undefined))
   ).sort((a: number, b: number) => a - b);
 
+  // --- NOVA LÓGICA: VENDEDORES DISPONÍVEIS ---
+  const rawSellers = await prisma.offer.findMany({
+    where: { 
+      store: "AMAZON",
+      seller: { not: null },
+      product: { category: "pre-treino" }
+    },
+    distinct: ["seller"],
+    select: { seller: true },
+  });
+
+  let availableSellers = rawSellers.map((s) => s.seller as string);
+  const amazonOfficial = "Amazon.com.br";
+
+  availableSellers = availableSellers
+    .filter((seller) => seller !== amazonOfficial && seller !== "Desconhecido")
+    .sort((a, b) => a.localeCompare(b));
+
+  if (rawSellers.some((s) => s.seller === amazonOfficial)) {
+    availableSellers.unshift(amazonOfficial);
+  }
+
   return (
     <main className="bg-[#EAEDED] min-h-screen">
       <Suspense fallback={<div className="h-14 bg-[#232f3e] w-full" />}>
@@ -254,6 +279,7 @@ export default async function PreTreinoPage({
               flavors={availableFlavors}
               weights={availableWeights}
               caffeines={availableCaffeines} // Passando lista completa (com 0 se houver)
+              sellers={availableSellers}
             />
           </Suspense>
 

@@ -23,6 +23,7 @@ type SearchParams = {
   order?: "discount" | "protein_gram" | "cheapest_unit" | "cost";
   proteinRange?: string;
   q?: string;
+  seller?: string;
 };
 
 export default async function BebidaProteicaPage({
@@ -38,6 +39,7 @@ export default async function BebidaProteicaPage({
   const selectedBrands = params.brand?.split(",") ?? [];
   const selectedFlavors = params.flavor?.split(",") ?? [];
   const selectedProteinRanges = params.proteinRange?.split(",") ?? [];
+  const selectedSellers = params.seller?.split(",") ?? [];
   const maxPrice = params.priceMax ? Number(params.priceMax) : undefined;
 
   const thirtyDaysAgo = new Date();
@@ -58,7 +60,11 @@ export default async function BebidaProteicaPage({
     include: {
       proteinDrinkInfo: true,
       offers: {
-        where: { store: "AMAZON", affiliateUrl: { not: "" } },
+        where: { 
+          store: "AMAZON", 
+          affiliateUrl: { not: "" },
+          ...(selectedSellers.length && { seller: { in: selectedSellers } }),
+        },
         include: {
           priceHistory: {
             where: { createdAt: { gte: thirtyDaysAgo } },
@@ -196,6 +202,28 @@ export default async function BebidaProteicaPage({
   const availableBrands = Array.from(new Set(allOptions.map((p) => p.brand))).sort();
   const availableFlavors = Array.from(new Set(allOptions.map((p) => p.flavor).filter((f): f is string => !!f))).sort();
 
+  // --- NOVA LÓGICA: VENDEDORES DISPONÍVEIS ---
+  const rawSellers = await prisma.offer.findMany({
+    where: { 
+      store: "AMAZON",
+      seller: { not: null },
+      product: { category: "bebidaproteica" }
+    },
+    distinct: ["seller"],
+    select: { seller: true },
+  });
+
+  let availableSellers = rawSellers.map((s) => s.seller as string);
+  const amazonOfficial = "Amazon.com.br";
+
+  availableSellers = availableSellers
+    .filter((seller) => seller !== amazonOfficial && seller !== "Desconhecido")
+    .sort((a, b) => a.localeCompare(b));
+
+  if (rawSellers.some((s) => s.seller === amazonOfficial)) {
+    availableSellers.unshift(amazonOfficial);
+  }
+
   return (
     <main className="bg-[#EAEDED] min-h-screen">
       <Suspense fallback={<div className="h-14 bg-[#232f3e] w-full" />}>
@@ -212,6 +240,7 @@ export default async function BebidaProteicaPage({
             <MobileFiltersDrawer
               brands={availableBrands}
               flavors={availableFlavors}
+              sellers={availableSellers}
             />
           </Suspense>
 

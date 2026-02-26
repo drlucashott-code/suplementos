@@ -8,12 +8,12 @@ datasource db {
 }
 
 model Product {
-  id        String   @id @default(cuid())
-  category  String
-  name      String
-  brand     String
-  flavor    String?
-  imageUrl  String
+  id       String   @id @default(cuid())
+  category String
+  name     String
+  brand    String
+  flavor   String?
+  imageUrl String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -88,6 +88,7 @@ model Offer {
   productId     String
   store         Store
   externalId    String
+  seller        String?           // Campo adicionado para o filtro "Vendido por"
   price         Float
   affiliateUrl  String
   createdAt     DateTime          @default(now())
