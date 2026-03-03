@@ -3,7 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { SlidersHorizontal, ChevronDown } from "lucide-react";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
-import { useEffect } from "react"; // ✅ Importado para corrigir o scroll
+import { useEffect } from "react"; 
 
 export function FloatingFiltersBar() {
   const searchParams = useSearchParams();
@@ -12,8 +12,6 @@ export function FloatingFiltersBar() {
 
   const order = searchParams.get("order") ?? "discount";
 
-  // ✅ CORREÇÃO DO SCROLL:
-  // Força a página a ir para o topo (0px) assim que este componente carrega.
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, []);
@@ -26,7 +24,6 @@ export function FloatingFiltersBar() {
     const params = new URLSearchParams(searchParams.toString());
     params.set("order", value);
     
-    // scroll: false mantém a posição ao trocar apenas o filtro/ordenação
     router.push(`/whey?${params.toString()}`, { scroll: false });
   }
 
@@ -41,7 +38,6 @@ export function FloatingFiltersBar() {
     >
       <div className="flex items-center gap-3 max-w-[1200px] mx-auto">
         
-        {/* BOTÃO DE FILTRO */}
         <button
           onClick={openFilters}
           className="flex items-center justify-center border border-zinc-300 rounded-lg p-2.5 bg-white shadow-sm active:bg-zinc-100 flex-shrink-0 transition-colors"
@@ -50,7 +46,6 @@ export function FloatingFiltersBar() {
           <SlidersHorizontal className="w-5 h-5 text-zinc-900" />
         </button>
 
-        {/* ÁREA DE ORDENAÇÃO */}
         <div className="flex-1 flex items-center gap-2">
           <label 
             htmlFor="sort-select"
@@ -67,13 +62,13 @@ export function FloatingFiltersBar() {
               className="w-full appearance-none border border-zinc-300 rounded-lg px-3 py-2 bg-zinc-50 text-[13px] text-zinc-900 shadow-sm outline-none pr-9 border-b-zinc-400 active:border-[#e47911] transition-all"
             >
               <option value="discount">Maior desconto</option>
-              <option value="protein_dose">Maior proteína/dose</option>
               <option value="protein_percent">Maior % de proteína</option>
+              <option value="protein_dose">Maior proteína/dose</option>
+              <option value="cost">Melhor custo-benefício</option>
+              <option value="price_asc">Menor preço</option>
               <option value="price_dose">Menor preço/dose</option>
-              <option value="cost">Melhor custo-benefício (valor do princípio ativo)</option>
             </select>
             
-            {/* Indicador Visual do Select */}
             <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none border-l border-zinc-300 pl-2">
               <ChevronDown className="w-4 h-4 text-zinc-500" />
             </div>

@@ -87,7 +87,7 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
     if (selectedSellers.length) params.set("seller", selectedSellers.join(","));
     else params.delete("seller");
 
-    if (!params.has("order")) params.set("order", "mg");
+    // Removido o forçamento do order=mg daqui para preservar a escolha do usuário ou o padrão da página
 
     router.push(`/cafe-funcional?${params.toString()}`);
     setOpen(false);

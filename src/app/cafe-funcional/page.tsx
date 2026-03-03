@@ -28,7 +28,7 @@ type SearchParams = {
   flavor?: string;
   weight?: string; 
   priceMax?: string;
-  order?: "mg" | "discount";
+  order?: "mg" | "discount" | "price_asc";
   q?: string;
   seller?: string;
 };
@@ -186,9 +186,20 @@ export default async function CafefuncionalPage({
       }
       
       // 2. Preço por mg de Cafeína: Menor -> Maior (Desempate: Preço Total)
-      const diff = a.pricePerMgCaffeine - b.pricePerMgCaffeine;
-      if (diff !== 0) return diff;
-      return a.price - b.price;
+      if (order === "mg") {
+        const diff = a.pricePerMgCaffeine - b.pricePerMgCaffeine;
+        if (diff !== 0) return diff;
+        return a.price - b.price;
+      }
+
+      // 3. Menor preço absoluto: Menor -> Maior (Desempate: Desconto)
+      if (order === "price_asc") {
+        const diff = a.price - b.price;
+        if (diff !== 0) return diff;
+        return (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
+      }
+
+      return 0;
     });
 
   /* =========================

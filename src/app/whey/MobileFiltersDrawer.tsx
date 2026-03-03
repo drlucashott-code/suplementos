@@ -3,7 +3,6 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 
-// Props sincronizadas com a page.tsx
 type Props = {
   brands: string[];
   flavors: string[];
@@ -11,10 +10,8 @@ type Props = {
   sellers: string[];
 };
 
-// Ordem das abas conforme solicitado
 type FilterTab = "protein" | "brand" | "flavor" | "weight" | "seller";
 
-// Faixas de Proteína (%)
 const PROTEIN_PERCENT_RANGES = [
   { label: "Acima de 80% de proteína", value: "80-100" },
   { label: "70% a 80% de proteína", value: "70-80" },
@@ -29,19 +26,16 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>("protein");
 
-  // Estados dos Filtros internos
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
   const [selectedProteinRanges, setSelectedProteinRanges] = useState<string[]>([]);
   const [selectedWeights, setSelectedWeights] = useState<string[]>([]);
   const [selectedSellers, setSelectedSellers] = useState<string[]>([]);
 
-  // Helper para formatar peso (ex: 900g ou 2kg)
   const formatSize = (val: number) => {
     return val >= 1000 ? `${val / 1000}kg` : `${val}g`;
   };
 
-  // 🔒 Scroll Lock
   useEffect(() => {
     if (open) {
       document.body.style.overflow = "hidden";
@@ -51,7 +45,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
     return () => { document.body.style.overflow = "unset"; };
   }, [open]);
 
-  // Sincronização com a URL ao abrir
   useEffect(() => {
     function handleOpen() {
       setSelectedBrands(searchParams.get("brand")?.split(",") ?? []);
@@ -108,9 +101,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
 
     if (selectedSellers.length) params.set("seller", selectedSellers.join(","));
     else params.delete("seller");
-
-    // Mantém ou define ordenação padrão por custo-benefício
-    if (!params.has("order")) params.set("order", "cost");
 
     router.push(`/whey?${params.toString()}`);
     setOpen(false);
@@ -190,7 +180,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
           <div className="flex-1 p-4 overflow-y-auto bg-white">
             <div className="flex flex-wrap gap-2 content-start">
               
-              {/* PROTEÍNA (%) */}
               {activeTab === "protein" && PROTEIN_PERCENT_RANGES.map((r) => (
                 <Tag 
                   key={r.value} 
@@ -200,7 +189,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
                 />
               ))}
 
-              {/* MARCA */}
               {activeTab === "brand" && sortedBrands.map((b) => (
                 <Tag 
                   key={b} 
@@ -210,7 +198,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
                 />
               ))}
 
-              {/* SABOR */}
               {activeTab === "flavor" && sortedFlavors.map((f) => (
                 <Tag 
                   key={f} 
@@ -220,7 +207,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
                 />
               ))}
 
-              {/* TAMANHO */}
               {activeTab === "weight" && sortedWeights.map((w) => (
                 <Tag 
                   key={w} 
@@ -230,7 +216,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
                 />
               ))}
 
-              {/* VENDEDOR */}
               {activeTab === "seller" && sellers.map((s) => (
                 <Tag 
                   key={s} 

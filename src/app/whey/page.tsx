@@ -2,19 +2,13 @@ import { Metadata } from "next";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { ProductList } from "./ProductList";
-import { FloatingFiltersBar } from "./FloatingFiltersBar"; 
-import { AmazonHeader } from "./AmazonHeader";
 import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
+import { FloatingFiltersBar } from "./FloatingFiltersBar";
+import { AmazonHeader } from "./AmazonHeader";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
-/* =========================
-   PERFORMANCE & BUILD FIX
-   ========================= */
 export const dynamic = "force-dynamic";
 
-/* =========================
-   METADATA (SEO)
-   ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — Whey Protein",
   description:
@@ -29,7 +23,7 @@ export type SearchParams = {
   flavor?: string;
   weight?: string;
   priceMax?: string;
-  order?: "cost" | "discount" | "protein_percent" | "protein_dose" | "price_dose";
+  order?: "cost" | "discount" | "protein_percent" | "protein_dose" | "price_dose" | "price_asc";
   proteinRange?: string;
   q?: string;
   seller?: string;
@@ -55,9 +49,6 @@ export default async function WheyPage({
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  /* =========================
-       1. BUSCA FILTRADA
-     ========================= */
   const products = await prisma.product.findMany({
     where: {
       category: "whey",
@@ -92,9 +83,6 @@ export default async function WheyPage({
     },
   });
 
-  /* =========================
-       2. PROCESSAMENTO
-     ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.wheyInfo) return null;
     const offer = product.offers[0];
@@ -173,34 +161,27 @@ export default async function WheyPage({
     };
   });
 
-  /* =========================
-       3. ORDENAÇÃO
-     ========================= */
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => {
-      // 1. Desconto: Maior -> Menor (Desempate: Menor Preço Total)
       if (order === "discount") {
         const diff = (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
         if (diff !== 0) return diff;
         return a.price - b.price;
       }
       
-      // 2. Proteína por Dose: Maior -> Menor (Desempate: Menor Preço Total)
       if (order === "protein_dose") {
         const diff = b.proteinPerDose - a.proteinPerDose;
         if (diff !== 0) return diff;
         return a.price - b.price;
       }
       
-      // 3. Concentração (%): Maior -> Menor (Desempate: Menor Preço Total)
       if (order === "protein_percent") {
         const diff = b.proteinPercentage - a.proteinPercentage;
         if (diff !== 0) return diff;
         return a.price - b.price;
       }
       
-      // 4. Preço por Dose: Menor -> Maior (Desempate: Menor Preço Total)
       if (order === "price_dose") {
         const aPriceDose = a.price / a.numberOfDoses;
         const bPriceDose = b.price / b.numberOfDoses;
@@ -209,15 +190,17 @@ export default async function WheyPage({
         return a.price - b.price;
       }
 
-      // 5. Custo por Grama de Proteína (Default): Menor -> Maior (Desempate: Menor Preço Total)
+      if (order === "price_asc") {
+        const diff = a.price - b.price;
+        if (diff !== 0) return diff;
+        return a.pricePerGramProtein - b.pricePerGramProtein;
+      }
+
       const diff = a.pricePerGramProtein - b.pricePerGramProtein;
       if (diff !== 0) return diff;
       return a.price - b.price;
     });
 
-  /* =========================
-       4. FILTROS
-     ========================= */
   const allOptions = await prisma.product.findMany({
     where: { category: "whey" },
     select: {
@@ -247,7 +230,6 @@ export default async function WheyPage({
     )
   ).sort((a, b) => a - b);
 
-  // --- NOVA LÓGICA: VENDEDORES DISPONÍVEIS ---
   const rawSellers = await prisma.offer.findMany({
     where: { 
       store: "AMAZON",

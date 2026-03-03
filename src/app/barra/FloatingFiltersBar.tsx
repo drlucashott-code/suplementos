@@ -9,23 +9,18 @@ export function FloatingFiltersBar() {
   const router = useRouter();
   const scrollDirection = useScrollDirection();
 
-  // O padrão é 'discount' (Maior desconto), igual ao Whey
   const order = searchParams.get("order") ?? "discount";
 
   function openFilters() {
-    // Dispara o evento global que o MobileFiltersDrawer está escutando
     window.dispatchEvent(new CustomEvent("open-filters"));
   }
 
   function changeOrder(value: string) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("order", value);
-    
-    // Navegação garantida na rota de barra com scroll false para suavidade
     router.push(`/barra?${params.toString()}`, { scroll: false });
   }
 
-  // Lógica de Performance e UX: 
   const isVisible = scrollDirection !== "down";
 
   return (
@@ -37,7 +32,6 @@ export function FloatingFiltersBar() {
     >
       <div className="flex items-center gap-3 max-w-[1200px] mx-auto">
         
-        {/* BOTÃO DE FILTRO: Estilo Amazon Mobile */}
         <button
           onClick={openFilters}
           className="flex items-center justify-center border border-zinc-300 rounded-lg p-2.5 bg-white shadow-sm active:bg-zinc-100 flex-shrink-0 transition-colors"
@@ -46,7 +40,6 @@ export function FloatingFiltersBar() {
           <SlidersHorizontal className="w-5 h-5 text-zinc-900" />
         </button>
 
-        {/* ÁREA DE ORDENAÇÃO ATUALIZADA */}
         <div className="flex-1 flex items-center gap-2">
           <label 
             htmlFor="sort-select"
@@ -64,11 +57,11 @@ export function FloatingFiltersBar() {
             >
               <option value="discount">Maior desconto</option>
               <option value="protein_gram">Mais proteína/unidade</option>
+              <option value="cost">Melhor custo-benefício</option>
+              <option value="price_asc">Menor preço</option>
               <option value="cheapest_bar">Menor preço/unidade</option>
-              <option value="cost">Melhor custo-benefício (valor do princípio ativo)</option>
             </select>
             
-            {/* Indicador Visual do Select (Seta) */}
             <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none border-l border-zinc-300 pl-2">
               <ChevronDown className="w-4 h-4 text-zinc-500" />
             </div>

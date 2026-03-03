@@ -57,6 +57,7 @@ export function FloatingFiltersBar() {
             >
               <option value="discount">Maior desconto</option>
               <option value="mg">Melhor custo-benefício (valor da cafeína)</option>
+              <option value="price_asc">Menor preço</option>
             </select>
 
             <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none border-l border-zinc-300 pl-2">

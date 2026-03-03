@@ -7,14 +7,8 @@ import { FloatingFiltersBar } from "./FloatingFiltersBar";
 import { AmazonHeader } from "./AmazonHeader";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
-/* =========================
-   PERFORMANCE & BUILD FIX
-   ========================= */
 export const dynamic = "force-dynamic";
 
-/* =========================
-   METADATA (SEO & Aba)
-   ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — Pré-Treino",
   description: "Encontre o melhor pré-treino comparando preço por dose e avaliações reais.",
@@ -27,9 +21,9 @@ type SearchParams = {
   brand?: string;
   flavor?: string;
   weight?: string;
-  caffeine?: string; // ✅ Parâmetro de cafeína
+  caffeine?: string; 
   priceMax?: string;
-  order?: "dose" | "discount" | "caffeine";
+  order?: "dose" | "discount" | "caffeine" | "price_asc";
   q?: string;
   seller?: string;
 };
@@ -44,11 +38,10 @@ export default async function PreTreinoPage({
   const order = params.order ?? "discount";
   const searchQuery = params.q || "";
 
-  // Parsing dos Filtros
   const selectedBrands = params.brand?.split(",") ?? [];
   const selectedFlavors = params.flavor?.split(",") ?? [];
   const selectedWeights = params.weight?.split(",") ?? [];
-  const selectedCaffeines = params.caffeine?.split(",") ?? []; // ✅ Lista de cafeínas selecionadas
+  const selectedCaffeines = params.caffeine?.split(",") ?? []; 
   const selectedSellers = params.seller?.split(",") ?? [];
   const maxPrice = params.priceMax ? Number(params.priceMax) : undefined;
 
@@ -58,9 +51,6 @@ export default async function PreTreinoPage({
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  /* =========================
-       1. BUSCA FILTRADA
-       ========================= */
   const products = await prisma.product.findMany({
     where: {
       category: "pre-treino",
@@ -68,7 +58,6 @@ export default async function PreTreinoPage({
       ...(selectedBrands.length && { brand: { in: selectedBrands } }),
       ...(selectedFlavors.length && { flavor: { in: selectedFlavors } }),
       
-      // ✅ Filtros técnicos (Peso e Cafeína)
       preWorkoutInfo: {
         ...(selectedWeights.length && { totalWeightInGrams: { in: selectedWeights.map(Number) } }),
         ...(selectedCaffeines.length && { caffeinePerDoseInMg: { in: selectedCaffeines.map(Number) } }),
@@ -94,9 +83,6 @@ export default async function PreTreinoPage({
     },
   });
 
-  /* =========================
-       2. PROCESSAMENTO DE DADOS
-       ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.preWorkoutInfo) return null;
     const offer = product.offers[0];
@@ -119,7 +105,6 @@ export default async function PreTreinoPage({
     const pricePerDose = finalPrice / totalDosesNoPote;
     const hasCarbs = doseWeight > 15; 
 
-    // --- LÓGICA DE PREÇOS ---
     let avgMonthly: number | null = null;
     let discountPercent: number | null = null;
     
@@ -180,35 +165,32 @@ export default async function PreTreinoPage({
     };
   });
 
-  /* =========================
-       3. RANKING E ORDENAÇÃO
-       ========================= */
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => {
-      // 1. Cafeína: Maior -> Menor (Desempate: Preço)
       if (order === "caffeine") {
         const diff = b.caffeinePerDose - a.caffeinePerDose;
         if (diff !== 0) return diff; 
         return a.price - b.price;
       }
 
-      // 2. Desconto: Maior -> Menor (Desempate: Preço)
       if (order === "discount") {
         const diff = (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
         if (diff !== 0) return diff; 
         return a.price - b.price;
       }
       
-      // 3. Dose (Default): Menor -> Maior (Desempate: Preço)
+      if (order === "price_asc") {
+        const diff = a.price - b.price;
+        if (diff !== 0) return diff;
+        return a.pricePerDose - b.pricePerDose;
+      }
+
       const diff = a.pricePerDose - b.pricePerDose;
       if (diff !== 0) return diff;   
       return a.price - b.price;
     });
 
-  /* =========================
-       4. COLETA DE OPÇÕES PARA FILTROS
-       ========================= */
   const allOptions = await prisma.product.findMany({
     where: { category: "pre-treino" },
     select: {
@@ -217,7 +199,7 @@ export default async function PreTreinoPage({
       preWorkoutInfo: {
         select: { 
           totalWeightInGrams: true,
-          caffeinePerDoseInMg: true, // Buscando as doses disponíveis
+          caffeinePerDoseInMg: true, 
         },
       },
     },
@@ -232,14 +214,11 @@ export default async function PreTreinoPage({
     new Set(allOptions.map((p) => p.preWorkoutInfo?.totalWeightInGrams).filter((w): w is number => Boolean(w)))
   ).sort((a: number, b: number) => a - b);
 
-  // ✅ CORRIGIDO: Agora permite o valor "0" (Sem cafeína) entrar na lista
-  // Antes estava Boolean(c) o que excluía o zero.
   const availableCaffeines = Array.from(
     new Set(allOptions.map((p) => p.preWorkoutInfo?.caffeinePerDoseInMg)
     .filter((c): c is number => c !== null && c !== undefined))
   ).sort((a: number, b: number) => a - b);
 
-  // --- NOVA LÓGICA: VENDEDORES DISPONÍVEIS ---
   const rawSellers = await prisma.offer.findMany({
     where: { 
       store: "AMAZON",
@@ -278,7 +257,7 @@ export default async function PreTreinoPage({
               brands={availableBrands}
               flavors={availableFlavors}
               weights={availableWeights}
-              caffeines={availableCaffeines} // Passando lista completa (com 0 se houver)
+              caffeines={availableCaffeines} 
               sellers={availableSellers}
             />
           </Suspense>

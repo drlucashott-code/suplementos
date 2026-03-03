@@ -20,7 +20,7 @@ type SearchParams = {
   brand?: string;
   flavor?: string;
   priceMax?: string;
-  order?: "discount" | "protein_gram" | "cheapest_unit" | "cost";
+  order?: "discount" | "protein_gram" | "cheapest_unit" | "cost" | "price_asc";
   proteinRange?: string;
   q?: string;
   seller?: string;
@@ -167,28 +167,30 @@ export default async function BebidaProteicaPage({
       const unitsA = a.numberOfDoses ?? 1;
       const unitsB = b.numberOfDoses ?? 1;
 
-      // 1. Desconto: Maior -> Menor (Desempate: Preço Total)
       if (order === "discount") {
         const diff = (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
         if (diff !== 0) return diff;
         return priceA - priceB;
       }
 
-      // 2. Proteína: Maior -> Menor (Desempate: Preço Total)
       if (order === "protein_gram") {
         const diff = b.proteinPerDose - a.proteinPerDose;
         if (diff !== 0) return diff;
         return priceA - priceB;
       }
 
-      // 3. Unidade: Menor -> Maior (Desempate: Preço Total)
       if (order === "cheapest_unit") {
         const diff = (priceA / unitsA) - (priceB / unitsB);
         if (diff !== 0) return diff;
         return priceA - priceB;
       }
 
-      // 4. Custo/Proteína (Default): Menor -> Maior (Desempate: Preço Total)
+      if (order === "price_asc") {
+        const diff = priceA - priceB;
+        if (diff !== 0) return diff;
+        return a.pricePerGramProtein - b.pricePerGramProtein;
+      }
+
       const diff = a.pricePerGramProtein - b.pricePerGramProtein;
       if (diff !== 0) return diff;
       return priceA - priceB;
@@ -202,7 +204,6 @@ export default async function BebidaProteicaPage({
   const availableBrands = Array.from(new Set(allOptions.map((p) => p.brand))).sort();
   const availableFlavors = Array.from(new Set(allOptions.map((p) => p.flavor).filter((f): f is string => !!f))).sort();
 
-  // --- NOVA LÓGICA: VENDEDORES DISPONÍVEIS ---
   const rawSellers = await prisma.offer.findMany({
     where: { 
       store: "AMAZON",

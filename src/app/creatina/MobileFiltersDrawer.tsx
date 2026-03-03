@@ -7,12 +7,11 @@ import { useEffect, useState, useMemo } from "react";
 type Props = {
   brands: string[];
   flavors: string[];
-  weights: number[]; // Pesos/Unidades vindos do banco
-  sellers: string[]; // <-- ADICIONADO: Lista de vendedores
-  // Removido totalResults pois não está sendo utilizado na UI
+  weights: number[]; 
+  sellers: string[]; 
 };
 
-type FilterTab = "form" | "brand" | "flavor" | "weight" | "seller"; // <-- ADICIONADO "seller"
+type FilterTab = "form" | "brand" | "flavor" | "weight" | "seller"; 
 
 export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props) {
   const router = useRouter();
@@ -21,20 +20,17 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>("form");
 
-  // Estados internos dos Filtros
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
   const [selectedForms, setSelectedForms] = useState<CreatineForm[]>([]);
   const [selectedWeights, setSelectedWeights] = useState<string[]>([]);
-  const [selectedSellers, setSelectedSellers] = useState<string[]>([]); // <-- ADICIONADO
+  const [selectedSellers, setSelectedSellers] = useState<string[]>([]);
 
-  // Helper corrigido: Valores baixos (ex: 60, 120) viram unidades para Caps/Gummies
   const formatSize = (val: number) => {
     if (val <= 120) return `${val} unidades`;
     return val >= 1000 ? `${val / 1000}kg` : `${val}g`;
   };
 
-  // 🔒 Lógica de Scroll Lock
   useEffect(() => {
     if (open) {
       document.body.style.overflow = "hidden";
@@ -44,21 +40,19 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
     return () => { document.body.style.overflow = "unset"; };
   }, [open]);
 
-  // Sincronização com a URL ao abrir
   useEffect(() => {
     function handleOpen() {
       setSelectedBrands(searchParams.get("brand")?.split(",") ?? []);
       setSelectedFlavors(searchParams.get("flavor")?.split(",") ?? []);
       setSelectedForms((searchParams.get("form")?.split(",") as CreatineForm[]) ?? []);
       setSelectedWeights(searchParams.get("weight")?.split(",") ?? []);
-      setSelectedSellers(searchParams.get("seller")?.split(",") ?? []); // <-- ADICIONADO
+      setSelectedSellers(searchParams.get("seller")?.split(",") ?? []); 
       setOpen(true);
     }
     window.addEventListener("open-filters", handleOpen);
     return () => window.removeEventListener("open-filters", handleOpen);
   }, [searchParams]);
 
-  // Alternar seleção
   const toggle = <T,>(value: T, list: T[], setList: (v: T[]) => void) => {
     setList(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
   };
@@ -68,21 +62,21 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
     selectedFlavors.length > 0 || 
     selectedForms.length > 0 ||
     selectedWeights.length > 0 ||
-    selectedSellers.length > 0; // <-- ADICIONADO
+    selectedSellers.length > 0;
 
   const countFilters = 
     selectedBrands.length + 
     selectedFlavors.length + 
     selectedForms.length +
     selectedWeights.length +
-    selectedSellers.length; // <-- ADICIONADO
+    selectedSellers.length;
 
   const clearInternalFilters = () => {
     setSelectedBrands([]);
     setSelectedFlavors([]);
     setSelectedForms([]);
     setSelectedWeights([]);
-    setSelectedSellers([]); // <-- ADICIONADO
+    setSelectedSellers([]); 
   };
 
   const applyFilters = () => {
@@ -100,16 +94,13 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
     if (selectedWeights.length) params.set("weight", selectedWeights.join(","));
     else params.delete("weight");
 
-    if (selectedSellers.length) params.set("seller", selectedSellers.join(",")); // <-- ADICIONADO
+    if (selectedSellers.length) params.set("seller", selectedSellers.join(",")); 
     else params.delete("seller");
-
-    if (!params.has("order")) params.set("order", "gram");
 
     router.push(`/creatina?${params.toString()}`);
     setOpen(false);
   };
 
-  // Listas Ordenadas
   const sortedBrands = useMemo(() => [...brands].sort((a, b) => a.localeCompare(b)), [brands]);
   const sortedFlavors = useMemo(() => [...flavors].sort((a, b) => a.localeCompare(b)), [flavors]);
   const sortedForms = useMemo(() => [
@@ -122,14 +113,12 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
 
   return (
     <>
-      {/* Overlay */}
       <div 
         className="fixed inset-0 bg-black/60 z-[60] animate-in fade-in duration-200" 
         onClick={() => setOpen(false)} 
         aria-hidden="true"
       />
 
-      {/* Drawer Container */}
       <div 
         className="fixed bottom-0 left-0 right-0 z-[70] bg-white rounded-t-2xl flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300" 
         style={{ height: "85vh", fontFamily: "Arial, sans-serif" }}
@@ -137,7 +126,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
         aria-modal="true"
       >
         
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-200 bg-[#f0f2f2]">
           <h2 className="text-[16px] font-bold text-zinc-900">
             Filtros {countFilters > 0 && <span className="text-[#007185] ml-1">({countFilters})</span>}
@@ -151,17 +139,15 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
           </button>
         </div>
 
-        {/* Corpo do Filtro */}
         <div className="flex flex-1 overflow-hidden">
           
-          {/* Navegação Lateral */}
           <nav className="w-[130px] bg-[#f0f2f2] border-r border-zinc-200 overflow-y-auto">
             {[
               { id: "form", label: "Apresentação" },
               { id: "brand", label: "Marcas" },
               { id: "flavor", label: "Sabor" },
               { id: "weight", label: "Tamanho" },
-              { id: "seller", label: "Vendido por" }, // <-- ADICIONADO NA NAVEGAÇÃO
+              { id: "seller", label: "Vendido por" }, 
             ].map((tab) => {
               const isActive = activeTab === tab.id;
               
@@ -170,7 +156,7 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
               if (tab.id === 'flavor') badgeCount = selectedFlavors.length;
               if (tab.id === 'form') badgeCount = selectedForms.length;
               if (tab.id === 'weight') badgeCount = selectedWeights.length;
-              if (tab.id === 'seller') badgeCount = selectedSellers.length; // <-- ADICIONADO
+              if (tab.id === 'seller') badgeCount = selectedSellers.length; 
 
               return (
                 <button
@@ -191,7 +177,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
             })}
           </nav>
 
-          {/* Área de Opções */}
           <div className="flex-1 p-4 overflow-y-auto bg-white">
             <div className="flex flex-wrap gap-2 content-start">
               
@@ -231,7 +216,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
                 />
               ))}
 
-              {/* ADICIONADO: Renderização das tags de Vendedor */}
               {activeTab === "seller" && sellers.map((s) => (
                 <Tag 
                   key={s} 
@@ -245,7 +229,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, sellers }: Props
           </div>
         </div>
 
-        {/* Rodapé */}
         <div className="p-3 bg-white border-t border-zinc-200 flex items-center gap-3 pb-8">
           {hasAnyFilter && (
             <button

@@ -56,9 +56,9 @@ export function FloatingFiltersBar() {
               className="w-full appearance-none border border-zinc-300 rounded-lg px-3 py-2 bg-zinc-50 text-[13px] text-zinc-900 shadow-sm outline-none pr-9 border-b-zinc-400 active:border-[#e47911] transition-all"
             >
               <option value="discount">Maior desconto</option>
-              <option value="dose">Menor preço por dose</option>
-              {/* ✅ Nova opção adicionada */}
               <option value="caffeine">Mais cafeína por dose</option>
+              <option value="price_asc">Menor preço</option>
+              <option value="dose">Menor preço por dose</option>
             </select>
 
             <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none border-l border-zinc-300 pl-2">

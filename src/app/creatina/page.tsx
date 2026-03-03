@@ -8,14 +8,8 @@ import { AmazonHeader } from "./AmazonHeader";
 import { CreatineForm } from "@prisma/client";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
-/* =========================
-   PERFORMANCE & BUILD FIX
-   ========================= */
 export const dynamic = "force-dynamic";
 
-/* =========================
-   METADATA (SEO & Aba)
-   ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — Creatina",
   description: "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
@@ -30,7 +24,7 @@ type SearchParams = {
   flavor?: string;
   weight?: string; 
   priceMax?: string;
-  order?: "gram" | "discount";
+  order?: "gram" | "discount" | "price_asc";
   q?: string;
   seller?: string;
 };
@@ -58,9 +52,6 @@ export default async function CreatinaPage({
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  /* =========================
-      1. BUSCA FILTRADA
-     ========================= */
   const products = await prisma.product.findMany({
     where: {
       category: "creatina",
@@ -92,9 +83,6 @@ export default async function CreatinaPage({
     },
   });
 
-  /* =========================
-      2. PROCESSAMENTO DE DADOS
-     ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.creatineInfo) return null;
     const offer = product.offers[0];
@@ -120,7 +108,6 @@ export default async function CreatinaPage({
     
     const hasCarbs = doseWeight > (creatinePerDose + 0.5);
 
-    // --- LÓGICA DE PREÇOS (PADRÃO SUPREMO) ---
     let avgMonthly: number | null = null;
     let discountPercent: number | null = null;
     
@@ -180,28 +167,26 @@ export default async function CreatinaPage({
     };
   });
 
-  /* =========================
-      3. RANKING E ORDENAÇÃO
-     ========================= */
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => {
-      // 1. Desconto: Maior -> Menor (Desempate: Preço Total)
       if (order === "discount") {
         const diff = (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
         if (diff !== 0) return diff;
         return a.price - b.price;
       }
       
-      // 2. Preço por Grama (Default): Menor -> Maior (Desempate: Preço Total)
+      if (order === "price_asc") {
+        const diff = a.price - b.price;
+        if (diff !== 0) return diff;
+        return a.pricePerGram - b.pricePerGram;
+      }
+
       const diff = a.pricePerGram - b.pricePerGram;
       if (diff !== 0) return diff;
       return a.price - b.price;
     });
 
-  /* =========================
-      4. COLETA DE OPÇÕES PARA FILTROS
-     ========================= */
   const allOptions = await prisma.product.findMany({
     where: { category: "creatina" },
     select: {
@@ -222,7 +207,6 @@ export default async function CreatinaPage({
     new Set(allOptions.map(p => p.creatineInfo?.totalUnits).filter((w): w is number => Boolean(w)))
   ).sort((a, b) => a - b);
 
-  // --- NOVA LÓGICA: VENDEDORES DISPONÍVEIS ---
   const rawSellers = await prisma.offer.findMany({
     where: { 
       store: "AMAZON",

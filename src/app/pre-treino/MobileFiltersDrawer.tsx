@@ -20,24 +20,21 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines, selle
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>("caffeine");
 
-  // Estados internos dos Filtros
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
   const [selectedWeights, setSelectedWeights] = useState<string[]>([]);
   const [selectedCaffeines, setSelectedCaffeines] = useState<string[]>([]);
   const [selectedSellers, setSelectedSellers] = useState<string[]>([]);
 
-  // Helpers de Formatação
   const formatSize = (val: number) => {
     return val >= 1000 ? `${val / 1000}kg` : `${val}g`;
   };
 
   const formatCaffeine = (val: number) => {
-    if (val === 0) return "Sem cafeína"; // ✅ Tratamento para 0mg
+    if (val === 0) return "Sem cafeína"; 
     return `${val}mg`;
   };
 
-  // 🔒 Lógica de Scroll Lock
   useEffect(() => {
     if (open) {
       document.body.style.overflow = "hidden";
@@ -47,7 +44,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines, selle
     return () => { document.body.style.overflow = "unset"; };
   }, [open]);
 
-  // Sincronização com a URL ao abrir
   useEffect(() => {
     function handleOpen() {
       setSelectedBrands(searchParams.get("brand")?.split(",") ?? []);
@@ -61,7 +57,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines, selle
     return () => window.removeEventListener("open-filters", handleOpen);
   }, [searchParams]);
 
-  // Alternar seleção
   const toggle = <T,>(value: T, list: T[], setList: (v: T[]) => void) => {
     setList(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
   };
@@ -106,30 +101,24 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines, selle
     if (selectedSellers.length) params.set("seller", selectedSellers.join(","));
     else params.delete("seller");
 
-    if (!params.has("order")) params.set("order", "dose");
-
     router.push(`/pre-treino?${params.toString()}`);
     setOpen(false);
   };
 
-  // Listas Ordenadas
   const sortedBrands = useMemo(() => [...brands].sort((a, b) => a.localeCompare(b)), [brands]);
   const sortedFlavors = useMemo(() => [...flavors].sort((a, b) => a.localeCompare(b)), [flavors]);
-  // ✅ Ordena numericamente, garantindo que 0 (Sem cafeína) fique no topo
   const sortedCaffeines = useMemo(() => [...caffeines].sort((a, b) => a - b), [caffeines]);
 
   if (!open) return null;
 
   return (
     <>
-      {/* Overlay */}
       <div 
         className="fixed inset-0 bg-black/60 z-[60] animate-in fade-in duration-200" 
         onClick={() => setOpen(false)} 
         aria-hidden="true"
       />
 
-      {/* Drawer Container */}
       <div 
         className="fixed bottom-0 left-0 right-0 z-[70] bg-white rounded-t-2xl flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300" 
         style={{ height: "85vh", fontFamily: "Arial, sans-serif" }}
@@ -137,7 +126,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines, selle
         aria-modal="true"
       >
         
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-200 bg-[#f0f2f2]">
           <h2 className="text-[16px] font-bold text-zinc-900">
             Filtros {countFilters > 0 && <span className="text-[#007185] ml-1">({countFilters})</span>}
@@ -151,10 +139,8 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines, selle
           </button>
         </div>
 
-        {/* Corpo do Filtro */}
         <div className="flex flex-1 overflow-hidden">
           
-          {/* Navegação Lateral */}
           <nav className="w-[130px] bg-[#f0f2f2] border-r border-zinc-200 overflow-y-auto">
             {[
               { id: "caffeine", label: "Cafeína/dose" },
@@ -191,11 +177,9 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines, selle
             })}
           </nav>
 
-          {/* Área de Opções */}
           <div className="flex-1 p-4 overflow-y-auto bg-white">
             <div className="flex flex-wrap gap-2 content-start">
               
-              {/* Aba Cafeína */}
               {activeTab === "caffeine" && sortedCaffeines.map((c) => (
                 <Tag 
                   key={c} 
@@ -205,7 +189,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines, selle
                 />
               ))}
 
-              {/* Aba Marcas */}
               {activeTab === "brand" && sortedBrands.map((b) => (
                 <Tag 
                   key={b} 
@@ -215,7 +198,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines, selle
                 />
               ))}
 
-              {/* Aba Sabor */}
               {activeTab === "flavor" && sortedFlavors.map((f) => (
                 <Tag 
                   key={f} 
@@ -225,7 +207,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines, selle
                 />
               ))}
 
-              {/* Aba Peso */}
               {activeTab === "weight" && weights.map((w) => (
                 <Tag 
                   key={w} 
@@ -235,7 +216,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines, selle
                 />
               ))}
 
-              {/* Aba Vendedor */}
               {activeTab === "seller" && sellers.map((s) => (
                 <Tag 
                   key={s} 
@@ -248,7 +228,6 @@ export function MobileFiltersDrawer({ brands, flavors, weights, caffeines, selle
           </div>
         </div>
 
-        {/* Rodapé */}
         <div className="p-3 bg-white border-t border-zinc-200 flex items-center gap-3 pb-8">
           {hasAnyFilter && (
             <button

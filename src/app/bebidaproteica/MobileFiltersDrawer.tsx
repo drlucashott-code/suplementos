@@ -51,7 +51,6 @@ export function MobileFiltersDrawer({ brands, flavors, sellers }: Props) {
     return () => window.removeEventListener("open-filters", handleOpen);
   }, [searchParams]);
 
-  // CORREÇÃO ESLint: Tipagem correta sem usar 'any'
   const toggle = (value: string, list: string[], setList: (v: string[]) => void) => {
     setList(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
   };
@@ -80,8 +79,6 @@ export function MobileFiltersDrawer({ brands, flavors, sellers }: Props) {
 
     if (selectedSellers.length) params.set("seller", selectedSellers.join(","));
     else params.delete("seller");
-
-    if (!params.has("order")) params.set("order", "discount");
 
     router.push(`/bebidaproteica?${params.toString()}`);
     setOpen(false);

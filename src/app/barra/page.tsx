@@ -7,14 +7,8 @@ import { FloatingFiltersBar } from "./FloatingFiltersBar";
 import { AmazonHeader } from "./AmazonHeader";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
-/* =========================
-   PERFORMANCE & BUILD FIX
-   ========================= */
 export const dynamic = "force-dynamic";
 
-/* =========================
-   METADATA (SEO & Aba)
-   ========================= */
 export const metadata: Metadata = {
   title: "amazonpicks — Barra de proteína",
   description:
@@ -28,7 +22,7 @@ type SearchParams = {
   brand?: string;
   flavor?: string;
   priceMax?: string;
-  order?: "discount" | "protein_gram" | "cheapest_bar" | "cost";
+  order?: "discount" | "protein_gram" | "cheapest_bar" | "cost" | "price_asc";
   proteinRange?: string;
   q?: string;
   seller?: string;
@@ -53,9 +47,6 @@ export default async function BarraPage({
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  /* =========================
-       1. BUSCA FILTRADA
-     ========================= */
   const products = await prisma.product.findMany({
     where: {
       category: "barra",
@@ -85,9 +76,6 @@ export default async function BarraPage({
     },
   });
 
-  /* =========================
-       2. PROCESSAMENTO
-     ========================= */
   const rankedProducts = products.map((product) => {
     if (!product.proteinBarInfo) return null;
     const offer = product.offers[0];
@@ -165,39 +153,38 @@ export default async function BarraPage({
     };
   });
 
-  /* =========================
-       3. ORDENAÇÃO
-     ========================= */
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => {
       if (order === "discount") {
         const diff = (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
         if (diff !== 0) return diff;
-        return a.price - b.price; // Desempate por preço total
+        return a.price - b.price; 
       }
       
       if (order === "protein_gram") {
         const diff = b.proteinPerBar - a.proteinPerBar;
         if (diff !== 0) return diff;
-        return a.price - b.price; // Desempate por preço total
+        return a.price - b.price; 
       }
       
       if (order === "cheapest_bar") {
         const diff = a.pricePerBar - b.pricePerBar;
         if (diff !== 0) return diff;
-        return a.price - b.price; // Desempate por preço total
+        return a.price - b.price; 
       }
 
-      // Default: cost (Preço por grama de proteína)
+      if (order === "price_asc") {
+        const diff = a.price - b.price;
+        if (diff !== 0) return diff;
+        return a.pricePerGramProtein - b.pricePerGramProtein;
+      }
+
       const diff = a.pricePerGramProtein - b.pricePerGramProtein;
       if (diff !== 0) return diff;
-      return a.price - b.price; // Desempate por preço total
+      return a.price - b.price; 
     });
 
-  /* =========================
-       4. FILTROS
-     ========================= */
   const allOptions = await prisma.product.findMany({
     where: { category: "barra" },
     select: { brand: true, flavor: true },
@@ -215,7 +202,6 @@ export default async function BarraPage({
     )
   ).sort();
 
-  // --- NOVA LÓGICA: VENDEDORES DISPONÍVEIS ---
   const rawSellers = await prisma.offer.findMany({
     where: { 
       store: "AMAZON",

@@ -9,11 +9,9 @@ export function FloatingFiltersBar() {
   const router = useRouter();
   const scrollDirection = useScrollDirection();
 
-  // O padrão é 'discount', consistente com as outras categorias
   const order = searchParams.get("order") ?? "discount";
 
   function openFilters() {
-    // Dispara o evento global que o MobileFiltersDrawer de bebidas está escutando
     window.dispatchEvent(new CustomEvent("open-filters"));
   }
 
@@ -21,11 +19,9 @@ export function FloatingFiltersBar() {
     const params = new URLSearchParams(searchParams.toString());
     params.set("order", value);
     
-    // ROTA ATUALIZADA: Direciona para bebidaproteica
     router.push(`/bebidaproteica?${params.toString()}`, { scroll: false });
   }
 
-  // UX: Esconde ao rolar para baixo, mostra ao rolar para cima
   const isVisible = scrollDirection !== "down";
 
   return (
@@ -37,7 +33,6 @@ export function FloatingFiltersBar() {
     >
       <div className="flex items-center gap-3 max-w-[1200px] mx-auto">
         
-        {/* BOTÃO DE FILTRO */}
         <button
           onClick={openFilters}
           className="flex items-center justify-center border border-zinc-300 rounded-lg p-2.5 bg-white shadow-sm active:bg-zinc-100 flex-shrink-0 transition-colors"
@@ -46,7 +41,6 @@ export function FloatingFiltersBar() {
           <SlidersHorizontal className="w-5 h-5 text-zinc-900" />
         </button>
 
-        {/* ÁREA DE ORDENAÇÃO */}
         <div className="flex-1 flex items-center gap-2">
           <label 
             htmlFor="sort-select"
@@ -64,11 +58,11 @@ export function FloatingFiltersBar() {
             >
               <option value="discount">Maior desconto</option>
               <option value="protein_gram">Mais proteína por unidade</option>
+              <option value="cost">Melhor custo-benefício</option>
+              <option value="price_asc">Menor preço</option>
               <option value="cheapest_unit">Menor preço por unidade</option>
-              <option value="cost">Melhor custo-benefício (valor do princípio ativo)</option>
             </select>
             
-            {/* Indicador Visual (Seta) */}
             <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none border-l border-zinc-300 pl-2">
               <ChevronDown className="w-4 h-4 text-zinc-500" />
             </div>
