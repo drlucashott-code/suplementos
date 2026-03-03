@@ -13,24 +13,24 @@ export type ImportResult = {
   error?: string;
 };
 
-// Tipagem expandida para suportar Bebidas e Pré-Treino
+// Tipagem expandida para suportar Café Funcional
 type ImportInput = {
   asins: string;
   mode: "getItem" | "getVariation";
-  // ✅ Incluído pre_treino
-  category: "whey" | "creatina" | "barra" | "bebida_proteica" | "pre_treino";
+  // ✅ Incluído cafe_funcional
+  category: "whey" | "creatina" | "barra" | "bebida_proteica" | "pre_treino" | "cafe_funcional";
   titlePattern: string;
   brand: string;
   
   // Campos Genéricos / Específicos
-  totalWeight: number;       // Whey, Creatina, Pré-Treino
-  dose: number;              // Whey, Creatina, Barra, Pré-Treino
+  totalWeight: number;       // Whey, Creatina, Pré-Treino, Café Funcional
+  dose: number;              // Whey, Creatina, Barra, Pré-Treino, Café Funcional
   protein: number;           // Whey, Barra, Bebida
   
   unitsPerBox: number;       // Barra
   unitsPerPack: number;      // Bebida
   volumePerUnitInMl: number; // Bebida
-  caffeine: number;          // ✅ Pré-Treino (Novo)
+  caffeine: number;          // Pré-Treino, Café Funcional
 };
 
 export async function importarAmazonAction(
@@ -86,15 +86,14 @@ export async function importarAmazonAction(
       paramNutrient = input.protein || 0;            // Nutrient = Proteína
     }
 
-    // Caso 2: Pré-Treino
-    if (input.category === "pre_treino") {
+    // Caso 2: Pré-Treino e Café Funcional (Ambos usam Cafeína)
+    if (input.category === "pre_treino" || input.category === "cafe_funcional") {
       paramUnits = 0;                                // Não usa unidades
-      paramDoseOrVolume = input.dose || 0;           // Dose = Tamanho do Scoop (g)
+      paramDoseOrVolume = input.dose || 0;           // Dose = Tamanho (g)
       paramNutrient = input.caffeine || 0;           // ✅ Nutrient = Cafeína (mg)
     }
 
     // Montagem do Comando
-    // A ordem dos argumentos aqui DEVE bater com o que seu script TS espera receber em process.argv
     const command = `npx tsx ${scriptPath} "${asinsJoined}" "${input.titlePattern}" "${input.category}" "${input.brand}" ${input.totalWeight || 0} ${paramUnits} ${paramDoseOrVolume} ${paramNutrient}`;
 
     logs.push(`🚀 [${input.category.toUpperCase()}] Iniciando processamento de lote (${asins.length} ASINs)...`);
@@ -108,7 +107,6 @@ export async function importarAmazonAction(
     }
     
     if (stderr) {
-      // Filtrar warnings chatos do node se quiser, ou exibir tudo
       logs.push(`⚠️ Alertas do sistema: ${stderr.trim()}`);
     }
 
@@ -117,14 +115,14 @@ export async function importarAmazonAction(
     revalidatePath("/admin/creatina");
     revalidatePath("/admin/barra");
     revalidatePath("/admin/bebidaproteica");
-    revalidatePath("/admin/pre-treino"); // ✅ Atualiza a nova página
+    revalidatePath("/admin/pre-treino"); 
+    revalidatePath("/admin/cafe-funcional"); // ✅ Atualiza a rota do café
 
     return {
       ok: true,
       logs,
     };
   } catch (err) {
-    // ✅ Tratamento de erro tipado corretamente
     const errorMessage = err instanceof Error ? err.message : "Erro desconhecido";
     logs.push(`❌ Erro crítico na execução do lote: ${errorMessage}`);
 

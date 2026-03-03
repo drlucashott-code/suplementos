@@ -1,14 +1,13 @@
 /**
- * ImportAmazonGetItem v2.0
- * - Ajuste: Removido Driver Adapter (Prisma 5.10.2 padrão)
- * - Funcionalidade: Importa ASINs via Amazon PA-API com suporte a Pré-Treino
+ * ImportAmazonGetItem v2.1
+ * - Suporte Adicionado: Café Funcional (Supercoffee)
+ * - Funcionalidade: Importa ASINs via Amazon PA-API
  */
 
 import "dotenv/config";
 import paapi from "amazon-paapi";
 import { PrismaClient } from "@prisma/client";
 
-// ✅ CORREÇÃO: Inicialização padrão do Prisma
 const prisma = new PrismaClient();
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -27,7 +26,8 @@ function extractFlavor(text?: string): string | null {
   const flavors = [
     "chocolate", "baunilha", "morango", "cookies", "banana", "coco", 
     "doce de leite", "neutro", "natural", "frutas vermelhas", "limão", 
-    "maracujá", "uva", "abacaxi", "melancia", "maçã verde", "blue ice", "guaraná"
+    "maracujá", "uva", "abacaxi", "melancia", "maçã verde", "blue ice", "guaraná",
+    "beijinho", "original", "caramelo", "avelã"
   ];
   const n = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   for (const f of flavors) {
@@ -45,11 +45,10 @@ function extractWeight(text: string): number {
 async function run() {
   const args = process.argv.slice(2);
   
-  // Mapeamento dos argumentos vindos do actions.ts
   const [
     asinsRaw,       // 0: Lista de ASINs
     titlePattern,   // 1: Padrão de título
-    category,       // 2: Categoria (whey, pre_treino, etc)
+    category,       // 2: Categoria (whey, pre_treino, cafe_funcional)
     brandInput,     // 3: Marca
     totalWeightInput, // 4: Peso Total
     unitsInput,     // 5: Unidades (Fardo/Caixa)
@@ -64,24 +63,17 @@ async function run() {
 
   const asinList = asinsRaw.split(",").map(a => a.trim()).filter(Boolean);
   
-  // Conversão segura dos números
   const mUnits = Math.floor(Number(unitsInput)) || 0; 
   const mDoseOrVolume = Number(doseOrVolInput) || 0;
-  
-  // O campo 'nutrientInput' é polimórfico:
-  // Para Whey/Bebida = Proteína (g)
-  // Para Pré-Treino = Cafeína (mg)
   const mNutrient = Number(nutrientInput) || 0; 
   const mTotalWeight = Number(totalWeightInput) || 0;
 
   console.log(`🚀 [${category.toUpperCase()}] Iniciando lote de ${asinList.length} produtos...`);
-  console.log(`ℹ️ Params: Peso=${mTotalWeight}, Dose=${mDoseOrVolume}, Nutriente=${mNutrient}`);
 
   for (const asin of asinList) {
     try {
-      await delay(1500); // Evita rate limit da Amazon
+      await delay(1500); 
 
-      // 1. Busca na API da Amazon
       const res = await paapi.GetItems(commonParameters, {
         ItemIds: [asin],
         Resources: [
@@ -98,7 +90,6 @@ async function run() {
         continue;
       }
 
-      // 2. Verifica se oferta já existe
       const existingOffer = await prisma.offer.findFirst({
         where: { store: "AMAZON", externalId: asin }
       });
@@ -108,13 +99,11 @@ async function run() {
         continue;
       }
 
-      // 3. Prepara dados básicos
       const amazonTitle = item.ItemInfo?.Title?.DisplayValue ?? "";
       const amazonBrand = item.ItemInfo?.ByLineInfo?.Brand?.DisplayValue ?? "Desconhecida";
       const finalBrand = brandInput || amazonBrand;
       const weight = mTotalWeight || extractWeight(amazonTitle);
 
-      // Montagem do nome final
       let finalName = titlePattern
         .replace("{brand}", finalBrand)
         .replace("{weight}", weight ? `${weight}g` : "")
@@ -122,10 +111,9 @@ async function run() {
       
       finalName = finalName.replace(/{.*?}/g, "").trim();
 
-      // 4. Constrói objeto do Prisma
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const createData: any = {
-        category,
+        category, // Será normalizado abaixo se necessário
         name: finalName,
         brand: finalBrand,
         flavor: extractFlavor(amazonTitle),
@@ -135,63 +123,53 @@ async function run() {
             store: "AMAZON", 
             externalId: asin, 
             affiliateUrl: item.DetailPageURL ?? `https://www.amazon.com.br/dp/${asin}`, 
-            price: 0 // Preço virá na próxima atualização ou via API se disponível
+            price: 0 
           } 
         }
       };
 
-      // 5. Lógica Específica por Categoria
+      /* ================= LÓGICA POR CATEGORIA ================= */
+      
       if (category === "barra") {
         createData.proteinBarInfo = { 
-          create: { 
-            unitsPerBox: mUnits, 
-            doseInGrams: mDoseOrVolume, 
-            proteinPerDoseInGrams: mNutrient 
-          } 
+          create: { unitsPerBox: mUnits, doseInGrams: mDoseOrVolume, proteinPerDoseInGrams: mNutrient } 
         };
       } 
       else if (category === "whey") {
         createData.wheyInfo = { 
-          create: { 
-            totalWeightInGrams: weight, 
-            doseInGrams: mDoseOrVolume, 
-            proteinPerDoseInGrams: mNutrient 
-          } 
+          create: { totalWeightInGrams: weight, doseInGrams: mDoseOrVolume, proteinPerDoseInGrams: mNutrient } 
         };
       } 
-      else if (category === "bebida_proteica") {
+      else if (category === "bebida_proteica" || category === "bebida-proteica") {
+        createData.category = "bebida-proteica"; // Normaliza hífen
         createData.proteinDrinkInfo = { 
-          create: { 
-            unitsPerPack: mUnits,
-            volumePerUnitInMl: mDoseOrVolume,
-            proteinPerUnitInGrams: mNutrient 
-          } 
+          create: { unitsPerPack: mUnits, volumePerUnitInMl: mDoseOrVolume, proteinPerUnitInGrams: mNutrient } 
         };
       }
-      // ✅ NOVA LÓGICA: Pré-Treino
       else if (category === "pre_treino" || category === "pre-treino") {
-        // Normaliza a categoria para o slug do banco (hífen)
-        createData.category = "pre-treino"; 
+        createData.category = "pre-treino"; // Normaliza hífen
         createData.preWorkoutInfo = {
-            create: {
-                totalWeightInGrams: weight,
-                doseInGrams: mDoseOrVolume,      // Scoop
-                caffeinePerDoseInMg: mNutrient   // Cafeína (passada no campo protein do CLI)
-            }
+          create: { totalWeightInGrams: weight, doseInGrams: mDoseOrVolume, caffeinePerDoseInMg: mNutrient }
+        };
+      }
+      // ✅ NOVA LÓGICA: Café Funcional (Supercoffee)
+      else if (category === "cafe_funcional" || category === "cafe-funcional") {
+        createData.category = "cafe-funcional"; // Normaliza hífen para bater com o site/admin
+        createData.functionalCoffeeInfo = {
+          create: {
+            totalWeightInGrams: weight,
+            doseInGrams: mDoseOrVolume,
+            caffeinePerDoseInMg: mNutrient
+          }
         };
       }
       else if (category === "creatina") {
           createData.creatineInfo = {
-              create: {
-                  form: "POWDER",
-                  totalUnits: weight,
-                  unitsPerDose: mDoseOrVolume || 3 // Padrão 3g se não vier
-              }
-          }
+            create: { form: "POWDER", totalUnits: weight, unitsPerDose: mDoseOrVolume || 3 }
+          };
       }
 
       await prisma.product.create({ data: createData });
-
       console.log(`   ✅ Sucesso: ${asin} | ${finalName.substring(0, 40)}...`);
 
     } catch (err) {

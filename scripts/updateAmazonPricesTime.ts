@@ -5,13 +5,13 @@ import { Store } from "@prisma/client";
 import { prisma } from "../src/lib/prisma";
 
 /* ======================
-   CONFIGURAÇÕES
+    CONFIGURAÇÕES
 ====================== */
 const REQUEST_DELAY_MS = 2000; 
 const BATCH_SIZE = 10; 
 
 /* ======================
-   ENV CHECK
+    ENV CHECK
 ====================== */
 const AMAZON_ACCESS_KEY = process.env.AMAZON_ACCESS_KEY;
 const AMAZON_SECRET_KEY = process.env.AMAZON_SECRET_KEY;
@@ -25,7 +25,7 @@ if (!AMAZON_ACCESS_KEY || !AMAZON_SECRET_KEY || !AMAZON_PARTNER_TAG) {
 }
 
 /* ======================
-   AWS HELPERS (Assinatura)
+    AWS HELPERS
 ====================== */
 function hmac(key: string | Buffer, data: string): Buffer {
   return crypto.createHmac("sha256", key).update(data).digest();
@@ -43,7 +43,7 @@ function getSignatureKey(key: string, dateStamp: string, region: string, service
 }
 
 /* ======================
-   API CALL (GetItems)
+    API CALL (GetItems)
 ====================== */
 type ApiStatus = "OK" | "OUT_OF_STOCK" | "EXCLUDED" | "ERROR";
 
@@ -159,23 +159,18 @@ async function fetchAmazonPricesBatch(asins: string[]): Promise<Record<string, P
 /* ======================
     MAIN LOOP
 ====================== */
-async function updateAmazonPrices() {
-  console.log("🚀 Iniciando Update Inteligente (Vencidos ou Sem Preço)");
+async function updateNewProductsToday() {
+  console.log("🚀 Iniciando Update de Produtos Adicionados Hoje");
 
-  // Define o ponto de corte para 1 hora atrás
-  const oneHourAgo = new Date();
-  oneHourAgo.setHours(oneHourAgo.getHours() - 1);
-  
+  // Define o início do dia de hoje (00:00:00)
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
   const offers = await prisma.offer.findMany({
     where: { 
       store: Store.AMAZON,
-      // Lógica: Atualiza se for antigo (> 1h) OU se preço for 0
-      OR: [
-        { updatedAt: { lt: oneHourAgo } },
-        { price: 0 }
-      ]
+      createdAt: { gte: startOfToday } // ✅ Filtra apenas o que foi criado hoje
     },
-    // CORREÇÃO: 'select' adicionado para trazer o relacionamento 'product'
     select: {
       id: true,
       externalId: true,
@@ -184,10 +179,15 @@ async function updateAmazonPrices() {
         select: { name: true } 
       },
     },
-    orderBy: { updatedAt: "asc" },
+    orderBy: { createdAt: "desc" },
   });
 
-  console.log(`📦 Encontrados ${offers.length} produtos para atualizar...\n`);
+  if (offers.length === 0) {
+    console.log("✨ Nenhum produto novo adicionado hoje encontrado.");
+    return;
+  }
+
+  console.log(`📦 Encontrados ${offers.length} produtos novos hoje para atualizar...\n`);
 
   for (let i = 0; i < offers.length; i += BATCH_SIZE) {
     const chunk = offers.slice(i, i + BATCH_SIZE);
@@ -205,25 +205,8 @@ async function updateAmazonPrices() {
 
     for (const offer of chunk) {
       const asin = offer.externalId || "---";
-      // Safe navigation caso o produto venha sem nome (raro com o select, mas seguro)
       const name = offer.product?.name || "Produto sem nome"; 
-      let result = apiResults[asin];
-
-      // 🔍 LÓGICA DE VERIFICAÇÃO DE VARIAÇÃO (> 20%)
-      if (result && result.status === "OK" && offer.price > 0) {
-        const variation = Math.abs(result.price - offer.price) / offer.price;
-        
-        if (variation > 0.20) {
-          console.log(`   ⏳ Variação Brusca (${(variation * 100).toFixed(1)}% - R$ ${result.price}) em ${asin}. Re-checando em 60s...`);
-          await new Promise((r) => setTimeout(r, 60000));
-          
-          const secondCheck = await fetchAmazonPricesBatch([asin]);
-          if (secondCheck[asin]) {
-            result = secondCheck[asin];
-            console.log(`   🎯 Verificação final para ${asin}: R$ ${result.price}`);
-          }
-        }
-      }
+      const result = apiResults[asin];
 
       let finalPrice = 0;
       let logStatus = "";
@@ -237,32 +220,18 @@ async function updateAmazonPrices() {
           where: { id: offer.id },
           data: {
             price: finalPrice,
+            seller: result.merchantName, // ✅ Popula o "Vendido por"
             updatedAt: new Date(),
             affiliateUrl: `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG}`,
           },
         });
 
-        const lastHistory = await prisma.offerPriceHistory.findFirst({
-          where: { offerId: offer.id },
-          orderBy: { createdAt: 'desc' }
+        await prisma.offerPriceHistory.create({
+          data: { offerId: offer.id, price: finalPrice },
         });
-
-        const now = new Date();
-        const isSameDay = lastHistory && 
-          lastHistory.createdAt.toDateString() === now.toDateString();
-
-        if (!isSameDay || (lastHistory && lastHistory.price !== finalPrice)) {
-          await prisma.offerPriceHistory.create({
-            data: { offerId: offer.id, price: finalPrice },
-          });
-          logStatus += " | 💾 Histórico Salvo";
-        } else {
-          logStatus += " | ⏩ Histórico Mantido";
-        }
+        logStatus += " | 💾 Histórico Salvo";
 
       } else {
-        finalPrice = 0;
-        
         if (result?.status === "EXCLUDED") {
              logStatus = `🚫 Excluída: ${result.merchantName}`;
         } else if (result?.status === "OUT_OF_STOCK") {
@@ -273,7 +242,11 @@ async function updateAmazonPrices() {
 
         await prisma.offer.update({
           where: { id: offer.id },
-          data: { price: 0, updatedAt: new Date() },
+          data: { 
+            price: 0, 
+            seller: result?.merchantName || null, 
+            updatedAt: new Date() 
+          },
         });
       }
 
@@ -291,7 +264,7 @@ async function updateAmazonPrices() {
   console.log("\n🏁 Finalizado.");
 }
 
-updateAmazonPrices().catch(async (err) => {
+updateNewProductsToday().catch(async (err) => {
   console.error(err);
   process.exit(1);
 }).finally(async () => {

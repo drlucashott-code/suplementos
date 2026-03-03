@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { importarAmazonAction } from "./actions";
 
-// ✅ Atualizado para incluir pre_treino
-type Categoria = "whey" | "creatina" | "barra" | "bebida_proteica" | "pre_treino";
+// ✅ Atualizado para incluir cafe_funcional
+type Categoria = "whey" | "creatina" | "barra" | "bebida_proteica" | "pre_treino" | "cafe_funcional";
 
 /* =======================
    FIELD (PADRÃO DA EDIÇÃO)
@@ -38,7 +38,7 @@ export default function ImportadorUniversalPage() {
     unitsPerBox: "" as number | "", 
     unitsPerPack: "" as number | "",      
     volumePerUnitInMl: "" as number | "", 
-    caffeine: "" as number | "", // ✅ Novo campo para Pré-Treino
+    caffeine: "" as number | "", // ✅ Campo compartilhado (Pré-Treino e Café Funcional)
   });
 
   const [logs, setLogs] = useState<string[]>([]);
@@ -72,11 +72,17 @@ export default function ImportadorUniversalPage() {
       { key: "volumePerUnitInMl", label: "Volume (ml)" },
       { key: "protein", label: "Prot. por Unidade (g)" },
     ],
-    // ✅ Configuração do Pré-Treino
     pre_treino: [
       { key: "brand", label: "Marca" },
       { key: "totalWeight", label: "Peso Pote (g)" },
       { key: "dose", label: "Dose Scoop (g)" },
+      { key: "caffeine", label: "Cafeína (mg)" },
+    ],
+    // ✅ Configuração do Café Funcional (Idêntica ao Pré-Treino)
+    cafe_funcional: [
+      { key: "brand", label: "Marca" },
+      { key: "totalWeight", label: "Peso Pote (g)" },
+      { key: "dose", label: "Dose (g)" },
       { key: "caffeine", label: "Cafeína (mg)" },
     ],
   };
@@ -146,7 +152,8 @@ export default function ImportadorUniversalPage() {
           >
             <option value="whey">Whey Protein</option>
             <option value="creatina">Creatina</option>
-            <option value="pre_treino">Pré-Treino</option> {/* ✅ Nova Opção */}
+            <option value="pre_treino">Pré-Treino</option>
+            <option value="cafe_funcional">Café Funcional</option> {/* ✅ Nova Opção */}
             <option value="barra">Barra de Proteína</option>
             <option value="bebida_proteica">Bebida Proteica</option>
           </select>

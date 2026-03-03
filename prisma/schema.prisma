@@ -68,9 +68,9 @@ model FunctionalCoffeeInfo {
   id          String  @id @default(cuid())
   productId   String  @unique
   product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  totalWeight Float
-  doseWeight  Float
-  caffeine    Float
+  totalWeightInGrams  Float   
+  doseInGrams         Float   
+  caffeinePerDoseInMg Float   
 }
 
 // --- MODELO ATUALIZADO (PADRÃO WHEY) ---
