@@ -105,15 +105,15 @@ export default function HomePage() {
           />
 
           <CategoryCard 
-            title="Creatina"
-            imageSrc="https://m.media-amazon.com/images/I/81UashXoAxL._AC_SL1500_.jpg" 
-            onClick={() => handleCategoryClick("/creatina", "Creatina")}
+            title="Café funcional"
+            imageSrc="https://m.media-amazon.com/images/I/61hwrgvkjrL._AC_SL1210_.jpg" 
+            onClick={() => handleCategoryClick("/cafe-funcional", "Café funcional")}
           />
 
           <CategoryCard 
-            title="Whey Protein"
-            imageSrc="https://m.media-amazon.com/images/I/51lOuKbCawL._AC_SL1000_.jpg" 
-            onClick={() => handleCategoryClick("/whey", "Whey Protein")}
+            title="Creatina"
+            imageSrc="https://m.media-amazon.com/images/I/81UashXoAxL._AC_SL1500_.jpg" 
+            onClick={() => handleCategoryClick("/creatina", "Creatina")}
           />
 
           {/* ✅ PRÉ-TREINO ATIVADO AGORA */}
@@ -122,6 +122,13 @@ export default function HomePage() {
             imageSrc="https://m.media-amazon.com/images/I/61fGbsRyDWL._AC_SL1333_.jpg" 
             onClick={() => handleCategoryClick("/pre-treino", "Pré-treino")}
           />
+
+          <CategoryCard 
+            title="Whey Protein"
+            imageSrc="https://m.media-amazon.com/images/I/51lOuKbCawL._AC_SL1000_.jpg" 
+            onClick={() => handleCategoryClick("/whey", "Whey Protein")}
+          />
+
         </div>
 
         {/* --- 5. FOOTER --- */}
@@ -169,12 +176,13 @@ function CategoryCard({ title, imageSrc, onClick, disabled }: CategoryCardProps)
         {title}
       </h2>
 
-      <div className="w-24 h-24 relative flex items-center justify-center">
+      {/* ✅ Imagem aumentada aqui de w-24 h-24 para w-28 h-28 */}
+      <div className="w-28 h-28 relative flex items-center justify-center">
         <Image 
           src={imageSrc} 
           alt={title}
           fill
-          sizes="96px"
+          sizes="112px" // ✅sizes atualizado para bater com 112px (w-28)
           className="object-contain mix-blend-multiply drop-shadow-sm p-1"
           unoptimized
         />
