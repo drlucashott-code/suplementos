@@ -58,7 +58,7 @@ export function FloatingFiltersBar() {
             >
               <option value="discount">Maior desconto</option>
               <option value="protein_gram">Mais proteína por unidade</option>
-              <option value="cost">Melhor custo-benefício</option>
+              <option value="cost">Melhor custo-benefício (valor da proteína)</option>
               <option value="price_asc">Menor preço</option>
               <option value="cheapest_unit">Menor preço por unidade</option>
             </select>

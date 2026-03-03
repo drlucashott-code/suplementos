@@ -56,7 +56,7 @@ export function FloatingFiltersBar() {
               className="w-full appearance-none border border-zinc-300 rounded-lg px-3 py-2 bg-zinc-50 text-[13px] text-zinc-900 shadow-sm outline-none pr-9 border-b-zinc-400 active:border-[#e47911] transition-all"
             >
               <option value="discount">Maior desconto</option>
-              <option value="gram">Melhor custo-benefício</option>
+              <option value="gram">Melhor custo-benefício (valor da creatina)</option>
               <option value="price_asc">Menor preço</option>
             </select>
 
