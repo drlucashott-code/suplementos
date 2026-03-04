@@ -24,7 +24,7 @@ const geistMono = Geist_Mono({
    ========================= */
 export const metadata: Metadata = {
   metadataBase: new URL("https://amazonpicks.vercel.app"),
-  title: "Amazonpicks.com.br",
+  title: "Amazonpicks.com.br | Filtros inteligentes",
   description:
     "Utilizamos filtros inteligentes para encontrar o melhor produto para você.",
   robots: {
