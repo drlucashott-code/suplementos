@@ -129,12 +129,12 @@ export default async function BebidaProteicaPage({
 
     const prices30d = offer.priceHistory.map(h => h.price).concat(finalPrice);
     const minPrice30d = Math.min(...prices30d);
-    const isLowestPrice = finalPrice <= minPrice30d && offer.priceHistory.length >= 10;
+    const isLowestPrice = false; // finalPrice <= minPrice30d && offer.priceHistory.length >= 10;
 
     const history7d = offer.priceHistory.filter(h => h.createdAt >= sevenDaysAgo);
     const prices7d = history7d.map(h => h.price).concat(finalPrice);
     const minPrice7d = Math.min(...prices7d);
-    const isLowestPrice7d = finalPrice <= minPrice7d && history7d.length >= 5;
+    const isLowestPrice7d = false; // finalPrice <= minPrice7d && history7d.length >= 5;
 
     return {
       id: product.id,

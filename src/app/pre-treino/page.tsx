@@ -134,12 +134,12 @@ export default async function PreTreinoPage({
 
     const prices30d = offer.priceHistory.map((h: { price: number }) => h.price).concat(finalPrice);
     const minPrice30d = Math.min(...prices30d);
-    const isLowestPrice30 = finalPrice <= minPrice30d && offer.priceHistory.length >= 10;
+    const isLowestPrice30 = false; // finalPrice <= minPrice30d && offer.priceHistory.length >= 10;
 
     const history7d = offer.priceHistory.filter((h: { createdAt: Date }) => h.createdAt >= sevenDaysAgo);
     const prices7d = history7d.map((h: { price: number }) => h.price).concat(finalPrice);
     const minPrice7d = Math.min(...prices7d);
-    const isLowestPrice7 = finalPrice <= minPrice7d && history7d.length >= 5;
+    const isLowestPrice7 = false; // finalPrice <= minPrice7d && history7d.length >= 5;
 
     return {
       id: product.id,
@@ -157,7 +157,7 @@ export default async function PreTreinoPage({
       avgPrice: avgMonthly,
       
       isLowestPrice: isLowestPrice30,      
-      isLowestPrice7d: isLowestPrice7,     
+      isLowestPrice7d: isLowestPrice7,    
       discountPercent,
       
       rating: offer.ratingAverage ?? 0,
