@@ -7,14 +7,8 @@ import { FloatingFiltersBar } from "./FloatingFiltersBar";
 import { AmazonHeader } from "./AmazonHeader";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
-/* =========================
-   PERFORMANCE & BUILD FIX
-   ========================= */
 export const dynamic = "force-dynamic";
 
-/* =========================
-   METADATA (SEO & Aba)
-   ========================= */
 export const metadata: Metadata = {
   title: "Amazonpicks.com.br | Café Funcional",
   description: "Compare cafés funcionais pelo melhor custo-benefício com base em dados reais da Amazon.",
@@ -64,26 +58,12 @@ export default async function CafefuncionalPage({
   const searchWords = searchQuery
     .trim()
     .split(/\s+/)
-    .filter((word) => {
-      const cleanWord = removeAccents(word.toLowerCase());
-      return !stopWords.includes(cleanWord) && cleanWord.length > 0;
-    });
+    .map((word) => removeAccents(word.toLowerCase()))
+    .filter((word) => !stopWords.includes(word) && word.length > 0);
 
-  /* =========================
-      1. BUSCA FILTRADA
-     ========================= */
   const products = await prisma.product.findMany({
     where: {
       category: "cafe-funcional", 
-      ...(searchWords.length > 0 && {
-        AND: searchWords.map((word) => ({
-          OR: [
-            { name: { contains: word, mode: "insensitive" } },
-            { brand: { contains: word, mode: "insensitive" } },
-            { flavor: { contains: word, mode: "insensitive" } },
-          ],
-        })),
-      }),
       ...(selectedBrands.length && { brand: { in: selectedBrands } }),
       ...(selectedFlavors.length && { flavor: { in: selectedFlavors } }),
       ...(selectedWeights.length && { 
@@ -110,10 +90,15 @@ export default async function CafefuncionalPage({
     },
   });
 
-  /* =========================
-      2. PROCESSAMENTO DE DADOS
-     ========================= */
-  const rankedProducts = products.map((product) => {
+  const matchedProducts = products.filter((product) => {
+    if (searchWords.length === 0) return true;
+    const productText = removeAccents(
+      `${product.name} ${product.brand} ${product.flavor || ""}`.toLowerCase()
+    );
+    return searchWords.every((word) => productText.includes(word));
+  });
+
+  const rankedProducts = matchedProducts.map((product) => {
     if (!product.functionalCoffeeInfo) return null;
     const offer = product.offers[0];
     if (!offer) return null;
@@ -136,7 +121,6 @@ export default async function CafefuncionalPage({
     const mgCafeinaNoPote = totalDosesNoPote * caffeinePerDose;
     const pricePerMgCaffeine = finalPrice / mgCafeinaNoPote;
     
-    // --- LÓGICA DE PREÇOS (PADRÃO SUPREMO) ---
     let avgMonthly: number | null = null;
     let discountPercent: number | null = null;
     
@@ -163,12 +147,12 @@ export default async function CafefuncionalPage({
 
     const prices30d = offer.priceHistory.map(h => h.price).concat(finalPrice);
     const minPrice30d = Math.min(...prices30d);
-    const isLowestPrice30 = false; // finalPrice <= minPrice30d && offer.priceHistory.length >= 10;
+    const isLowestPrice30 = false; 
 
     const history7d = offer.priceHistory.filter(h => h.createdAt >= sevenDaysAgo);
     const prices7d = history7d.map(h => h.price).concat(finalPrice);
     const minPrice7d = Math.min(...prices7d);
-    const isLowestPrice7 = false; // finalPrice <= minPrice7d && history7d.length >= 5;
+    const isLowestPrice7 = false; 
 
     return {
       id: product.id,
@@ -194,27 +178,21 @@ export default async function CafefuncionalPage({
     };
   });
 
-  /* =========================
-      3. RANKING E ORDENAÇÃO
-     ========================= */
   const finalProducts = rankedProducts
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => {
-      // 1. Desconto: Maior -> Menor (Desempate: Preço Total)
       if (order === "discount") {
         const diff = (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
         if (diff !== 0) return diff;
         return a.price - b.price;
       }
       
-      // 2. Preço por mg de Cafeína: Menor -> Maior (Desempate: Preço Total)
       if (order === "mg") {
         const diff = a.pricePerMgCaffeine - b.pricePerMgCaffeine;
         if (diff !== 0) return diff;
         return a.price - b.price;
       }
 
-      // 3. Menor preço absoluto: Menor -> Maior (Desempate: Desconto)
       if (order === "price_asc") {
         const diff = a.price - b.price;
         if (diff !== 0) return diff;
@@ -224,9 +202,6 @@ export default async function CafefuncionalPage({
       return 0;
     });
 
-  /* =========================
-      4. COLETA DE OPÇÕES PARA FILTROS
-     ========================= */
   const allOptions = await prisma.product.findMany({
     where: { category: "cafe-funcional" },
     select: {
@@ -247,7 +222,6 @@ export default async function CafefuncionalPage({
     new Set(allOptions.map(p => p.functionalCoffeeInfo?.totalWeightInGrams).filter((w): w is number => Boolean(w)))
   ).sort((a, b) => a - b);
 
-  // --- NOVA LÓGICA: VENDEDORES DISPONÍVEIS ---
   const rawSellers = await prisma.offer.findMany({
     where: { 
       store: "AMAZON",

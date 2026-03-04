@@ -60,23 +60,12 @@ export default async function PreTreinoPage({
   const searchWords = searchQuery
     .trim()
     .split(/\s+/)
-    .filter((word) => {
-      const cleanWord = removeAccents(word.toLowerCase());
-      return !stopWords.includes(cleanWord) && cleanWord.length > 0;
-    });
+    .map((word) => removeAccents(word.toLowerCase()))
+    .filter((word) => !stopWords.includes(word) && word.length > 0);
 
   const products = await prisma.product.findMany({
     where: {
       category: "pre-treino",
-      ...(searchWords.length > 0 && {
-        AND: searchWords.map((word) => ({
-          OR: [
-            { name: { contains: word, mode: "insensitive" } },
-            { brand: { contains: word, mode: "insensitive" } },
-            { flavor: { contains: word, mode: "insensitive" } },
-          ],
-        })),
-      }),
       ...(selectedBrands.length && { brand: { in: selectedBrands } }),
       ...(selectedFlavors.length && { flavor: { in: selectedFlavors } }),
       
@@ -105,7 +94,15 @@ export default async function PreTreinoPage({
     },
   });
 
-  const rankedProducts = products.map((product) => {
+  const matchedProducts = products.filter((product) => {
+    if (searchWords.length === 0) return true;
+    const productText = removeAccents(
+      `${product.name} ${product.brand} ${product.flavor || ""}`.toLowerCase()
+    );
+    return searchWords.every((word) => productText.includes(word));
+  });
+
+  const rankedProducts = matchedProducts.map((product) => {
     if (!product.preWorkoutInfo) return null;
     const offer = product.offers[0];
     if (!offer) return null;
@@ -156,12 +153,12 @@ export default async function PreTreinoPage({
 
     const prices30d = offer.priceHistory.map((h: { price: number }) => h.price).concat(finalPrice);
     const minPrice30d = Math.min(...prices30d);
-    const isLowestPrice30 = false; // finalPrice <= minPrice30d && offer.priceHistory.length >= 10;
+    const isLowestPrice30 = false; 
 
     const history7d = offer.priceHistory.filter((h: { createdAt: Date }) => h.createdAt >= sevenDaysAgo);
     const prices7d = history7d.map((h: { price: number }) => h.price).concat(finalPrice);
     const minPrice7d = Math.min(...prices7d);
-    const isLowestPrice7 = false; // finalPrice <= minPrice7d && history7d.length >= 5;
+    const isLowestPrice7 = false; 
 
     return {
       id: product.id,

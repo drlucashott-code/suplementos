@@ -58,23 +58,12 @@ export default async function WheyPage({
   const searchWords = searchQuery
     .trim()
     .split(/\s+/)
-    .filter((word) => {
-      const cleanWord = removeAccents(word.toLowerCase());
-      return !stopWords.includes(cleanWord) && cleanWord.length > 0;
-    });
+    .map((word) => removeAccents(word.toLowerCase()))
+    .filter((word) => !stopWords.includes(word) && word.length > 0);
 
   const products = await prisma.product.findMany({
     where: {
       category: "whey",
-      ...(searchWords.length > 0 && {
-        AND: searchWords.map((word) => ({
-          OR: [
-            { name: { contains: word, mode: "insensitive" } },
-            { brand: { contains: word, mode: "insensitive" } },
-            { flavor: { contains: word, mode: "insensitive" } },
-          ],
-        })),
-      }),
       ...(selectedBrands.length && { brand: { in: selectedBrands } }),
       ...(selectedFlavors.length && { flavor: { in: selectedFlavors } }),
       ...(selectedWeights.length && {
@@ -103,7 +92,15 @@ export default async function WheyPage({
     },
   });
 
-  const rankedProducts = products.map((product) => {
+  const matchedProducts = products.filter((product) => {
+    if (searchWords.length === 0) return true;
+    const productText = removeAccents(
+      `${product.name} ${product.brand} ${product.flavor || ""}`.toLowerCase()
+    );
+    return searchWords.every((word) => productText.includes(word));
+  });
+
+  const rankedProducts = matchedProducts.map((product) => {
     if (!product.wheyInfo) return null;
     const offer = product.offers[0];
     if (!offer) return null;
