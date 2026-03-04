@@ -11,7 +11,7 @@ import { DrinkProduct } from "./MobileProductCard";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "amazonpicks — Bebida Proteica",
+  title: "Amazonpicks.com.br | Bebida Proteica",
   description: "Compare o custo-benefício das melhores bebidas proteicas na Amazon.",
   alternates: { canonical: "/bebidaproteica" },
 };

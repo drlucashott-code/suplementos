@@ -10,7 +10,7 @@ import { getOptimizedAmazonUrl } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "amazonpicks — Barra de proteína",
+  title: "Amazonpicks.com.br | Barra de proteína",
   description:
     "Compare o custo-benefício e a quantidade de proteína das melhores barras de proteína na Amazon.",
   alternates: {

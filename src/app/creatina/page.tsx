@@ -11,7 +11,7 @@ import { getOptimizedAmazonUrl } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "amazonpicks — Creatina",
+  title: "Amazonpicks.com.br | Creatina",
   description: "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
   alternates: {
     canonical: "/creatina",

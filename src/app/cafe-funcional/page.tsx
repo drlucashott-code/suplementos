@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
    METADATA (SEO & Aba)
    ========================= */
 export const metadata: Metadata = {
-  title: "amazonpicks — cafe-funcional e Cafés Funcionais",
+  title: "Amazonpicks.com.br | Café Funcional",
   description: "Compare cafés funcionais pelo melhor custo-benefício com base em dados reais da Amazon.",
   alternates: {
     canonical: "/cafe-funcional",

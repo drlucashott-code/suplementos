@@ -10,7 +10,7 @@ import { getOptimizedAmazonUrl } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "amazonpicks — Pré-Treino",
+  title: "Amazonpicks.com.br | Pré-Treino",
   description: "Encontre o melhor pré-treino comparando preço por dose e avaliações reais.",
   alternates: {
     canonical: "/pre-treino",

@@ -10,7 +10,7 @@ import { getOptimizedAmazonUrl } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "amazonpicks — Whey Protein",
+  title: "Amazonpicks.com.br | Whey Protein",
   description:
     "Compare o custo por grama de proteína e a concentração dos melhores Whey Proteins da Amazon.",
   alternates: {
