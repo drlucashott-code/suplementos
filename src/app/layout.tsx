@@ -24,9 +24,9 @@ const geistMono = Geist_Mono({
    ========================= */
 export const metadata: Metadata = {
   metadataBase: new URL("https://amazonpicks.vercel.app"),
-  title: "amazonpicks — O melhor preço em suplementos",
+  title: "Amazonpicks.com.br | Tudo para você",
   description:
-    "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
+    "Utilizamos filtros inteligentes para encontrar o melhor produto para você.",
   robots: {
     index: true,
     follow: true,
