@@ -28,6 +28,11 @@ type SearchParams = {
   seller?: string;
 };
 
+// Função utilitária para remover acentos
+const removeAccents = (str: string) => {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+};
+
 export default async function BarraPage({
   searchParams,
 }: {
@@ -50,9 +55,11 @@ export default async function BarraPage({
   const stopWords = ["barra", "barras", "proteina", "proteína", "de", "da", "do"];
   const searchWords = searchQuery
     .trim()
-    .toLowerCase()
     .split(/\s+/)
-    .filter((word) => !stopWords.includes(word) && word.length > 0);
+    .filter((word) => {
+      const cleanWord = removeAccents(word.toLowerCase());
+      return !stopWords.includes(cleanWord) && cleanWord.length > 0;
+    });
 
   const products = await prisma.product.findMany({
     where: {

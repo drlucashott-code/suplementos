@@ -33,6 +33,11 @@ type SearchParams = {
   seller?: string;
 };
 
+// Função utilitária para remover acentos
+const removeAccents = (str: string) => {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+};
+
 export default async function CafefuncionalPage({
   searchParams,
 }: {
@@ -58,16 +63,18 @@ export default async function CafefuncionalPage({
   const stopWords = ["cafe", "café", "funcional", "funcionais", "de", "da", "do"];
   const searchWords = searchQuery
     .trim()
-    .toLowerCase()
     .split(/\s+/)
-    .filter((word) => !stopWords.includes(word) && word.length > 0);
+    .filter((word) => {
+      const cleanWord = removeAccents(word.toLowerCase());
+      return !stopWords.includes(cleanWord) && cleanWord.length > 0;
+    });
 
   /* =========================
       1. BUSCA FILTRADA
      ========================= */
   const products = await prisma.product.findMany({
     where: {
-      category: "cafe-funcional", // ou "cafe_funcional" dependendo de como você salva no banco
+      category: "cafe-funcional", 
       ...(searchWords.length > 0 && {
         AND: searchWords.map((word) => ({
           OR: [

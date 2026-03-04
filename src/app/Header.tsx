@@ -4,11 +4,19 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 
-// Categorias disponíveis no seu sistema
+// Função utilitária para remover acentos de qualquer texto
+const removeAccents = (str: string) => {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+};
+
+// Categorias disponíveis e suas palavras-chave (já sem acento para facilitar a busca)
 const CATEGORIES = [
-  { name: "Creatina", path: "/creatina" },
-  { name: "Whey Protein", path: "/whey" },
-  { name: "Barra", path: "/barra" },
+  { name: "Creatina", path: "/creatina", keywords: ["creatina", "creatine"] },
+  { name: "Whey Protein", path: "/whey", keywords: ["whey", "protein", "proteina"] },
+  { name: "Barra de Proteína", path: "/barra", keywords: ["barra", "barrinha"] },
+  { name: "Pré-Treino", path: "/pre-treino", keywords: ["pre", "treino", "pretreino"] },
+  { name: "Bebida Proteica", path: "/bebidaproteica", keywords: ["bebida", "pronta"] },
+  { name: "Café Funcional", path: "/cafe-funcional", keywords: ["cafe", "funcional"] },
 ];
 
 export default function Header() {
@@ -18,7 +26,6 @@ export default function Header() {
   const router = useRouter();
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Fecha as sugestões se clicar fora do componente
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
@@ -29,14 +36,14 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Filtra as categorias conforme o usuário digita
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setQuery(value);
 
     if (value.length > 0) {
+      const normalizedValue = removeAccents(value.toLowerCase());
       const filtered = CATEGORIES.filter(cat =>
-        cat.name.toLowerCase().includes(value.toLowerCase())
+        removeAccents(cat.name.toLowerCase()).includes(normalizedValue)
       );
       setSuggestions(filtered);
       setShowSuggestions(true);
@@ -48,18 +55,38 @@ export default function Header() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (suggestions.length > 0) {
-      router.push(suggestions[0].path);
-      setShowSuggestions(false);
+    
+    // Removemos os acentos do que o usuário digitou para comparar com as palavras-chave
+    const searchString = removeAccents(query.trim().toLowerCase());
+    
+    if (!searchString) return;
+
+    let targetPath = null;
+    
+    for (const category of CATEGORIES) {
+      if (category.keywords.some(keyword => searchString.includes(keyword))) {
+        targetPath = category.path;
+        break; 
+      }
     }
+
+    if (targetPath) {
+      router.push(`${targetPath}?q=${encodeURIComponent(query)}`);
+    } else {
+      if (suggestions.length > 0) {
+        router.push(suggestions[0].path);
+      } else {
+        console.warn("Categoria não identificada para a busca:", query);
+      }
+    }
+
+    setShowSuggestions(false);
   };
 
   return (
     <header className="bg-[#232f3e] w-full py-3 px-4 shadow-md sticky top-0 z-50">
-      {/* Centralização Total: Logo e Busca alinhados ao centro no Desktop */}
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-8">
         
-        {/* LOGO */}
         <div 
           className="flex-shrink-0 cursor-pointer" 
           onClick={() => router.push("/")}
@@ -69,7 +96,6 @@ export default function Header() {
           </h1>
         </div>
 
-        {/* BUSCA */}
         <div className="relative flex w-full max-w-[600px]" ref={wrapperRef}>
           <form onSubmit={handleSearch} className="flex flex-grow items-center">
             <input
@@ -85,7 +111,6 @@ export default function Header() {
             </button>
           </form>
 
-          {/* LISTA DE SUGESTÕES */}
           {showSuggestions && suggestions.length > 0 && (
             <div className="absolute top-11 left-0 w-full bg-white shadow-xl rounded-md overflow-hidden z-[100] border border-gray-200">
               {suggestions.map((cat) => (
