@@ -52,10 +52,25 @@ export default async function CreatinaPage({
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
+  const stopWords = ["creatina", "creatine", "de", "da", "do"];
+  const searchWords = searchQuery
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((word) => !stopWords.includes(word) && word.length > 0);
+
   const products = await prisma.product.findMany({
     where: {
       category: "creatina",
-      ...(searchQuery && { name: { contains: searchQuery, mode: "insensitive" } }),
+      ...(searchWords.length > 0 && {
+        AND: searchWords.map((word) => ({
+          OR: [
+            { name: { contains: word, mode: "insensitive" } },
+            { brand: { contains: word, mode: "insensitive" } },
+            { flavor: { contains: word, mode: "insensitive" } },
+          ],
+        })),
+      }),
       ...(selectedBrands.length && { brand: { in: selectedBrands } }),
       ...(selectedFlavors.length && { flavor: { in: selectedFlavors } }),
       ...(selectedForms.length && { creatineInfo: { form: { in: selectedForms } } }),

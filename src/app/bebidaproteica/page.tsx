@@ -48,11 +48,24 @@ export default async function BebidaProteicaPage({
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
+  const stopWords = ["bebida", "bebidas", "proteica", "proteíca", "pronta", "de", "da", "do", "proteina", "proteína"];
+  const searchWords = searchQuery
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((word) => !stopWords.includes(word) && word.length > 0);
+
   const products = await prisma.product.findMany({
     where: {
       category: "bebidaproteica",
-      ...(searchQuery && {
-        name: { contains: searchQuery, mode: "insensitive" },
+      ...(searchWords.length > 0 && {
+        AND: searchWords.map((word) => ({
+          OR: [
+            { name: { contains: word, mode: "insensitive" } },
+            { brand: { contains: word, mode: "insensitive" } },
+            { flavor: { contains: word, mode: "insensitive" } },
+          ],
+        })),
       }),
       ...(selectedBrands.length && { brand: { in: selectedBrands } }),
       ...(selectedFlavors.length && { flavor: { in: selectedFlavors } }),
