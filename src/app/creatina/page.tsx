@@ -57,6 +57,9 @@ export default async function CreatinaPage({
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
+  const twentyFourHoursAgo = new Date();
+  twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+
   const stopWords = ["creatina", "creatine", "de", "da", "do"];
   const searchWords = searchQuery
     .trim()
@@ -108,12 +111,15 @@ export default async function CreatinaPage({
     if (!offer) return null;
 
     let finalPrice = offer.price;
+    let priceDate = offer.updatedAt;
 
     if (showFallback && (!finalPrice || finalPrice <= 0)) {
       finalPrice = offer.priceHistory[0]?.price ?? null;
+      priceDate = offer.priceHistory[0]?.createdAt ?? offer.updatedAt;
     }
 
     if (!finalPrice || finalPrice <= 0) return null;
+    if (new Date(priceDate) < twentyFourHoursAgo) return null;
     if (maxPrice !== undefined && finalPrice > maxPrice) return null;
 
     const info = product.creatineInfo;
