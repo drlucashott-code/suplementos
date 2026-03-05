@@ -13,10 +13,10 @@ export function WarningBanner() {
 
         <div className="text-center sm:text-left">
           <p className="font-semibold">
-            Aviso importante sobre a integração com a Amazon
+            Aviso: Instabilidade Global nos Servidores da Amazon
           </p>
           <p className="mt-0.5 opacity-90">
-            Devido a uma instabilidade técnica temporária nos servidores da loja parceira, a sincronização em tempo real encontra-se pausada. Para sua conveniência, estamos exibindo os últimos valores validados pelo nosso sistema. Divergências de preço ou lentidão no checkout da Amazon podem ocorrer.
+            A infraestrutura de nuvem da Amazon (AWS) está enfrentando falhas sistêmicas hoje. Devido a essa instabilidade técnica na própria loja, a nossa atualização de preços em tempo real está temporariamente pausada e o checkout na Amazon pode apresentar lentidão. Estamos exibindo o último preço validado pelo nosso sistema para garantir sua referência de comparação.
           </p>
         </div>
       </div>
