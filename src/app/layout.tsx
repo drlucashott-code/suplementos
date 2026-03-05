@@ -4,7 +4,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { ScrollToTop } from "@/components/ScrollToTop"; // ✅ Importação do componente
-import { WarningBanner } from "@/components/WarningBanner"; // ✅ Importação do banner de aviso
 import "./globals.css";
 
 // 🚀 Otimização de Fontes
@@ -104,9 +103,6 @@ export default function RootLayout({
 
         {/* ✅ GA INICIALIZA GLOBALMENTE */}
         <GoogleAnalytics gaId="G-CLEY1YQ80S" />
-
-        {/* ✅ BANNER DE AVISO DA AMAZON (Aparece no topo de todas as páginas) */}
-        <WarningBanner />
 
         <Suspense fallback={null}>
           <main>
