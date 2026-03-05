@@ -16,7 +16,7 @@ export function WarningBanner() {
             Aviso: Instabilidade Global nos Servidores da Amazon
           </p>
           <p className="mt-0.5 opacity-90">
-            A infraestrutura de nuvem da Amazon (AWS) está enfrentando falhas sistêmicas hoje. Devido a essa instabilidade técnica na própria loja, a nossa atualização de preços em tempo real está temporariamente pausada e o checkout na Amazon pode apresentar lentidão. Estamos exibindo o último preço validado pelo nosso sistema para garantir sua referência de comparação.
+            A infraestrutura de nuvem da Amazon (AWS) está enfrentando falhas sistêmicas hoje (05/03). Devido a essa instabilidade técnica na própria loja, a nossa atualização de preços em tempo real está temporariamente pausada e o checkout na Amazon pode apresentar lentidão. Estamos exibindo o último preço validado pelo nosso sistema para garantir sua referência de comparação.
           </p>
         </div>
       </div>
