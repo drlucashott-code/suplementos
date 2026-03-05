@@ -54,6 +54,9 @@ export default async function WheyPage({
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+  const twentyFourHoursAgo = new Date();
+  twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+
   const stopWords = ["whey", "protein", "proteina", "proteína", "de", "da", "do"];
   const searchWords = searchQuery
     .trim()
@@ -106,12 +109,15 @@ export default async function WheyPage({
     if (!offer) return null;
 
     let finalPrice = offer.price;
+    let priceDate = offer.updatedAt;
 
     if (showFallback && (!finalPrice || finalPrice <= 0)) {
       finalPrice = offer.priceHistory[0]?.price ?? null;
+      priceDate = offer.priceHistory[0]?.createdAt ?? offer.updatedAt;
     }
 
     if (!finalPrice || finalPrice <= 0) return null;
+    if (new Date(priceDate) < twentyFourHoursAgo) return null;
     if (maxPrice !== undefined && finalPrice > maxPrice) return null;
 
     const info = product.wheyInfo;
