@@ -24,7 +24,7 @@ export default function NovoProdutoDynamic() {
   const [dynamicAttrs, setDynamicAttrs] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    // Busca as categorias usando a action que já corrigimos para 'prisma.dynamicCategory'
+    // Busca as categorias usando a action
     getHomeCategories().then((data) => setCategories(data as unknown as Category[]));
   }, []);
 
@@ -44,22 +44,29 @@ export default function NovoProdutoDynamic() {
         url: result.url,
         imageUrl: result.imageUrl
       });
+      // Importante: garantir que o ASIN usado na busca seja o que vamos salvar
+      setAsin(asin); 
     }
   };
 
   const handleSave = async () => {
     if (!selectedCat) return alert("Selecione a categoria");
+    if (!asin) return alert("O ASIN é obrigatório");
     
+    // 🚀 CORREÇÃO: Passando o 'asin' no primeiro nível para satisfazer o Prisma/TypeScript
     const res = await createDynamicProduct({
       ...formData,
+      asin: asin, // ✅ Adicionado aqui (Raiz)
       totalPrice: parseFloat(formData.totalPrice) || 0,
       categoryId: selectedCat.id,
-      attributes: dynamicAttrs
+      attributes: {
+        ...dynamicAttrs,
+        asin: asin // ✅ Mantido aqui também para os filtros
+      }
     });
 
     if (res.success) {
       alert("Produto Salvo com Sucesso!");
-      // Limpa o formulário ou redireciona
       window.location.reload();
     } else {
       alert(res.error || "Erro ao salvar produto.");
@@ -98,7 +105,7 @@ export default function NovoProdutoDynamic() {
             onChange={(e) => {
               const cat = categories.find(c => c.id === e.target.value) || null;
               setSelectedCat(cat);
-              setDynamicAttrs({}); // Reseta atributos ao mudar categoria
+              setDynamicAttrs({}); 
             }} 
             className="w-full border border-gray-200 p-3 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-yellow-400 outline-none transition-all font-semibold"
           >
