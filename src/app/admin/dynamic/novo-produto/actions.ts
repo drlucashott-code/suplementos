@@ -1,16 +1,17 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client'; // 🚀 Importado para tipagem JSON oficial
+import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
-// Tipagem para os atributos dinâmicos (ex: quantidade de rolos, lavagens, marca)
+// Tipagem para os atributos dinâmicos
 export interface DynamicAttributes {
-  [key: string]: string | number;
+  [key: string]: string | number | boolean | null;
 }
 
 // Tipagem para o retorno da importação Amazon
 export interface AmazonImportResult {
+  asin: string;
   name: string;
   totalPrice: number;
   imageUrl: string;
@@ -20,7 +21,6 @@ export interface AmazonImportResult {
 
 /**
  * BUSCAR CATEGORIAS
- * Usado no Select para vincular o produto à categoria correta
  */
 export async function getHomeCategories() {
   return await prisma.dynamicCategory.findMany({
@@ -30,12 +30,12 @@ export async function getHomeCategories() {
 
 /**
  * BUSCAR DADOS DA AMAZON (Individual)
- * Simula a busca de dados para preenchimento automático via ASIN
  */
 export async function fetchAmazonProductData(asin: string): Promise<AmazonImportResult | { error: string }> {
   try {
-    // Aqui entra sua lógica de scraper ou API que já roda no projeto
+    // Aqui entra sua lógica de scraper ou API
     return {
+      asin: asin,
       name: `Produto Amazon ${asin}`, 
       totalPrice: 0.0,
       imageUrl: `https://m.media-amazon.com/images/I/${asin}.jpg`,
@@ -49,7 +49,7 @@ export async function fetchAmazonProductData(asin: string): Promise<AmazonImport
 
 /**
  * IMPORTAÇÃO EM MASSA (Bulk Import)
- * Processa uma string de ASINs separados por vírgula
+ * 🚀 CORREÇÃO: Agora salva o ASIN na coluna fixa e evita duplicatas
  */
 export async function importBulkProducts(data: { asins: string; categoryId: string }) {
   const asinList = data.asins.split(',').map(a => a.trim()).filter(a => a !== '');
@@ -57,20 +57,30 @@ export async function importBulkProducts(data: { asins: string; categoryId: stri
 
   for (const asin of asinList) {
     try {
-      // 1. Busca os dados (Nome e Imagem)
+      // 1. Verificar se o ASIN já existe no banco (Prevenção de Erro P2002)
+      const alreadyExists = await prisma.dynamicProduct.findUnique({
+        where: { asin: asin }
+      });
+
+      if (alreadyExists) {
+        results.push({ asin, status: 'skipped', message: 'Já cadastrado' });
+        continue; // Pula para o próximo sem tentar criar
+      }
+
+      // 2. Busca os dados na Amazon
       const scraped = await fetchAmazonProductData(asin);
-      
       if ('error' in scraped) throw new Error(scraped.error);
 
-      // 2. Cria o registro no banco
+      // 3. Cria o registro incluindo a nova coluna obrigatória 'asin'
       await prisma.dynamicProduct.create({
         data: {
+          asin: asin, // ✅ Salva na coluna fixa única
           name: scraped.name,
           imageUrl: scraped.imageUrl,
           url: scraped.url,
           totalPrice: 0, 
           categoryId: data.categoryId,
-          attributes: {}, // Objeto vazio é um InputJsonValue válido
+          attributes: { asin: asin }, // Mantém no JSON também para retrocompatibilidade
         }
       });
       results.push({ asin, status: 'success' });
@@ -86,8 +96,10 @@ export async function importBulkProducts(data: { asins: string; categoryId: stri
 
 /**
  * CRIAR PRODUTO (Individual)
+ * 🚀 CORREÇÃO: Incluído campo 'asin' obrigatório
  */
 export async function createDynamicProduct(data: {
+  asin: string; // ✅ Agora faz parte da interface obrigatória
   name: string;
   totalPrice: number;
   url: string;
@@ -96,18 +108,27 @@ export async function createDynamicProduct(data: {
   attributes: DynamicAttributes;
 }) {
   try {
+    // Verifica duplicidade antes de criar individualmente
+    const check = await prisma.dynamicProduct.findUnique({ where: { asin: data.asin } });
+    if (check) return { error: "Este ASIN já está cadastrado." };
+
     await prisma.dynamicProduct.create({ 
       data: {
-        ...data,
-        // 🚀 CORREÇÃO: Usando Prisma.InputJsonValue em vez de 'any' para satisfazer o ESLint
+        asin: data.asin, // ✅ Obrigatório para o banco
+        name: data.name,
+        totalPrice: data.totalPrice,
+        url: data.url,
+        imageUrl: data.imageUrl,
+        categoryId: data.categoryId,
         attributes: data.attributes as Prisma.InputJsonValue
       } 
     });
+    
     revalidatePath('/admin/dynamic/produtos');
     return { success: true };
   } catch (err) {
     console.error("Erro ao salvar produto:", err);
-    return { error: "Erro ao salvar produto." };
+    return { error: "Erro ao salvar produto no banco." };
   }
 }
 

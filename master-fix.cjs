@@ -1,4 +1,8 @@
-generator client {
+const fs = require('fs');
+const path = require('path');
+
+// 1. CONTEÚDO DO SCHEMA (O que você me mandou por último)
+const schemaContent = `generator client {
   provider = "prisma-client-js"
 }
 
@@ -165,4 +169,18 @@ model DynamicPriceHistory {
   updatedAt    DateTime       @updatedAt
   @@unique([productId, date])
   @@index([productId, date])
-}
+}`;
+
+// 2. LIMPEZA DO .ENV
+const envPath = path.join(__dirname, '.env');
+let envContent = fs.readFileSync(envPath, 'utf8');
+
+// Remove BOM e força a URL com aspas e sslmode correto
+envContent = envContent.replace(/^\uFEFF/, '');
+envContent = envContent.replace(/DATABASE_URL=.*/, 'DATABASE_URL="postgresql://neondb_owner:npg_6TDPCiVXRaI2@ep-restless-union-acbhsqgb-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require"');
+
+// 3. ESCRITA DOS ARQUIVOS (UTF-8 sem BOM)
+fs.writeFileSync(path.join(__dirname, 'prisma', 'schema.prisma'), schemaContent, { encoding: 'utf8' });
+fs.writeFileSync(envPath, envContent, { encoding: 'utf8' });
+
+console.log('🚀 [SUCESSO] Schema e .env reescritos sem caracteres invisíveis!');

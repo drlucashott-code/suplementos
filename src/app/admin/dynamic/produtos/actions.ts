@@ -6,7 +6,6 @@ import { revalidatePath } from 'next/cache';
 
 /**
  * TIPAGEM CORRIGIDA
- * Adicionado 'boolean' e 'null' para total compatibilidade com Prisma.JsonValue
  */
 export type DynamicAttributes = {
   [key: string]: string | number | boolean | null | undefined;
@@ -14,6 +13,7 @@ export type DynamicAttributes = {
 
 // Interface para o retorno da busca Amazon
 export interface AmazonImportResult {
+  asin: string; // ✅ ASIN agora é obrigatório no retorno
   name: string;
   totalPrice: number;
   imageUrl: string;
@@ -23,8 +23,7 @@ export interface AmazonImportResult {
 }
 
 /**
- * 🚀 BUSCAR PRODUTO POR ID
- * Adicionado para resolver o erro: "Export getProductById doesn't exist"
+ * BUSCAR PRODUTO POR ID
  */
 export async function getProductById(id: string) {
   try {
@@ -45,7 +44,9 @@ export async function getProductById(id: string) {
  */
 export async function fetchAmazonProductData(asin: string): Promise<AmazonImportResult | { error: string }> {
   try {
+    // Simulação de busca - aqui entra sua lógica de scraper
     return {
+      asin: asin,
       name: `Produto Amazon ${asin}`, 
       totalPrice: 63.99, 
       brand: "Marca Amazon", 
@@ -60,6 +61,7 @@ export async function fetchAmazonProductData(asin: string): Promise<AmazonImport
 
 /**
  * IMPORTAÇÃO EM MASSA (Bulk Import)
+ * 🚀 CORRIGIDO: Agora envia o 'asin' na raiz do objeto
  */
 export async function importBulkProducts(data: { asins: string; categoryId: string }) {
   const asinList = data.asins.split(',').map(a => a.trim()).filter(a => a !== '');
@@ -67,12 +69,24 @@ export async function importBulkProducts(data: { asins: string; categoryId: stri
 
   for (const asin of asinList) {
     try {
+      // 1. Verifica se o ASIN já existe para evitar erro de Unique Constraint
+      const alreadyExists = await prisma.dynamicProduct.findUnique({
+        where: { asin: asin }
+      });
+
+      if (alreadyExists) {
+        results.push({ asin, status: 'skipped', message: 'Já cadastrado' });
+        continue;
+      }
+
       const scraped = await fetchAmazonProductData(asin);
       
       if ('error' in scraped) throw new Error(scraped.error);
 
+      // 2. Cria o registro com o campo 'asin' na raiz
       await prisma.dynamicProduct.create({
         data: {
+          asin: asin, // ✅ Campo obrigatório no banco
           name: scraped.name,
           imageUrl: scraped.imageUrl,
           url: scraped.url,
@@ -165,6 +179,7 @@ export async function updateDynamicProduct(id: string, data: {
 
 /**
  * CRIAR PRODUTO (Individual via Formulário)
+ * 🚀 CORRIGIDO: Extração e envio do 'asin' obrigatório
  */
 export async function createDynamicProduct(data: {
   name: string;
@@ -175,11 +190,22 @@ export async function createDynamicProduct(data: {
   attributes: DynamicAttributes;
 }) {
   try {
+    // Tenta extrair o ASIN da URL caso não venha nos atributos
     const asinMatch = data.url.match(/\/dp\/([A-Z0-9]{10})/);
     const extractedAsin = asinMatch ? asinMatch[1] : undefined;
+    const finalAsin = (data.attributes?.asin as string) || extractedAsin;
+
+    if (!finalAsin) {
+      return { error: "Não foi possível identificar o ASIN do produto." };
+    }
+
+    // Verifica se já existe
+    const exists = await prisma.dynamicProduct.findUnique({ where: { asin: finalAsin } });
+    if (exists) return { error: "Este produto (ASIN) já está cadastrado." };
 
     await prisma.dynamicProduct.create({ 
       data: {
+        asin: finalAsin, // ✅ Campo obrigatório na raiz
         name: data.name,
         totalPrice: data.totalPrice,
         url: data.url,
@@ -187,7 +213,7 @@ export async function createDynamicProduct(data: {
         categoryId: data.categoryId,
         attributes: {
           ...data.attributes,
-          asin: data.attributes?.asin || extractedAsin 
+          asin: finalAsin 
         } as Prisma.InputJsonValue
       } 
     });
@@ -196,7 +222,7 @@ export async function createDynamicProduct(data: {
     return { success: true };
   } catch (err) {
     console.error("Erro ao salvar produto:", err);
-    return { error: "Erro ao salvar produto." };
+    return { error: "Erro ao salvar produto no banco." };
   }
 }
 

@@ -24,7 +24,7 @@ interface DisplayConfigField {
 interface DynamicAttributes {
   brand?: string;
   seller?: string;
-  [key: string]: string | number | boolean | undefined; // 🚀 Aceita boolean agora para evitar erros de tipo
+  [key: string]: string | number | boolean | undefined;
 }
 
 const removeAccents = (str: string) => {
@@ -38,7 +38,6 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
   const order = (search.order as string) ?? "cheapest_unit";
   const searchQuery = (search.q as string) || "";
 
-  // 🚀 CORREÇÃO PRISMA: Filtra produtos com preço válido direto na query
   const categoryData = await prisma.dynamicCategory.findFirst({
     where: { 
       slug: slug,
@@ -56,13 +55,8 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
 
   if (!categoryData) return notFound();
 
-  // LÓGICA DE FILTRAGEM PÚBLICA:
   const fullDisplayConfig = categoryData.displayConfig as unknown as DisplayConfigField[];
-  
-  // Apenas o que for public !== false vai para os cards
   const publicDisplayConfig = fullDisplayConfig.filter(c => c.public !== false);
-
-  // Filtros dinâmicos
   const dynamicTextConfigs = fullDisplayConfig.filter((c) => c.type === "text");
 
   const availableBrands = new Set<string>();
@@ -128,6 +122,7 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
       if (quantity > 0) pricePerUnit = p.totalPrice / quantity;
     }
 
+    // 🚀 CORREÇÃO: Agora incluímos os dados de avaliações no objeto de retorno
     return {
       id: p.id,
       name: p.name,
@@ -135,6 +130,8 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
       price: p.totalPrice,
       affiliateUrl: p.url,
       pricePerUnit,
+      ratingAverage: p.ratingAverage, // 🌟 Adicionado
+      ratingCount: p.ratingCount,     // 🌟 Adicionado
       attributes: attrs as Record<string, string | number | undefined>, 
     };
   });

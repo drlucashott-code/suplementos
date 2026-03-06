@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { sendGAEvent } from "@next/third-parties/google";
 
-// 🚀 Tipo renomeado para refletir a arquitetura genérica
+// 🚀 Tipo atualizado para incluir as novas colunas de avaliação
 export type DynamicProductType = {
   id: string;
   name: string;
@@ -11,6 +11,8 @@ export type DynamicProductType = {
   price: number;
   affiliateUrl: string;
   pricePerUnit: number;
+  ratingAverage?: number | null; // 🌟 Novo
+  ratingCount?: number | null;   // 🌟 Novo
   attributes: Record<string, string | number | undefined>;
 };
 
@@ -32,8 +34,9 @@ export function MobileProductCard({
   const hasPrice = product.price > 0;
   const intCents = hasPrice ? product.price.toFixed(2).split(".") : null;
 
-  const rating = Number(product.attributes?.rating) || 0;
-  const reviewsCount = Number(product.attributes?.reviewsCount) || 0;
+  // 🚀 CORREÇÃO: Pegando das colunas corretas que o script atualiza
+  const rating = Number(product.ratingAverage) || 0;
+  const reviewsCount = Number(product.ratingCount) || 0;
 
   const formattedCount =
     reviewsCount >= 1000
@@ -44,7 +47,6 @@ export function MobileProductCard({
     const asinMatch = product.affiliateUrl.match(/\/dp\/([A-Z0-9]{10})/);
     const asin = asinMatch ? asinMatch[1] : "SEM_ASIN";
     
-    // 🚀 Evento de GA genérico
     sendGAEvent("event", "click_na_oferta", {
       produto_nome: `${product.name} - ${asin}`,
       produto_id: product.id,
@@ -81,7 +83,7 @@ export function MobileProductCard({
           {product.name}
         </h2>
 
-        {/* Avaliações */}
+        {/* Avaliações - Agora lendo de ratingAverage e ratingCount */}
         {(rating > 0 || reviewsCount > 0) && (
           <div className="flex items-center gap-1 mb-3 text-[12px]">
             <span className="font-normal text-[#0F1111]">{rating.toFixed(1)}</span>
@@ -94,14 +96,13 @@ export function MobileProductCard({
           </div>
         )}
 
-        {/* Tabela Técnica Baseada no Formato 'Currency' */}
+        {/* Tabela Técnica */}
         <div className={`bg-white border border-zinc-200 rounded p-2 mb-3 grid grid-cols-2 gap-2 divide-x divide-zinc-200 ${rating === 0 ? 'mt-2' : ''}`}>
            {displayConfig.map((config) => {
               const rawValue = product.attributes[config.key];
               let displayValue = rawValue ? String(rawValue) : '-';
               const labelUpper = config.label.toUpperCase();
 
-              // 🚀 Lógica Inteligente estendida (Suporta Casa, Petshop, Limpeza)
               if (config.type === 'currency') {
                 let targetConfig;
                 if (labelUpper.includes('LAVAGE')) targetConfig = displayConfig.find(c => c.label.toUpperCase().includes('LAVAGE') && c.key !== config.key);

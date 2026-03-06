@@ -265,6 +265,16 @@ export async function importDynamicViaAPI(
     try {
       await delay(2000);
 
+      // 🚀 VERIFICAÇÃO DE DUPLICIDADE: Evita erro de Unique Constraint no Neon
+      const existing = await prisma.dynamicProduct.findUnique({
+        where: { asin }
+      });
+
+      if (existing) {
+        logs.push(`⏭️ ${asin}: Já existe no banco de dados`);
+        continue;
+      }
+
       const result = await fetchAmazonPrice(asin);
 
       if (!result) {
@@ -295,9 +305,10 @@ export async function importDynamicViaAPI(
       const url =
         `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG}`;
 
-      // 🚀 CORREÇÃO PRISMA: dynamicProduct com inicial minúscula
+      // 🚀 CORREÇÃO PRISMA: Adicionado o campo 'asin' no nível raiz do data
       await prisma.dynamicProduct.create({
         data: {
+          asin, // ✅ OBRIGATÓRIO: Agora o Prisma encontra o campo exigido pelo Schema
           name,
           imageUrl,
           url,
@@ -306,7 +317,7 @@ export async function importDynamicViaAPI(
           attributes: {
             brand,
             seller: merchantName,
-            asin: asin // Adicionado o ASIN nos atributos para futuras consultas
+            asin: asin // Mantido aqui para compatibilidade com filtros antigos
           }
         }
       });
@@ -325,7 +336,6 @@ export async function importDynamicViaAPI(
     }
   }
 
-  // 🚀 CORREÇÃO: Revalida o caminho dinâmico correto
   revalidatePath('/admin/dynamic/produtos');
 
   return { logs };
