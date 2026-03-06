@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { sendGAEvent } from "@next/third-parties/google";
 
-// 🚀 Tipo atualizado para incluir as novas colunas de avaliação
 export type DynamicProductType = {
   id: string;
   name: string;
@@ -11,8 +10,8 @@ export type DynamicProductType = {
   price: number;
   affiliateUrl: string;
   pricePerUnit: number;
-  ratingAverage?: number | null; // 🌟 Novo
-  ratingCount?: number | null;   // 🌟 Novo
+  ratingAverage?: number | null;
+  ratingCount?: number | null;
   attributes: Record<string, string | number | undefined>;
 };
 
@@ -34,7 +33,6 @@ export function MobileProductCard({
   const hasPrice = product.price > 0;
   const intCents = hasPrice ? product.price.toFixed(2).split(".") : null;
 
-  // 🚀 CORREÇÃO: Pegando das colunas corretas que o script atualiza
   const rating = Number(product.ratingAverage) || 0;
   const reviewsCount = Number(product.ratingCount) || 0;
 
@@ -83,7 +81,7 @@ export function MobileProductCard({
           {product.name}
         </h2>
 
-        {/* Avaliações - Agora lendo de ratingAverage e ratingCount */}
+        {/* Avaliações */}
         {(rating > 0 || reviewsCount > 0) && (
           <div className="flex items-center gap-1 mb-3 text-[12px]">
             <span className="font-normal text-[#0F1111]">{rating.toFixed(1)}</span>
@@ -96,25 +94,35 @@ export function MobileProductCard({
           </div>
         )}
 
-        {/* Tabela Técnica */}
+        {/* Tabela Técnica Dinâmica Universal */}
         <div className={`bg-white border border-zinc-200 rounded p-2 mb-3 grid grid-cols-2 gap-2 divide-x divide-zinc-200 ${rating === 0 ? 'mt-2' : ''}`}>
            {displayConfig.map((config) => {
               const rawValue = product.attributes[config.key];
               let displayValue = rawValue ? String(rawValue) : '-';
-              const labelUpper = config.label.toUpperCase();
 
               if (config.type === 'currency') {
-                let targetConfig;
-                if (labelUpper.includes('LAVAGE')) targetConfig = displayConfig.find(c => c.label.toUpperCase().includes('LAVAGE') && c.key !== config.key);
-                else if (labelUpper.includes('LITRO')) targetConfig = displayConfig.find(c => c.label.toUpperCase().includes('LITRO') && c.key !== config.key);
-                else if (labelUpper.includes('ROLO')) targetConfig = displayConfig.find(c => c.label.toUpperCase().includes('ROLO') && c.key !== config.key);
-                else if (labelUpper.includes('KG') || labelUpper.includes('QUILO')) targetConfig = displayConfig.find(c => (c.label.toUpperCase().includes('KG') || c.label.toUpperCase().includes('QUILO')) && c.key !== config.key);
+                const currentLabelWords = config.label
+                  .toUpperCase()
+                  .replace('POR ', '')
+                  .replace('PREÇO ', '')
+                  .trim()
+                  .split(' ');
+                
+                const targetConfig = displayConfig.find(c => 
+                  c.key !== config.key && 
+                  currentLabelWords.some(word => c.label.toUpperCase().includes(word))
+                );
 
                 const quantity = targetConfig ? Number(product.attributes[targetConfig.key]) : 0;
                 
                 if (quantity > 0) {
                   const calculated = product.price / quantity;
-                  displayValue = `R$ ${calculated.toFixed(2).replace('.', ',')}`;
+                  
+                  // 🚀 Lógica Condicional de Casas Decimais
+                  // Se for < R$ 1,00, usa 3 casas para mostrar a diferença (ex: 0,038 vs 0,043)
+                  // Se for >= R$ 1,00, mantém 2 casas para clareza visual
+                  const decimals = calculated < 1 ? 3 : 2;
+                  displayValue = `R$ ${calculated.toFixed(decimals).replace('.', ',')}`;
                 } else {
                   displayValue = rawValue ? `R$ ${Number(rawValue).toFixed(2).replace('.', ',')}` : 'R$ 0,00';
                 }

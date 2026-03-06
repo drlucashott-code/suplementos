@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation'; // 🚀 Importado para refresh suave
+import { useRouter } from 'next/navigation';
 import { 
   updateManyProducts, 
   updateDynamicProduct, 
@@ -10,6 +10,9 @@ import {
   deleteManyProducts 
 } from '@/app/admin/dynamic/produtos/actions';
 import { Prisma } from '@prisma/client';
+
+// 🚀 DEFINIÇÃO DE TIPOS PARA MATAR O "ANY"
+type DynamicAttributes = Record<string, string | number | boolean | null | undefined>;
 
 interface DisplayConfigItem {
   key: string;
@@ -37,8 +40,25 @@ interface CategoryOption {
   name: string;
 }
 
+// 🚀 FUNÇÃO CALCULADORA: Resolve equações simples (ex: "20*10")
+function solveMath(input: string): string {
+  const cleanInput = input.replace(/\s+/g, '').replace(',', '.');
+  const mathRegex = /^[0-9+\-*/.()]+$/;
+  
+  if (mathRegex.test(cleanInput)) {
+    try {
+      // Resolve a string matemática de forma segura
+      const result = new Function(`return ${cleanInput}`)();
+      return String(result);
+    } catch {
+      return input;
+    }
+  }
+  return input;
+}
+
 export function AdminProductTable({ initialProducts, categories }: { initialProducts: Product[], categories: CategoryOption[] }) {
-  const router = useRouter(); // 🚀 Inicializado o roteador
+  const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -48,7 +68,7 @@ export function AdminProductTable({ initialProducts, categories }: { initialProd
 
   const filteredProducts = useMemo(() => {
     return initialProducts.filter(p => {
-      const attrs = (p.attributes as Record<string, Prisma.JsonValue>) || {};
+      const attrs = (p.attributes as DynamicAttributes) || {};
       const matchesCat = filterCategory === 'all' || p.category.id === filterCategory;
       
       const searchStr = searchTerm.toLowerCase();
@@ -67,19 +87,21 @@ export function AdminProductTable({ initialProducts, categories }: { initialProd
     return (firstSelected?.category?.displayConfig as unknown as DisplayConfigItem[]) || [];
   }, [selectedIds, initialProducts]);
 
+  // --- ACTIONS ---
+
   const handleBulkDelete = async () => {
     if (!confirm(`TEM CERTEZA? Isso excluirá permanentemente ${selectedIds.length} produtos.`)) return;
     const res = await deleteManyProducts(selectedIds);
     if (res.success) {
       setSelectedIds([]);
-      router.refresh(); // 🚀 Substituído reload por refresh
+      router.refresh();
     }
   };
 
   const handleIndividualDelete = async (id: string) => {
     if (!confirm("Excluir este produto permanentemente?")) return;
     const res = await deleteDynamicProduct(id);
-    if (res.success) router.refresh(); // 🚀 Substituído reload por refresh
+    if (res.success) router.refresh();
   };
 
   const handleBulkSave = async () => {
@@ -91,18 +113,18 @@ export function AdminProductTable({ initialProducts, categories }: { initialProd
         await updateManyProducts(selectedIds, key, bulkData[key]);
       }
     }
-    router.refresh(); // 🚀 Substituído reload por refresh
+    router.refresh();
   };
 
   const handleInlineSave = async (id: string, updatedData: { 
     name: string; 
     totalPrice: number; 
-    attributes: Record<string, string | number | boolean | null | undefined>; 
+    attributes: DynamicAttributes;
   }) => {
     const res = await updateDynamicProduct(id, updatedData);
     if (res.success) {
       setEditingId(null);
-      router.refresh(); // 🚀 Substituído reload por refresh
+      router.refresh();
     }
   };
 
@@ -179,18 +201,22 @@ export function AdminProductTable({ initialProducts, categories }: { initialProd
               </th>
               <th className="p-4 w-20 text-center text-black">Foto</th>
               <th className="p-4 text-black">Nome</th>
-              <th className="p-4 w-32 text-center text-black">ASIN</th>
-              <th className="p-4 w-32 text-center text-black">Marca</th>
-              <th className="p-4 w-32 text-center text-black">Preço</th>
+              <th className="p-4 w-44 text-center text-black">Informação Técnica</th>
+              <th className="p-4 w-28 text-center text-black">Marca</th>
+              <th className="p-4 w-28 text-center text-black">Preço</th>
               <th className="p-4 text-right text-black">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {filteredProducts.map(p => {
-              const attrs = (p.attributes as Record<string, Prisma.JsonValue>) || {};
+              const attrs = (p.attributes as DynamicAttributes) || {};
               const brand = String(attrs.marca || attrs.brand || '---');
               const asin = String(attrs.asin || '---');
               const displayConfig = (p.category.displayConfig as unknown as DisplayConfigItem[]) || [];
+
+              const mainTechField = displayConfig.find(conf => 
+                conf.type === 'number' || (conf.type === 'text' && !['marca', 'brand', 'vendedor', 'seller'].includes(conf.key.toLowerCase()))
+              );
 
               return (
                 <React.Fragment key={p.id}>
@@ -206,20 +232,54 @@ export function AdminProductTable({ initialProducts, categories }: { initialProd
                     </td>
 
                     <td className="p-4">
-                        <div>
-                          <p className="font-bold text-gray-900 text-xs line-clamp-1">{p.name}</p>
-                          <span className="text-[9px] font-black text-gray-300 uppercase tracking-tighter">{p.category.name}</span>
+                        <div className="max-w-[400px]">
+                          <p className="font-bold text-gray-900 text-[13px] leading-tight mb-1">{p.name}</p>
+                          <div className="flex gap-2 items-center">
+                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter bg-gray-100 px-1.5 py-0.5 rounded-md">{p.category.name}</span>
+                            <span className="text-[9px] font-bold text-blue-400 font-mono tracking-tighter">{asin}</span>
+                          </div>
                         </div>
                     </td>
 
                     <td className="p-4 text-center">
-                        <span className="font-mono text-[10px] font-bold text-blue-500">
-                          {asin}
-                        </span>
+                        {mainTechField ? (
+                           <div className="flex flex-col items-center gap-1">
+                             <span className="text-[8px] font-black text-gray-300 uppercase leading-none">{mainTechField.label}</span>
+                             <input 
+                               defaultValue={String(attrs[mainTechField.key] || '')}
+                               onBlur={async (e) => {
+                                 // 🚀 Lógica da Calculadora
+                                 const solvedValue = solveMath(e.target.value);
+                                 e.target.value = solvedValue; 
+
+                                 if (solvedValue === String(attrs[mainTechField.key] || '')) return;
+                                 
+                                 const updatedAttributes: DynamicAttributes = { 
+                                   ...attrs, 
+                                   [mainTechField.key]: mainTechField.type === 'number' ? Number(solvedValue) : solvedValue 
+                                 };
+                                 
+                                 await handleInlineSave(p.id, { 
+                                   name: p.name, 
+                                   totalPrice: p.totalPrice, 
+                                   attributes: updatedAttributes 
+                                 });
+                               }}
+                               placeholder="..."
+                               className={`w-28 p-2 text-center text-xs font-bold rounded-xl border transition-all outline-none ${
+                                 !attrs[mainTechField.key] 
+                                   ? 'border-red-200 bg-red-50 text-red-700 focus:border-red-400' 
+                                   : 'border-gray-100 focus:border-blue-400 focus:ring-2 focus:ring-blue-100'
+                               }`}
+                             />
+                           </div>
+                        ) : (
+                          <span className="text-[10px] text-gray-300 italic">N/A</span>
+                        )}
                     </td>
 
                     <td className="p-4 text-center">
-                        <span className="text-gray-500 text-[10px] font-black uppercase italic tracking-widest">
+                        <span className="text-gray-500 text-[10px] font-black uppercase italic tracking-widest truncate max-w-[100px] block">
                           {brand}
                         </span>
                     </td>
@@ -229,7 +289,7 @@ export function AdminProductTable({ initialProducts, categories }: { initialProd
                     </td>
 
                     <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-6">
+                      <div className="flex items-center justify-end gap-4">
                         <button onClick={() => setEditingId(editingId === p.id ? null : p.id)} className="text-blue-600 font-black text-[10px] uppercase hover:underline tracking-widest">
                             {editingId === p.id ? 'Fechar' : 'Editar'}
                         </button>
@@ -245,7 +305,6 @@ export function AdminProductTable({ initialProducts, categories }: { initialProd
                     <tr className="bg-gray-50/80 animate-in fade-in slide-in-from-top-2 duration-300">
                       <td colSpan={7} className="p-6 border-b border-blue-50">
                         <div className="flex flex-wrap gap-4 items-end max-w-7xl mx-auto">
-                          
                           <div className="flex-1 min-w-[200px]">
                             <label className="text-[10px] font-black uppercase text-gray-400 mb-1 block ml-1">Nome do Produto</label>
                             <input id={`name-${p.id}`} defaultValue={p.name} className="w-full p-2.5 rounded-lg border border-gray-200 font-bold bg-white text-gray-900 text-xs outline-none focus:ring-2 focus:ring-blue-400" />
@@ -291,9 +350,9 @@ export function AdminProductTable({ initialProducts, categories }: { initialProd
                                  const asinInput = document.getElementById(`asin-${p.id}`) as HTMLInputElement;
                                  const marcaInput = document.getElementById(`marca-${p.id}`) as HTMLInputElement;
 
-                                 const oldAttrs = (p.attributes as Record<string, string | number | boolean | null | undefined>) || {};
+                                 const oldAttrs = (p.attributes as DynamicAttributes) || {};
 
-                                 const updatedAttributes: Record<string, string | number | boolean | null | undefined> = { 
+                                 const updatedAttributes: DynamicAttributes = { 
                                    ...oldAttrs, 
                                    asin: asinInput.value,
                                    marca: marcaInput.value
@@ -302,7 +361,9 @@ export function AdminProductTable({ initialProducts, categories }: { initialProd
                                  displayConfig.forEach(c => {
                                    const el = document.getElementById(`attr-${c.key}-${p.id}`) as HTMLInputElement;
                                    if (el) {
-                                     updatedAttributes[c.key] = c.type === 'number' ? Number(el.value) : el.value;
+                                     // Resolve matemática também na edição completa se houver campo numérico
+                                     const val = solveMath(el.value);
+                                     updatedAttributes[c.key] = c.type === 'number' ? Number(val) : val;
                                    }
                                  });
                                  

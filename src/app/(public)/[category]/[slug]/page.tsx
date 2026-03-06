@@ -110,19 +110,26 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
     const calcConfig = fullDisplayConfig.find(c => c.type === "currency");
     
     if (calcConfig) {
-      const labelUpper = calcConfig.label.toUpperCase();
-      let targetConfig;
+      // 🚀 LÓGICA UNIVERSAL: Busca por semelhança de palavras nas etiquetas
+      // Ex: Se a etiqueta for "POR METRO", ele busca qualquer campo que tenha "METRO"
+      const currentLabelWords = calcConfig.label
+        .toUpperCase()
+        .replace('POR ', '')
+        .replace('PREÇO ', '')
+        .trim()
+        .split(' ');
       
-      if (labelUpper.includes("LAVAGE")) targetConfig = fullDisplayConfig.find(c => c.label.toUpperCase().includes("LAVAGE") && c.key !== calcConfig.key);
-      else if (labelUpper.includes("LITRO")) targetConfig = fullDisplayConfig.find(c => c.label.toUpperCase().includes("LITRO") && c.key !== calcConfig.key);
-      else if (labelUpper.includes("ROLO")) targetConfig = fullDisplayConfig.find(c => c.label.toUpperCase().includes("ROLO") && c.key !== calcConfig.key);
-      else if (labelUpper.includes("KG") || labelUpper.includes("QUILO")) targetConfig = fullDisplayConfig.find(c => (c.label.toUpperCase().includes("KG") || c.label.toUpperCase().includes("QUILO")) && c.key !== calcConfig.key);
+      const targetConfig = fullDisplayConfig.find(c => 
+        c.key !== calcConfig.key && 
+        currentLabelWords.some(word => c.label.toUpperCase().includes(word))
+      );
 
       const quantity = targetConfig ? Number(attrs[targetConfig.key]) : 0;
-      if (quantity > 0) pricePerUnit = p.totalPrice / quantity;
+      if (quantity > 0) {
+        pricePerUnit = p.totalPrice / quantity;
+      }
     }
 
-    // 🚀 CORREÇÃO: Agora incluímos os dados de avaliações no objeto de retorno
     return {
       id: p.id,
       name: p.name,
@@ -130,8 +137,8 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
       price: p.totalPrice,
       affiliateUrl: p.url,
       pricePerUnit,
-      ratingAverage: p.ratingAverage, // 🌟 Adicionado
-      ratingCount: p.ratingCount,     // 🌟 Adicionado
+      ratingAverage: p.ratingAverage,
+      ratingCount: p.ratingCount,
       attributes: attrs as Record<string, string | number | undefined>, 
     };
   });
