@@ -1,15 +1,16 @@
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import { ProductList } from "@/components/casa/ProductList";
-import { MobileFiltersDrawer } from "@/components/casa/MobileFiltersDrawer";
-import { FloatingFiltersBar } from "@/components/casa/FloatingFiltersBar"; 
-import { AmazonHeader } from "@/components/casa/AmazonHeader";
+import { ProductList } from "@/components/dynamic/ProductList";
+import { MobileFiltersDrawer } from "@/components/dynamic/MobileFiltersDrawer";
+import { FloatingFiltersBar } from "@/components/dynamic/FloatingFiltersBar"; 
+import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
+import { DynamicProduct } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
 interface PageProps {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ category: string; slug: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
@@ -29,24 +30,28 @@ const removeAccents = (str: string) => {
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 };
 
-export default async function CasaCategoryPage({ params, searchParams }: PageProps) {
-  const { slug } = await params;
+export default async function DynamicCategoryPage({ params, searchParams }: PageProps) {
+  // 🚀 CORREÇÃO: Extraindo 'category' (que é o group no banco) e o 'slug'
+  const { category: group, slug } = await params;
   const search = await searchParams;
   
   const order = (search.order as string) ?? "cheapest_unit";
   const searchQuery = (search.q as string) || "";
 
-  const category = await prisma.homeCategory.findUnique({
-    where: { slug },
+  // 🚀 CORREÇÃO: Busca usando findFirst para filtrar por grupo + slug
+  const categoryData = await prisma.dynamicCategory.findFirst({
+    where: { 
+      slug: slug,
+      group: group // Filtra pelo nicho da URL (ex: casa, petshop)
+    },
     include: {
       products: { orderBy: { totalPrice: "asc" } },
     },
   });
 
-  if (!category) return notFound();
+  if (!categoryData) return notFound();
 
-  const displayConfig = category.displayConfig as unknown as DisplayConfigField[];
-
+  const displayConfig = categoryData.displayConfig as unknown as DisplayConfigField[];
   const dynamicTextConfigs = displayConfig.filter((c) => c.type === "text");
 
   const availableBrands = new Set<string>();
@@ -55,7 +60,7 @@ export default async function CasaCategoryPage({ params, searchParams }: PagePro
   
   dynamicTextConfigs.forEach(c => dynamicFilterOptions[c.key] = new Set());
 
-  category.products.forEach((p) => {
+  categoryData.products.forEach((p: DynamicProduct) => {
     const attrs = p.attributes as unknown as DynamicAttributes;
     if (attrs.brand) availableBrands.add(String(attrs.brand));
     if (attrs.seller) availableSellers.add(String(attrs.seller));
@@ -72,7 +77,7 @@ export default async function CasaCategoryPage({ params, searchParams }: PagePro
   const selectedBrands = search.brand ? String(search.brand).split(",") : [];
   const selectedSellers = search.seller ? String(search.seller).split(",") : [];
 
-  const matchedProducts = category.products.filter((p) => {
+  const matchedProducts = categoryData.products.filter((p: DynamicProduct) => {
     const attrs = p.attributes as unknown as DynamicAttributes;
     const pBrand = String(attrs.brand || "");
     const pSeller = String(attrs.seller || "");
@@ -93,19 +98,21 @@ export default async function CasaCategoryPage({ params, searchParams }: PagePro
     return true;
   });
 
-  const rankedProducts = matchedProducts.map((p) => {
+  const rankedProducts = matchedProducts.map((p: DynamicProduct) => {
     const attrs = p.attributes as unknown as DynamicAttributes;
     let pricePerUnit = 0;
 
-    // 🚀 Rastreia por Formato 'Currency' para Ordenação
     const calcConfig = displayConfig.find(c => c.type === "currency");
     
     if (calcConfig) {
       const labelUpper = calcConfig.label.toUpperCase();
       let targetConfig;
+      
+      // Lógica de cálculo estendida para abranger diversos nichos
       if (labelUpper.includes("LAVAGE")) targetConfig = displayConfig.find(c => c.label.toUpperCase().includes("LAVAGE") && c.key !== calcConfig.key);
       else if (labelUpper.includes("LITRO")) targetConfig = displayConfig.find(c => c.label.toUpperCase().includes("LITRO") && c.key !== calcConfig.key);
       else if (labelUpper.includes("ROLO")) targetConfig = displayConfig.find(c => c.label.toUpperCase().includes("ROLO") && c.key !== calcConfig.key);
+      else if (labelUpper.includes("KG") || labelUpper.includes("QUILO")) targetConfig = displayConfig.find(c => (c.label.toUpperCase().includes("KG") || c.label.toUpperCase().includes("QUILO")) && c.key !== calcConfig.key);
 
       const quantity = targetConfig ? Number(attrs[targetConfig.key]) : 0;
       if (quantity > 0) pricePerUnit = p.totalPrice / quantity;
@@ -153,13 +160,13 @@ export default async function CasaCategoryPage({ params, searchParams }: PagePro
 
           <div className="mt-4 pb-10 w-full">
             <p className="text-[13px] text-zinc-800 mb-2 px-1 font-medium">
-              {finalProducts.length} produtos encontrados em {category.name}
+              {finalProducts.length} produtos encontrados em {categoryData.name}
             </p>
 
             <div className="w-full">
               <ProductList
                 products={finalProducts}
-                viewEventName="view_casa_list"
+                viewEventName="view_dynamic_list"
                 displayConfig={displayConfig}
               />
             </div>

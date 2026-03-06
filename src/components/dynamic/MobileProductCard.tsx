@@ -3,7 +3,8 @@
 import Image from "next/image";
 import { sendGAEvent } from "@next/third-parties/google";
 
-export type CasaProduct = {
+// 🚀 Tipo renomeado para refletir a arquitetura genérica
+export type DynamicProductType = {
   id: string;
   name: string;
   imageUrl: string;
@@ -24,7 +25,7 @@ export function MobileProductCard({
   priority, 
   displayConfig 
 }: { 
-  product: CasaProduct; 
+  product: DynamicProductType; 
   priority: boolean; 
   displayConfig: DisplayConfigField[] 
 }) {
@@ -43,13 +44,14 @@ export function MobileProductCard({
     const asinMatch = product.affiliateUrl.match(/\/dp\/([A-Z0-9]{10})/);
     const asin = asinMatch ? asinMatch[1] : "SEM_ASIN";
     
+    // 🚀 Evento de GA genérico
     sendGAEvent("event", "click_na_oferta", {
       produto_nome: `${product.name} - ${asin}`,
       produto_id: product.id,
       valor: product.price || 0,
       loja: "Amazon",
       asin,
-      categoria: "casa",
+      categoria: "dinamica", 
     });
   };
 
@@ -99,12 +101,13 @@ export function MobileProductCard({
               let displayValue = rawValue ? String(rawValue) : '-';
               const labelUpper = config.label.toUpperCase();
 
-              // 🚀 Lógica Inteligente por Formato Moeda
+              // 🚀 Lógica Inteligente estendida (Suporta Casa, Petshop, Limpeza)
               if (config.type === 'currency') {
                 let targetConfig;
                 if (labelUpper.includes('LAVAGE')) targetConfig = displayConfig.find(c => c.label.toUpperCase().includes('LAVAGE') && c.key !== config.key);
                 else if (labelUpper.includes('LITRO')) targetConfig = displayConfig.find(c => c.label.toUpperCase().includes('LITRO') && c.key !== config.key);
                 else if (labelUpper.includes('ROLO')) targetConfig = displayConfig.find(c => c.label.toUpperCase().includes('ROLO') && c.key !== config.key);
+                else if (labelUpper.includes('KG') || labelUpper.includes('QUILO')) targetConfig = displayConfig.find(c => (c.label.toUpperCase().includes('KG') || c.label.toUpperCase().includes('QUILO')) && c.key !== config.key);
 
                 const quantity = targetConfig ? Number(product.attributes[targetConfig.key]) : 0;
                 

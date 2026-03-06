@@ -1,3 +1,19 @@
+/*
+  Warnings:
+
+  - You are about to drop the `DynamicCategory` table. If the table is not empty, all the data it contains will be lost.
+  - You are about to drop the `DynamicProduct` table. If the table is not empty, all the data it contains will be lost.
+
+*/
+-- DropForeignKey
+ALTER TABLE "DynamicProduct" DROP CONSTRAINT "DynamicProduct_categoryId_fkey";
+
+-- DropTable
+DROP TABLE "DynamicCategory";
+
+-- DropTable
+DROP TABLE "DynamicProduct";
+
 -- CreateTable
 CREATE TABLE "DynamicCategory" (
     "id" TEXT NOT NULL,
@@ -29,4 +45,4 @@ CREATE TABLE "DynamicProduct" (
 CREATE UNIQUE INDEX "DynamicCategory_slug_key" ON "DynamicCategory"("slug");
 
 -- AddForeignKey
-ALTER TABLE "DynamicProduct" ADD CONSTRAINT "DynamicProduct_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "DynamicCategory"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "DynamicProduct" ADD CONSTRAINT "DynamicProduct_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "DynamicCategory"("id") ON DELETE CASCADE ON UPDATE CASCADE;

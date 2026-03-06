@@ -1,6 +1,6 @@
 "use client";
 
-import { MobileProductCard, CasaProduct } from "./MobileProductCard";
+import { MobileProductCard, type DynamicProductType } from "./MobileProductCard";
 import { useEffect, useRef, useState, useMemo } from "react";
 
 // Tipagem do DisplayConfig para não dar erro de any
@@ -12,10 +12,10 @@ interface DisplayConfigField {
 
 export function ProductList({
   products,
-  viewEventName = "view_casa_list",
+  viewEventName = "view_catalog_list", // 🚀 Nome padrão mais genérico
   displayConfig,
 }: {
-  products: CasaProduct[];
+  products: DynamicProductType[];
   viewEventName?: string;
   displayConfig: DisplayConfigField[];
 }) {
@@ -25,12 +25,13 @@ export function ProductList({
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const trackedRef = useRef<string | null>(null);
 
+  // Sincronização inteligente: reseta o scroll ao mudar categoria ou filtro
   if (products !== prevProducts) {
     setPrevProducts(products);
-    setVisibleCount(6); // Reseta a contagem ao trocar de categoria/filtro
+    setVisibleCount(6); 
   }
 
-  // Tracking de GA4
+  // Tracking de GA4 (Google Analytics)
   useEffect(() => {
     trackedRef.current = null; 
   }, [products]);
@@ -43,15 +44,16 @@ export function ProductList({
       dataLayer?: object[];
     };
 
+    // 🚀 Ajustado para enviar a categoria como 'dinamica' ou baseada no evento
     if (win.gtag) {
       win.gtag("event", viewEventName, {
-        category: "casa",
+        category: "catalog",
         total_products: products.length,
       });
     } else if (win.dataLayer) {
       win.dataLayer.push({
         event: viewEventName,
-        category: "casa",
+        category: "catalog",
         total_products: products.length,
       });
     }
@@ -59,7 +61,7 @@ export function ProductList({
     trackedRef.current = viewEventName;
   }, [products.length, viewEventName]);
 
-  // Scroll infinito super leve
+  // 🚀 Implementação do Intersection Observer para Scroll Infinito
   useEffect(() => {
     const currentTarget = loadMoreRef.current;
     if (!currentTarget) return;
@@ -90,11 +92,12 @@ export function ProductList({
         <MobileProductCard
           key={product.id}
           product={product}
-          priority={index < 4}
+          priority={index < 4} // LCP optimization
           displayConfig={displayConfig}
         />
       ))}
 
+      {/* 🚀 Gatilho do Scroll Infinito */}
       {hasMore && (
         <div ref={loadMoreRef} className="h-28 flex items-center justify-center">
           <div className="flex flex-col items-center gap-2">
@@ -106,6 +109,7 @@ export function ProductList({
         </div>
       )}
 
+      {/* Empty State */}
       {products.length === 0 && (
         <div className="text-center py-20 bg-white rounded-xl border border-dashed border-zinc-300 mx-1">
           <p className="text-zinc-500 text-[14px]">

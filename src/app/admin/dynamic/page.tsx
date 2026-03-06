@@ -22,10 +22,11 @@ function AdminCard({ title, description, href, icon, color }: {
   );
 }
 
-export default async function AdminCasaDashboard() {
+export default async function AdminDynamicDashboard() {
+  // 🚀 CORREÇÃO PRISMA: Usando iniciais minúsculas para acessar os modelos
   const [totalProducts, totalCategories] = await Promise.all([
-    prisma.homeProduct.count(),
-    prisma.homeCategory.count()
+    prisma.dynamicProduct.count(),
+    prisma.dynamicCategory.count()
   ]);
 
   return (
@@ -38,8 +39,8 @@ export default async function AdminCasaDashboard() {
               <span className="h-2 w-2 rounded-full bg-blue-600"></span>
               <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Admin Panel</span>
             </div>
-            <h1 className="text-4xl font-black text-gray-900 tracking-tight">CASA & LIMPEZA</h1>
-            <p className="text-gray-500 font-medium">Gerenciamento exclusivo amazonpicks.com.br</p>
+            <h1 className="text-4xl font-black text-gray-900 tracking-tight">CATÁLOGO DINÂMICO</h1>
+            <p className="text-gray-500 font-medium">Gerenciamento universal amazonpicks.com.br</p>
           </div>
           
           <div className="flex gap-4">
@@ -54,12 +55,12 @@ export default async function AdminCasaDashboard() {
           </div>
         </div>
 
-        {/* Grade de Navegação */}
+        {/* Grade de Navegação - 🚀 URLs atualizadas para /admin/dynamic/ */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <AdminCard 
             title="Importar via API"
             description="Processamento em lote via PA-API. Nome, Foto e Preço real direto da Amazon."
-            href="/admin/casa/importar"
+            href="/admin/dynamic/importar"
             icon="🚀"
             color="blue"
           />
@@ -67,7 +68,7 @@ export default async function AdminCasaDashboard() {
           <AdminCard 
             title="Gerenciar Produtos"
             description="Ajuste fino de atributos, edição de preços manuais e exclusão de ofertas."
-            href="/admin/casa/produtos"
+            href="/admin/dynamic/produtos"
             icon="📦"
             color="emerald"
           />
@@ -75,15 +76,15 @@ export default async function AdminCasaDashboard() {
           <AdminCard 
             title="Categorias"
             description="Visualize e gerencie as categorias dinâmicas e suas regras de exibição."
-            href="/admin/casa/categorias"
+            href="/admin/dynamic/categorias"
             icon="📁"
             color="purple"
           />
 
           <AdminCard 
             title="Criar Nova Categoria"
-            description="Defina novos slugs e campos de cálculo (ex: Preço por Litro, por Rolo)."
-            href="/admin/casa/nova-categoria"
+            description="Defina novos slugs e campos de cálculo (ex: Preço por Litro, por Rolo, por KG)."
+            href="/admin/dynamic/nova-categoria"
             icon="✨"
             color="yellow"
           />
@@ -108,16 +109,16 @@ export default async function AdminCasaDashboard() {
         {/* Info Box Solo */}
         <div className="mt-12 p-8 bg-gray-900 rounded-3xl text-white shadow-2xl relative overflow-hidden">
           <div className="relative z-10">
-            <h3 className="text-xl font-bold mb-2">Fundação do Projeto</h3>
+            <h3 className="text-xl font-bold mb-2">Arquitetura Escalável</h3>
             <p className="text-gray-400 text-sm max-w-xl leading-relaxed">
-              Este módulo de **Casa & Limpeza** foi construído com arquitetura dinâmica. 
-              Isso significa que você pode escalar para qualquer novo nicho apenas criando categorias, 
-              mantendo a agilidade que um projeto solo exige.
+              Este módulo foi convertido para uma estrutura **Dynamic**. 
+              Agora você pode gerenciar **Casa, Petshop, Bebês** ou qualquer outro nicho 
+              centralizando tudo nesta mesma interface de gerenciamento.
             </p>
           </div>
           {/* Decoração sutil no fundo */}
           <div className="absolute top-[-20%] right-[-5%] text-[120px] opacity-[0.03] pointer-events-none select-none font-black">
-            SOLO
+            DYNAMIC
           </div>
         </div>
       </div>

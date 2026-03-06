@@ -1,9 +1,10 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client'; // 🚀 Importado para tipagem JSON oficial
 import { revalidatePath } from 'next/cache';
 
-// Tipagem para os atributos dinâmicos (ex: quantidade de rolos, lavagens)
+// Tipagem para os atributos dinâmicos (ex: quantidade de rolos, lavagens, marca)
 export interface DynamicAttributes {
   [key: string]: string | number;
 }
@@ -22,7 +23,7 @@ export interface AmazonImportResult {
  * Usado no Select para vincular o produto à categoria correta
  */
 export async function getHomeCategories() {
-  return await prisma.homeCategory.findMany({
+  return await prisma.dynamicCategory.findMany({
     orderBy: { name: 'asc' }
   });
 }
@@ -61,15 +62,15 @@ export async function importBulkProducts(data: { asins: string; categoryId: stri
       
       if ('error' in scraped) throw new Error(scraped.error);
 
-      // 2. Cria o registro no banco com preço 0 (o script de update fará o resto)
-      await prisma.homeProduct.create({
+      // 2. Cria o registro no banco
+      await prisma.dynamicProduct.create({
         data: {
           name: scraped.name,
           imageUrl: scraped.imageUrl,
           url: scraped.url,
           totalPrice: 0, 
           categoryId: data.categoryId,
-          attributes: {}, // Inicia vazio para edição posterior
+          attributes: {}, // Objeto vazio é um InputJsonValue válido
         }
       });
       results.push({ asin, status: 'success' });
@@ -79,14 +80,14 @@ export async function importBulkProducts(data: { asins: string; categoryId: stri
     }
   }
 
-  revalidatePath('/admin/casa/produtos');
+  revalidatePath('/admin/dynamic/produtos');
   return { success: true, results };
 }
 
 /**
  * CRIAR PRODUTO (Individual)
  */
-export async function createHomeProduct(data: {
+export async function createDynamicProduct(data: {
   name: string;
   totalPrice: number;
   url: string;
@@ -95,8 +96,14 @@ export async function createHomeProduct(data: {
   attributes: DynamicAttributes;
 }) {
   try {
-    await prisma.homeProduct.create({ data });
-    revalidatePath('/admin/casa/produtos');
+    await prisma.dynamicProduct.create({ 
+      data: {
+        ...data,
+        // 🚀 CORREÇÃO: Usando Prisma.InputJsonValue em vez de 'any' para satisfazer o ESLint
+        attributes: data.attributes as Prisma.InputJsonValue
+      } 
+    });
+    revalidatePath('/admin/dynamic/produtos');
     return { success: true };
   } catch (err) {
     console.error("Erro ao salvar produto:", err);
@@ -107,8 +114,8 @@ export async function createHomeProduct(data: {
 /**
  * LISTAR PRODUTOS (Para o Admin)
  */
-export async function getHomeProducts() {
-  return await prisma.homeProduct.findMany({
+export async function getDynamicProducts() {
+  return await prisma.dynamicProduct.findMany({
     include: { category: true },
     orderBy: { createdAt: 'desc' }
   });
@@ -117,10 +124,10 @@ export async function getHomeProducts() {
 /**
  * EXCLUIR PRODUTO
  */
-export async function deleteHomeProduct(id: string) {
+export async function deleteDynamicProduct(id: string) {
   try {
-    await prisma.homeProduct.delete({ where: { id } });
-    revalidatePath('/admin/casa/produtos');
+    await prisma.dynamicProduct.delete({ where: { id } });
+    revalidatePath('/admin/dynamic/produtos');
     return { success: true };
   } catch (err) {
     console.error("Erro ao deletar produto:", err);

@@ -1,28 +1,30 @@
-import { getHomeProducts, deleteHomeProduct } from '../novo-produto/actions';
+import { getDynamicProducts, deleteDynamicProduct } from '../novo-produto/actions';
 import Link from 'next/link';
 
-export default async function AdminProdutosCasa() {
-  const products = await getHomeProducts();
+export default async function AdminProdutosDynamic() {
+  // Busca os produtos usando a action que já corrigimos para 'prisma.dynamicProduct'
+  const products = await getDynamicProducts();
 
-  // Função auxiliar para extrair o ASIN da URL (ex: .../dp/B07DTVN396?...)
+  // Função auxiliar para extrair o ASIN da URL
   const extractAsin = (url: string) => {
     const match = url.match(/\/dp\/([A-Z0-9]{10})/);
     return match ? match[1] : '---';
   };
 
   return (
-    <div className="p-8 text-black bg-white min-h-screen">
+    <div className="p-8 text-black bg-white min-h-screen font-sans">
       <div className="max-w-7xl mx-auto">
         
         {/* Header */}
         <div className="flex justify-between items-center mb-8 border-b pb-6">
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight">Produtos de Casa</h1>
-            <p className="text-gray-500 text-sm">Gerencie o catálogo de limpeza e utilidades.</p>
+            <h1 className="text-3xl font-black tracking-tight text-gray-900">Catálogo de Produtos</h1>
+            <p className="text-gray-500 text-sm">Gerenciamento universal de itens importados.</p>
           </div>
+          {/* 🚀 CORREÇÃO: URL atualizada para o padrão dinâmico */}
           <Link 
-            href="/admin/casa/importar" 
-            className="bg-yellow-400 hover:bg-yellow-500 text-black px-6 py-3 rounded-xl font-bold transition-all shadow-sm"
+            href="/admin/dynamic/importar" 
+            className="bg-yellow-400 hover:bg-yellow-500 text-black px-6 py-3 rounded-xl font-bold transition-all shadow-sm active:scale-95"
           >
             + Importar via ASIN
           </Link>
@@ -32,7 +34,7 @@ export default async function AdminProdutosCasa() {
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
           <table className="w-full border-collapse text-left">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-xs uppercase tracking-widest text-gray-400 font-black">
+              <tr className="bg-gray-50 border-b border-gray-200 text-[10px] uppercase tracking-widest text-gray-400 font-black">
                 <th className="p-4">Categoria</th>
                 <th className="p-4">Nome</th>
                 <th className="p-4">ASIN</th>
@@ -43,8 +45,8 @@ export default async function AdminProdutosCasa() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {products.map((p) => {
-                // Tipagem para evitar erro de 'any' nos atributos
-                const attrs = p.attributes as { brand?: string };
+                // Tipagem segura para os atributos JSON
+                const attrs = (p.attributes as { brand?: string; brand_name?: string }) || {};
                 const asin = extractAsin(p.url);
 
                 return (
@@ -57,18 +59,18 @@ export default async function AdminProdutosCasa() {
                     </td>
 
                     {/* Nome */}
-                    <td className="p-4 font-medium text-gray-900 max-w-xs truncate">
+                    <td className="p-4 font-medium text-gray-900 max-w-xs truncate" title={p.name}>
                       {p.name}
                     </td>
 
                     {/* ASIN */}
-                    <td className="p-4 font-mono text-xs text-blue-500">
+                    <td className="p-4 font-mono text-xs text-blue-500 font-bold">
                       {asin}
                     </td>
 
                     {/* Marca */}
                     <td className="p-4 text-gray-500">
-                      {attrs.brand || '---'}
+                      {attrs.brand || attrs.brand_name || '---'}
                     </td>
 
                     {/* Preço */}
@@ -79,8 +81,9 @@ export default async function AdminProdutosCasa() {
                     {/* Ações */}
                     <td className="p-4">
                       <div className="flex items-center justify-center gap-4">
+                        {/* 🚀 CORREÇÃO: URL de edição atualizada */}
                         <Link 
-                          href={`/admin/casa/produtos/${p.id}`}
+                          href={`/admin/dynamic/produtos/${p.id}`}
                           className="text-blue-600 hover:text-blue-800 font-bold transition-colors"
                         >
                           Editar
@@ -88,7 +91,7 @@ export default async function AdminProdutosCasa() {
                         
                         <form action={async () => { 
                           'use server'; 
-                          await deleteHomeProduct(p.id); 
+                          await deleteDynamicProduct(p.id); 
                         }}>
                           <button className="text-red-500 hover:text-red-700 font-bold transition-colors">
                             Excluir

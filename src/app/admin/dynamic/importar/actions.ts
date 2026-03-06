@@ -183,15 +183,10 @@ ${sha256(canonicalRequest)}`;
   return new Promise((resolve) => {
 
     const req = https.request(options, (res) => {
-
       let data = "";
-
       res.on("data", (chunk) => (data += chunk));
-
       res.on("end", () => {
-
         try {
-
           const json = JSON.parse(data);
           const item = json?.ItemsResult?.Items?.[0] as AmazonItem | undefined;
 
@@ -206,7 +201,6 @@ ${sha256(canonicalRequest)}`;
           const listingsV2 = item?.OffersV2?.Listings;
 
           if (Array.isArray(listingsV2)) {
-
             const buyBox =
               listingsV2.find((l: AmazonListing) => l?.IsBuyBoxWinner) ??
               listingsV2[0];
@@ -223,15 +217,11 @@ ${sha256(canonicalRequest)}`;
           }
 
           if (price === 0) {
-
             const listing1 = item?.Offers?.Listings?.[0];
-
             const p1 = listing1?.Price?.Amount;
 
             if (typeof p1 === "number") {
-
               price = p1 > 1000 ? p1 / 100 : p1;
-
               merchantName =
                 listing1?.MerchantInfo?.Name ?? "Desconhecido";
             }
@@ -246,16 +236,12 @@ ${sha256(canonicalRequest)}`;
         } catch {
           resolve(null);
         }
-
       });
-
     });
 
     req.on("error", () => resolve(null));
-
     req.write(payload);
     req.end();
-
   });
 }
 
@@ -263,7 +249,7 @@ ${sha256(canonicalRequest)}`;
 ACTION IMPORT
 ====================== */
 
-export async function importCasaViaAPI(
+export async function importDynamicViaAPI(
   asinsRaw: string,
   categoryId: string
 ) {
@@ -276,27 +262,22 @@ export async function importCasaViaAPI(
   const logs: string[] = [];
 
   for (const asin of asinList) {
-
     try {
-
       await delay(2000);
 
       const result = await fetchAmazonPrice(asin);
 
       if (!result) {
-
         logs.push(`❌ ${asin}: Não encontrado na API`);
         continue;
-
       }
 
       const { price, merchantName, item } = result;
 
+      // Filtro preventivo para evitar lojas indesejadas
       if (merchantName === "Loja Suplemento") {
-
         logs.push(`🚫 ${asin}: Excluído (Loja Suplemento)`);
         continue;
-
       }
 
       const name =
@@ -314,49 +295,38 @@ export async function importCasaViaAPI(
       const url =
         `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG}`;
 
-      await prisma.homeProduct.create({
-
+      // 🚀 CORREÇÃO PRISMA: dynamicProduct com inicial minúscula
+      await prisma.dynamicProduct.create({
         data: {
-
           name,
           imageUrl,
           url,
           totalPrice: price,
           categoryId,
-
           attributes: {
             brand,
-            seller: merchantName
+            seller: merchantName,
+            asin: asin // Adicionado o ASIN nos atributos para futuras consultas
           }
-
         }
-
       });
 
       if (price === 0) {
-
         logs.push(`⚠️ ${asin}: Importado sem preço`);
-
       } else {
-
         logs.push(
           `✅ R$ ${price.toFixed(2)} | ${asin} | 🏪 ${merchantName}`
         );
-
       }
 
     } catch (error) {
-
       console.error(error);
-
       logs.push(`❌ ${asin}: erro na importação`);
-
     }
-
   }
 
-  revalidatePath('/admin/casa/produtos');
+  // 🚀 CORREÇÃO: Revalida o caminho dinâmico correto
+  revalidatePath('/admin/dynamic/produtos');
 
   return { logs };
-
 }

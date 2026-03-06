@@ -8,22 +8,21 @@ datasource db {
 }
 
 model Product {
-  id       String   @id @default(cuid())
-  category String
-  name     String
-  brand    String
-  flavor   String?
-  imageUrl String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  id                   String                @id @default(cuid())
+  category             String
+  name                 String
+  brand                String
+  flavor               String?
+  imageUrl             String
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
   offers               Offer[]
   creatineInfo         CreatineInfo?
   wheyInfo             WheyInfo?
   proteinBarInfo       ProteinBarInfo?
   proteinDrinkInfo     ProteinDrinkInfo?
   functionalCoffeeInfo FunctionalCoffeeInfo?
-  preWorkoutInfo       PreWorkoutInfo?       
+  preWorkoutInfo       PreWorkoutInfo?
 }
 
 model CreatineInfo {
@@ -68,18 +67,17 @@ model FunctionalCoffeeInfo {
   id                  String  @id @default(cuid())
   productId           String  @unique
   product             Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  totalWeightInGrams  Float   
-  doseInGrams         Float   
-  caffeinePerDoseInMg Float   
+  totalWeightInGrams  Float
+  doseInGrams         Float
+  caffeinePerDoseInMg Float
 }
 
-// --- MODELO ATUALIZADO (PADRÃO WHEY) ---
 model PreWorkoutInfo {
   id                  String  @id @default(cuid())
   productId           String  @unique
-  totalWeightInGrams  Float   // Peso total do pote (ex: 300g)
-  doseInGrams         Float   // Tamanho do scoop (ex: 10g)
-  caffeinePerDoseInMg Float   // Cafeína por dose (ex: 200mg)
+  totalWeightInGrams  Float
+  doseInGrams         Float
+  caffeinePerDoseInMg Float
   product             Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
@@ -88,7 +86,7 @@ model Offer {
   productId     String
   store         Store
   externalId    String
-  seller        String?           // Campo adicionado para o filtro "Vendido por"
+  seller        String?
   price         Float
   affiliateUrl  String
   createdAt     DateTime          @default(now())
@@ -130,31 +128,28 @@ enum CreatineForm {
   GUMMY
 }
 
-// --- NOVOS MODELOS: PRODUTOS PARA CASA ---
+model DynamicCategory {
+  id            String           @id @default(cuid())
+  group         String           @default("casa")
+  name          String
+  slug          String
+  displayConfig Json
+  products      DynamicProduct[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
-model HomeCategory {
-  id            String        @id @default(cuid())
-  name          String        
-  slug          String        @unique 
-  displayConfig Json        
-  products      HomeProduct[]
-  
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  @@unique([group, slug])
 }
 
-model HomeProduct {
-  id          String       @id @default(cuid())
-  name        String       
-  totalPrice  Float        
-  url         String       
-  imageUrl    String?      
-  
+model DynamicProduct {
+  id          String          @id @default(cuid())
+  name        String
+  totalPrice  Float
+  url         String
+  imageUrl    String?
   categoryId  String
-  category    HomeCategory @relation(fields: [categoryId], references: [id])
-  
-  attributes  Json         
-  
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  category    DynamicCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  attributes  Json
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 }
