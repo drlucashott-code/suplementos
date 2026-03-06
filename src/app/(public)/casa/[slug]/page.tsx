@@ -47,12 +47,8 @@ export default async function CasaCategoryPage({ params, searchParams }: PagePro
 
   const displayConfig = category.displayConfig as unknown as DisplayConfigField[];
 
-  // Identifica configurações dinâmicas de texto (ex: Tipo de Folha)
-  const dynamicTextConfigs = displayConfig.filter(
-    (c) => c.type === "text" && !c.label.toUpperCase().includes("VALOR") && !c.label.toUpperCase().includes("PREÇO")
-  );
+  const dynamicTextConfigs = displayConfig.filter((c) => c.type === "text");
 
-  // 1. Extração de Opções Únicas (Marca, Vendedor e Dinâmicos)
   const availableBrands = new Set<string>();
   const availableSellers = new Set<string>();
   const dynamicFilterOptions: Record<string, Set<string>> = {};
@@ -70,47 +66,40 @@ export default async function CasaCategoryPage({ params, searchParams }: PagePro
     });
   });
 
-  // 2. Busca (Search)
   const stopWords = ["de", "da", "do", "para", "com"];
   const searchWords = searchQuery.trim().split(/\s+/).map((word) => removeAccents(word.toLowerCase())).filter((word) => !stopWords.includes(word) && word.length > 0);
 
-  // 3. Aplicação de Filtros
   const selectedBrands = search.brand ? String(search.brand).split(",") : [];
   const selectedSellers = search.seller ? String(search.seller).split(",") : [];
 
-  // 🚀 CORREÇÃO ESLint: Usando 'const' em vez de 'let'
   const matchedProducts = category.products.filter((p) => {
     const attrs = p.attributes as unknown as DynamicAttributes;
     const pBrand = String(attrs.brand || "");
     const pSeller = String(attrs.seller || "");
 
-    // Filtro de Busca
     if (searchWords.length > 0) {
       const productText = removeAccents(`${p.name} ${pBrand}`.toLowerCase());
       if (!searchWords.every((word) => productText.includes(word))) return false;
     }
 
-    // Filtros Fixos (Marca e Vendedor)
     if (selectedBrands.length > 0 && !selectedBrands.includes(pBrand)) return false;
     if (selectedSellers.length > 0 && !selectedSellers.includes(pSeller)) return false;
 
-    // Filtros Dinâmicos
     for (const config of dynamicTextConfigs) {
       const selectedDynamic = search[config.key] ? String(search[config.key]).split(",") : [];
       const pVal = String(attrs[config.key] || "");
       if (selectedDynamic.length > 0 && !selectedDynamic.includes(pVal)) return false;
     }
-
     return true;
   });
 
-  // 4. Cálculo de Custo-Benefício e Formatação para o Card
   const rankedProducts = matchedProducts.map((p) => {
     const attrs = p.attributes as unknown as DynamicAttributes;
     let pricePerUnit = 0;
 
-    // Acha o campo de "Lavagens", "Litros" ou "Rolos" para calcular o custo unitário
-    const calcConfig = displayConfig.find(c => c.label.toUpperCase().includes("VALOR") || c.label.toUpperCase().includes("PREÇO"));
+    // 🚀 Rastreia por Formato 'Currency' para Ordenação
+    const calcConfig = displayConfig.find(c => c.type === "currency");
+    
     if (calcConfig) {
       const labelUpper = calcConfig.label.toUpperCase();
       let targetConfig;
@@ -133,7 +122,6 @@ export default async function CasaCategoryPage({ params, searchParams }: PagePro
     };
   });
 
-  // 5. Ordenação
   const finalProducts = rankedProducts.sort((a, b) => {
     if (order === "price_asc") return a.price - b.price;
     if (order === "cheapest_unit" && a.pricePerUnit > 0 && b.pricePerUnit > 0) return a.pricePerUnit - b.pricePerUnit;

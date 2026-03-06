@@ -16,7 +16,7 @@ export type CasaProduct = {
 interface DisplayConfigField {
   key: string;
   label: string;
-  type: "text" | "number" | "currency" | string;
+  type: "text" | "number" | "currency";
 }
 
 export function MobileProductCard({ 
@@ -55,6 +55,8 @@ export function MobileProductCard({
 
   return (
     <div className="flex gap-3 border-b border-gray-100 bg-white relative items-stretch min-h-[220px] font-sans">
+      
+      {/* Imagem */}
       <div className="w-[140px] bg-[#f3f3f3] flex-shrink-0 flex items-center justify-center p-2 relative">
         {product.imageUrl ? (
            <Image
@@ -72,10 +74,12 @@ export function MobileProductCard({
       </div>
 
       <div className="flex flex-col flex-1 pr-2 py-4">
+        {/* Título */}
         <h2 className="text-[14px] text-[#0F1111] leading-tight line-clamp-3 mb-1 font-normal">
           {product.name}
         </h2>
 
+        {/* Avaliações */}
         {(rating > 0 || reviewsCount > 0) && (
           <div className="flex items-center gap-1 mb-3 text-[12px]">
             <span className="font-normal text-[#0F1111]">{rating.toFixed(1)}</span>
@@ -88,27 +92,44 @@ export function MobileProductCard({
           </div>
         )}
 
+        {/* Tabela Técnica Baseada no Formato 'Currency' */}
         <div className={`bg-white border border-zinc-200 rounded p-2 mb-3 grid grid-cols-2 gap-2 divide-x divide-zinc-200 ${rating === 0 ? 'mt-2' : ''}`}>
            {displayConfig.map((config) => {
               const rawValue = product.attributes[config.key];
               let displayValue = rawValue ? String(rawValue) : '-';
               const labelUpper = config.label.toUpperCase();
 
-              if (labelUpper.includes('VALOR') || labelUpper.includes('PREÇO')) {
-                displayValue = product.pricePerUnit > 0 ? `R$ ${product.pricePerUnit.toFixed(2).replace('.', ',')}` : 'R$ 0,00';
-              } else if (config.type === 'currency' && rawValue) {
-                displayValue = `R$ ${Number(rawValue).toFixed(2).replace('.', ',')}`;
+              // 🚀 Lógica Inteligente por Formato Moeda
+              if (config.type === 'currency') {
+                let targetConfig;
+                if (labelUpper.includes('LAVAGE')) targetConfig = displayConfig.find(c => c.label.toUpperCase().includes('LAVAGE') && c.key !== config.key);
+                else if (labelUpper.includes('LITRO')) targetConfig = displayConfig.find(c => c.label.toUpperCase().includes('LITRO') && c.key !== config.key);
+                else if (labelUpper.includes('ROLO')) targetConfig = displayConfig.find(c => c.label.toUpperCase().includes('ROLO') && c.key !== config.key);
+
+                const quantity = targetConfig ? Number(product.attributes[targetConfig.key]) : 0;
+                
+                if (quantity > 0) {
+                  const calculated = product.price / quantity;
+                  displayValue = `R$ ${calculated.toFixed(2).replace('.', ',')}`;
+                } else {
+                  displayValue = rawValue ? `R$ ${Number(rawValue).toFixed(2).replace('.', ',')}` : 'R$ 0,00';
+                }
               }
 
               return (
                 <div key={config.key} className="flex flex-col text-center px-1 overflow-hidden">
-                  <span className="text-[13px] font-bold text-[#0F1111] leading-none truncate mb-1">{displayValue}</span>
-                  <span className="text-[9px] uppercase font-bold text-zinc-500 tracking-wide truncate">{config.label}</span>
+                  <span className="text-[13px] font-bold text-[#0F1111] leading-none truncate mb-1">
+                    {displayValue}
+                  </span>
+                  <span className="text-[9px] uppercase font-bold text-zinc-500 tracking-wide truncate">
+                    {config.label}
+                  </span>
                 </div>
               );
            })}
         </div>
 
+        {/* Preço e Prime */}
         <div className="flex flex-col mt-auto">
           {hasPrice ? (
             <>
@@ -120,9 +141,9 @@ export function MobileProductCard({
                 </div>
               </div>
               <div className="mt-1 flex items-center">
-                <span className="font-black italic text-[12px] leading-none flex items-center">
+                <span className="font-black italic text-[12px] leading-none flex items-center text-[#00A8E1]">
                   <span className="not-italic text-[13px] text-[#FEBD69] mr-0.5" aria-hidden="true">✓</span>
-                  <span className="text-[#00A8E1]">prime</span>
+                  prime
                 </span>
               </div>
             </>

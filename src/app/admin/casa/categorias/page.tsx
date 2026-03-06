@@ -1,4 +1,5 @@
 import { getHomeCategories, deleteHomeCategory, type ConfigField } from '../nova-categoria/actions';
+import Link from 'next/link'; // 🚀 Importamos o Link do Next.js
 
 export default async function AdminCategoriasCasa() {
   const categories = await getHomeCategories();
@@ -10,12 +11,13 @@ export default async function AdminCategoriasCasa() {
           <h1 className="text-3xl font-bold text-gray-800">Categorias de Casa</h1>
           <p className="text-gray-500 text-sm">Gerencie as categorias dinâmicas do seu site.</p>
         </div>
-        <a 
+        {/* 🚀 Trocado a por Link */}
+        <Link 
           href="/admin/casa/nova-categoria" 
           className="bg-black text-white px-5 py-2.5 rounded-lg font-bold hover:bg-gray-800 transition"
         >
           + Nova Categoria
-        </a>
+        </Link>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-gray-200 shadow-sm">
@@ -31,7 +33,6 @@ export default async function AdminCategoriasCasa() {
           </thead>
           <tbody className="divide-y divide-gray-100 border-t border-gray-100">
             {categories.map((cat) => {
-              // Corrigido: Cast para o tipo correto definido nas actions em vez de 'any'
               const displayConfig = cat.displayConfig as unknown as ConfigField[];
               const fieldsCount = displayConfig.length;
 
@@ -52,14 +53,25 @@ export default async function AdminCategoriasCasa() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <form action={async () => { 'use server'; await deleteHomeCategory(cat.id); }}>
-                      <button 
-                        className="text-red-500 hover:text-red-700 font-bold text-sm transition"
-                        title="Excluir Categoria"
+                    <div className="flex justify-end items-center gap-4">
+                      {/* 🚀 Trocado a por Link */}
+                      <Link 
+                        href={`/admin/casa/nova-categoria?id=${cat.id}`}
+                        className="text-blue-600 hover:text-blue-800 font-bold text-sm transition"
+                        title="Editar Categoria"
                       >
-                        Excluir
-                      </button>
-                    </form>
+                        Editar
+                      </Link>
+                      
+                      <form action={async () => { 'use server'; await deleteHomeCategory(cat.id); }}>
+                        <button 
+                          className="text-red-500 hover:text-red-700 font-bold text-sm transition"
+                          title="Excluir Categoria"
+                        >
+                          Excluir
+                        </button>
+                      </form>
+                    </div>
                   </td>
                 </tr>
               );
@@ -77,9 +89,10 @@ export default async function AdminCategoriasCasa() {
       </div>
 
       <div className="mt-6 flex gap-4">
-         <a href="/admin/casa/produtos" className="text-blue-600 hover:underline text-sm font-medium">
-            ← Ver todos os produtos
-         </a>
+         {/* 🚀 Trocado a por Link */}
+         <Link href="/admin/casa/produtos" className="text-blue-600 hover:underline text-sm font-medium">
+           ← Ver todos os produtos
+         </Link>
       </div>
     </div>
   );
