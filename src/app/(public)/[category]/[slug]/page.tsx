@@ -24,7 +24,7 @@ interface DisplayConfigField {
 interface DynamicAttributes {
   brand?: string;
   seller?: string;
-  [key: string]: string | number | undefined;
+  [key: string]: string | number | boolean | undefined; // 🚀 Aceita boolean agora para evitar erros de tipo
 }
 
 const removeAccents = (str: string) => {
@@ -38,7 +38,7 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
   const order = (search.order as string) ?? "cheapest_unit";
   const searchQuery = (search.q as string) || "";
 
-  // 🚀 CORREÇÃO: Busca a categoria filtrando apenas produtos com PREÇO > 0
+  // 🚀 CORREÇÃO PRISMA: Filtra produtos com preço válido direto na query
   const categoryData = await prisma.dynamicCategory.findFirst({
     where: { 
       slug: slug,
@@ -47,7 +47,7 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
     include: {
       products: { 
         where: {
-          totalPrice: { gt: 0 } // ✅ Remove produtos indisponíveis (preço 0 ou nulo)
+          totalPrice: { gt: 0 } 
         },
         orderBy: { totalPrice: "asc" } 
       },
@@ -62,7 +62,7 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
   // Apenas o que for public !== false vai para os cards
   const publicDisplayConfig = fullDisplayConfig.filter(c => c.public !== false);
 
-  // Filtros dinâmicos (usam a config completa para permitir busca interna)
+  // Filtros dinâmicos
   const dynamicTextConfigs = fullDisplayConfig.filter((c) => c.type === "text");
 
   const availableBrands = new Set<string>();
@@ -78,7 +78,7 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
     
     dynamicTextConfigs.forEach(config => {
       const val = attrs[config.key];
-      if (val) dynamicFilterOptions[config.key].add(String(val));
+      if (val !== undefined && val !== null) dynamicFilterOptions[config.key].add(String(val));
     });
   });
 
@@ -88,7 +88,6 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
   const selectedBrands = search.brand ? String(search.brand).split(",") : [];
   const selectedSellers = search.seller ? String(search.seller).split(",") : [];
 
-  // Filtragem dos produtos baseada nos searchParams
   const matchedProducts = categoryData.products.filter((p: DynamicProduct) => {
     const attrs = p.attributes as unknown as DynamicAttributes;
     const pBrand = String(attrs.brand || "");
@@ -136,7 +135,7 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
       price: p.totalPrice,
       affiliateUrl: p.url,
       pricePerUnit,
-      attributes: attrs,
+      attributes: attrs as Record<string, string | number | undefined>, 
     };
   });
 
