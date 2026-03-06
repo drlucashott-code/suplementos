@@ -18,6 +18,7 @@ interface DisplayConfigField {
   key: string;
   label: string;
   type: "text" | "number" | "currency";
+  public?: boolean; 
 }
 
 interface DynamicAttributes {
@@ -31,28 +32,38 @@ const removeAccents = (str: string) => {
 };
 
 export default async function DynamicCategoryPage({ params, searchParams }: PageProps) {
-  // 🚀 CORREÇÃO: Extraindo 'category' (que é o group no banco) e o 'slug'
   const { category: group, slug } = await params;
   const search = await searchParams;
   
   const order = (search.order as string) ?? "cheapest_unit";
   const searchQuery = (search.q as string) || "";
 
-  // 🚀 CORREÇÃO: Busca usando findFirst para filtrar por grupo + slug
+  // 🚀 CORREÇÃO: Busca a categoria filtrando apenas produtos com PREÇO > 0
   const categoryData = await prisma.dynamicCategory.findFirst({
     where: { 
       slug: slug,
-      group: group // Filtra pelo nicho da URL (ex: casa, petshop)
+      group: group 
     },
     include: {
-      products: { orderBy: { totalPrice: "asc" } },
+      products: { 
+        where: {
+          totalPrice: { gt: 0 } // ✅ Remove produtos indisponíveis (preço 0 ou nulo)
+        },
+        orderBy: { totalPrice: "asc" } 
+      },
     },
   });
 
   if (!categoryData) return notFound();
 
-  const displayConfig = categoryData.displayConfig as unknown as DisplayConfigField[];
-  const dynamicTextConfigs = displayConfig.filter((c) => c.type === "text");
+  // LÓGICA DE FILTRAGEM PÚBLICA:
+  const fullDisplayConfig = categoryData.displayConfig as unknown as DisplayConfigField[];
+  
+  // Apenas o que for public !== false vai para os cards
+  const publicDisplayConfig = fullDisplayConfig.filter(c => c.public !== false);
+
+  // Filtros dinâmicos (usam a config completa para permitir busca interna)
+  const dynamicTextConfigs = fullDisplayConfig.filter((c) => c.type === "text");
 
   const availableBrands = new Set<string>();
   const availableSellers = new Set<string>();
@@ -77,6 +88,7 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
   const selectedBrands = search.brand ? String(search.brand).split(",") : [];
   const selectedSellers = search.seller ? String(search.seller).split(",") : [];
 
+  // Filtragem dos produtos baseada nos searchParams
   const matchedProducts = categoryData.products.filter((p: DynamicProduct) => {
     const attrs = p.attributes as unknown as DynamicAttributes;
     const pBrand = String(attrs.brand || "");
@@ -102,17 +114,16 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
     const attrs = p.attributes as unknown as DynamicAttributes;
     let pricePerUnit = 0;
 
-    const calcConfig = displayConfig.find(c => c.type === "currency");
+    const calcConfig = fullDisplayConfig.find(c => c.type === "currency");
     
     if (calcConfig) {
       const labelUpper = calcConfig.label.toUpperCase();
       let targetConfig;
       
-      // Lógica de cálculo estendida para abranger diversos nichos
-      if (labelUpper.includes("LAVAGE")) targetConfig = displayConfig.find(c => c.label.toUpperCase().includes("LAVAGE") && c.key !== calcConfig.key);
-      else if (labelUpper.includes("LITRO")) targetConfig = displayConfig.find(c => c.label.toUpperCase().includes("LITRO") && c.key !== calcConfig.key);
-      else if (labelUpper.includes("ROLO")) targetConfig = displayConfig.find(c => c.label.toUpperCase().includes("ROLO") && c.key !== calcConfig.key);
-      else if (labelUpper.includes("KG") || labelUpper.includes("QUILO")) targetConfig = displayConfig.find(c => (c.label.toUpperCase().includes("KG") || c.label.toUpperCase().includes("QUILO")) && c.key !== calcConfig.key);
+      if (labelUpper.includes("LAVAGE")) targetConfig = fullDisplayConfig.find(c => c.label.toUpperCase().includes("LAVAGE") && c.key !== calcConfig.key);
+      else if (labelUpper.includes("LITRO")) targetConfig = fullDisplayConfig.find(c => c.label.toUpperCase().includes("LITRO") && c.key !== calcConfig.key);
+      else if (labelUpper.includes("ROLO")) targetConfig = fullDisplayConfig.find(c => c.label.toUpperCase().includes("ROLO") && c.key !== calcConfig.key);
+      else if (labelUpper.includes("KG") || labelUpper.includes("QUILO")) targetConfig = fullDisplayConfig.find(c => (c.label.toUpperCase().includes("KG") || c.label.toUpperCase().includes("QUILO")) && c.key !== calcConfig.key);
 
       const quantity = targetConfig ? Number(attrs[targetConfig.key]) : 0;
       if (quantity > 0) pricePerUnit = p.totalPrice / quantity;
@@ -151,7 +162,7 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
             <MobileFiltersDrawer
               brands={Array.from(availableBrands).sort()}
               sellers={Array.from(availableSellers).sort()}
-              dynamicConfigs={dynamicTextConfigs}
+              dynamicConfigs={dynamicTextConfigs} 
               dynamicOptions={Object.fromEntries(
                 Object.entries(dynamicFilterOptions).map(([k, v]) => [k, Array.from(v).sort()])
               )}
@@ -167,7 +178,7 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
               <ProductList
                 products={finalProducts}
                 viewEventName="view_dynamic_list"
-                displayConfig={displayConfig}
+                displayConfig={publicDisplayConfig}
               />
             </div>
           </div>

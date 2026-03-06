@@ -1,115 +1,77 @@
-import { getDynamicProducts, deleteDynamicProduct } from '../novo-produto/actions';
+import { getDynamicProducts, getHomeCategories } from './actions'; 
+import { AdminProductTable } from '@/components/admin/AdminProductTable';
 import Link from 'next/link';
 
-export default async function AdminProdutosDynamic() {
-  // Busca os produtos usando a action que já corrigimos para 'prisma.dynamicProduct'
-  const products = await getDynamicProducts();
+// 🚀 ESSENCIAL: Garante que o Admin nunca mostre dados cacheados/desatualizados
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-  // Função auxiliar para extrair o ASIN da URL
-  const extractAsin = (url: string) => {
-    const match = url.match(/\/dp\/([A-Z0-9]{10})/);
-    return match ? match[1] : '---';
-  };
+export default async function AdminProdutosDynamic() {
+  // 🚀 Busca sincronizada no servidor
+  // Note: getHomeCategories agora é buscado da mesma action para manter consistência
+  const [products, categories] = await Promise.all([
+    getDynamicProducts(),
+    getHomeCategories()
+  ]);
 
   return (
-    <div className="p-8 text-black bg-white min-h-screen font-sans">
+    <div className="p-8 text-black bg-gray-50/30 min-h-screen font-sans">
       <div className="max-w-7xl mx-auto">
         
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8 border-b pb-6">
+        {/* Header Superior */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-gray-900">Catálogo de Produtos</h1>
-            <p className="text-gray-500 text-sm">Gerenciamento universal de itens importados.</p>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse"></span>
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Painel de Controle</span>
+            </div>
+            <h1 className="text-4xl font-black tracking-tight text-gray-900 uppercase italic">
+              Catálogo Dinâmico
+            </h1>
+            <p className="text-gray-500 text-sm mt-1">
+              Gerencie <span className="text-black font-bold">{products.length}</span> produtos em todos os nichos ativos.
+            </p>
           </div>
-          {/* 🚀 CORREÇÃO: URL atualizada para o padrão dinâmico */}
-          <Link 
-            href="/admin/dynamic/importar" 
-            className="bg-yellow-400 hover:bg-yellow-500 text-black px-6 py-3 rounded-xl font-bold transition-all shadow-sm active:scale-95"
-          >
-            + Importar via ASIN
-          </Link>
+
+          <div className="flex gap-3">
+            {/* Link para Gerenciar Categorias */}
+            <Link 
+              href="/admin/dynamic/categorias" 
+              className="bg-white border border-gray-200 text-gray-500 hover:text-black hover:border-gray-300 px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm flex items-center"
+            >
+              📂 Categorias
+            </Link>
+
+            {/* Botão de Importação - Destaque em Amarelo */}
+            <Link 
+              href="/admin/dynamic/importar" 
+              className="bg-yellow-400 hover:bg-yellow-500 text-black px-6 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-md active:scale-95 flex items-center gap-2 border border-yellow-500/20"
+            >
+              <span className="text-lg leading-none">+</span> Importar via ASIN
+            </Link>
+          </div>
         </div>
 
-        {/* Tabela */}
-        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-[10px] uppercase tracking-widest text-gray-400 font-black">
-                <th className="p-4">Categoria</th>
-                <th className="p-4">Nome</th>
-                <th className="p-4">ASIN</th>
-                <th className="p-4">Marca</th>
-                <th className="p-4">Preço</th>
-                <th className="p-4 text-center">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {products.map((p) => {
-                // Tipagem segura para os atributos JSON
-                const attrs = (p.attributes as { brand?: string; brand_name?: string }) || {};
-                const asin = extractAsin(p.url);
+        {/* 🚀 COMPONENTE DE TABELA INTERATIVA (Client Side) 
+            Este componente recebe os produtos e as categorias. 
+            Dentro dele, você deve garantir que as colunas acessem 'p.attributes.marca' e 'p.attributes.asin'.
+        */}
+        <div className="bg-white rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
+          <AdminProductTable 
+            initialProducts={products} 
+            categories={categories} 
+          />
+        </div>
 
-                return (
-                  <tr key={p.id} className="hover:bg-gray-50/50 transition-colors text-sm">
-                    {/* Categoria */}
-                    <td className="p-4">
-                      <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-[10px] font-bold uppercase">
-                        {p.category.name}
-                      </span>
-                    </td>
-
-                    {/* Nome */}
-                    <td className="p-4 font-medium text-gray-900 max-w-xs truncate" title={p.name}>
-                      {p.name}
-                    </td>
-
-                    {/* ASIN */}
-                    <td className="p-4 font-mono text-xs text-blue-500 font-bold">
-                      {asin}
-                    </td>
-
-                    {/* Marca */}
-                    <td className="p-4 text-gray-500">
-                      {attrs.brand || attrs.brand_name || '---'}
-                    </td>
-
-                    {/* Preço */}
-                    <td className="p-4 font-black text-gray-900">
-                      R$ {p.totalPrice.toFixed(2)}
-                    </td>
-
-                    {/* Ações */}
-                    <td className="p-4">
-                      <div className="flex items-center justify-center gap-4">
-                        {/* 🚀 CORREÇÃO: URL de edição atualizada */}
-                        <Link 
-                          href={`/admin/dynamic/produtos/${p.id}`}
-                          className="text-blue-600 hover:text-blue-800 font-bold transition-colors"
-                        >
-                          Editar
-                        </Link>
-                        
-                        <form action={async () => { 
-                          'use server'; 
-                          await deleteDynamicProduct(p.id); 
-                        }}>
-                          <button className="text-red-500 hover:text-red-700 font-bold transition-colors">
-                            Excluir
-                          </button>
-                        </form>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {products.length === 0 && (
-            <div className="p-12 text-center text-gray-400 italic">
-              Nenhum produto encontrado. Comece importando alguns ASINs!
-            </div>
-          )}
+        {/* Rodapé de Navegação */}
+        <div className="mt-8 pt-6 border-t border-gray-200 flex justify-between items-center">
+           <Link href="/admin" className="text-gray-400 hover:text-black text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2">
+             <span className="text-lg">←</span> Voltar ao Dashboard
+           </Link>
+           
+           <span className="text-[10px] font-bold text-gray-300 uppercase tracking-tighter">
+             Amazon Picks v3.0 - Dynamic System
+           </span>
         </div>
       </div>
     </div>

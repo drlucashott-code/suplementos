@@ -4,11 +4,14 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createDynamicCategory, updateDynamicCategory, getDynamicCategoryById } from './actions';
 
-// Tipo da configuração para o TypeScript
+// 🚀 TIPAGEM DEFINIDA: Criamos um tipo para os formatos permitidos
+type FieldType = 'text' | 'number' | 'currency';
+
 type ConfigField = {
   key: string;
   label: string;
-  type: 'text' | 'number' | 'currency';
+  type: FieldType;
+  public: boolean;
 };
 
 function CategoriaForm() {
@@ -18,13 +21,12 @@ function CategoriaForm() {
 
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
-  const [group, setGroup] = useState('casa'); // 🚀 Estado do Nicho/Grupo
+  const [group, setGroup] = useState('casa');
   const [displayConfig, setDisplayConfig] = useState<ConfigField[]>([]);
   
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(!!editId);
 
-  // Carrega dados para edição
   useEffect(() => {
     if (editId) {
       async function loadData() {
@@ -32,8 +34,12 @@ function CategoriaForm() {
         if (cat) {
           setName(cat.name);
           setSlug(cat.slug);
-          setGroup(cat.group || 'casa'); // 🚀 Carrega o grupo existente no banco
-          setDisplayConfig((cat.displayConfig as unknown as ConfigField[]) || []);
+          setGroup(cat.group || 'casa');
+          const config = ((cat.displayConfig as unknown as ConfigField[]) || []).map(f => ({
+            ...f,
+            public: f.public !== undefined ? f.public : true
+          }));
+          setDisplayConfig(config);
         } else {
           alert("Categoria não encontrada.");
           router.push('/admin/dynamic/categorias');
@@ -45,12 +51,12 @@ function CategoriaForm() {
   }, [editId, router]);
 
   const addField = () => {
-    setDisplayConfig([...displayConfig, { key: '', label: '', type: 'text' }]);
+    setDisplayConfig([...displayConfig, { key: '', label: '', type: 'text', public: true }]);
   };
 
   const updateField = (index: number, field: Partial<ConfigField>) => {
     const newConfig = [...displayConfig];
-    newConfig[index] = { ...newConfig[index], ...field };
+    newConfig[index] = { ...newConfig[index], ...field } as ConfigField;
     setDisplayConfig(newConfig);
   };
 
@@ -70,8 +76,6 @@ function CategoriaForm() {
     }
 
     setLoading(true);
-    
-    // Payload inclui o 'group' para o findFirst da action
     const payload = { name, slug, group, displayConfig };
     
     let result;
@@ -86,136 +90,96 @@ function CategoriaForm() {
     if (result?.error) {
       alert(result.error);
     } else if (result?.success) {
-      alert(editId ? "Categoria atualizada com sucesso!" : "Categoria criada com sucesso!");
+      alert(editId ? "Categoria atualizada!" : "Categoria criada!");
       router.push('/admin/dynamic/categorias');
     }
   };
 
-  if (initialLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500 font-medium font-sans">
-        Carregando dados da categoria...
-      </div>
-    );
-  }
+  if (initialLoading) return <div className="p-20 text-center font-bold">Carregando...</div>;
 
   return (
-    <div className="p-8 max-w-4xl mx-auto bg-white min-h-screen text-black font-sans">
+    <div className="p-8 max-w-5xl mx-auto bg-white min-h-screen text-black font-sans">
       <div className="flex items-center gap-4 mb-8">
-        <button onClick={() => router.back()} className="text-gray-400 hover:text-black transition">
-          ← Voltar
-        </button>
-        <h1 className="text-3xl font-black tracking-tight text-gray-900">
-          {editId ? 'Editar Categoria' : 'Nova Categoria Dinâmica'}
+        <button onClick={() => router.back()} className="text-gray-400 hover:text-black transition">← Voltar</button>
+        <h1 className="text-3xl font-black tracking-tight text-gray-900 uppercase italic">
+          Configurar Nicho e Visibilidade
         </h1>
       </div>
       
-      {/* Informações Básicas e Seleção de Grupo */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 bg-gray-50 p-6 rounded-2xl border border-gray-200 shadow-sm">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 bg-gray-50 p-6 rounded-2xl border border-gray-200">
         <div>
-          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Nicho (Grupo)</label>
-          <select 
-            value={group} 
-            onChange={(e) => setGroup(e.target.value)}
-            className="w-full border border-gray-200 p-3 rounded-xl bg-white outline-none focus:ring-2 focus:ring-yellow-400 font-bold transition-all"
-          >
+          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Nicho / Grupo</label>
+          <select value={group} onChange={(e) => setGroup(e.target.value)} className="w-full border border-gray-200 p-3 rounded-xl font-bold outline-none focus:ring-2 focus:ring-yellow-400">
             <option value="casa">Casa & Limpeza</option>
             <option value="petshop">Petshop</option>
             <option value="bebe">Bebês</option>
             <option value="suplementos">Suplementos</option>
-            {/* Adicione novos grupos aqui conforme necessário */}
           </select>
         </div>
         <div>
-          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Nome da Categoria</label>
-          <input 
-            type="text" 
-            value={name} 
-            onChange={(e) => setName(e.target.value)} 
-            placeholder="Ex: Ração para Cães"
-            className="w-full border border-gray-200 p-3 rounded-xl bg-white outline-none focus:ring-2 focus:ring-yellow-400 font-medium transition-all"
-          />
+          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Nome Exibido</label>
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full border border-gray-200 p-3 rounded-xl outline-none focus:ring-2 focus:ring-yellow-400 font-medium" />
         </div>
         <div>
-          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Slug (URL)</label>
-          <input 
-            type="text" 
-            value={slug} 
-            onChange={(e) => setSlug(e.target.value)} 
-            placeholder="Ex: racao-caes"
-            className="w-full border border-gray-200 p-3 rounded-xl bg-white outline-none focus:ring-2 focus:ring-yellow-400 font-medium transition-all"
-          />
+          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Slug URL</label>
+          <input type="text" value={slug} onChange={(e) => setSlug(e.target.value)} className="w-full border border-gray-200 p-3 rounded-xl outline-none focus:ring-2 focus:ring-yellow-400 font-medium" />
         </div>
       </div>
 
-      {/* Configuração Dinâmica dos Cards */}
       <div className="mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-800">Atributos do Card</h2>
-          <button 
-            onClick={addField}
-            className="bg-black text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-800 transition font-bold shadow-sm"
-          >
-            + Adicionar Atributo
-          </button>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-gray-800">Campos do Card</h2>
+          <button onClick={addField} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-black hover:bg-blue-700 transition shadow-md">+ Novo Atributo</button>
         </div>
-        
-        {displayConfig.length === 0 && (
-          <div className="text-gray-400 text-sm p-10 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl text-center">
-            Nenhum atributo definido. Clique acima para começar.
-          </div>
-        )}
 
-        {displayConfig.map((field, index) => (
-          <div key={index} className="flex flex-col md:flex-row gap-4 mb-4 items-end bg-white p-5 rounded-2xl border border-gray-200 relative group transition-all hover:border-gray-300 shadow-sm">
-            <div className="flex-1 w-full">
-              <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Rótulo (Ex: Peso)</label>
-              <input 
-                type="text" 
-                value={field.label} 
-                onChange={(e) => updateField(index, { label: e.target.value })}
-                placeholder="Ex: Peso Líquido"
-                className="w-full border border-gray-100 p-2.5 rounded-lg bg-gray-50 outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 transition-all"
-              />
+        <div className="space-y-4">
+          {displayConfig.map((field, index) => (
+            <div key={index} className="flex flex-wrap md:flex-nowrap gap-4 items-end bg-white p-5 rounded-2xl border border-gray-200 shadow-sm relative transition-all hover:border-gray-300">
+              <div className="flex-1 min-w-[150px]">
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Rótulo (Público)</label>
+                <input type="text" value={field.label} onChange={(e) => updateField(index, { label: e.target.value })} className="w-full border border-gray-100 p-2.5 rounded-lg bg-gray-50 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="flex-1 min-w-[150px]">
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Chave Interna</label>
+                <input type="text" value={field.key} onChange={(e) => updateField(index, { key: e.target.value })} className="w-full border border-gray-100 p-2.5 rounded-lg bg-gray-50 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 font-mono text-xs" />
+              </div>
+              
+              {/* 🚀 CORREÇÃO ESLINT: Removido o 'as any' e usada a tipagem FieldType */}
+              <div className="w-32">
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Formato</label>
+                <select 
+                  value={field.type} 
+                  onChange={(e) => updateField(index, { type: e.target.value as FieldType })} 
+                  className="w-full border border-gray-100 p-2.5 rounded-lg bg-gray-50 outline-none focus:bg-white"
+                >
+                  <option value="text">Texto</option>
+                  <option value="number">Número</option>
+                  <option value="currency">Moeda</option>
+                </select>
+              </div>
+
+              {/* CHECKBOX DE VISIBILIDADE */}
+              <div className="flex flex-col items-center justify-center bg-gray-50 p-2 rounded-xl border border-gray-100 min-w-[110px]">
+                <label className="text-[9px] font-black uppercase text-gray-400 mb-1">Exibir no Site?</label>
+                <div className="flex items-center gap-2">
+                   <span className="text-xs">{field.public ? '👁️' : '🔒'}</span>
+                   <input 
+                    type="checkbox" 
+                    checked={field.public} 
+                    onChange={(e) => updateField(index, { public: e.target.checked })}
+                    className="w-5 h-5 accent-emerald-500 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <button onClick={() => removeField(index)} className="text-red-400 hover:text-red-600 font-black text-[10px] uppercase p-2 transition-colors">Excluir</button>
             </div>
-            <div className="flex-1 w-full">
-              <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Chave (Ex: weight)</label>
-              <input 
-                type="text" 
-                value={field.key} 
-                onChange={(e) => updateField(index, { key: e.target.value })}
-                placeholder="sem-espacos"
-                className="w-full border border-gray-100 p-2.5 rounded-lg bg-gray-50 outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 transition-all font-mono"
-              />
-            </div>
-            <div className="w-full md:w-40">
-              <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Formato</label>
-              <select 
-                value={field.type} 
-                onChange={(e) => updateField(index, { type: e.target.value as 'text' | 'number' | 'currency' })}
-                className="w-full border border-gray-100 p-2.5 rounded-lg bg-gray-50 outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 transition-all"
-              >
-                <option value="text">Texto</option>
-                <option value="number">Número</option>
-                <option value="currency">Moeda (R$)</option>
-              </select>
-            </div>
-            <button 
-              onClick={() => removeField(index)}
-              className="text-red-400 hover:text-red-600 font-bold p-2.5 rounded-lg transition-all"
-            >
-              Excluir
-            </button>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
-      <button 
-        onClick={handleSave}
-        disabled={loading}
-        className="bg-black text-white font-black px-6 py-4 rounded-2xl hover:bg-gray-800 w-full transition-all shadow-xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99]"
-      >
-        {loading ? 'Sincronizando...' : (editId ? 'Atualizar Categoria' : 'Finalizar e Criar Categoria')}
+      <button onClick={handleSave} disabled={loading} className="bg-black text-white font-black px-6 py-4 rounded-2xl hover:bg-gray-800 w-full transition-all shadow-xl active:scale-[0.98] disabled:opacity-50">
+        {loading ? 'Sincronizando...' : (editId ? 'Salvar Alterações' : 'Finalizar Categoria')}
       </button>
     </div>
   );
@@ -223,7 +187,7 @@ function CategoriaForm() {
 
 export default function NovaCategoriaDynamic() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500">Carregando interface...</div>}>
+    <Suspense fallback={<div className="p-20 text-center">Carregando interface...</div>}>
       <CategoriaForm />
     </Suspense>
   );
