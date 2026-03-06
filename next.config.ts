@@ -2,21 +2,24 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* =========================
+      OTIMIZAÇÃO DE PACOTES (FIX)
+     ========================= */
+  // 🚀 SOLUÇÃO PARA O ERRO 'ApiClient':
+  // O amazon-paapi usa um sistema de módulos antigo que confunde o Turbopack.
+  // Isso força o Next.js a carregar o pacote puramente pelo Node.js no servidor.
+  serverExternalPackages: ['amazon-paapi'],
+
+  /* =========================
       CONFIGURAÇÕES DE IMAGEM
      ========================= */
   images: {
     // 🚀 Otimização de Formatos de Próxima Geração:
-    // O AVIF é a tecnologia de ponta atual, sendo até 20% mais leve que o WebP.
-    // O Next.js tentará servir AVIF primeiro; se o navegador não suportar, envia WebP.
     formats: ['image/avif', 'image/webp'],
     
-    // ⚡ Política de Cache Agressiva:
-    // Força o cache por 1 ano (31536000 segundos) para recursos externos.
-    // Isso elimina o aviso "Serve static assets with an efficient cache policy".
+    // ⚡ Política de Cache Agressiva (1 ano):
     minimumCacheTTL: 31536000,
 
     // 🌐 Permissões de Origens Remotas (Amazon CDNs):
-    // Usamos '/**' para garantir compatibilidade com qualquer estrutura de pastas da Amazon.
     remotePatterns: [
       {
         protocol: 'https',
@@ -44,27 +47,22 @@ const nextConfig: NextConfig = {
   /* =========================
       PERFORMANCE & SEGURANÇA
      ========================= */
-  // Ativa o Strict Mode para detectar ciclos de renderização desnecessários.
   reactStrictMode: true,
   
-  // 🛡️ Segurança:
-  // Remove o cabeçalho 'X-Powered-By: Next.js' do payload, o que é uma boa prática
-  // de segurança e economiza alguns bytes em cada requisição HTTP.
+  // 🛡️ Segurança: Remove 'X-Powered-By'
   poweredByHeader: false,
 
   // 🏗️ Otimização do Compilador (SWC):
   compiler: {
-    // Limpa o bundle de produção removendo todos os console.log.
-    // Isso melhora a nota de 'Total Blocking Time' (TBT) em dispositivos mobile.
+    // Remove console.logs em produção para melhorar o TBT (Total Blocking Time).
     removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error'] } : false,
   },
 
   /* =========================
-      OTIMIZAÇÃO DE PACOTES
+      EXPERIMENTAL & TREE SHAKING
      ========================= */
   experimental: {
-    // Garante que o Next.js importe apenas os ícones utilizados da Lucide, 
-    // em vez de carregar a biblioteca inteira no bundle do cliente.
+    // Tree shaking agressivo para a Lucide Icons.
     optimizePackageImports: ['lucide-react'],
   },
 };

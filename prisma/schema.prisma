@@ -65,9 +65,9 @@ model ProteinDrinkInfo {
 }
 
 model FunctionalCoffeeInfo {
-  id          String  @id @default(cuid())
-  productId   String  @unique
-  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id                  String  @id @default(cuid())
+  productId           String  @unique
+  product             Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   totalWeightInGrams  Float   
   doseInGrams         Float   
   caffeinePerDoseInMg Float   
@@ -128,4 +128,33 @@ enum CreatineForm {
   POWDER
   CAPSULE
   GUMMY
+}
+
+// --- NOVOS MODELOS: PRODUTOS PARA CASA ---
+
+model HomeCategory {
+  id            String        @id @default(cuid())
+  name          String        
+  slug          String        @unique 
+  displayConfig Json        
+  products      HomeProduct[]
+  
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model HomeProduct {
+  id          String       @id @default(cuid())
+  name        String       
+  totalPrice  Float        
+  url         String       
+  imageUrl    String?      
+  
+  categoryId  String
+  category    HomeCategory @relation(fields: [categoryId], references: [id])
+  
+  attributes  Json         
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 }
