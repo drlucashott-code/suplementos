@@ -13,16 +13,25 @@ type ConfigField = {
   public: boolean;
 };
 
+// 🚀 Interface Corrigida: Removido 'any' e usado tipos específicos
+interface DynamicCategoryResponse {
+  id: string;
+  name: string;
+  slug: string;
+  group: string | null;
+  groupName?: string | null;
+  displayConfig: unknown; // Usamos unknown para ser seguro no cast posterior
+}
+
 function CategoriaForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get('id');
 
-  // 🚀 OS 4 CAMPOS ESSENCIAIS
-  const [groupName, setGroupName] = useState(''); // 1. Nome do Nicho (Ex: Higiene Pessoal)
-  const [group, setGroup] = useState('');         // 2. Diretório do Nicho (Ex: higiene)
-  const [name, setName] = useState('');           // 3. Nome da Categoria (Ex: Pasta de dente)
-  const [slug, setSlug] = useState('');           // 4. Diretório da Categoria (Ex: pasta-de-dente)
+  const [groupName, setGroupName] = useState('');
+  const [group, setGroup] = useState('');
+  const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
   
   const [displayConfig, setDisplayConfig] = useState<ConfigField[]>([]);
   const [loading, setLoading] = useState(false);
@@ -31,17 +40,18 @@ function CategoriaForm() {
   useEffect(() => {
     if (editId) {
       async function loadData() {
-        const cat = await getDynamicCategoryById(editId!);
-        if (cat) {
+        const catRaw = await getDynamicCategoryById(editId!);
+        
+        if (catRaw) {
+          // Cast seguro para a nossa interface local
+          const cat = catRaw as unknown as DynamicCategoryResponse;
+
           setName(cat.name);
           setSlug(cat.slug);
           setGroup(cat.group || '');
-          
-          // 🚀 CORREÇÃO ESLINT: Trocado @ts-ignore por @ts-expect-error conforme solicitado
-          // @ts-expect-error - Mapeia groupName caso ainda não exista formalmente no schema do Prisma
           setGroupName(cat.groupName || cat.group || '');
           
-          const config = ((cat.displayConfig as unknown as ConfigField[]) || []).map(f => ({
+          const config = ((cat.displayConfig as ConfigField[]) || []).map(f => ({
             ...f,
             public: f.public !== undefined ? f.public : true
           }));
@@ -73,7 +83,7 @@ function CategoriaForm() {
 
   const handleSave = async () => {
     if (!name || !slug || !group || !groupName) {
-      alert("Preencha tudo: Nome do Nicho, Pasta do Nicho, Nome da Categoria e Pasta da Categoria.");
+      alert("Preencha todos os campos da estrutura.");
       return;
     }
     if (displayConfig.length === 0) {
@@ -83,7 +93,6 @@ function CategoriaForm() {
 
     setLoading(true);
 
-    // Normalização de URLs (Diretórios)
     const cleanGroup = group.trim().toLowerCase().replace(/\s+/g, '-');
     const cleanSlug = slug.trim().toLowerCase().replace(/\s+/g, '-');
 
@@ -123,7 +132,6 @@ function CategoriaForm() {
         </h1>
       </div>
       
-      {/* 🚀 OS 4 CAMPOS DE ESTRUTURA */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 bg-gray-50 p-6 rounded-3xl border border-gray-200 shadow-sm">
         <div>
           <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">1. Nome do Nicho</label>
@@ -132,7 +140,7 @@ function CategoriaForm() {
             value={groupName} 
             onChange={(e) => setGroupName(e.target.value)} 
             placeholder="Ex: Higiene Pessoal" 
-            className="w-full border border-gray-200 p-3 rounded-xl font-bold outline-none focus:ring-2 focus:ring-yellow-400 bg-white shadow-sm"
+            className="w-full border border-gray-200 p-3 rounded-xl font-bold outline-none focus:ring-2 focus:ring-yellow-400 bg-white"
           />
         </div>
 
@@ -153,7 +161,7 @@ function CategoriaForm() {
             value={name} 
             onChange={(e) => setName(e.target.value)} 
             placeholder="Ex: Pasta de dente" 
-            className="w-full border border-gray-200 p-3 rounded-xl outline-none focus:ring-2 focus:ring-yellow-400 font-bold bg-white shadow-sm" 
+            className="w-full border border-gray-200 p-3 rounded-xl font-bold outline-none focus:ring-2 focus:ring-yellow-400 bg-white" 
           />
         </div>
 
