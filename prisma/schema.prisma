@@ -8,21 +8,21 @@ datasource db {
 }
 
 model Product {
-  id                    String                @id @default(cuid())
-  category              String
-  name                  String
-  brand                 String
-  flavor                String?
-  imageUrl              String
-  createdAt             DateTime              @default(now())
-  updatedAt             DateTime              @updatedAt
-  offers                Offer[]
-  creatineInfo          CreatineInfo?
-  wheyInfo              WheyInfo?
-  proteinBarInfo        ProteinBarInfo?
-  proteinDrinkInfo      ProteinDrinkInfo?
-  functionalCoffeeInfo  FunctionalCoffeeInfo?
-  preWorkoutInfo        PreWorkoutInfo?
+  id                   String                @id @default(cuid())
+  category             String
+  name                 String
+  brand                String
+  flavor               String?
+  imageUrl             String
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  offers               Offer[]
+  creatineInfo         CreatineInfo?
+  wheyInfo             WheyInfo?
+  proteinBarInfo       ProteinBarInfo?
+  proteinDrinkInfo     ProteinDrinkInfo?
+  functionalCoffeeInfo FunctionalCoffeeInfo?
+  preWorkoutInfo       PreWorkoutInfo?
 }
 
 model CreatineInfo {
@@ -32,6 +32,7 @@ model CreatineInfo {
   totalUnits   Float
   unitsPerDose Float
   product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
   @@index([form])
 }
 
@@ -81,19 +82,20 @@ model PreWorkoutInfo {
 }
 
 model Offer {
-  id            String            @id @default(cuid())
+  id            String              @id @default(cuid())
   productId     String
   store         Store
   externalId    String
   seller        String?
   price         Float
   affiliateUrl  String
-  createdAt     DateTime          @default(now())
+  createdAt     DateTime            @default(now())
   ratingAverage Float?
   ratingCount   Int?
-  updatedAt     DateTime          @updatedAt
-  product       Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  updatedAt     DateTime            @updatedAt
+  product       Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
   priceHistory  OfferPriceHistory[]
+
   @@unique([store, externalId])
   @@index([productId])
   @@index([store])
@@ -105,6 +107,7 @@ model OfferPriceHistory {
   price     Float
   createdAt DateTime @default(now())
   offer     Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
   @@index([offerId, createdAt])
 }
 
@@ -128,41 +131,45 @@ enum CreatineForm {
 model DynamicCategory {
   id            String           @id @default(cuid())
   group         String           @default("casa")
+  groupName     String           @default("Casa e Limpeza")
   name          String
   slug          String
   displayConfig Json
   products      DynamicProduct[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
+
   @@unique([group, slug])
 }
 
 model DynamicProduct {
-  id            String                @id @default(cuid())
-  asin          String                @unique
-  name          String
-  totalPrice    Float
-  url           String
-  imageUrl      String?
-  categoryId    String
-  category      DynamicCategory       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  attributes    Json
-  ratingAverage Float?
-  ratingCount   Int?
-  priceHistory  DynamicPriceHistory[]
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
+  id               String                @id @default(cuid())
+  asin             String                @unique
+  name             String
+  totalPrice       Float
+  url              String
+  imageUrl         String?
+  categoryId       String
+  category         DynamicCategory       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  attributes       Json
+  ratingAverage    Float?
+  ratingCount      Int?
+  ratingsUpdatedAt DateTime?
+  priceHistory     DynamicPriceHistory[]
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
 }
 
 model DynamicPriceHistory {
-  id           String         @id @default(cuid())
-  productId    String
-  product      DynamicProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
-  price        Float
-  updateCount  Int            @default(1)
-  date         DateTime
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id          String         @id @default(cuid())
+  productId   String
+  product     DynamicProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  price       Float
+  updateCount Int            @default(1)
+  date        DateTime
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
   @@unique([productId, date])
   @@index([productId, date])
 }

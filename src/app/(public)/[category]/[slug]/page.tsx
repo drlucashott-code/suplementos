@@ -85,7 +85,6 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
   const matchedProducts = categoryData.products.filter((p: DynamicProduct) => {
     const attrs = p.attributes as unknown as DynamicAttributes;
     const pBrand = String(attrs.brand || "");
-    const pSeller = String(attrs.seller || "");
 
     if (searchWords.length > 0) {
       const productText = removeAccents(`${p.name} ${pBrand}`.toLowerCase());
@@ -93,7 +92,7 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
     }
 
     if (selectedBrands.length > 0 && !selectedBrands.includes(pBrand)) return false;
-    if (selectedSellers.length > 0 && !selectedSellers.includes(pSeller)) return false;
+    if (selectedSellers.length > 0 && !selectedSellers.includes(String(attrs.seller || ""))) return false;
 
     for (const config of dynamicTextConfigs) {
       const selectedDynamic = search[config.key] ? String(search[config.key]).split(",") : [];
@@ -107,24 +106,17 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
     const attrs = p.attributes as unknown as DynamicAttributes;
     let pricePerUnit = 0;
 
-    const calcConfig = fullDisplayConfig.find(c => c.type === "currency");
+    // 🚀 NOVA LÓGICA POR ORDEM: 
+    // Busca o primeiro campo do tipo 'currency' definido na categoria
+    const currencyConfig = fullDisplayConfig.find(c => c.type === "currency");
     
-    if (calcConfig) {
-      // 🚀 LÓGICA UNIVERSAL: Busca por semelhança de palavras nas etiquetas
-      // Ex: Se a etiqueta for "POR METRO", ele busca qualquer campo que tenha "METRO"
-      const currentLabelWords = calcConfig.label
-        .toUpperCase()
-        .replace('POR ', '')
-        .replace('PREÇO ', '')
-        .trim()
-        .split(' ');
-      
-      const targetConfig = fullDisplayConfig.find(c => 
-        c.key !== calcConfig.key && 
-        currentLabelWords.some(word => c.label.toUpperCase().includes(word))
-      );
+    if (currencyConfig) {
+      // 🎯 Busca o PRIMEIRO campo do tipo 'number' definido na configuração
+      // Segue o seu padrão: primeiro o número (lavagens), depois o preço por (lavagens)
+      const quantityConfig = fullDisplayConfig.find(c => c.type === "number");
 
-      const quantity = targetConfig ? Number(attrs[targetConfig.key]) : 0;
+      const quantity = quantityConfig ? Number(attrs[quantityConfig.key]) : 0;
+      
       if (quantity > 0) {
         pricePerUnit = p.totalPrice / quantity;
       }
@@ -145,7 +137,11 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
 
   const finalProducts = rankedProducts.sort((a, b) => {
     if (order === "price_asc") return a.price - b.price;
-    if (order === "cheapest_unit" && a.pricePerUnit > 0 && b.pricePerUnit > 0) return a.pricePerUnit - b.pricePerUnit;
+    if (order === "cheapest_unit") {
+      if (a.pricePerUnit > 0 && b.pricePerUnit > 0) return a.pricePerUnit - b.pricePerUnit;
+      if (a.pricePerUnit > 0) return -1;
+      if (b.pricePerUnit > 0) return 1;
+    }
     return a.price - b.price; 
   });
 

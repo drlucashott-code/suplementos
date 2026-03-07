@@ -61,15 +61,15 @@ export function MobileProductCard({
       {/* Imagem */}
       <div className="w-[140px] bg-[#f3f3f3] flex-shrink-0 flex items-center justify-center p-2 relative">
         {product.imageUrl ? (
-           <Image
-             src={product.imageUrl}
-             alt={product.name}
-             width={230}
-             height={230}
-             sizes="140px"
-             priority={priority}
-             className="w-full h-auto max-h-[200px] object-contain mix-blend-multiply"
-           />
+            <Image
+              src={product.imageUrl}
+              alt={product.name}
+              width={230}
+              height={230}
+              sizes="140px"
+              priority={priority}
+              className="w-full h-auto max-h-[200px] object-contain mix-blend-multiply"
+            />
         ) : (
           <span className="text-[10px] text-zinc-400">Sem imagem</span>
         )}
@@ -94,50 +94,41 @@ export function MobileProductCard({
           </div>
         )}
 
-        {/* Tabela Técnica Dinâmica Universal */}
+        {/* Tabela Técnica Corrigida */}
         <div className={`bg-white border border-zinc-200 rounded p-2 mb-3 grid grid-cols-2 gap-2 divide-x divide-zinc-200 ${rating === 0 ? 'mt-2' : ''}`}>
            {displayConfig.map((config) => {
-              const rawValue = product.attributes[config.key];
-              let displayValue = rawValue ? String(rawValue) : '-';
+             const rawValue = product.attributes[config.key];
+             let displayValue = rawValue ? String(rawValue) : '-';
 
-              if (config.type === 'currency') {
-                const currentLabelWords = config.label
-                  .toUpperCase()
-                  .replace('POR ', '')
-                  .replace('PREÇO ', '')
-                  .trim()
-                  .split(' ');
-                
-                const targetConfig = displayConfig.find(c => 
-                  c.key !== config.key && 
-                  currentLabelWords.some(word => c.label.toUpperCase().includes(word))
-                );
+             if (config.type === 'currency') {
+               // 🚀 LÓGICA POR ORDEM: Busca o primeiro campo do tipo 'number'
+               const targetConfig = displayConfig.find(c => c.type === 'number');
+               const quantity = targetConfig ? Number(product.attributes[targetConfig.key]) : 0;
+               
+               if (quantity > 0) {
+                 const calculated = product.price / quantity;
+                 
+                 // 🎯 NOVA REGRA DE CASAS DECIMAIS:
+                 // Se < 0,10: 3 casas (ex: 0,038)
+                 // Se >= 0,10: 2 casas (ex: 0,45 ou 1,20)
+                 const decimals = calculated < 0.1 ? 3 : 2;
+                 
+                 displayValue = `R$ ${calculated.toFixed(decimals).replace('.', ',')}`;
+               } else {
+                 displayValue = rawValue ? `R$ ${Number(rawValue).toFixed(2).replace('.', ',')}` : 'R$ 0,00';
+               }
+             }
 
-                const quantity = targetConfig ? Number(product.attributes[targetConfig.key]) : 0;
-                
-                if (quantity > 0) {
-                  const calculated = product.price / quantity;
-                  
-                  // 🚀 Lógica Condicional de Casas Decimais
-                  // Se for < R$ 1,00, usa 3 casas para mostrar a diferença (ex: 0,038 vs 0,043)
-                  // Se for >= R$ 1,00, mantém 2 casas para clareza visual
-                  const decimals = calculated < 1 ? 3 : 2;
-                  displayValue = `R$ ${calculated.toFixed(decimals).replace('.', ',')}`;
-                } else {
-                  displayValue = rawValue ? `R$ ${Number(rawValue).toFixed(2).replace('.', ',')}` : 'R$ 0,00';
-                }
-              }
-
-              return (
-                <div key={config.key} className="flex flex-col text-center px-1 overflow-hidden">
-                  <span className="text-[13px] font-bold text-[#0F1111] leading-none truncate mb-1">
-                    {displayValue}
-                  </span>
-                  <span className="text-[9px] uppercase font-bold text-zinc-500 tracking-wide truncate">
-                    {config.label}
-                  </span>
-                </div>
-              );
+             return (
+               <div key={config.key} className="flex flex-col text-center px-1 overflow-hidden">
+                 <span className="text-[13px] font-bold text-[#0F1111] leading-none truncate mb-1">
+                   {displayValue}
+                 </span>
+                 <span className="text-[9px] uppercase font-bold text-zinc-500 tracking-wide truncate">
+                   {config.label}
+                 </span>
+               </div>
+             );
            })}
         </div>
 
