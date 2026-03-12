@@ -5,7 +5,8 @@ import { ProductList } from "@/components/dynamic/ProductList";
 import { MobileFiltersDrawer } from "@/components/dynamic/MobileFiltersDrawer";
 import { FloatingFiltersBar } from "@/components/dynamic/FloatingFiltersBar"; 
 import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
-import { DynamicProduct } from "@prisma/client";
+// 🚀 CORREÇÃO: Importando também o DynamicPriceHistory
+import { DynamicProduct, DynamicPriceHistory } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,11 @@ interface DynamicAttributes {
   [key: string]: string | number | boolean | undefined;
 }
 
+// 🚀 NOVA TIPAGEM SEGURA (Substitui o 'any')
+type ProductWithHistory = DynamicProduct & { 
+  priceHistory: DynamicPriceHistory[] 
+};
+
 const removeAccents = (str: string) => {
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 };
@@ -38,6 +44,11 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
   const order = (search.order as string) ?? "cheapest_unit";
   const searchQuery = (search.q as string) || "";
 
+  // 1. Data base para buscar o histórico de 30 dias
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  // 2. Query do Prisma atualizada para incluir o priceHistory
   const categoryData = await prisma.dynamicCategory.findFirst({
     where: { 
       slug: slug,
@@ -47,6 +58,12 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
       products: { 
         where: {
           totalPrice: { gt: 0 } 
+        },
+        include: {
+          priceHistory: {
+            where: { createdAt: { gte: thirtyDaysAgo } },
+            orderBy: { createdAt: "desc" }
+          }
         },
         orderBy: { totalPrice: "asc" } 
       },
@@ -65,26 +82,31 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
   
   dynamicTextConfigs.forEach(c => dynamicFilterOptions[c.key] = new Set());
 
-  categoryData.products.forEach((p: DynamicProduct) => {
+  // 🚀 CORREÇÃO: Substituído 'any' por 'ProductWithHistory'
+  categoryData.products.forEach((p: ProductWithHistory) => {
     const attrs = p.attributes as unknown as DynamicAttributes;
-    if (attrs.brand) availableBrands.add(String(attrs.brand));
-    if (attrs.seller) availableSellers.add(String(attrs.seller));
+    if (attrs.brand) availableBrands.add(String(attrs.brand).trim());
+    if (attrs.seller) availableSellers.add(String(attrs.seller).trim());
     
     dynamicTextConfigs.forEach(config => {
       const val = attrs[config.key];
-      if (val !== undefined && val !== null) dynamicFilterOptions[config.key].add(String(val));
+      if (val !== undefined && val !== null && String(val).trim() !== "") {
+        dynamicFilterOptions[config.key].add(String(val).trim());
+      }
     });
   });
 
   const stopWords = ["de", "da", "do", "para", "com"];
   const searchWords = searchQuery.trim().split(/\s+/).map((word) => removeAccents(word.toLowerCase())).filter((word) => !stopWords.includes(word) && word.length > 0);
 
-  const selectedBrands = search.brand ? String(search.brand).split(",") : [];
-  const selectedSellers = search.seller ? String(search.seller).split(",") : [];
+  const selectedBrands = search.brand ? String(search.brand).split(",").map(s => s.trim().toLowerCase()) : [];
+  const selectedSellers = search.seller ? String(search.seller).split(",").map(s => s.trim().toLowerCase()) : [];
 
-  const matchedProducts = categoryData.products.filter((p: DynamicProduct) => {
+  // 🚀 CORREÇÃO: Substituído 'any' por 'ProductWithHistory'
+  const matchedProducts = categoryData.products.filter((p: ProductWithHistory) => {
     const attrs = p.attributes as unknown as DynamicAttributes;
-    const pBrand = String(attrs.brand || "");
+    const pBrand = String(attrs.brand || "").trim().toLowerCase();
+    const pSeller = String(attrs.seller || "").trim().toLowerCase();
 
     if (searchWords.length > 0) {
       const productText = removeAccents(`${p.name} ${pBrand}`.toLowerCase());
@@ -92,33 +114,58 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
     }
 
     if (selectedBrands.length > 0 && !selectedBrands.includes(pBrand)) return false;
-    if (selectedSellers.length > 0 && !selectedSellers.includes(String(attrs.seller || ""))) return false;
+    if (selectedSellers.length > 0 && !selectedSellers.includes(pSeller)) return false;
 
     for (const config of dynamicTextConfigs) {
-      const selectedDynamic = search[config.key] ? String(search[config.key]).split(",") : [];
-      const pVal = String(attrs[config.key] || "");
+      const paramValue = search[config.key];
+      if (!paramValue) continue;
+
+      const selectedDynamic = (typeof paramValue === "string" ? paramValue.split(",") : paramValue).map(s => String(s).trim().toLowerCase());
+      const pVal = String(attrs[config.key] || "").trim().toLowerCase();
+      
       if (selectedDynamic.length > 0 && !selectedDynamic.includes(pVal)) return false;
     }
     return true;
   });
 
-  const rankedProducts = matchedProducts.map((p: DynamicProduct) => {
+  // 🚀 CORREÇÃO: Substituído 'any' por 'ProductWithHistory'
+  const rankedProducts = matchedProducts.map((p: ProductWithHistory) => {
     const attrs = p.attributes as unknown as DynamicAttributes;
     let pricePerUnit = 0;
 
-    // 🚀 NOVA LÓGICA POR ORDEM: 
-    // Busca o primeiro campo do tipo 'currency' definido na categoria
     const currencyConfig = fullDisplayConfig.find(c => c.type === "currency");
     
     if (currencyConfig) {
-      // 🎯 Busca o PRIMEIRO campo do tipo 'number' definido na configuração
-      // Segue o seu padrão: primeiro o número (lavagens), depois o preço por (lavagens)
       const quantityConfig = fullDisplayConfig.find(c => c.type === "number");
-
       const quantity = quantityConfig ? Number(attrs[quantityConfig.key]) : 0;
       
       if (quantity > 0) {
         pricePerUnit = p.totalPrice / quantity;
+      }
+    }
+
+    let avgMonthly: number | null = null;
+    let discountPercent: number | null = null;
+
+    if (p.priceHistory && p.priceHistory.length > 0) {
+      const dailyPrices = new Map<string, number[]>();
+      
+      // 🚀 CORREÇÃO: Substituído 'any' por 'DynamicPriceHistory'
+      p.priceHistory.forEach((h: DynamicPriceHistory) => {
+        const day = h.createdAt.toISOString().split("T")[0];
+        if (!dailyPrices.has(day)) dailyPrices.set(day, []);
+        dailyPrices.get(day)!.push(h.price);
+      });
+
+      const averages = Array.from(dailyPrices.values()).map(
+        (arr) => arr.reduce((a, b) => a + b, 0) / arr.length
+      );
+
+      avgMonthly = averages.reduce((a, b) => a + b, 0) / averages.length;
+
+      if (avgMonthly > p.totalPrice) {
+        const raw = ((avgMonthly - p.totalPrice) / avgMonthly) * 100;
+        if (raw >= 5) discountPercent = Math.round(raw);
       }
     }
 
@@ -131,11 +178,18 @@ export default async function DynamicCategoryPage({ params, searchParams }: Page
       pricePerUnit,
       ratingAverage: p.ratingAverage,
       ratingCount: p.ratingCount,
+      avgPrice: avgMonthly,           
+      discountPercent: discountPercent, 
       attributes: attrs as Record<string, string | number | undefined>, 
     };
   });
 
   const finalProducts = rankedProducts.sort((a, b) => {
+    if (order === "discount") {
+      const diff = (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
+      if (diff !== 0) return diff;
+      return a.price - b.price;
+    }
     if (order === "price_asc") return a.price - b.price;
     if (order === "cheapest_unit") {
       if (a.pricePerUnit > 0 && b.pricePerUnit > 0) return a.pricePerUnit - b.pricePerUnit;

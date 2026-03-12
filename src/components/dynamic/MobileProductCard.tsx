@@ -12,6 +12,8 @@ export type DynamicProductType = {
   pricePerUnit: number;
   ratingAverage?: number | null;
   ratingCount?: number | null;
+  avgPrice?: number | null;        // 🚀 ADICIONADO: Média de preço dos últimos 30 dias
+  discountPercent?: number | null; // 🚀 ADICIONADO: Porcentagem de desconto real
   attributes: Record<string, string | number | undefined>;
 };
 
@@ -136,6 +138,20 @@ export function MobileProductCard({
         <div className="flex flex-col mt-auto">
           {hasPrice ? (
             <>
+              {/* 🚀 SELO DE DESCONTO E PREÇO ANTIGO RISCADO */}
+              {product.discountPercent && product.discountPercent >= 5 && (
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="bg-[#CC0C39] text-white px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-tight">
+                    {product.discountPercent}% OFF
+                  </span>
+                  {product.avgPrice && (
+                    <span className="text-[11px] text-zinc-500 line-through font-medium">
+                      R$ {product.avgPrice.toFixed(2).replace('.', ',')}
+                    </span>
+                  )}
+                </div>
+              )}
+
               <div className="flex items-baseline gap-2">
                 <div className="flex items-start text-[#0F1111]">
                   <span className="text-[12px] mt-1.5 font-medium">R$</span>

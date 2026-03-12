@@ -1,0 +1,38 @@
+name: Update Prices (Dynamic System)
+
+on:
+  schedule:
+    # 1x ao dia: 00:00 (Horário de Brasília) / 03:00 UTC
+    - cron: "0 3 * * *"
+
+  workflow_dispatch: # Permite rodar manualmente pelo botão Actions
+
+jobs:
+  update-prices-dynamic:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Update Amazon prices (Dynamic)
+        run: npx tsx scripts/z-updateprices.ts
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          AMAZON_ACCESS_KEY: ${{ secrets.AMAZON_ACCESS_KEY }}
+          AMAZON_SECRET_KEY: ${{ secrets.AMAZON_SECRET_KEY }}
+          AMAZON_PARTNER_TAG: ${{ secrets.AMAZON_PARTNER_TAG }}
+          AMAZON_REGION: "us-east-1"
+          AMAZON_HOST: "webservices.amazon.com.br"
