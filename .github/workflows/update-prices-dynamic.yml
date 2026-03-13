@@ -28,7 +28,7 @@ jobs:
         run: npx prisma generate
 
       - name: Update Amazon prices (Dynamic)
-        run: npx tsx scripts/z-updateprices.ts
+        run: npx tsx scripts/z-UpdatePrices.ts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           AMAZON_ACCESS_KEY: ${{ secrets.AMAZON_ACCESS_KEY }}
