@@ -134,8 +134,8 @@ export function MobileProductCard({
   return (
     <div className="flex gap-3 border-b border-gray-100 bg-white relative items-stretch min-h-[250px] font-sans">
       {(product.discountPercent ?? 0) > 0 && (
-        <div className="absolute top-4 left-0 z-10 rounded-r-sm bg-[#CC0C39] px-3 py-1 text-[11px] font-bold text-white shadow-sm">
-          Oferta
+        <div className="absolute top-4 left-0 z-10 bg-[#CC0C39] text-white text-[11px] font-bold px-2 py-0.5 rounded-r-sm shadow-sm">
+          {product.discountPercent}% OFF
         </div>
       )}
 
@@ -238,71 +238,71 @@ export function MobileProductCard({
         <div className="mt-auto flex flex-col">
           {hasPrice && intCents ? (
             <>
-              {(product.discountPercent ?? 0) > 0 ? (
-                <>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-[16px] font-normal text-[#CC0C39]">
-                      -{product.discountPercent}%
+              <div className="flex items-baseline gap-2">
+                <div className="flex items-start">
+                  <span
+                    className={`mt-1 text-[13px] font-medium ${
+                      (product.discountPercent ?? 0) > 0
+                        ? "text-[#CC0C39]"
+                        : "text-[#0F1111]"
+                    }`}
+                  >
+                    R$
+                  </span>
+                  <span
+                    className={`text-3xl font-medium leading-none tracking-tight ${
+                      (product.discountPercent ?? 0) > 0
+                        ? "text-[#CC0C39]"
+                        : "text-[#0F1111]"
+                    }`}
+                  >
+                    {intCents[0]}
+                  </span>
+                  <span
+                    className={`mt-[3px] text-[14px] font-medium leading-none ${
+                      (product.discountPercent ?? 0) > 0
+                        ? "text-[#CC0C39]"
+                        : "text-[#0F1111]"
+                    }`}
+                  >
+                    {intCents[1]}
+                  </span>
+                </div>
+              </div>
+
+              {typeof product.avgPrice === "number" &&
+                Math.round(product.avgPrice * 100) >
+                  Math.round(product.price * 100) && (
+                  <div className="relative mt-1 flex items-center gap-1">
+                    <span className="text-[12px] text-zinc-500">
+                      De:{" "}
+                      <span className="line-through">
+                        R$ {product.avgPrice.toFixed(2).replace(".", ",")}
+                      </span>
                     </span>
 
-                    <div className="flex items-start text-[#0F1111]">
-                      <span className="mt-1 text-[13px] font-medium">R$</span>
-                      <span className="text-3xl font-medium leading-none tracking-tight">
-                        {intCents[0]}
-                      </span>
-                      <span className="mt-[3px] text-[14px] font-medium leading-none">
-                        {intCents[1]}
-                      </span>
-                    </div>
-                  </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowTooltip((prev) => !prev)}
+                      className="p-0.5 text-zinc-400"
+                      aria-label="Informações sobre o preço médio"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        className="h-3 w-3"
+                      >
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
+                      </svg>
+                    </button>
 
-                  {typeof product.avgPrice === "number" &&
-                    Math.round(product.avgPrice * 100) >
-                      Math.round(product.price * 100) && (
-                      <div className="relative mt-1 flex items-center gap-1">
-                        <span className="text-[12px] text-zinc-500">
-                          De:{" "}
-                          <span className="line-through">
-                            R$ {product.avgPrice.toFixed(2).replace(".", ",")}
-                          </span>
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={() => setShowTooltip((prev) => !prev)}
-                          className="p-0.5 text-zinc-400"
-                          aria-label="Informações sobre o preço médio"
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                            className="h-3 w-3"
-                          >
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
-                          </svg>
-                        </button>
-
-                        {showTooltip && (
-                          <div className="absolute bottom-6 left-0 z-50 w-56 rounded border border-gray-200 bg-white p-2 text-[10px] text-zinc-600 shadow-xl">
-                            Preço médio dos últimos 30 dias na Amazon.
-                          </div>
-                        )}
+                    {showTooltip && (
+                      <div className="absolute bottom-6 left-0 z-50 w-56 rounded border border-gray-200 bg-white p-2 text-[10px] text-zinc-600 shadow-xl">
+                        Preço médio dos últimos 30 dias na Amazon.
                       </div>
                     )}
-                </>
-              ) : (
-                <div className="flex items-baseline gap-2">
-                  <div className="flex items-start text-[#0F1111]">
-                    <span className="mt-1 text-[13px] font-medium">R$</span>
-                    <span className="text-3xl font-medium leading-none tracking-tight">
-                      {intCents[0]}
-                    </span>
-                    <span className="mt-[3px] text-[14px] font-medium leading-none">
-                      {intCents[1]}
-                    </span>
                   </div>
-                </div>
-              )}
+                )}
 
               <div className="mt-1 flex items-center">
                 <span className="flex items-center text-[12px] font-black italic leading-none">
