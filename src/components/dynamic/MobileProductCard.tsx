@@ -12,8 +12,8 @@ export type DynamicProductType = {
   pricePerUnit: number;
   ratingAverage?: number | null;
   ratingCount?: number | null;
-  avgPrice?: number | null;        // 🚀 ADICIONADO: Média de preço dos últimos 30 dias
-  discountPercent?: number | null; // 🚀 ADICIONADO: Porcentagem de desconto real
+  avgPrice?: number | null;
+  discountPercent?: number | null;
   attributes: Record<string, string | number | undefined>;
 };
 
@@ -23,14 +23,14 @@ interface DisplayConfigField {
   type: "text" | "number" | "currency";
 }
 
-export function MobileProductCard({ 
-  product, 
-  priority, 
-  displayConfig 
-}: { 
-  product: DynamicProductType; 
-  priority: boolean; 
-  displayConfig: DisplayConfigField[] 
+export function MobileProductCard({
+  product,
+  priority,
+  displayConfig,
+}: {
+  product: DynamicProductType;
+  priority: boolean;
+  displayConfig: DisplayConfigField[];
 }) {
   const hasPrice = product.price > 0;
   const intCents = hasPrice ? product.price.toFixed(2).split(".") : null;
@@ -46,143 +46,158 @@ export function MobileProductCard({
   const handleTrackClick = () => {
     const asinMatch = product.affiliateUrl.match(/\/dp\/([A-Z0-9]{10})/);
     const asin = asinMatch ? asinMatch[1] : "SEM_ASIN";
-    
+
     sendGAEvent("event", "click_na_oferta", {
       produto_nome: `${product.name} - ${asin}`,
       produto_id: product.id,
       valor: product.price || 0,
       loja: "Amazon",
       asin,
-      categoria: "dinamica", 
+      categoria: "dinamica",
     });
   };
 
   return (
-    <div className="flex gap-3 border-b border-gray-100 bg-white relative items-stretch min-h-[220px] font-sans">
-      
-      {/* Imagem */}
-      <div className="w-[140px] bg-[#f3f3f3] flex-shrink-0 flex items-center justify-center p-2 relative">
-        {product.imageUrl ? (
-            <Image
-              src={product.imageUrl}
-              alt={product.name}
-              width={230}
-              height={230}
-              sizes="140px"
-              priority={priority}
-              className="w-full h-auto max-h-[200px] object-contain mix-blend-multiply"
-            />
-        ) : (
-          <span className="text-[10px] text-zinc-400">Sem imagem</span>
-        )}
-      </div>
-
-      <div className="flex flex-col flex-1 pr-2 py-4">
-        {/* Título */}
-        <h2 className="text-[14px] text-[#0F1111] leading-tight line-clamp-3 mb-1 font-normal">
-          {product.name}
-        </h2>
-
-        {/* Avaliações */}
-        {(rating > 0 || reviewsCount > 0) && (
-          <div className="flex items-center gap-1 mb-3 text-[12px]">
-            <span className="font-normal text-[#0F1111]">{rating.toFixed(1)}</span>
-            <div className="flex text-[#e47911] text-[10px] tracking-tighter" aria-hidden="true">
-              {[...Array(5)].map((_, i) => (
-                <span key={i}>{i < Math.floor(rating) ? "★" : "☆"}</span>
-              ))}
-            </div>
-            <span className="text-[#007185]">({formattedCount})</span>
+    <article className="border-b border-[#E7E7E7] bg-white px-2 py-3">
+      <div className="overflow-hidden rounded-md border border-[#E7E7E7] bg-white">
+        <div className="grid min-h-[250px] grid-cols-[42%_58%]">
+          <div className="relative flex items-center justify-center bg-[#f3f3f3] p-3">
+            {product.imageUrl ? (
+              <Image
+                src={product.imageUrl}
+                alt={product.name}
+                width={260}
+                height={260}
+                sizes="40vw"
+                priority={priority}
+                className="h-auto max-h-[220px] w-full object-contain mix-blend-multiply"
+              />
+            ) : (
+              <span className="text-[11px] text-zinc-400">Sem imagem</span>
+            )}
           </div>
-        )}
 
-        {/* Tabela Técnica Corrigida */}
-        <div className={`bg-white border border-zinc-200 rounded p-2 mb-3 grid grid-cols-2 gap-2 divide-x divide-zinc-200 ${rating === 0 ? 'mt-2' : ''}`}>
-           {displayConfig.map((config) => {
-             const rawValue = product.attributes[config.key];
-             let displayValue = rawValue ? String(rawValue) : '-';
+          <div className="flex min-w-0 flex-col p-3">
+            <h2 className="mb-1 line-clamp-3 text-[14px] leading-tight text-[#0F1111]">
+              {product.name}
+            </h2>
 
-             if (config.type === 'currency') {
-               // 🚀 LÓGICA POR ORDEM: Busca o primeiro campo do tipo 'number'
-               const targetConfig = displayConfig.find(c => c.type === 'number');
-               const quantity = targetConfig ? Number(product.attributes[targetConfig.key]) : 0;
-               
-               if (quantity > 0) {
-                 const calculated = product.price / quantity;
-                 
-                 // 🎯 NOVA REGRA DE CASAS DECIMAIS:
-                 // Se < 0,10: 3 casas (ex: 0,038)
-                 // Se >= 0,10: 2 casas (ex: 0,45 ou 1,20)
-                 const decimals = calculated < 0.1 ? 3 : 2;
-                 
-                 displayValue = `R$ ${calculated.toFixed(decimals).replace('.', ',')}`;
-               } else {
-                 displayValue = rawValue ? `R$ ${Number(rawValue).toFixed(2).replace('.', ',')}` : 'R$ 0,00';
-               }
-             }
-
-             return (
-               <div key={config.key} className="flex flex-col text-center px-1 overflow-hidden">
-                 <span className="text-[13px] font-bold text-[#0F1111] leading-none truncate mb-1">
-                   {displayValue}
-                 </span>
-                 <span className="text-[9px] uppercase font-bold text-zinc-500 tracking-wide truncate">
-                   {config.label}
-                 </span>
-               </div>
-             );
-           })}
-        </div>
-
-        {/* Preço e Prime */}
-        <div className="flex flex-col mt-auto">
-          {hasPrice ? (
-            <>
-              {/* 🚀 SELO DE DESCONTO E PREÇO ANTIGO RISCADO */}
-              {product.discountPercent && product.discountPercent >= 5 && (
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="bg-[#CC0C39] text-white px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-tight">
-                    {product.discountPercent}% OFF
-                  </span>
-                  {product.avgPrice && (
-                    <span className="text-[11px] text-zinc-500 line-through font-medium">
-                      R$ {product.avgPrice.toFixed(2).replace('.', ',')}
-                    </span>
-                  )}
+            {(rating > 0 || reviewsCount > 0) && (
+              <div className="mb-3 flex items-center gap-1 text-[12px] leading-none">
+                <span className="text-[#0F1111]">{rating.toFixed(1)}</span>
+                <div
+                  className="flex text-[10px] tracking-[-0.08em] text-[#e47911]"
+                  aria-hidden="true"
+                >
+                  {[...Array(5)].map((_, i) => (
+                    <span key={i}>{i < Math.floor(rating) ? "★" : "☆"}</span>
+                  ))}
                 </div>
+                <span className="text-[#007185]">({formattedCount})</span>
+              </div>
+            )}
+
+            <div
+              className={`mb-3 grid grid-cols-2 overflow-hidden rounded-md border border-zinc-200 bg-white ${
+                rating === 0 ? "mt-2" : ""
+              }`}
+            >
+              {displayConfig.map((config, index) => {
+                const rawValue = product.attributes[config.key];
+                let displayValue = rawValue ? String(rawValue) : "-";
+
+                if (config.type === "currency") {
+                  const targetConfig = displayConfig.find((c) => c.type === "number");
+                  const quantity = targetConfig
+                    ? Number(product.attributes[targetConfig.key])
+                    : 0;
+
+                  if (quantity > 0) {
+                    const calculated = product.price / quantity;
+                    const decimals = calculated < 0.1 ? 3 : 2;
+                    displayValue = `R$ ${calculated.toFixed(decimals).replace(".", ",")}`;
+                  } else {
+                    displayValue = rawValue
+                      ? `R$ ${Number(rawValue).toFixed(2).replace(".", ",")}`
+                      : "R$ 0,00";
+                  }
+                }
+
+                return (
+                  <div
+                    key={config.key}
+                    className={`flex flex-col overflow-hidden px-1 py-2 text-center ${
+                      index % 2 === 0 ? "border-r border-zinc-200" : ""
+                    } ${index < displayConfig.length - 2 ? "border-b border-zinc-200" : ""}`}
+                  >
+                    <span className="mb-1 truncate text-[13px] font-bold leading-none text-[#0F1111]">
+                      {displayValue}
+                    </span>
+                    <span className="truncate text-[9px] font-bold uppercase tracking-wide text-zinc-500">
+                      {config.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-auto flex flex-col">
+              {hasPrice ? (
+                <>
+                  {product.discountPercent && product.discountPercent >= 5 && (
+                    <div className="mb-0.5 flex items-center gap-2">
+                      <span className="rounded bg-[#CC0C39] px-1.5 py-0.5 text-[10px] font-black uppercase tracking-tight text-white">
+                        {product.discountPercent}% OFF
+                      </span>
+                      {product.avgPrice && (
+                        <span className="text-[11px] font-medium text-zinc-500 line-through">
+                          R$ {product.avgPrice.toFixed(2).replace(".", ",")}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-baseline gap-2">
+                    <div className="flex items-start text-[#0F1111] leading-none">
+                      <span className="mt-1 text-[12px] font-medium">R$</span>
+                      <span className="text-[31px] font-medium tracking-[-0.03em]">
+                        {intCents![0]}
+                      </span>
+                      <span className="mt-1 text-[12px] font-medium">{intCents![1]}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-1 flex items-center">
+                    <span className="flex items-center text-[12px] font-black italic leading-none text-[#00A8E1]">
+                      <span
+                        className="mr-0.5 text-[13px] not-italic text-[#FEBD69]"
+                        aria-hidden="true"
+                      >
+                        ✓
+                      </span>
+                      prime
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <p className="text-[13px] italic text-zinc-800">Preço indisponível</p>
               )}
 
-              <div className="flex items-baseline gap-2">
-                <div className="flex items-start text-[#0F1111]">
-                  <span className="text-[12px] mt-1.5 font-medium">R$</span>
-                  <span className="text-3xl font-medium tracking-tight leading-none">{intCents![0]}</span>
-                  <span className="text-[12px] mt-1.5 font-medium">{intCents![1]}</span>
-                </div>
+              <div className="mt-3">
+                <a
+                  href={product.affiliateUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={handleTrackClick}
+                  className="block w-full rounded-full border border-[#FCD200] bg-[#FFD814] py-2.5 text-center text-[13px] font-medium text-[#0F1111] shadow-sm transition-transform active:scale-95"
+                >
+                  Ver na Amazon
+                </a>
               </div>
-              <div className="mt-1 flex items-center">
-                <span className="font-black italic text-[12px] leading-none flex items-center text-[#00A8E1]">
-                  <span className="not-italic text-[13px] text-[#FEBD69] mr-0.5" aria-hidden="true">✓</span>
-                  prime
-                </span>
-              </div>
-            </>
-          ) : (
-            <p className="text-[13px] text-zinc-800 italic">Preço indisponível</p>
-          )}
-
-          <div className="mt-3">
-            <a
-              href={product.affiliateUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={handleTrackClick}
-              className="block w-full bg-[#FFD814] border border-[#FCD200] rounded-full py-2.5 text-[13px] text-center font-medium shadow-sm active:scale-95 transition-transform text-[#0F1111]"
-            >
-              Ver na Amazon
-            </a>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
