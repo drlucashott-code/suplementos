@@ -46,9 +46,9 @@ export const metadata: Metadata = {
     canonical: "https://amazonpicks.vercel.app",
   },
   openGraph: {
-    title: "amazonpicks — O melhor preço em suplementos",
+    title: "Amazon Picks | Filtros inteligentes",
     description:
-      "Compare suplementos pelo melhor custo-benefício com base em dados reais da Amazon.",
+      "Utilizamos filtros inteligentes para encontrar o melhor produto para você",
     url: "https://amazonpicks.vercel.app",
     siteName: "amazonpicks",
     locale: "pt_BR",
