@@ -1,73 +1,72 @@
 "use client";
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, ChevronDown } from "lucide-react";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
-
-const sortOptions = [
-  { value: "cheapest_unit", label: "Custo-benefício" },
-  { value: "price_asc", label: "Menor preço" },
-  { value: "discount", label: "Ofertas" },
-];
 
 export function FloatingFiltersBar() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = usePathname(); // Para manter na mesma rota de categoria
   const scrollDirection = useScrollDirection();
 
   const order = searchParams.get("order") ?? "cheapest_unit";
-  const isVisible = scrollDirection !== "down";
 
   function openFilters() {
     window.dispatchEvent(new CustomEvent("open-filters"));
   }
 
-  function updateParam(key: string, value?: string) {
+  function changeOrder(value: string) {
     const params = new URLSearchParams(searchParams.toString());
-
-    if (value) {
-      params.set(key, value);
-    } else {
-      params.delete(key);
-    }
-
+    params.set("order", value);
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
+  const isVisible = scrollDirection !== "down";
+
   return (
-    <div
-      className={`sticky top-[68px] z-30 border-b border-[#E7E7E7] bg-white transition-transform duration-300 ease-in-out ${
+    <div 
+      className={`sticky top-14 z-30 bg-white border-b border-zinc-200 py-2 px-3 shadow-sm transition-transform duration-300 ease-in-out ${
         isVisible ? "translate-y-0" : "-translate-y-full"
       }`}
+      style={{ fontFamily: "Arial, Helvetica, sans-serif" }}
     >
-      <div className="mx-auto flex max-w-[1200px] gap-2 overflow-x-auto px-2 py-3 scrollbar-none">
+      <div className="flex items-center gap-3 max-w-[1200px] mx-auto">
+        
         <button
           onClick={openFilters}
-          className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-[14px] border border-[#C7C7C7] bg-white px-4 text-[15px] text-[#0F1111] shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+          className="flex items-center justify-center border border-zinc-300 rounded-lg p-2.5 bg-white shadow-sm active:bg-zinc-100 flex-shrink-0 transition-colors"
           aria-label="Abrir filtros"
         >
-          <SlidersHorizontal className="h-4 w-4" />
-          <span>Filtros</span>
+          <SlidersHorizontal className="w-5 h-5 text-zinc-900" />
         </button>
 
-        {sortOptions.map((option) => {
-          const active = order === option.value;
-
-          return (
-            <button
-              key={option.value}
-              onClick={() => updateParam("order", option.value)}
-              className={`flex h-12 shrink-0 items-center rounded-[14px] border px-4 text-[15px] shadow-[0_1px_2px_rgba(0,0,0,0.08)] transition-colors ${
-                active
-                  ? "border-[#111] bg-[#111] text-white"
-                  : "border-[#C7C7C7] bg-white text-[#0F1111]"
-              }`}
+        <div className="flex-1 flex items-center gap-2">
+          <label 
+            htmlFor="sort-select"
+            className="text-[13px] text-zinc-600 whitespace-nowrap leading-none font-normal"
+          >
+            Ordenar por:
+          </label>
+          
+          <div className="flex-1 relative">
+            <select
+              id="sort-select"
+              value={order}
+              onChange={(e) => changeOrder(e.target.value)}
+              className="w-full appearance-none border border-zinc-300 rounded-lg px-3 py-2 bg-zinc-50 text-[13px] text-zinc-900 shadow-sm outline-none pr-9 border-b-zinc-400 active:border-[#e47911] transition-all"
             >
-              {option.label}
-            </button>
-          );
-        })}
+              {/* Nossas opções exclusivas para Casa e Limpeza */}
+              <option value="cheapest_unit">Melhor custo-benefício</option>
+              <option value="price_asc">Menor preço final</option>
+            </select>
+            
+            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none border-l border-zinc-300 pl-2">
+              <ChevronDown className="w-4 h-4 text-zinc-500" />
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );
