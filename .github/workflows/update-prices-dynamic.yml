@@ -2,10 +2,12 @@ name: Update Prices (Dynamic System)
 
 on:
   schedule:
-    # 1x ao dia: 00:00 (Horário de Brasília) / 03:00 UTC
-    - cron: "0 3 * * *"
+    # De 4 em 4 horas, das 08:00 às 00:00 (Horário de Brasília)
+    # BRT: 08, 12, 16, 20, 00
+    # UTC: 11, 15, 19, 23, 03
+    - cron: "0 3,11,15,19,23 * * *"
 
-  workflow_dispatch: # Permite rodar manualmente pelo botão Actions
+  workflow_dispatch:
 
 jobs:
   update-prices-dynamic:

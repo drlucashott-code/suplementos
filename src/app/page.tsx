@@ -186,8 +186,7 @@ export default function HomePage() {
       <div className="relative z-20 mx-auto mt-4 max-w-xl space-y-4 px-4">
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
           <h2 className="mb-4 text-center text-[18px] font-bold text-[#0F1111]">
-            Escolha um nicho
-          </h2>
+                  </h2>
 
           <div className="grid grid-cols-2 gap-3">
             <HubCard
