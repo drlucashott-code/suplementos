@@ -1,6 +1,5 @@
 /**
- * DiscoverProducts v4.2 - ESLint Clean Version
- * Fix "Bad Request" e Remoção de 'any' para conformidade com o TS rigoroso
+ * DiscoverProducts v4.3 - Delay ajustado para reduzir burst sem ficar lento
  */
 
 import "dotenv/config";
@@ -23,26 +22,34 @@ interface AmazonItem {
   };
 }
 
-// 🚀 Faixas otimizadas: min 1 evita o "Bad Request" da Amazon (preço zero não é aceito)
 const priceRanges = [
   { min: 1, max: 15, label: "Super Econômico" },
   { min: 16, max: 40, label: "Econômico" },
   { min: 41, max: 80, label: "Intermediário" },
   { min: 81, max: 200, label: "Premium" },
-  { min: 201, max: 2000, label: "Fardos/Kits" }
+  { min: 201, max: 2000, label: "Fardos/Kits" },
 ];
+
+const PAGE_DELAY_MS = 1500;
+const EMPTY_RANGE_DELAY_MS = 1200;
+const BAD_REQUEST_DELAY_MS = 1500;
+const RATE_LIMIT_DELAY_MS = 10000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function run() {
   const rawBrands = process.argv[2];
   const rawKeywords = process.argv[3] || "creme dental";
-  
-  const keywordsList = rawKeywords.split(",").map(k => k.trim());
-  const brandsList = rawBrands ? rawBrands.split(",").map(b => b.trim()) : [];
-  
-  const maxPages = 10; 
+
+  const keywordsList = rawKeywords.split(",").map((k) => k.trim());
+  const brandsList = rawBrands ? rawBrands.split(",").map((b) => b.trim()) : [];
+
+  const maxPages = 10;
 
   if (!rawBrands) {
-    console.log("❌ Uso: npx ts-node scripts/DiscoverProducts.ts \"Colgate\" \"creme dental, escova\"");
+    console.log(
+      '❌ Uso: npx ts-node scripts/DiscoverProducts.ts "Colgate" "creme dental, escova"'
+    );
     process.exit(1);
   }
 
@@ -58,7 +65,7 @@ async function run() {
 
       for (const range of priceRanges) {
         console.log(`  💸 Faixa: R$${range.min} - R$${range.max} (${range.label})`);
-        
+
         let foundInThisRange = 0;
 
         for (let page = 1; page <= maxPages; page++) {
@@ -68,7 +75,7 @@ async function run() {
             const res = await paapi.SearchItems(commonParameters, {
               Keywords: currentKeyword,
               Brand: brand,
-              MinPrice: range.min * 100, 
+              MinPrice: range.min * 100,
               MaxPrice: range.max * 100,
               SearchIndex: "All",
               ItemCount: 10,
@@ -77,46 +84,56 @@ async function run() {
             });
 
             const items = res?.SearchResult?.Items || [];
-            
+
             if (items.length === 0) {
-              console.log("      🏁 Fim da faixa.");
+              console.log(
+                `      🏁 Nenhum item na faixa. Pausando ${EMPTY_RANGE_DELAY_MS / 1000}s...`
+              );
+              await sleep(EMPTY_RANGE_DELAY_MS);
               break;
             }
 
             items.forEach((item: AmazonItem) => {
               if (!globalAsins.has(item.ASIN)) {
-                console.log(`      [NEW] [${item.ASIN}] ${item.ItemInfo.Title.DisplayValue.substring(0, 35)}...`);
+                console.log(
+                  `      [NEW] [${item.ASIN}] ${item.ItemInfo.Title.DisplayValue.substring(0, 35)}...`
+                );
                 globalAsins.add(item.ASIN);
                 foundInThisRange++;
               }
             });
 
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
+            await sleep(PAGE_DELAY_MS);
           } catch (err: unknown) {
-            // 🚀 CORREÇÃO ESLINT: Tipagem de erro segura sem 'any'
             const error = err as { message?: string; ErrorData?: unknown };
             const msg = error.message || "Erro desconhecido";
 
             if (msg.includes("429")) {
-              console.log("⚠️ 429 - Limite de requisições. Pausando 10s...");
-              await new Promise(resolve => setTimeout(resolve, 10000));
-              page--; 
+              console.log(
+                `⚠️ 429 - Limite de requisições. Pausando ${RATE_LIMIT_DELAY_MS / 1000}s...`
+              );
+              await sleep(RATE_LIMIT_DELAY_MS);
+              page--;
             } else if (msg.includes("400") || msg.includes("Bad Request")) {
-              console.log("      🏁 Limite de páginas ou erro de parâmetro.");
+              console.log(
+                `      🏁 Limite de páginas ou erro de parâmetro. Pausando ${BAD_REQUEST_DELAY_MS / 1000}s...`
+              );
+              await sleep(BAD_REQUEST_DELAY_MS);
               break;
             } else {
-              console.error(`❌ Erro:`, msg);
-              break; 
+              console.error("❌ Erro:", msg);
+              break;
             }
           }
         }
+
         console.log(`    ✅ +${foundInThisRange} novos itens.`);
       }
     }
   }
 
   const uniqueAsins = Array.from(globalAsins);
+
   if (uniqueAsins.length > 0) {
     console.log("\n===========================================");
     console.log("🏁 LISTA CONSOLIDADA");

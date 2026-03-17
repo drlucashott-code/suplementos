@@ -1,67 +1,57 @@
 "use client";
 
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MobileProductCard, type DynamicProductType } from "./MobileProductCard";
-import { useEffect, useRef, useState, useMemo } from "react";
 
-// Tipagem do DisplayConfig para não dar erro de any
 interface DisplayConfigField {
   key: string;
   label: string;
   type: "text" | "number" | "currency";
 }
 
-export function ProductList({
+type GtagWindow = Window & {
+  gtag?: (command: string, event: string, params: Record<string, unknown>) => void;
+  dataLayer?: object[];
+};
+
+function ProductListContent({
   products,
-  viewEventName = "view_catalog_list", // 🚀 Nome padrão mais genérico
+  viewEventName,
   displayConfig,
+  highlightConfig,
 }: {
   products: DynamicProductType[];
-  viewEventName?: string;
+  viewEventName: string;
   displayConfig: DisplayConfigField[];
+  highlightConfig: DisplayConfigField[];
 }) {
   const [visibleCount, setVisibleCount] = useState(6);
-  const [prevProducts, setPrevProducts] = useState(products);
-  
+
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const trackedRef = useRef<string | null>(null);
-
-  // Sincronização inteligente: reseta o scroll ao mudar categoria ou filtro
-  if (products !== prevProducts) {
-    setPrevProducts(products);
-    setVisibleCount(6); 
-  }
-
-  // Tracking de GA4 (Google Analytics)
-  useEffect(() => {
-    trackedRef.current = null; 
-  }, [products]);
 
   useEffect(() => {
     if (!viewEventName || trackedRef.current === viewEventName) return;
 
-    const win = window as typeof window & { 
-      gtag?: (c: string, e: string, p: Record<string, unknown>) => void;
-      dataLayer?: object[];
+    const win = window as GtagWindow;
+
+    const payload = {
+      category: "catalog",
+      total_products: products.length,
     };
 
-    // 🚀 Ajustado para enviar a categoria como 'dinamica' ou baseada no evento
     if (win.gtag) {
-      win.gtag("event", viewEventName, {
-        category: "catalog",
-        total_products: products.length,
-      });
+      win.gtag("event", viewEventName, payload);
     } else if (win.dataLayer) {
       win.dataLayer.push({
         event: viewEventName,
-        category: "catalog",
-        total_products: products.length,
+        ...payload,
       });
     }
 
     trackedRef.current = viewEventName;
   }, [products.length, viewEventName]);
 
-  // 🚀 Implementação do Intersection Observer para Scroll Infinito
   useEffect(() => {
     const currentTarget = loadMoreRef.current;
     if (!currentTarget) return;
@@ -92,27 +82,26 @@ export function ProductList({
         <MobileProductCard
           key={product.id}
           product={product}
-          priority={index < 4} // LCP optimization
+          priority={index < 4}
           displayConfig={displayConfig}
+          highlightConfig={highlightConfig}
         />
       ))}
 
-      {/* 🚀 Gatilho do Scroll Infinito */}
       {hasMore && (
-        <div ref={loadMoreRef} className="h-28 flex items-center justify-center">
+        <div ref={loadMoreRef} className="flex h-28 items-center justify-center">
           <div className="flex flex-col items-center gap-2">
-            <div className="w-6 h-6 border-2 border-zinc-300 border-t-blue-500 rounded-full animate-spin" />
-            <p className="text-[12px] text-zinc-600 font-medium">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-300 border-t-blue-500" />
+            <p className="text-[12px] font-medium text-zinc-600">
               Buscando mais ofertas...
             </p>
           </div>
         </div>
       )}
 
-      {/* Empty State */}
       {products.length === 0 && (
-        <div className="text-center py-20 bg-white rounded-xl border border-dashed border-zinc-300 mx-1">
-          <p className="text-zinc-500 text-[14px]">
+        <div className="mx-1 rounded-xl border border-dashed border-zinc-300 bg-white py-20 text-center">
+          <p className="text-[14px] text-zinc-500">
             Nenhum produto encontrado com estes filtros.
           </p>
         </div>
@@ -120,3 +109,31 @@ export function ProductList({
     </section>
   );
 }
+
+export function ProductList({
+  products,
+  viewEventName = "view_catalog_list",
+  displayConfig,
+  highlightConfig = [],
+}: {
+  products: DynamicProductType[];
+  viewEventName?: string;
+  displayConfig: DisplayConfigField[];
+  highlightConfig?: DisplayConfigField[];
+}) {
+  const resetKey = useMemo(() => {
+    return products.map((product) => product.id).join("|");
+  }, [products]);
+
+  return (
+    <ProductListContent
+      key={resetKey}
+      products={products}
+      viewEventName={viewEventName}
+      displayConfig={displayConfig}
+      highlightConfig={highlightConfig}
+    />
+  );
+}
+
+export default ProductList;

@@ -14,10 +14,13 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
+type FieldVisibility = "internal" | "public_table" | "public_highlight";
+
 interface DisplayConfigField {
   key: string;
   label: string;
   type: "text" | "number" | "currency";
+  visibility?: FieldVisibility;
   public?: boolean;
 }
 
@@ -33,6 +36,11 @@ type ProductWithHistory = DynamicProduct & {
 
 const removeAccents = (str: string) => {
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+};
+
+const getFieldVisibility = (field: DisplayConfigField): FieldVisibility => {
+  if (field.visibility) return field.visibility;
+  return field.public === false ? "internal" : "public_table";
 };
 
 export default async function DynamicCategoryPage({
@@ -73,7 +81,15 @@ export default async function DynamicCategoryPage({
 
   const fullDisplayConfig =
     categoryData.displayConfig as unknown as DisplayConfigField[];
-  const publicDisplayConfig = fullDisplayConfig.filter((c) => c.public !== false);
+
+  const publicTableConfig = fullDisplayConfig.filter(
+    (c) => getFieldVisibility(c) === "public_table"
+  );
+
+  const publicHighlightConfig = fullDisplayConfig.filter(
+    (c) => getFieldVisibility(c) === "public_highlight"
+  );
+
   const dynamicTextConfigs = fullDisplayConfig.filter((c) => c.type === "text");
 
   const availableBrands = new Set<string>();
@@ -265,7 +281,8 @@ export default async function DynamicCategoryPage({
               <ProductList
                 products={finalProducts}
                 viewEventName="view_dynamic_list"
-                displayConfig={publicDisplayConfig}
+                displayConfig={publicTableConfig}
+                highlightConfig={publicHighlightConfig}
               />
             </div>
           </div>

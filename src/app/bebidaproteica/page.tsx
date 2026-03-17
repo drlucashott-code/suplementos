@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { ProductList } from "./ProductList";
 import { MobileFiltersDrawer } from "./MobileFiltersDrawer";
-import { FloatingFiltersBar } from "./FloatingFiltersBar"; 
+import { FloatingFiltersBar } from "./FloatingFiltersBar";
 import { AmazonHeader } from "./AmazonHeader";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 import { DrinkProduct } from "./MobileProductCard";
@@ -26,7 +26,6 @@ type SearchParams = {
   seller?: string;
 };
 
-// Função utilitária para remover acentos
 const removeAccents = (str: string) => {
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 };
@@ -56,7 +55,19 @@ export default async function BebidaProteicaPage({
   const twentyFourHoursAgo = new Date();
   twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
 
-  const stopWords = ["bebida", "bebidas", "proteica", "proteíca", "pronta", "de", "da", "do", "proteina", "proteína"];
+  const stopWords = [
+    "bebida",
+    "bebidas",
+    "proteica",
+    "proteíca",
+    "pronta",
+    "de",
+    "da",
+    "do",
+    "proteina",
+    "proteína",
+  ];
+
   const searchWords = searchQuery
     .trim()
     .split(/\s+/)
@@ -72,8 +83,8 @@ export default async function BebidaProteicaPage({
     include: {
       proteinDrinkInfo: true,
       offers: {
-        where: { 
-          store: "AMAZON", 
+        where: {
+          store: "AMAZON",
           affiliateUrl: { not: "" },
           ...(selectedSellers.length && { seller: { in: selectedSellers } }),
         },
@@ -90,14 +101,17 @@ export default async function BebidaProteicaPage({
 
   const matchedProducts = products.filter((product) => {
     if (searchWords.length === 0) return true;
+
     const productText = removeAccents(
       `${product.name} ${product.brand} ${product.flavor || ""}`.toLowerCase()
     );
+
     return searchWords.every((word) => productText.includes(word));
   });
 
   const rankedProducts = matchedProducts.map((product) => {
     if (!product.proteinDrinkInfo) return null;
+
     const offer = product.offers[0];
     if (!offer) return null;
 
@@ -122,6 +136,7 @@ export default async function BebidaProteicaPage({
         const [min, max] = r.split("-").map(Number);
         return proteinPerDose >= min && proteinPerDose < (max === 100 ? 101 : max);
       });
+
       if (!match) return null;
     }
 
@@ -133,6 +148,7 @@ export default async function BebidaProteicaPage({
 
     if (offer.priceHistory.length > 0) {
       const dailyPrices = new Map<string, number[]>();
+
       offer.priceHistory.forEach((h) => {
         const day = h.createdAt.toISOString().split("T")[0];
         if (!dailyPrices.has(day)) dailyPrices.set(day, []);
@@ -143,22 +159,18 @@ export default async function BebidaProteicaPage({
         (p) => p.reduce((a, b) => a + b, 0) / p.length
       );
 
-      avgMonthly = averages.reduce((a, b) => a + b, 0) / averages.length;
+      if (averages.length > 0) {
+        avgMonthly = averages.reduce((a, b) => a + b, 0) / averages.length;
 
-      if (avgMonthly > finalPrice) {
-        const raw = ((avgMonthly - finalPrice) / avgMonthly) * 100;
-        if (raw >= 5) discountPercent = Math.round(raw);
+        if (avgMonthly > finalPrice) {
+          const raw = ((avgMonthly - finalPrice) / avgMonthly) * 100;
+          if (raw >= 5) discountPercent = Math.round(raw);
+        }
       }
     }
 
-    const prices30d = offer.priceHistory.map(h => h.price).concat(finalPrice);
-    const minPrice30d = Math.min(...prices30d);
-    const isLowestPrice = false; 
-
-    const history7d = offer.priceHistory.filter(h => h.createdAt >= sevenDaysAgo);
-    const prices7d = history7d.map(h => h.price).concat(finalPrice);
-    const minPrice7d = Math.min(...prices7d);
-    const isLowestPrice7d = false; 
+    const isLowestPrice = false;
+    const isLowestPrice7d = false;
 
     return {
       id: product.id,
@@ -167,17 +179,14 @@ export default async function BebidaProteicaPage({
       flavor: product.flavor,
       price: finalPrice,
       affiliateUrl: offer.affiliateUrl,
-      
       doseWeight: info.volumePerUnitInMl,
-      proteinPerDose: proteinPerDose,
+      proteinPerDose,
       numberOfDoses: unitsPerPack,
-      pricePerGramProtein: pricePerGramProtein,
-      
+      pricePerGramProtein,
       avgPrice: avgMonthly,
-      discountPercent: discountPercent,
-      isLowestPrice: isLowestPrice,       
-      isLowestPrice7d: isLowestPrice7d,   
-      
+      discountPercent,
+      isLowestPrice,
+      isLowestPrice7d,
       rating: offer.ratingAverage ?? 0,
       reviewsCount: offer.ratingCount ?? 0,
     } as DrinkProduct;
@@ -204,7 +213,7 @@ export default async function BebidaProteicaPage({
       }
 
       if (order === "cheapest_unit") {
-        const diff = (priceA / unitsA) - (priceB / unitsB);
+        const diff = priceA / unitsA - priceB / unitsB;
         if (diff !== 0) return diff;
         return priceA - priceB;
       }
@@ -222,17 +231,26 @@ export default async function BebidaProteicaPage({
 
   const allOptions = await prisma.product.findMany({
     where: { category: "bebidaproteica" },
-    select: { brand: true, flavor: true }
+    select: { brand: true, flavor: true },
   });
 
-  const availableBrands = Array.from(new Set(allOptions.map((p) => p.brand))).sort();
-  const availableFlavors = Array.from(new Set(allOptions.map((p) => p.flavor).filter((f): f is string => !!f))).sort();
+  const availableBrands = Array.from(
+    new Set(allOptions.map((p) => p.brand))
+  ).sort();
+
+  const availableFlavors = Array.from(
+    new Set(
+      allOptions
+        .map((p) => p.flavor)
+        .filter((f): f is string => Boolean(f))
+    )
+  ).sort();
 
   const rawSellers = await prisma.offer.findMany({
-    where: { 
+    where: {
       store: "AMAZON",
       seller: { not: null },
-      product: { category: "bebidaproteica" }
+      product: { category: "bebidaproteica" },
     },
     distinct: ["seller"],
     select: { seller: true },
@@ -273,7 +291,10 @@ export default async function BebidaProteicaPage({
             <p className="text-[13px] text-zinc-800 mb-2 px-1 font-medium">
               {finalProducts.length} produtos encontrados
             </p>
-            <ProductList products={finalProducts} viewEventName="view_drink_list" />
+            <ProductList
+              products={finalProducts}
+              viewEventName="view_drink_list"
+            />
           </div>
         </div>
       </div>

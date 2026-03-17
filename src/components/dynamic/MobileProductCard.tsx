@@ -70,10 +70,12 @@ export function MobileProductCard({
   product,
   priority,
   displayConfig,
+  highlightConfig = [],
 }: {
   product: DynamicProductType;
   priority: boolean;
   displayConfig: DisplayConfigField[];
+  highlightConfig?: DisplayConfigField[];
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
 
@@ -87,6 +89,33 @@ export function MobileProductCard({
     reviewsCount >= 1000
       ? (reviewsCount / 1000).toFixed(1).replace(".", ",") + " mil"
       : reviewsCount.toString();
+
+  const visibleHighlights = highlightConfig
+    .map((config) => {
+      const rawValue = product.attributes[config.key];
+      if (
+        rawValue === undefined ||
+        rawValue === null ||
+        String(rawValue).trim() === ""
+      ) {
+        return null;
+      }
+
+      return {
+        key: config.key,
+        label: config.label,
+        value: String(rawValue),
+      };
+    })
+    .filter(
+      (
+        item
+      ): item is {
+        key: string;
+        label: string;
+        value: string;
+      } => item !== null
+    );
 
   const handleTrackClick = () => {
     const asinMatch = product.affiliateUrl.match(/\/dp\/([A-Z0-9]{10})/);
@@ -134,16 +163,28 @@ export function MobileProductCard({
         </h2>
 
         {(rating > 0 || reviewsCount > 0) && (
-          <div className="mb-3 flex items-center gap-1 text-[12px]">
+          <div className="mb-2 flex items-center gap-1 text-[12px]">
             <span className="font-normal text-[#0F1111]">{rating.toFixed(1)}</span>
             <AmazonStars rating={rating} />
             <span className="text-[#007185]">({formattedCount})</span>
           </div>
         )}
 
+        {visibleHighlights.length > 0 && (
+          <div className="mb-2 flex flex-wrap items-center gap-x-1.5 text-[12px] text-zinc-600">
+            {visibleHighlights.map((item, index) => (
+              <span key={item.key}>
+                {index > 0 && <span className="mr-1">•</span>}
+                {item.label}:{" "}
+                <b className="font-medium text-[#0F1111]">{item.value}</b>
+              </span>
+            ))}
+          </div>
+        )}
+
         <div
           className={`mb-3 grid grid-cols-2 gap-2 divide-x divide-zinc-200 rounded border border-zinc-200 bg-white p-2 ${
-            rating === 0 ? "mt-2" : ""
+            rating === 0 && visibleHighlights.length === 0 ? "mt-2" : ""
           }`}
         >
           {displayConfig.map((config) => {
@@ -173,7 +214,10 @@ export function MobileProductCard({
             }
 
             return (
-              <div key={config.key} className="flex flex-col overflow-hidden px-1 text-center">
+              <div
+                key={config.key}
+                className="flex flex-col overflow-hidden px-1 text-center"
+              >
                 <span
                   className={`mb-1 truncate text-[13px] font-bold leading-none ${valueClass}`}
                 >
@@ -213,7 +257,8 @@ export function MobileProductCard({
                   </div>
 
                   {typeof product.avgPrice === "number" &&
-                    Math.round(product.avgPrice * 100) > Math.round(product.price * 100) && (
+                    Math.round(product.avgPrice * 100) >
+                      Math.round(product.price * 100) && (
                       <div className="relative mt-1 flex items-center gap-1">
                         <span className="text-[12px] text-zinc-500">
                           De:{" "}

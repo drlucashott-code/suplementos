@@ -1,77 +1,75 @@
-'use server';
+"use server";
 
-import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client'; // 🚀 Para tipagem JSON oficial
-import { revalidatePath } from 'next/cache';
+import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 
-// Tipagem para os campos de configuração dinâmicos
 export type ConfigField = {
   key: string;
   label: string;
-  type: string;
+  type: "text" | "number" | "currency";
+  visibility: "internal" | "public_table" | "public_highlight";
 };
 
-/**
- * CRIA UMA NOVA CATEGORIA DINÂMICA
- */
 export async function createDynamicCategory(data: {
   name: string;
   slug: string;
-  group: string; // 🚀 NOVO CAMPO
+  group: string;
   displayConfig: ConfigField[];
 }) {
   try {
-    // 🚀 CORREÇÃO: Verificação de duplicidade baseada no par [Grupo, Slug]
     const existingCategory = await prisma.dynamicCategory.findFirst({
-      where: { 
+      where: {
         group: data.group,
-        slug: data.slug 
+        slug: data.slug,
       },
     });
 
     if (existingCategory) {
-      return { error: `Já existe a categoria "${data.slug}" no grupo "${data.group}".` };
+      return {
+        error: `Já existe a categoria "${data.slug}" no grupo "${data.group}".`,
+      };
     }
 
     await prisma.dynamicCategory.create({
       data: {
         name: data.name,
         slug: data.slug,
-        group: data.group.toLowerCase(), // Normaliza para minúsculo
-        displayConfig: data.displayConfig as Prisma.InputJsonValue, 
+        group: data.group.toLowerCase(),
+        displayConfig: data.displayConfig as Prisma.InputJsonValue,
       },
     });
 
-    revalidatePath('/admin/dynamic/categorias');
+    revalidatePath("/admin/dynamic/categorias");
     return { success: true };
-
   } catch (error) {
     console.error("Erro ao criar categoria:", error);
-    return { error: 'Ocorreu um erro ao salvar a categoria no banco de dados.' };
+    return { error: "Ocorreu um erro ao salvar a categoria no banco de dados." };
   }
 }
 
-/**
- * ATUALIZA UMA CATEGORIA EXISTENTE
- */
-export async function updateDynamicCategory(id: string, data: {
-  name: string;
-  slug: string;
-  group: string; // 🚀 NOVO CAMPO
-  displayConfig: ConfigField[];
-}) {
+export async function updateDynamicCategory(
+  id: string,
+  data: {
+    name: string;
+    slug: string;
+    group: string;
+    displayConfig: ConfigField[];
+  }
+) {
   try {
-    // 🚀 CORREÇÃO: Verifica se o novo par [Grupo, Slug] já pertence a outra categoria
     const existingCategory = await prisma.dynamicCategory.findFirst({
-      where: { 
+      where: {
         group: data.group,
         slug: data.slug,
-        NOT: { id: id }
+        NOT: { id },
       },
     });
 
     if (existingCategory) {
-      return { error: 'Este slug já está sendo usado por outra categoria neste grupo.' };
+      return {
+        error: "Este slug já está sendo usado por outra categoria neste grupo.",
+      };
     }
 
     await prisma.dynamicCategory.update({
@@ -84,30 +82,23 @@ export async function updateDynamicCategory(id: string, data: {
       },
     });
 
-    revalidatePath('/admin/dynamic/categorias');
+    revalidatePath("/admin/dynamic/categorias");
     return { success: true };
-
   } catch (error) {
     console.error("Erro ao atualizar categoria:", error);
-    return { error: 'Ocorreu um erro ao atualizar a categoria.' };
+    return { error: "Ocorreu um erro ao atualizar a categoria." };
   }
 }
 
-/**
- * BUSCA TODAS AS CATEGORIAS
- */
 export async function getHomeCategories() {
   try {
     return await prisma.dynamicCategory.findMany({
-      orderBy: [
-        { group: 'asc' }, // Agrupa por nicho primeiro
-        { name: 'asc' }
-      ],
+      orderBy: [{ group: "asc" }, { name: "asc" }],
       include: {
         _count: {
-          select: { products: true }
-        }
-      }
+          select: { products: true },
+        },
+      },
     });
   } catch (error) {
     console.error("Erro ao buscar categorias:", error);
@@ -115,13 +106,10 @@ export async function getHomeCategories() {
   }
 }
 
-/**
- * BUSCA UMA ÚNICA CATEGORIA PELO ID
- */
 export async function getDynamicCategoryById(id: string) {
   try {
     return await prisma.dynamicCategory.findUnique({
-      where: { id }
+      where: { id },
     });
   } catch (error) {
     console.error("Erro ao buscar categoria por ID:", error);
@@ -129,19 +117,18 @@ export async function getDynamicCategoryById(id: string) {
   }
 }
 
-/**
- * EXCLUI UMA CATEGORIA
- */
 export async function deleteDynamicCategory(id: string) {
   try {
     await prisma.dynamicCategory.delete({
-      where: { id }
+      where: { id },
     });
-    
-    revalidatePath('/admin/dynamic/categorias');
+
+    revalidatePath("/admin/dynamic/categorias");
     return { success: true };
   } catch (error) {
     console.error("Erro ao excluir categoria:", error);
-    return { error: "Não foi possível excluir. Verifique se existem produtos vinculados." };
+    return {
+      error: "Não foi possível excluir. Verifique se existem produtos vinculados.",
+    };
   }
 }
