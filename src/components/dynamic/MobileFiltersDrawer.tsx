@@ -69,7 +69,6 @@ export function MobileFiltersDrawer({ brands, sellers, dynamicConfigs, dynamicOp
     });
 
     router.push(`?${params.toString()}`);
-    router.refresh(); // 🚀 CORREÇÃO: Força o servidor a atualizar a página na Vercel
     setOpen(false);
   };
 
