@@ -30,12 +30,12 @@ function Star({
   fillPercent: number;
 }) {
   return (
-    <span className="relative inline-flex h-[12px] w-[12px] shrink-0">
-      <span className="absolute inset-0 text-[12px] leading-[12px] text-[#D5D9D9]">
+    <span className="relative inline-flex h-[11px] w-[11px] shrink-0">
+      <span className="absolute inset-0 text-[11px] leading-[11px] text-[#D5D9D9]">
         ★
       </span>
       <span
-        className="absolute inset-y-0 left-0 overflow-hidden text-[12px] leading-[12px] text-[#DE7921]"
+        className="absolute inset-y-0 left-0 overflow-hidden text-[11px] leading-[11px] text-[#DE7921]"
         style={{ width: `${fillPercent}%` }}
       >
         ★
@@ -52,7 +52,7 @@ function AmazonStars({ rating }: { rating: number }) {
   }
 
   return (
-    <div className="flex items-center gap-0.5" aria-hidden="true">
+    <div className="flex items-center gap-0" aria-hidden="true">
       {[0, 1, 2, 3, 4].map((index) => {
         const diff = roundedRating - index;
         let fillPercent = 0;
@@ -202,11 +202,13 @@ export function MobileProductCard({
                     </span>
 
                     <div className="flex items-start text-[#0F1111]">
-                      <span className="mt-1.5 text-[12px] font-medium">R$</span>
+                      <span className="mt-1 text-[13px] font-medium">R$</span>
                       <span className="text-3xl font-medium leading-none tracking-tight">
                         {intCents[0]}
                       </span>
-                      <span className="mt-1.5 text-[12px] font-medium">{intCents[1]}</span>
+                      <span className="mt-[3px] text-[14px] font-medium leading-none">
+                        {intCents[1]}
+                      </span>
                     </div>
                   </div>
 
@@ -246,11 +248,13 @@ export function MobileProductCard({
               ) : (
                 <div className="flex items-baseline gap-2">
                   <div className="flex items-start text-[#0F1111]">
-                    <span className="mt-1.5 text-[12px] font-medium">R$</span>
+                    <span className="mt-1 text-[13px] font-medium">R$</span>
                     <span className="text-3xl font-medium leading-none tracking-tight">
                       {intCents[0]}
                     </span>
-                    <span className="mt-1.5 text-[12px] font-medium">{intCents[1]}</span>
+                    <span className="mt-[3px] text-[14px] font-medium leading-none">
+                      {intCents[1]}
+                    </span>
                   </div>
                 </div>
               )}
