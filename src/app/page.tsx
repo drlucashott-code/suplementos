@@ -1,16 +1,14 @@
 "use client";
 
-import { BarChart3, TrendingUp, ShieldCheck } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { BarChart3, TrendingUp, ShieldCheck, Dumbbell, Home } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react"; 
 import Image from "next/image";
-import Header from "./Header"; 
-import FeedbackModal from "./FeedbackModal"; // ✅ Importação do Modal adicionada aqui
+import Header from "./Header";
+import FeedbackModal from "./FeedbackModal";
 
-// 🚀 Componente de Rastreio de Visualização
 function TrackHomeView() {
   useEffect(() => {
-    // Cast para garantir que o TypeScript aceite a propriedade dataLayer no objeto window
     const win = window as typeof window & { dataLayer?: object[] };
     win.dataLayer = win.dataLayer || [];
     win.dataLayer.push({
@@ -22,136 +20,256 @@ function TrackHomeView() {
   return null;
 }
 
+type HubKey = "suplementos" | "casa";
+
+type CategoryItem = {
+  title: string;
+  imageSrc: string;
+  path: string;
+  disabled?: boolean;
+};
+
+const categoryGroups: Record<HubKey, CategoryItem[]> = {
+  suplementos: [
+    {
+      title: "Barra de proteína",
+      imageSrc: "https://m.media-amazon.com/images/I/61RDMRO3uCL._AC_SL1200_.jpg",
+      path: "/barra",
+    },
+    {
+      title: "Bebida proteica",
+      imageSrc: "https://m.media-amazon.com/images/I/51npzHic1NL._AC_SL1000_.jpg",
+      path: "/bebidaproteica",
+    },
+    {
+      title: "Café funcional",
+      imageSrc: "https://m.media-amazon.com/images/I/61hwrgvkjrL._AC_SL1210_.jpg",
+      path: "/cafe-funcional",
+    },
+    {
+      title: "Creatina",
+      imageSrc: "https://m.media-amazon.com/images/I/81UashXoAxL._AC_SL1500_.jpg",
+      path: "/creatina",
+    },
+    {
+      title: "Pré-treino",
+      imageSrc: "https://m.media-amazon.com/images/I/61fGbsRyDWL._AC_SL1333_.jpg",
+      path: "/pre-treino",
+    },
+    {
+      title: "Whey Protein",
+      imageSrc: "https://m.media-amazon.com/images/I/51lOuKbCawL._AC_SL1000_.jpg",
+      path: "/whey",
+    },
+  ],
+  casa: [
+    {
+      title: "Creme dental",
+      imageSrc: "https://m.media-amazon.com/images/I/618cxCZ8wHL._AC_SL1000_.jpg",
+      path: "/casa/creme-dental",
+    },
+    {
+      title: "Fralda",
+      imageSrc: "https://m.media-amazon.com/images/I/71EGaknfKuL._AC_SL1500_.jpg",
+      path: "/casa/fralda",
+    },
+    {
+      title: "Papel higiênico",
+      imageSrc: "https://m.media-amazon.com/images/I/71uftHmzxQL._AC_SL1500_.jpg",
+      path: "/casa/papel-higienico",
+    },
+    {
+      title: "Sabão para roupas",
+      imageSrc: "https://m.media-amazon.com/images/I/71bXBFl912L._AC_SL1500_.jpg",
+      path: "/casa/lava-roupa",
+    },
+  ],
+};
+
+function sortCategories(items: CategoryItem[]) {
+  const active = items
+    .filter((item) => !item.disabled)
+    .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+
+  const disabled = items
+    .filter((item) => item.disabled)
+    .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+
+  return [...active, ...disabled];
+}
+
 export default function HomePage() {
   const router = useRouter();
+  const [selectedHub, setSelectedHub] = useState<HubKey>("suplementos");
 
-  // Função para tracking de cliques em categorias
+  const visibleCategories = useMemo(
+    () => sortCategories(categoryGroups[selectedHub]),
+    [selectedHub]
+  );
+
   const handleCategoryClick = (path: string, categoryName: string) => {
     const win = window as typeof window & { dataLayer?: object[] };
     if (win.dataLayer) {
       win.dataLayer.push({
         event: "click_category",
         category_name: categoryName,
+        hub_name: selectedHub,
       });
     }
+
     router.push(path);
+  };
+
+  const handleHubClick = (hub: HubKey) => {
+    const win = window as typeof window & { dataLayer?: object[] };
+    if (win.dataLayer) {
+      win.dataLayer.push({
+        event: "select_home_hub",
+        hub_name: hub,
+      });
+    }
+
+    setSelectedHub(hub);
   };
 
   return (
     <main className="min-h-screen bg-[#EAEDED] pb-20 font-sans">
-      
       <TrackHomeView />
 
-      {/* --- 1. HEADER EXCLUSIVO DA HOME --- */}
       <Header />
 
-      {/* --- 2. FAIXA DE STATUS --- */}
-      <div className="bg-[#37475A] px-4 py-2.5 flex items-center justify-center gap-2 text-white text-[12px] font-medium shadow-inner">
-        <ShieldCheck className="w-4 h-4 text-[#FF9900]" />
+      <div className="flex items-center justify-center gap-2 bg-[#37475A] px-4 py-2.5 text-[12px] font-medium text-white shadow-inner">
+        <ShieldCheck className="h-4 w-4 text-[#FF9900]" />
         <span>Comparador verificado de ofertas Amazon</span>
       </div>
 
-      {/* --- 3. HERO SECTION --- */}
-      <div className="bg-white border-b border-gray-200 relative overflow-hidden">
-        <div className="px-5 pt-8 pb-8 max-w-lg mx-auto text-center relative z-10">
-          
-          <span className="inline-block bg-[#F0F2F2] text-[#007185] text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider mb-4 border border-gray-300">
+      <div className="relative overflow-hidden border-b border-gray-200 bg-white">
+        <div className="relative z-10 mx-auto max-w-lg px-5 pb-10 pt-8 text-center">
+          <span className="mb-4 inline-block rounded border border-gray-300 bg-[#F0F2F2] px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[#007185]">
             Guia do Consumidor
           </span>
 
-          <h1 className="text-[18px] sm:text-[20px] leading-snug font-bold text-[#0F1111] mb-8">
+          <h1 className="mb-8 text-[18px] font-bold leading-snug text-[#0F1111] sm:text-[20px]">
             Utilizamos filtros inteligentes para encontrar o melhor produto para você.
           </h1>
 
-          <div className="grid grid-cols-2 gap-8 mt-2 px-2">
+          <div className="mt-2 grid grid-cols-2 gap-8 px-2">
             <div className="flex flex-col items-center gap-2 text-center">
-              <BarChart3 className="w-8 h-8 text-[#007185]" />
+              <BarChart3 className="h-8 w-8 text-[#007185]" />
               <div className="flex flex-col">
-                <span className="text-[14px] font-bold text-[#0F1111]">Análise Técnica</span>
-                <span className="text-[12px] text-[#565959]">Custo real por grama</span>
+                <span className="text-[14px] font-bold text-[#0F1111]">
+                  Análise Técnica
+                </span>
+                <span className="text-[12px] text-[#565959]">
+                  Custo real por unidade
+                </span>
               </div>
             </div>
-            
+
             <div className="flex flex-col items-center gap-2 text-center">
-              <TrendingUp className="w-8 h-8 text-[#007185]" />
+              <TrendingUp className="h-8 w-8 text-[#007185]" />
               <div className="flex flex-col">
-                <span className="text-[14px] font-bold text-[#0F1111]">Preço Justo</span>
-                <span className="text-[12px] text-[#565959]">Histórico de 30 dias</span>
+                <span className="text-[14px] font-bold text-[#0F1111]">
+                  Preço Justo
+                </span>
+                <span className="text-[12px] text-[#565959]">
+                  Histórico de 30 dias
+                </span>
               </div>
             </div>
           </div>
         </div>
-        
-        <div className="absolute bottom-0 w-full h-6 bg-gradient-to-b from-transparent to-[#EAEDED]/50" />
+
+        <div className="absolute bottom-0 h-6 w-full bg-gradient-to-b from-transparent to-[#EAEDED]/50" />
       </div>
 
-      {/* --- 4. GRID DE CATEGORIAS (Ordem Alfabética) --- */}
-      <div className="px-4 -mt-4 relative z-20 max-w-xl mx-auto space-y-4">
-        
-        <h2 className="text-[18px] font-bold text-[#0F1111] px-1 pt-4 text-center">Comprar por categoria</h2>
+      <div className="relative z-20 mx-auto mt-4 max-w-xl space-y-4 px-4">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <h2 className="mb-4 text-center text-[18px] font-bold text-[#0F1111]">
+            Escolha um nicho
+          </h2>
 
-        <div className="grid grid-cols-2 gap-3">
-          
-          <CategoryCard 
-            title="Barra de proteína"
-            imageSrc="https://m.media-amazon.com/images/I/61RDMRO3uCL._AC_SL1200_.jpg" 
-            onClick={() => handleCategoryClick("/barra", "Barra de proteína")}
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <HubCard
+              title="Suplementos"
+              subtitle="Creatina, whey, barras e mais"
+              icon={<Dumbbell className="h-6 w-6" />}
+              active={selectedHub === "suplementos"}
+              onClick={() => handleHubClick("suplementos")}
+            />
 
-          <CategoryCard 
-            title="Bebida proteica"
-            imageSrc="https://m.media-amazon.com/images/I/51npzHic1NL._AC_SL1000_.jpg" 
-            onClick={() => handleCategoryClick("/bebidaproteica", "Bebida proteica")}
-          />
-
-          <CategoryCard 
-            title="Café funcional"
-            imageSrc="https://m.media-amazon.com/images/I/61hwrgvkjrL._AC_SL1210_.jpg" 
-            onClick={() => handleCategoryClick("/cafe-funcional", "Café funcional")}
-          />
-
-          <CategoryCard 
-            title="Creatina"
-            imageSrc="https://m.media-amazon.com/images/I/81UashXoAxL._AC_SL1500_.jpg" 
-            onClick={() => handleCategoryClick("/creatina", "Creatina")}
-          />
-
-          {/* ✅ PRÉ-TREINO ATIVADO AGORA */}
-          <CategoryCard 
-            title="Pré-treino"
-            imageSrc="https://m.media-amazon.com/images/I/61fGbsRyDWL._AC_SL1333_.jpg" 
-            onClick={() => handleCategoryClick("/pre-treino", "Pré-treino")}
-          />
-
-          <CategoryCard 
-            title="Whey Protein"
-            imageSrc="https://m.media-amazon.com/images/I/51lOuKbCawL._AC_SL1000_.jpg" 
-            onClick={() => handleCategoryClick("/whey", "Whey Protein")}
-          />
-
+            <HubCard
+              title="Casa & Bem-estar"
+              subtitle="Higiene, limpeza e cuidados"
+              icon={<Home className="h-6 w-6" />}
+              active={selectedHub === "casa"}
+              onClick={() => handleHubClick("casa")}
+            />
+          </div>
         </div>
 
-        {/* --- 5. FOOTER --- */}
-        <footer className="pt-10 pb-6 text-center px-4 flex flex-col items-center">
-          
-          {/* ✅ Modal de Feedback adicionado aqui */}
+        <div className="grid grid-cols-2 gap-3">
+          {visibleCategories.map((category) => (
+            <CategoryCard
+              key={category.title}
+              title={category.title}
+              imageSrc={category.imageSrc}
+              disabled={category.disabled}
+              onClick={() => handleCategoryClick(category.path, category.title)}
+            />
+          ))}
+        </div>
+
+        <footer className="flex flex-col items-center px-4 pb-6 pt-10 text-center">
           <FeedbackModal />
 
-          <div className="border-t border-gray-300 w-16 mx-auto mb-4" />
-          <p className="text-[11px] text-[#565959] leading-tight px-6">
+          <div className="mx-auto mb-4 w-16 border-t border-gray-300" />
+          <p className="px-6 text-[11px] leading-tight text-[#565959]">
             Participamos do Programa de Associados da Amazon Services LLC.
           </p>
-          <p className="text-[11px] text-[#565959] mt-2">
+          <p className="mt-2 text-[11px] text-[#565959]">
             &copy; 2026 Amazon Picks.
           </p>
         </footer>
-
       </div>
     </main>
   );
 }
 
-// --- COMPONENTE DE CARD ---
+interface HubCardProps {
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
+  active?: boolean;
+  onClick: () => void;
+}
+
+function HubCard({ title, subtitle, icon, active, onClick }: HubCardProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-xl border p-4 text-left transition-all ${
+        active
+          ? "border-[#007185] bg-[#E6F4F1] shadow-sm"
+          : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm"
+      }`}
+    >
+      <div
+        className={`mb-3 inline-flex rounded-lg p-2 ${
+          active ? "bg-white text-[#007185]" : "bg-[#F7F8F8] text-[#565959]"
+        }`}
+      >
+        {icon}
+      </div>
+
+      <div className="space-y-1">
+        <h3 className="text-[15px] font-bold text-[#0F1111]">{title}</h3>
+        <p className="text-[12px] leading-snug text-[#565959]">{subtitle}</p>
+      </div>
+    </button>
+  );
+}
+
 interface CategoryCardProps {
   title: string;
   imageSrc: string;
@@ -161,36 +279,35 @@ interface CategoryCardProps {
 
 function CategoryCard({ title, imageSrc, onClick, disabled }: CategoryCardProps) {
   return (
-    <div 
+    <div
       onClick={!disabled ? onClick : undefined}
       className={`
-        relative bg-white p-4 rounded-lg shadow-sm flex flex-col items-center justify-between h-[160px] border transition-all
-        ${disabled 
-          ? "border-gray-100 opacity-60 cursor-not-allowed bg-gray-50" 
-          : "border-gray-200 cursor-pointer active:scale-[0.98] active:border-[#e47911] hover:shadow-md"
+        relative h-[160px] rounded-lg border bg-white p-4 shadow-sm transition-all
+        flex flex-col items-center justify-between
+        ${
+          disabled
+            ? "cursor-not-allowed border-gray-100 bg-gray-50 opacity-60"
+            : "cursor-pointer border-gray-200 hover:shadow-md active:scale-[0.98] active:border-[#e47911]"
         }
       `}
     >
-      {/* Título centralizado com text-center */}
-      <h2 className="text-[14px] font-bold text-[#0F1111] w-full text-center mb-2 leading-tight">
+      <h2 className="mb-2 w-full text-center text-[14px] font-bold leading-tight text-[#0F1111]">
         {title}
       </h2>
 
-      {/* ✅ Imagem aumentada aqui de w-24 h-24 para w-28 h-28 */}
-      <div className="w-28 h-28 relative flex items-center justify-center">
-        <Image 
-          src={imageSrc} 
+      <div className="relative flex h-28 w-28 items-center justify-center">
+        <Image
+          src={imageSrc}
           alt={title}
           fill
-          sizes="112px" // ✅sizes atualizado para bater com 112px (w-28)
-          className="object-contain mix-blend-multiply drop-shadow-sm p-1"
+          sizes="112px"
+          className="object-contain p-1 drop-shadow-sm mix-blend-multiply"
           unoptimized
         />
       </div>
 
-      {/* Flag de em breve, condicional se a prop disabled for true */}
       {disabled && (
-        <span className="absolute bottom-2 right-2 text-[9px] text-gray-400 font-bold bg-gray-100 px-1.5 py-0.5 rounded uppercase border border-gray-200">
+        <span className="absolute bottom-2 right-2 rounded border border-gray-200 bg-gray-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-gray-400">
           em breve
         </span>
       )}
