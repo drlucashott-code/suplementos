@@ -7,10 +7,13 @@ const prisma = new PrismaClient({
   log: ["error"],
 });
 
-/**
- * SCRAPER: Captura Notas e Avaliações da Amazon
- */
-async function fetchAmazonRatings(asin: string) {
+const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
+type RatingResult =
+  | { rating: number | null; count: number | null; status: "success" | "not_found" }
+  | { rating: null; count: null; status: "error" };
+
+async function fetchAmazonRatings(asin: string): Promise<RatingResult> {
   const url = `https://www.amazon.com.br/dp/${asin}`;
 
   try {
@@ -29,6 +32,7 @@ async function fetchAmazonRatings(asin: string) {
 
     const ratingText =
       $("#acrPopover").attr("title") || $("span.a-icon-alt").first().text();
+
     const rating = ratingText
       ? parseFloat(ratingText.split(" ")[0].replace(",", "."))
       : null;
@@ -36,13 +40,56 @@ async function fetchAmazonRatings(asin: string) {
     const countRaw = $("#acrCustomerReviewText").first().text();
     const count = countRaw ? parseInt(countRaw.replace(/[^0-9]/g, ""), 10) : null;
 
-    return { rating, count };
+    return { rating, count, status: "success" };
   } catch (error: unknown) {
     const msg = (error as Error).message;
-    if (msg.includes("404")) return { rating: null, count: null, error: "404" };
+
+    if (msg.includes("404")) {
+      return { rating: null, count: null, status: "not_found" };
+    }
+
     console.error(`  ❌ Erro no ASIN ${asin}: ${msg}`);
-    return null;
+    return { rating: null, count: null, status: "error" };
   }
+}
+
+async function processProduct(product: { id: string; asin: string; name: string }) {
+  console.log(
+    `🔍 [${product.asin}] - Processando: ${product.name.substring(0, 45)}...`
+  );
+
+  const result = await fetchAmazonRatings(product.asin);
+
+  if (result.status === "success") {
+    await prisma.dynamicProduct.update({
+      where: { id: product.id },
+      data: {
+        ratingAverage: result.rating ?? undefined,
+        ratingCount: result.count ?? undefined,
+        ratingsUpdatedAt: new Date(),
+      },
+    });
+
+    console.log(`  ✅ Sucesso: ${result.rating}⭐ | ${result.count} reviews`);
+    return "success";
+  }
+
+  if (result.status === "not_found") {
+    await prisma.dynamicProduct.update({
+      where: { id: product.id },
+      data: {
+        ratingAverage: null,
+        ratingCount: null,
+        ratingsUpdatedAt: new Date(),
+      },
+    });
+
+    console.log("  ⚠️ Produto não encontrado (404). Marcado como checado.");
+    return "not_found";
+  }
+
+  console.log("  ⚠️ Erro temporário. Vai para fila de nova tentativa.");
+  return "error";
 }
 
 async function main() {
@@ -68,31 +115,33 @@ async function main() {
   console.log(`\n🚀 Iniciando atualização de fila para ${products.length} produtos...`);
 
   let atualizados = 0;
+  const retryQueue: { id: string; asin: string; name: string }[] = [];
 
   for (const product of products) {
-    console.log(
-      `🔍 [${product.asin}] - Processando: ${product.name.substring(0, 45)}...`
-    );
+    const status = await processProduct(product);
 
-    const result = await fetchAmazonRatings(product.asin);
-
-    await prisma.dynamicProduct.update({
-      where: { id: product.id },
-      data: {
-        ratingAverage: result?.rating ?? undefined,
-        ratingCount: result?.count ?? undefined,
-        ratingsUpdatedAt: new Date(),
-      },
-    });
-
-    if (result && result.rating !== null) {
-      console.log(`  ✅ Sucesso: ${result.rating}⭐ | ${result.count} reviews`);
+    if (status === "success") {
       atualizados++;
-    } else {
-      console.log("  ⚠️ Dados não encontrados ou erro. Data de checagem atualizada.");
+    } else if (status === "error") {
+      retryQueue.push(product);
     }
 
-    await new Promise((res) => setTimeout(res, 5000));
+    await sleep(5000);
+  }
+
+  if (retryQueue.length > 0) {
+    console.log(`\n🔁 Nova tentativa para ${retryQueue.length} produtos com erro...`);
+    await sleep(10000);
+
+    for (const product of retryQueue) {
+      const status = await processProduct(product);
+
+      if (status === "success") {
+        atualizados++;
+      }
+
+      await sleep(5000);
+    }
   }
 
   console.log(

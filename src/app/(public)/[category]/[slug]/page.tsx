@@ -34,6 +34,8 @@ type ProductWithHistory = DynamicProduct & {
   priceHistory: DynamicPriceHistory[];
 };
 
+const AMAZON_OFFICIAL = "Amazon.com.br";
+
 const removeAccents = (str: string) => {
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 };
@@ -41,6 +43,14 @@ const removeAccents = (str: string) => {
 const getFieldVisibility = (field: DisplayConfigField): FieldVisibility => {
   if (field.visibility) return field.visibility;
   return field.public === false ? "internal" : "public_table";
+};
+
+const sortFilterValues = (values: string[], type: DisplayConfigField["type"]) => {
+  if (type === "number") {
+    return [...values].sort((a, b) => Number(a) - Number(b));
+  }
+
+  return [...values].sort((a, b) => a.localeCompare(b, "pt-BR"));
 };
 
 export default async function DynamicCategoryPage({
@@ -90,13 +100,15 @@ export default async function DynamicCategoryPage({
     (c) => getFieldVisibility(c) === "public_highlight"
   );
 
-  const dynamicTextConfigs = fullDisplayConfig.filter((c) => c.type === "text");
+  const filterableConfigs = fullDisplayConfig.filter(
+    (c) => c.type === "text" || c.type === "number"
+  );
 
   const availableBrands = new Set<string>();
   const availableSellers = new Set<string>();
   const dynamicFilterOptions: Record<string, Set<string>> = {};
 
-  dynamicTextConfigs.forEach((c) => {
+  filterableConfigs.forEach((c) => {
     dynamicFilterOptions[c.key] = new Set();
   });
 
@@ -106,7 +118,7 @@ export default async function DynamicCategoryPage({
     if (attrs.brand) availableBrands.add(String(attrs.brand).trim());
     if (attrs.seller) availableSellers.add(String(attrs.seller).trim());
 
-    dynamicTextConfigs.forEach((config) => {
+    filterableConfigs.forEach((config) => {
       const val = attrs[config.key];
       if (val !== undefined && val !== null && String(val).trim() !== "") {
         dynamicFilterOptions[config.key].add(String(val).trim());
@@ -146,7 +158,7 @@ export default async function DynamicCategoryPage({
     if (selectedBrands.length > 0 && !selectedBrands.includes(pBrand)) return false;
     if (selectedSellers.length > 0 && !selectedSellers.includes(pSeller)) return false;
 
-    for (const config of dynamicTextConfigs) {
+    for (const config of filterableConfigs) {
       const paramValue = search[config.key];
       if (!paramValue) continue;
 
@@ -244,6 +256,26 @@ export default async function DynamicCategoryPage({
     return a.price - b.price;
   });
 
+  const sortedBrands = Array.from(availableBrands).sort((a, b) =>
+    a.localeCompare(b, "pt-BR")
+  );
+
+  const sortedSellersRaw = Array.from(availableSellers).sort((a, b) =>
+    a.localeCompare(b, "pt-BR")
+  );
+
+  const sortedSellers = [
+    ...sortedSellersRaw.filter((seller) => seller === AMAZON_OFFICIAL),
+    ...sortedSellersRaw.filter((seller) => seller !== AMAZON_OFFICIAL),
+  ];
+
+  const sortedDynamicOptions = Object.fromEntries(
+    filterableConfigs.map((config) => [
+      config.key,
+      sortFilterValues(Array.from(dynamicFilterOptions[config.key]), config.type),
+    ])
+  );
+
   return (
     <main className="min-h-screen bg-[#EAEDED]">
       <Suspense fallback={<div className="h-14 w-full bg-[#232f3e]" />}>
@@ -260,15 +292,10 @@ export default async function DynamicCategoryPage({
         <div className="px-3">
           <Suspense fallback={null}>
             <MobileFiltersDrawer
-              brands={Array.from(availableBrands).sort()}
-              sellers={Array.from(availableSellers).sort()}
-              dynamicConfigs={dynamicTextConfigs}
-              dynamicOptions={Object.fromEntries(
-                Object.entries(dynamicFilterOptions).map(([k, v]) => [
-                  k,
-                  Array.from(v).sort(),
-                ])
-              )}
+              brands={sortedBrands}
+              sellers={sortedSellers}
+              dynamicConfigs={filterableConfigs}
+              dynamicOptions={sortedDynamicOptions}
             />
           </Suspense>
 
