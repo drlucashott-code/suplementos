@@ -204,6 +204,7 @@ export default function HomePage() {
               subtitle="Higiene, limpeza e cuidados"
               icon={<Home className="h-6 w-6" />}
               active={selectedHub === "casa"}
+              badge="Novo"
               onClick={() => handleHubClick("casa")}
             />
           </div>
@@ -242,19 +243,26 @@ interface HubCardProps {
   subtitle: string;
   icon: React.ReactNode;
   active?: boolean;
+  badge?: string;
   onClick: () => void;
 }
 
-function HubCard({ title, subtitle, icon, active, onClick }: HubCardProps) {
+function HubCard({ title, subtitle, icon, active, badge, onClick }: HubCardProps) {
   return (
     <button
       onClick={onClick}
-      className={`rounded-xl border p-4 text-left transition-all ${
+      className={`relative rounded-xl border p-4 text-left transition-all ${
         active
           ? "border-[#007185] bg-[#E6F4F1] shadow-sm"
           : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm"
       }`}
     >
+      {badge && (
+        <span className="absolute right-3 top-3 rounded-full bg-[#CC0C39] px-2 py-0.5 text-[9px] font-black uppercase text-white shadow-sm">
+          {badge}
+        </span>
+      )}
+
       <div
         className={`mb-3 inline-flex rounded-lg p-2 ${
           active ? "bg-white text-[#007185]" : "bg-[#F7F8F8] text-[#565959]"
