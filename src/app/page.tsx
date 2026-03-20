@@ -64,6 +64,11 @@ const categoryGroups: Record<HubKey, CategoryItem[]> = {
   ],
   casa: [
     {
+      title: "Amaciante",
+      imageSrc: "https://m.media-amazon.com/images/I/61NJbm2a9tL._AC_SL1200_.jpg",
+      path: "/casa/amaciante",
+    },
+    {
       title: "Creme dental",
       imageSrc: "https://m.media-amazon.com/images/I/618cxCZ8wHL._AC_SL1000_.jpg",
       path: "/casa/creme-dental",
@@ -81,12 +86,17 @@ const categoryGroups: Record<HubKey, CategoryItem[]> = {
     {
       title: "Sabão para roupas",
       imageSrc: "https://m.media-amazon.com/images/I/71bXBFl912L._AC_SL1500_.jpg",
-      path: "/casa/lava-roupa",
+      path: "/casa/sabao-roupa",
     },
     {
       title: "Saco de lixo",
       imageSrc: "https://m.media-amazon.com/images/I/51QDIzZJCgL._AC_SL1000_.jpg",
       path: "/casa/saco-de-lixo",
+    },
+    {
+      title: "Sabão para louças",
+      imageSrc: "https://m.media-amazon.com/images/I/71cHvPHeE7L._AC_SL1500_.jpg",
+      path: "/casa/sabao-louca",
     },
   ],
 };
