@@ -15,6 +15,7 @@ export async function createDynamicCategory(data: {
   name: string;
   slug: string;
   group: string;
+  imageUrl?: string;
   displayConfig: ConfigField[];
 }) {
   try {
@@ -31,16 +32,18 @@ export async function createDynamicCategory(data: {
       };
     }
 
-    await prisma.dynamicCategory.create({
+    await (prisma.dynamicCategory as any).create({
       data: {
         name: data.name,
         slug: data.slug,
         group: data.group.toLowerCase(),
+        imageUrl: data.imageUrl?.trim() || null,
         displayConfig: data.displayConfig as Prisma.InputJsonValue,
       },
     });
 
     revalidatePath("/admin/dynamic/categorias");
+    revalidatePath("/");
     return { success: true };
   } catch (error) {
     console.error("Erro ao criar categoria:", error);
@@ -54,6 +57,7 @@ export async function updateDynamicCategory(
     name: string;
     slug: string;
     group: string;
+    imageUrl?: string;
     displayConfig: ConfigField[];
   }
 ) {
@@ -72,17 +76,19 @@ export async function updateDynamicCategory(
       };
     }
 
-    await prisma.dynamicCategory.update({
+    await (prisma.dynamicCategory as any).update({
       where: { id },
       data: {
         name: data.name,
         slug: data.slug,
         group: data.group.toLowerCase(),
+        imageUrl: data.imageUrl?.trim() || null,
         displayConfig: data.displayConfig as Prisma.InputJsonValue,
       },
     });
 
     revalidatePath("/admin/dynamic/categorias");
+    revalidatePath("/");
     return { success: true };
   } catch (error) {
     console.error("Erro ao atualizar categoria:", error);
@@ -124,6 +130,7 @@ export async function deleteDynamicCategory(id: string) {
     });
 
     revalidatePath("/admin/dynamic/categorias");
+    revalidatePath("/");
     return { success: true };
   } catch (error) {
     console.error("Erro ao excluir categoria:", error);

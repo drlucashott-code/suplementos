@@ -68,19 +68,24 @@ export function AdminProductTable({
 }) {
   const router = useRouter();
   const brandFilterRef = useRef<HTMLDivElement>(null);
+  const PAGE_SIZE = 300;
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterCategory, setFilterCategory] = useState("");
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [bulkData, setBulkData] = useState<Record<string, string>>({});
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [showBrandFilter, setShowBrandFilter] = useState(false);
   const [brandFilterSearch, setBrandFilterSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: "asc" | "desc";
   } | null>({ key: "name", direction: "asc" });
+
+  const hasCategoryFilter = filterCategory !== "";
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -102,7 +107,7 @@ export function AdminProductTable({
   }, [showBrandFilter]);
 
   const dynamicColumns = useMemo(() => {
-    if (filterCategory === "all") return [];
+    if (!hasCategoryFilter) return [];
 
     const cat = initialProducts.find((p) => p.category.id === filterCategory);
     const config =
@@ -113,11 +118,11 @@ export function AdminProductTable({
         c.type !== "currency" &&
         !["marca", "brand", "asin"].includes(c.key.toLowerCase())
     );
-  }, [filterCategory, initialProducts]);
+  }, [filterCategory, hasCategoryFilter, initialProducts]);
 
   const availableBrands = useMemo(() => {
     const brands = initialProducts
-      .filter((p) => filterCategory === "all" || p.category.id === filterCategory)
+      .filter((p) => !hasCategoryFilter || p.category.id === filterCategory)
       .map((p) => {
         const attrs = (p.attributes as DynamicAttributes) || {};
         return String(attrs.marca || attrs.brand || "").trim();
@@ -125,7 +130,7 @@ export function AdminProductTable({
       .filter((brand) => brand !== "");
 
     return Array.from(new Set(brands)).sort((a, b) => a.localeCompare(b));
-  }, [initialProducts, filterCategory]);
+  }, [initialProducts, filterCategory, hasCategoryFilter]);
 
   const filteredBrandOptions = useMemo(() => {
     const term = brandFilterSearch.trim().toLowerCase();
@@ -137,16 +142,20 @@ export function AdminProductTable({
   }, [availableBrands, brandFilterSearch]);
 
   const processedProducts = useMemo(() => {
+    if (!hasCategoryFilter && normalizedSearchTerm === "") {
+      return [];
+    }
+
     const filtered = initialProducts.filter((p) => {
       const attrs = (p.attributes as DynamicAttributes) || {};
       const brandValue = String(attrs.marca || attrs.brand || "").trim();
-      const matchesCat = filterCategory === "all" || p.category.id === filterCategory;
-      const searchStr = searchTerm.toLowerCase();
+      const matchesCat = !hasCategoryFilter || p.category.id === filterCategory;
 
       const matchesSearch =
-        p.name.toLowerCase().includes(searchStr) ||
-        String(attrs.asin || "").toLowerCase().includes(searchStr) ||
-        brandValue.toLowerCase().includes(searchStr);
+        normalizedSearchTerm === "" ||
+        p.name.toLowerCase().includes(normalizedSearchTerm) ||
+        String(attrs.asin || "").toLowerCase().includes(normalizedSearchTerm) ||
+        brandValue.toLowerCase().includes(normalizedSearchTerm);
 
       const matchesBrand =
         selectedBrands.length === 0 || selectedBrands.includes(brandValue);
@@ -183,7 +192,22 @@ export function AdminProductTable({
     }
 
     return filtered;
-  }, [initialProducts, filterCategory, searchTerm, sortConfig, selectedBrands]);
+  }, [
+    initialProducts,
+    filterCategory,
+    hasCategoryFilter,
+    normalizedSearchTerm,
+    sortConfig,
+    selectedBrands,
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(processedProducts.length / PAGE_SIZE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+
+  const paginatedProducts = useMemo(() => {
+    const start = (safeCurrentPage - 1) * PAGE_SIZE;
+    return processedProducts.slice(start, start + PAGE_SIZE);
+  }, [processedProducts, safeCurrentPage]);
 
   const handleBulkDelete = async () => {
     if (!confirm(`Excluir permanentemente ${selectedIds.length} produtos?`)) return;
@@ -244,6 +268,8 @@ export function AdminProductTable({
   };
 
   const toggleBrandSelection = (brand: string) => {
+    setCurrentPage(1);
+    setSelectedIds([]);
     setSelectedBrands((prev) =>
       prev.includes(brand) ? prev.filter((item) => item !== brand) : [...prev, brand]
     );
@@ -278,7 +304,11 @@ export function AdminProductTable({
             <input
               placeholder="Nome, marca ou ASIN..."
               className="w-full rounded-xl border-none bg-gray-50 p-3 text-sm font-bold outline-none focus:ring-2 focus:ring-yellow-400"
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+                setSelectedIds([]);
+              }}
             />
           </div>
 
@@ -287,15 +317,18 @@ export function AdminProductTable({
               Categoria
             </label>
             <select
+              value={filterCategory}
               className="w-full cursor-pointer rounded-xl border-none bg-gray-50 p-3 text-sm font-bold outline-none"
               onChange={(e) => {
                 setFilterCategory(e.target.value);
                 setSelectedBrands([]);
                 setBrandFilterSearch("");
                 setShowBrandFilter(false);
+                setCurrentPage(1);
+                setSelectedIds([]);
               }}
             >
-              <option value="all">Todas</option>
+              <option value="">Selecione uma categoria</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -304,6 +337,12 @@ export function AdminProductTable({
             </select>
           </div>
         </div>
+
+        {!hasCategoryFilter && normalizedSearchTerm === "" && (
+          <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-sm font-semibold text-gray-500">
+            Selecione uma categoria para carregar os produtos. Isso evita renderizar os 1600 itens de uma vez e deixa o admin bem mais leve.
+          </div>
+        )}
 
         {selectedBrands.length > 0 && (
           <div className="flex flex-wrap gap-2">
@@ -318,7 +357,11 @@ export function AdminProductTable({
             ))}
 
             <button
-              onClick={() => setSelectedBrands([])}
+              onClick={() => {
+                setSelectedBrands([]);
+                setCurrentPage(1);
+                setSelectedIds([]);
+              }}
               className="rounded-full bg-gray-100 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-gray-600"
             >
               Limpar marcas
@@ -398,7 +441,7 @@ export function AdminProductTable({
                     type="checkbox"
                     onChange={(e) => {
                       if (e.target.checked) {
-                        setSelectedIds(processedProducts.map((p) => p.id));
+                        setSelectedIds(paginatedProducts.map((p) => p.id));
                       } else {
                         setSelectedIds([]);
                       }
@@ -521,7 +564,7 @@ export function AdminProductTable({
             </thead>
 
             <tbody className="divide-y divide-gray-50">
-              {processedProducts.map((p) => {
+              {paginatedProducts.map((p) => {
                 const attrs = (p.attributes as DynamicAttributes) || {};
 
                 return (
@@ -648,6 +691,34 @@ export function AdminProductTable({
             </tbody>
           </table>
         </div>
+
+        {processedProducts.length > 0 && (
+          <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4 text-sm md:flex-row md:items-center md:justify-between">
+            <div className="text-xs font-semibold text-gray-500">
+              Página {safeCurrentPage} de {totalPages} • exibindo {paginatedProducts.length} de {processedProducts.length} itens filtrados
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                disabled={safeCurrentPage === 1}
+                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-gray-700 transition disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Anterior
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                disabled={safeCurrentPage === totalPages}
+                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-gray-700 transition disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Próxima
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {zoomImage && (

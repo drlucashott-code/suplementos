@@ -24,6 +24,7 @@ interface DynamicCategoryResponse {
   slug: string;
   group: string | null;
   groupName?: string | null;
+  imageUrl?: string | null;
   displayConfig: unknown;
 }
 
@@ -36,6 +37,7 @@ function CategoriaForm() {
   const [group, setGroup] = useState("");
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [displayConfig, setDisplayConfig] = useState<ConfigField[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(Boolean(editId));
@@ -60,6 +62,7 @@ function CategoriaForm() {
       setSlug(cat.slug);
       setGroup(cat.group || "");
       setGroupName(cat.groupName || cat.group || "");
+      setImageUrl(cat.imageUrl || "");
 
       const config = ((cat.displayConfig as ConfigField[]) || []).map((f) => ({
         ...f,
@@ -120,6 +123,7 @@ function CategoriaForm() {
       slug: cleanSlug,
       group: cleanGroup,
       groupName: groupName.trim(),
+      imageUrl: imageUrl.trim(),
       displayConfig,
     };
 
@@ -158,7 +162,7 @@ function CategoriaForm() {
         </h1>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 bg-gray-50 p-6 rounded-3xl border border-gray-200 shadow-sm">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8 bg-gray-50 p-6 rounded-3xl border border-gray-200 shadow-sm">
         <div>
           <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
             1. Nome do Nicho
@@ -207,6 +211,19 @@ function CategoriaForm() {
             onChange={(e) => setSlug(e.target.value)}
             placeholder="Ex: pasta-de-dente"
             className="w-full border border-gray-200 p-3 rounded-xl font-mono text-xs font-bold outline-none focus:ring-2 focus:ring-blue-400 bg-blue-50/30"
+          />
+        </div>
+
+        <div>
+          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
+            5. Imagem da Home
+          </label>
+          <input
+            type="text"
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+            placeholder="https://..."
+            className="w-full border border-gray-200 p-3 rounded-xl font-mono text-xs font-bold outline-none focus:ring-2 focus:ring-yellow-400 bg-white"
           />
         </div>
       </div>

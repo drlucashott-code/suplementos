@@ -134,6 +134,7 @@ model DynamicCategory {
   groupName     String           @default("Casa e Limpeza")
   name          String
   slug          String
+  imageUrl      String?
   displayConfig Json
   products      DynamicProduct[]
   createdAt     DateTime         @default(now())
