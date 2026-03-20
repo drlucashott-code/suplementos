@@ -1,16 +1,27 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 
-// Função utilitária para remover acentos de qualquer texto
 const removeAccents = (str: string) => {
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 };
 
-// Categorias disponíveis e suas palavras-chave (já sem acento para facilitar a busca)
-const CATEGORIES = [
+type SearchCategory = {
+  name: string;
+  path: string;
+  keywords: string[];
+};
+
+type HeaderProps = {
+  extraCategories?: Array<{
+    title: string;
+    path: string;
+  }>;
+};
+
+const BASE_CATEGORIES: SearchCategory[] = [
   { name: "Creatina", path: "/creatina", keywords: ["creatina", "creatine"] },
   { name: "Whey Protein", path: "/whey", keywords: ["whey", "protein", "proteina"] },
   { name: "Barra de Proteína", path: "/barra", keywords: ["barra", "barrinha"] },
@@ -19,12 +30,35 @@ const CATEGORIES = [
   { name: "Café Funcional", path: "/cafe-funcional", keywords: ["cafe", "funcional"] },
 ];
 
-export default function Header() {
+export default function Header({ extraCategories = [] }: HeaderProps) {
   const [query, setQuery] = useState("");
-  const [suggestions, setSuggestions] = useState<{name: string, path: string}[]>([]);
+  const [suggestions, setSuggestions] = useState<Array<{ name: string; path: string }>>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const router = useRouter();
   const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const categories = useMemo<SearchCategory[]>(() => {
+    const normalizedExtras = extraCategories.map((category) => {
+      const normalizedTitle = removeAccents(category.title.toLowerCase());
+      const slugKeywords = category.path
+        .split("/")
+        .filter(Boolean)
+        .flatMap((part) => removeAccents(part.toLowerCase()).split("-"));
+      const titleKeywords = normalizedTitle
+        .split(/[\s/&-]+/)
+        .filter(Boolean);
+
+      return {
+        name: category.title,
+        path: category.path,
+        keywords: Array.from(
+          new Set([normalizedTitle, ...titleKeywords, ...slugKeywords])
+        ),
+      };
+    });
+
+    return [...BASE_CATEGORIES, ...normalizedExtras];
+  }, [extraCategories]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -32,6 +66,7 @@ export default function Header() {
         setShowSuggestions(false);
       }
     }
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
@@ -42,7 +77,7 @@ export default function Header() {
 
     if (value.length > 0) {
       const normalizedValue = removeAccents(value.toLowerCase());
-      const filtered = CATEGORIES.filter(cat =>
+      const filtered = categories.filter((cat) =>
         removeAccents(cat.name.toLowerCase()).includes(normalizedValue)
       );
       setSuggestions(filtered);
@@ -55,43 +90,35 @@ export default function Header() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Removemos os acentos do que o usuário digitou para comparar com as palavras-chave
+
     const searchString = removeAccents(query.trim().toLowerCase());
-    
     if (!searchString) return;
 
-    let targetPath = null;
-    
-    for (const category of CATEGORIES) {
-      if (category.keywords.some(keyword => searchString.includes(keyword))) {
+    let targetPath: string | null = null;
+
+    for (const category of categories) {
+      if (category.keywords.some((keyword) => searchString.includes(keyword))) {
         targetPath = category.path;
-        break; 
+        break;
       }
     }
 
     if (targetPath) {
       router.push(`${targetPath}?q=${encodeURIComponent(query)}`);
+    } else if (suggestions.length > 0) {
+      router.push(suggestions[0].path);
     } else {
-      if (suggestions.length > 0) {
-        router.push(suggestions[0].path);
-      } else {
-        console.warn("Categoria não identificada para a busca:", query);
-      }
+      console.warn("Categoria não identificada para a busca:", query);
     }
 
     setShowSuggestions(false);
   };
 
   return (
-    <header className="bg-[#232f3e] w-full py-3 px-4 shadow-md sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-8">
-        
-        <div 
-          className="flex-shrink-0 cursor-pointer" 
-          onClick={() => router.push("/")}
-        >
-          <h1 className="text-white text-xl font-bold tracking-tight">
+    <header className="sticky top-0 z-50 w-full bg-[#232f3e] px-4 py-3 shadow-md">
+      <div className="mx-auto flex max-w-7xl flex-col items-center justify-center gap-4 lg:flex-row lg:gap-8">
+        <div className="flex-shrink-0 cursor-pointer" onClick={() => router.push("/")}>
+          <h1 className="text-xl font-bold tracking-tight text-white">
             amazon<span className="text-[#febd69]">picks</span>
           </h1>
         </div>
@@ -104,15 +131,18 @@ export default function Header() {
               onChange={handleInputChange}
               onFocus={() => query.length > 0 && setShowSuggestions(true)}
               placeholder="O que você está procurando?"
-              className="w-full h-10 px-3 rounded-l-sm border-none outline-none text-black text-base bg-white"
+              className="h-10 w-full rounded-l-sm border-none bg-white px-3 text-base text-black outline-none"
             />
-            <button type="submit" className="bg-[#febd69] h-10 px-4 rounded-r-sm hover:bg-[#f3a847] transition-colors">
-              <Search className="w-5 h-5 text-[#232f3e]" />
+            <button
+              type="submit"
+              className="h-10 rounded-r-sm bg-[#febd69] px-4 transition-colors hover:bg-[#f3a847]"
+            >
+              <Search className="h-5 w-5 text-[#232f3e]" />
             </button>
           </form>
 
           {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute top-11 left-0 w-full bg-white shadow-xl rounded-md overflow-hidden z-[100] border border-gray-200">
+            <div className="absolute left-0 top-11 z-[100] w-full overflow-hidden rounded-md border border-gray-200 bg-white shadow-xl">
               {suggestions.map((cat) => (
                 <div
                   key={cat.path}
@@ -121,9 +151,9 @@ export default function Header() {
                     setQuery("");
                     setShowSuggestions(false);
                   }}
-                  className="px-4 py-3 hover:bg-gray-100 cursor-pointer text-sm text-gray-800 flex items-center gap-2 border-b last:border-none"
+                  className="flex cursor-pointer items-center gap-2 border-b px-4 py-3 text-sm text-gray-800 hover:bg-gray-100 last:border-none"
                 >
-                  <Search className="w-4 h-4 text-gray-400" />
+                  <Search className="h-4 w-4 text-gray-400" />
                   <span>{cat.name}</span>
                 </div>
               ))}

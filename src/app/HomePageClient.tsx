@@ -120,7 +120,7 @@ export default function HomePageClient({
     <main className="min-h-screen bg-[#EAEDED] pb-20 font-sans">
       <TrackHomeView />
 
-      <Header />
+      <Header extraCategories={houseCategories} />
 
       <div className="flex items-center justify-center gap-2 bg-[#37475A] px-4 py-2.5 text-[12px] font-medium text-white shadow-inner">
         <ShieldCheck className="h-4 w-4 text-[#FF9900]" />
