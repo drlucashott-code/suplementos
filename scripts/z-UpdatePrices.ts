@@ -2,6 +2,7 @@ import "dotenv/config";
 import https from "https";
 import crypto from "node:crypto";
 import { PrismaClient } from "@prisma/client";
+import { reconcileDynamicFallbackState } from "../src/lib/dynamicFallback";
 
 const prisma = new PrismaClient();
 
@@ -18,7 +19,7 @@ const AMAZON_REGION = process.env.AMAZON_REGION ?? "us-east-1";
 const AMAZON_SERVICE = "ProductAdvertisingAPI";
 
 if (!AMAZON_ACCESS_KEY || !AMAZON_SECRET_KEY || !AMAZON_PARTNER_TAG) {
-  throw new Error("❌ Credenciais da Amazon não configuradas");
+  throw new Error("Credenciais da Amazon nao configuradas");
 }
 
 function hmac(key: string | Buffer, data: string): Buffer {
@@ -49,13 +50,34 @@ type PriceResult = {
   status: ApiStatus;
 };
 
+type PersistOutcome = "UPDATED" | "FAILED" | "OUT_OF_STOCK" | "EXCLUDED";
+
+type RunCounters = {
+  totalOffers: number;
+  updatedOffers: number;
+  failedOffers: number;
+  maxConsecutiveFailedOffers: number;
+  outOfStockOffers: number;
+  excludedOffers: number;
+};
+
 interface AmazonListing {
   IsBuyBoxWinner?: boolean;
   Price?: { Amount?: number; Money?: { Amount: number } };
   MerchantInfo?: { Name: string };
 }
 
-async function fetchAmazonPricesBatch(asins: string[]): Promise<Record<string, PriceResult>> {
+type DynamicProductLite = {
+  id: string;
+  asin: string | null;
+  totalPrice: number;
+  name: string;
+  attributes: unknown;
+};
+
+async function fetchAmazonPricesBatch(
+  asins: string[]
+): Promise<Record<string, PriceResult>> {
   if (asins.length === 0) return {};
 
   const payload = JSON.stringify({
@@ -122,22 +144,29 @@ async function fetchAmazonPricesBatch(asins: string[]): Promise<Record<string, P
               let price = 0;
               let merchantName = "Desconhecido";
 
-              const listingsV2 = item?.OffersV2?.Listings as AmazonListing[] | undefined;
+              const listingsV2 = item?.OffersV2?.Listings as
+                | AmazonListing[]
+                | undefined;
               if (Array.isArray(listingsV2)) {
-                const buyBox = listingsV2.find((l) => l?.IsBuyBoxWinner) ?? listingsV2[0];
-                const p = buyBox?.Price?.Money?.Amount;
-                if (typeof p === "number") {
-                  price = p;
+                const buyBox =
+                  listingsV2.find((listing) => listing?.IsBuyBoxWinner) ??
+                  listingsV2[0];
+                const buyBoxPrice = buyBox?.Price?.Money?.Amount;
+                if (typeof buyBoxPrice === "number") {
+                  price = buyBoxPrice;
                   merchantName = buyBox?.MerchantInfo?.Name || "Desconhecido";
                 }
               }
 
               if (price === 0) {
-                const listing1 = item?.Offers?.Listings?.[0] as AmazonListing | undefined;
-                const p1 = listing1?.Price?.Amount;
-                if (typeof p1 === "number") {
-                  price = p1;
-                  merchantName = listing1?.MerchantInfo?.Name || "Desconhecido";
+                const legacyListing = item?.Offers?.Listings?.[0] as
+                  | AmazonListing
+                  | undefined;
+                const legacyPrice = legacyListing?.Price?.Amount;
+                if (typeof legacyPrice === "number") {
+                  price = legacyPrice;
+                  merchantName =
+                    legacyListing?.MerchantInfo?.Name || "Desconhecido";
                 }
               }
 
@@ -165,15 +194,10 @@ async function fetchAmazonPricesBatch(asins: string[]): Promise<Record<string, P
   });
 }
 
-type DynamicProductLite = {
-  id: string;
-  asin: string | null;
-  totalPrice: number;
-  name: string;
-  attributes: unknown;
-};
-
-async function persistDynamicUpdate(product: DynamicProductLite, result?: PriceResult) {
+async function persistDynamicUpdate(
+  product: DynamicProductLite,
+  result?: PriceResult
+) {
   const currentAttrs = (product.attributes as Record<string, unknown>) || {};
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -205,12 +229,22 @@ async function persistDynamicUpdate(product: DynamicProductLite, result?: PriceR
       },
     });
 
-    return `✅ R$ ${result.price.toFixed(2)}`;
+    return {
+      logStatus: `OK R$ ${result.price.toFixed(2)}`,
+      outcome: "UPDATED" as PersistOutcome,
+    };
   }
 
-  let logStatus = "⚠️ Sem Dados API";
-  if (result?.status === "EXCLUDED") logStatus = `🚫 Excluída: ${result.merchantName}`;
-  else if (result?.status === "OUT_OF_STOCK") logStatus = "🔻 Sem Estoque na API";
+  let logStatus = "Sem dados da API";
+  let outcome: PersistOutcome = "FAILED";
+
+  if (result?.status === "EXCLUDED") {
+    logStatus = `Excluida: ${result.merchantName}`;
+    outcome = "EXCLUDED";
+  } else if (result?.status === "OUT_OF_STOCK") {
+    logStatus = "Sem estoque na API";
+    outcome = "OUT_OF_STOCK";
+  }
 
   await prisma.dynamicProduct.update({
     where: { id: product.id },
@@ -218,112 +252,268 @@ async function persistDynamicUpdate(product: DynamicProductLite, result?: PriceR
       totalPrice: 0,
       attributes: {
         ...currentAttrs,
-        vendedor: result?.merchantName || "Indisponível",
+        vendedor: result?.merchantName || "Indisponivel",
       },
     },
   });
 
-  return logStatus;
+  return { logStatus, outcome };
+}
+
+function incrementCounters(counters: RunCounters, outcome: PersistOutcome) {
+  if (outcome === "UPDATED") counters.updatedOffers += 1;
+  if (outcome === "FAILED") counters.failedOffers += 1;
+  if (outcome === "OUT_OF_STOCK") counters.outOfStockOffers += 1;
+  if (outcome === "EXCLUDED") counters.excludedOffers += 1;
+}
+
+async function finalizeGlobalRun(params: {
+  runId: string;
+  status: "success" | "error";
+  counters: RunCounters;
+  errorMessage?: string | null;
+}) {
+  await prisma.$executeRaw`
+    UPDATE "GlobalPriceRefreshRun"
+    SET
+      "status" = ${params.status},
+      "finishedAt" = NOW(),
+      "totalOffers" = ${params.counters.totalOffers},
+      "updatedOffers" = ${params.counters.updatedOffers},
+      "failedOffers" = ${params.counters.failedOffers},
+      "maxConsecutiveFailedOffers" = ${params.counters.maxConsecutiveFailedOffers},
+      "outOfStockOffers" = ${params.counters.outOfStockOffers},
+      "excludedOffers" = ${params.counters.excludedOffers},
+      "errorMessage" = ${params.errorMessage ?? null},
+      "updatedAt" = NOW()
+    WHERE "id" = ${params.runId}
+  `;
 }
 
 async function updateAmazonPrices() {
-  console.log("🚀 Iniciando Update (Dynamic System - com fila de rechecagem)");
+  console.log("Iniciando update global do sistema dinamico");
 
-  const dynamicProducts = await prisma.dynamicProduct.findMany({
-    select: {
-      id: true,
-      asin: true,
-      totalPrice: true,
-      name: true,
-      attributes: true,
-    },
-    orderBy: { name: "asc" },
-  });
+  const runId = crypto.randomUUID();
+  const counters: RunCounters = {
+    totalOffers: 0,
+    updatedOffers: 0,
+    failedOffers: 0,
+    maxConsecutiveFailedOffers: 0,
+    outOfStockOffers: 0,
+    excludedOffers: 0,
+  };
+  let currentFailedStreak = 0;
 
-  console.log(`📦 Processando ${dynamicProducts.length} produtos em lotes de ${BATCH_SIZE}...\n`);
+  await prisma.$executeRaw`
+    INSERT INTO "GlobalPriceRefreshRun" (
+      "id",
+      "status",
+      "startedAt",
+      "totalOffers",
+      "updatedOffers",
+      "failedOffers",
+      "maxConsecutiveFailedOffers",
+      "outOfStockOffers",
+      "excludedOffers",
+      "createdAt",
+      "updatedAt"
+    )
+    VALUES (
+      ${runId},
+      'running',
+      NOW(),
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      NOW(),
+      NOW()
+    )
+  `;
 
-  const recheckQueue: DynamicProductLite[] = [];
+  try {
+    const dynamicProducts = await prisma.dynamicProduct.findMany({
+      select: {
+        id: true,
+        asin: true,
+        totalPrice: true,
+        name: true,
+        attributes: true,
+      },
+      orderBy: { name: "asc" },
+    });
 
-  for (let i = 0; i < dynamicProducts.length; i += BATCH_SIZE) {
-    const chunk = dynamicProducts.slice(i, i + BATCH_SIZE);
-    const asins = chunk.map((p) => p.asin).filter((id): id is string => !!id);
+    counters.totalOffers = dynamicProducts.length;
 
-    let apiResults: Record<string, PriceResult> = {};
+    await prisma.$executeRaw`
+      UPDATE "GlobalPriceRefreshRun"
+      SET
+        "totalOffers" = ${counters.totalOffers},
+        "updatedAt" = NOW()
+      WHERE "id" = ${runId}
+    `;
 
-    try {
-      if (asins.length > 0) apiResults = await fetchAmazonPricesBatch(asins);
-    } catch (e) {
-      console.error("❌ Erro ao buscar lote na API:", e);
-      continue;
-    }
+    console.log(
+      `Processando ${dynamicProducts.length} produtos em lotes de ${BATCH_SIZE}`
+    );
 
-    for (const product of chunk) {
-      const asin = product.asin || "---";
-      const result = apiResults[asin];
-      const storeName = result?.merchantName || "---";
+    const recheckQueue: DynamicProductLite[] = [];
 
-      if (result && result.status === "OK" && product.totalPrice > 0) {
-        const variation = Math.abs(result.price - product.totalPrice) / product.totalPrice;
-
-        if (variation > VARIATION_THRESHOLD) {
-          console.log(
-            `   ⏳ Suspeito ${(variation * 100).toFixed(1)}% | ${asin} | R$ ${product.totalPrice} -> R$ ${result.price} | enviado para rechecagem`
-          );
-          recheckQueue.push(product);
-          continue;
-        }
-      }
-
-      const logStatus = await persistDynamicUpdate(product, result);
-      const logName = product.name.substring(0, 25).padEnd(25);
-      const logStore = storeName.substring(0, 15).padEnd(15);
-      console.log(`   ${logName} | ${asin.padEnd(10)} | 🏪 ${logStore} | ${logStatus}`);
-    }
-
-    if (i + BATCH_SIZE < dynamicProducts.length) {
-      await new Promise((r) => setTimeout(r, REQUEST_DELAY_MS));
-    }
-  }
-
-  if (recheckQueue.length > 0) {
-    console.log(`\n🔁 Rechecando ${recheckQueue.length} produtos com variação suspeita...`);
-    await new Promise((r) => setTimeout(r, RECHECK_DELAY_MS));
-
-    for (let i = 0; i < recheckQueue.length; i += BATCH_SIZE) {
-      const chunk = recheckQueue.slice(i, i + BATCH_SIZE);
-      const asins = chunk.map((p) => p.asin).filter((id): id is string => !!id);
+    for (let i = 0; i < dynamicProducts.length; i += BATCH_SIZE) {
+      const chunk = dynamicProducts.slice(i, i + BATCH_SIZE);
+      const asins = chunk
+        .map((product) => product.asin)
+        .filter((id): id is string => !!id);
 
       let apiResults: Record<string, PriceResult> = {};
 
       try {
-        if (asins.length > 0) apiResults = await fetchAmazonPricesBatch(asins);
-      } catch (e) {
-        console.error("❌ Erro no lote de rechecagem:", e);
+        if (asins.length > 0) {
+          apiResults = await fetchAmazonPricesBatch(asins);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar lote na API:", error);
+        counters.failedOffers += chunk.length;
+        currentFailedStreak += chunk.length;
+        counters.maxConsecutiveFailedOffers = Math.max(
+          counters.maxConsecutiveFailedOffers,
+          currentFailedStreak
+        );
+        continue;
       }
 
       for (const product of chunk) {
         const asin = product.asin || "---";
         const result = apiResults[asin];
-        const storeName = result?.merchantName || "---";
 
-        const logStatus = await persistDynamicUpdate(product, result);
+        if (result && result.status === "OK" && product.totalPrice > 0) {
+          const variation =
+            Math.abs(result.price - product.totalPrice) / product.totalPrice;
+
+          if (variation > VARIATION_THRESHOLD) {
+            console.log(
+              `Suspeito ${(variation * 100).toFixed(1)}% | ${asin} | R$ ${product.totalPrice} -> R$ ${result.price} | enviado para rechecagem`
+            );
+            recheckQueue.push(product);
+            continue;
+          }
+        }
+
+        const { logStatus, outcome } = await persistDynamicUpdate(product, result);
+        incrementCounters(counters, outcome);
+        if (outcome === "FAILED") {
+          currentFailedStreak += 1;
+          counters.maxConsecutiveFailedOffers = Math.max(
+            counters.maxConsecutiveFailedOffers,
+            currentFailedStreak
+          );
+        } else {
+          currentFailedStreak = 0;
+        }
+
         const logName = product.name.substring(0, 25).padEnd(25);
-        const logStore = storeName.substring(0, 15).padEnd(15);
-        console.log(`   [RECHECK] ${logName} | ${asin.padEnd(10)} | 🏪 ${logStore} | ${logStatus}`);
+        const logStore = (result?.merchantName || "---")
+          .substring(0, 15)
+          .padEnd(15);
+
+        console.log(
+          `${logName} | ${asin.padEnd(10)} | loja ${logStore} | ${logStatus}`
+        );
       }
 
-      if (i + BATCH_SIZE < recheckQueue.length) {
-        await new Promise((r) => setTimeout(r, REQUEST_DELAY_MS));
+      if (i + BATCH_SIZE < dynamicProducts.length) {
+        await new Promise((resolve) => setTimeout(resolve, REQUEST_DELAY_MS));
       }
     }
-  }
 
-  console.log("\n🏁 Atualização finalizada com sucesso!");
+    if (recheckQueue.length > 0) {
+      console.log(`Rechecando ${recheckQueue.length} produtos suspeitos`);
+      await new Promise((resolve) => setTimeout(resolve, RECHECK_DELAY_MS));
+
+      for (let i = 0; i < recheckQueue.length; i += BATCH_SIZE) {
+        const chunk = recheckQueue.slice(i, i + BATCH_SIZE);
+        const asins = chunk
+          .map((product) => product.asin)
+          .filter((id): id is string => !!id);
+
+        let apiResults: Record<string, PriceResult> = {};
+
+        try {
+          if (asins.length > 0) {
+            apiResults = await fetchAmazonPricesBatch(asins);
+          }
+        } catch (error) {
+          console.error("Erro no lote de rechecagem:", error);
+          counters.failedOffers += chunk.length;
+          currentFailedStreak += chunk.length;
+          counters.maxConsecutiveFailedOffers = Math.max(
+            counters.maxConsecutiveFailedOffers,
+            currentFailedStreak
+          );
+          continue;
+        }
+
+        for (const product of chunk) {
+          const asin = product.asin || "---";
+          const result = apiResults[asin];
+
+          const { logStatus, outcome } = await persistDynamicUpdate(product, result);
+          incrementCounters(counters, outcome);
+          if (outcome === "FAILED") {
+            currentFailedStreak += 1;
+            counters.maxConsecutiveFailedOffers = Math.max(
+              counters.maxConsecutiveFailedOffers,
+              currentFailedStreak
+            );
+          } else {
+            currentFailedStreak = 0;
+          }
+
+          const logName = product.name.substring(0, 25).padEnd(25);
+          const logStore = (result?.merchantName || "---")
+            .substring(0, 15)
+            .padEnd(15);
+
+          console.log(
+            `[RECHECK] ${logName} | ${asin.padEnd(10)} | loja ${logStore} | ${logStatus}`
+          );
+        }
+
+        if (i + BATCH_SIZE < recheckQueue.length) {
+          await new Promise((resolve) => setTimeout(resolve, REQUEST_DELAY_MS));
+        }
+      }
+    }
+
+    await finalizeGlobalRun({
+      runId,
+      status: "success",
+      counters,
+    });
+
+    await reconcileDynamicFallbackState();
+    console.log("Atualizacao finalizada com sucesso");
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Erro desconhecido no update global";
+
+    await finalizeGlobalRun({
+      runId,
+      status: "error",
+      counters,
+      errorMessage,
+    });
+
+    await reconcileDynamicFallbackState();
+    throw error;
+  }
 }
 
 updateAmazonPrices()
-  .catch(async (err) => {
-    console.error("❌ Falha crítica no script:", err);
+  .catch((error) => {
+    console.error("Falha critica no script:", error);
     process.exit(1);
   })
   .finally(async () => {

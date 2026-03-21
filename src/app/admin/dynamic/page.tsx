@@ -1,139 +1,223 @@
-import { prisma } from '@/lib/prisma';
-import Link from 'next/link';
+import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 
-// Componente de Card para o Menu
-function AdminCard({ title, description, href, icon, color }: { 
-  title: string; 
-  description: string; 
-  href: string; 
+type CardColor = "blue" | "emerald" | "purple" | "sky" | "orange" | "yellow" | "red" | "amber" | "gray";
+
+const cardStyles: Record<
+  CardColor,
+  {
+    iconBg: string;
+    iconText: string;
+    hoverBorder: string;
+  }
+> = {
+  blue: {
+    iconBg: "bg-blue-50",
+    iconText: "text-blue-600",
+    hoverBorder: "hover:border-blue-200",
+  },
+  emerald: {
+    iconBg: "bg-emerald-50",
+    iconText: "text-emerald-600",
+    hoverBorder: "hover:border-emerald-200",
+  },
+  purple: {
+    iconBg: "bg-purple-50",
+    iconText: "text-purple-600",
+    hoverBorder: "hover:border-purple-200",
+  },
+  sky: {
+    iconBg: "bg-sky-50",
+    iconText: "text-sky-600",
+    hoverBorder: "hover:border-sky-200",
+  },
+  orange: {
+    iconBg: "bg-orange-50",
+    iconText: "text-orange-600",
+    hoverBorder: "hover:border-orange-200",
+  },
+  yellow: {
+    iconBg: "bg-yellow-50",
+    iconText: "text-yellow-600",
+    hoverBorder: "hover:border-yellow-200",
+  },
+  red: {
+    iconBg: "bg-red-50",
+    iconText: "text-red-600",
+    hoverBorder: "hover:border-red-200",
+  },
+  amber: {
+    iconBg: "bg-amber-50",
+    iconText: "text-amber-600",
+    hoverBorder: "hover:border-amber-200",
+  },
+  gray: {
+    iconBg: "bg-gray-50",
+    iconText: "text-gray-700",
+    hoverBorder: "hover:border-gray-300",
+  },
+};
+
+function AdminCard({
+  title,
+  description,
+  href,
+  icon,
+  color,
+}: {
+  title: string;
+  description: string;
+  href: string;
   icon: string;
-  color: string;
+  color: CardColor;
 }) {
+  const style = cardStyles[color];
+
   return (
     <Link href={href} className="group">
-      <div className={`h-full p-6 bg-white border border-gray-200 rounded-2xl shadow-sm transition-all duration-200 hover:shadow-md hover:border-${color}-200 hover:translate-y-[-2px]`}>
-        <div className={`w-12 h-12 rounded-xl bg-${color}-50 flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform`}>
+      <div
+        className={`h-full rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${style.hoverBorder}`}
+      >
+        <div
+          className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl text-2xl transition-transform group-hover:scale-110 ${style.iconBg} ${style.iconText}`}
+        >
           {icon}
         </div>
-        <h2 className="text-lg font-bold text-gray-900 mb-1">{title}</h2>
-        <p className="text-sm text-gray-500 leading-relaxed">{description}</p>
+        <h2 className="mb-1 text-lg font-bold text-gray-900">{title}</h2>
+        <p className="text-sm leading-relaxed text-gray-500">{description}</p>
       </div>
     </Link>
   );
 }
 
 export default async function AdminDynamicDashboard() {
-  // 🚀 CORREÇÃO PRISMA: Usando iniciais minúsculas para acessar os modelos
   const [totalProducts, totalCategories] = await Promise.all([
     prisma.dynamicProduct.count(),
-    prisma.dynamicCategory.count()
+    prisma.dynamicCategory.count(),
   ]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 text-black">
-      <div className="max-w-6xl mx-auto">
-        {/* Cabeçalho Solo */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-12 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="h-2 w-2 rounded-full bg-blue-600"></span>
-              <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Admin Panel</span>
+            <div className="mb-2 flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-blue-600" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">
+                Admin Panel
+              </span>
             </div>
-            <h1 className="text-4xl font-black text-gray-900 tracking-tight">CATÁLOGO DINÂMICO</h1>
-            <p className="text-gray-500 font-medium">Gerenciamento universal amazonpicks.com.br</p>
+            <h1 className="text-4xl font-black tracking-tight text-gray-900">
+              Catalogo Dinamico
+            </h1>
+            <p className="font-medium text-gray-500">
+              Gerenciamento central do amazonpicks.com.br
+            </p>
           </div>
-          
+
           <div className="flex gap-4">
-            <div className="bg-white px-6 py-3 rounded-2xl border border-gray-200 shadow-sm text-center min-w-[120px]">
-              <span className="block text-[10px] font-black text-gray-400 uppercase mb-1">Total de Itens</span>
-              <span className="text-2xl font-black text-blue-600">{totalProducts}</span>
+            <div className="min-w-[120px] rounded-2xl border border-gray-200 bg-white px-6 py-3 text-center shadow-sm">
+              <span className="mb-1 block text-[10px] font-black uppercase text-gray-400">
+                Total de itens
+              </span>
+              <span className="text-2xl font-black text-blue-600">
+                {totalProducts}
+              </span>
             </div>
-            <div className="bg-white px-6 py-3 rounded-2xl border border-gray-200 shadow-sm text-center min-w-[120px]">
-              <span className="block text-[10px] font-black text-gray-400 uppercase mb-1">Categorias</span>
-              <span className="text-2xl font-black text-purple-600">{totalCategories}</span>
+            <div className="min-w-[120px] rounded-2xl border border-gray-200 bg-white px-6 py-3 text-center shadow-sm">
+              <span className="mb-1 block text-[10px] font-black uppercase text-gray-400">
+                Categorias
+              </span>
+              <span className="text-2xl font-black text-purple-600">
+                {totalCategories}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Grade de Navegação - 🚀 URLs atualizadas para /admin/dynamic/ */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <AdminCard 
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <AdminCard
             title="Importar via API"
-            description="Processamento em lote via PA-API. Nome, Foto e Preço real direto da Amazon."
+            description="Processamento em lote pela Amazon. Nome, foto e preco direto da origem."
             href="/admin/dynamic/importar"
-            icon="🚀"
+            icon="R"
             color="blue"
           />
-          
-          <AdminCard 
+
+          <AdminCard
             title="Gerenciar Produtos"
-            description="Ajuste fino de atributos, edição de preços manuais e exclusão de ofertas."
+            description="Edicao de atributos, revisao de categorias e ajustes finos por item."
             href="/admin/dynamic/produtos"
-            icon="📦"
+            icon="P"
             color="emerald"
           />
 
-          <AdminCard 
+          <AdminCard
             title="Categorias"
-            description="Visualize e gerencie as categorias dinâmicas e suas regras de exibição."
+            description="Gerencie categorias dinamicas e suas regras de exibicao."
             href="/admin/dynamic/categorias"
-            icon="📁"
+            icon="C"
             color="purple"
           />
 
-          <AdminCard 
+          <AdminCard
             title="Cliques"
-            description="Acompanhe os produtos mais clicados e veja a atividade recente por produto."
+            description="Veja os produtos mais clicados e a atividade recente."
             href="/admin/dynamic/cliques"
-            icon="ðŸ–±ï¸"
+            icon="K"
             color="sky"
           />
 
-          <AdminCard 
+          <AdminCard
             title="Pendencias"
-            description="Veja produtos sem preco, sem imagem, sem seller ou com dados criticos faltando."
+            description="Mostra apenas lacunas de cadastro que dependem de correcao manual."
             href="/admin/dynamic/pendencias"
-            icon="âš ï¸"
+            icon="!"
             color="orange"
           />
 
-          <AdminCard 
+          <AdminCard
             title="Criar Nova Categoria"
-            description="Defina novos slugs e campos de cálculo (ex: Preço por Litro, por Rolo, por KG)."
+            description="Defina novos slugs e a configuracao de comparacao publica."
             href="/admin/dynamic/nova-categoria"
-            icon="✨"
+            icon="+"
             color="yellow"
           />
 
-          <AdminCard 
-            title="Update Prices"
-            description="Acompanhe o status da sua rotina de atualização automática de preços."
+          <AdminCard
+            title="Execucoes"
+            description="Historico da rotina automatica de atualizacao de precos."
             href="/admin/dynamic/execucoes"
-            icon="💰"
+            icon="$"
             color="red"
           />
 
-          <AdminCard 
+          <AdminCard
+            title="Fallback"
+            description="Controle o fallback global de precos do site dinamico."
+            href="/admin/dynamic/fallback"
+            icon="F"
+            color="amber"
+          />
+
+          <AdminCard
             title="Ver no Site"
-            description="Abra a versão pública do site para validar o layout e os cards."
+            description="Abra a versao publica para validar categorias, cards e ordenacoes."
             href="/"
-            icon="🌐"
+            icon="S"
             color="gray"
           />
         </div>
 
-        {/* Info Box Solo */}
-        <div className="mt-12 p-8 bg-gray-900 rounded-3xl text-white shadow-2xl relative overflow-hidden">
+        <div className="relative mt-12 overflow-hidden rounded-3xl bg-gray-900 p-8 text-white shadow-2xl">
           <div className="relative z-10">
-            <h3 className="text-xl font-bold mb-2">Arquitetura Escalável</h3>
-            <p className="text-gray-400 text-sm max-w-xl leading-relaxed">
-              Este módulo foi convertido para uma estrutura **Dynamic**. 
-              Agora você pode gerenciar **Casa, Petshop, Bebês** ou qualquer outro nicho 
-              centralizando tudo nesta mesma interface de gerenciamento.
+            <h3 className="mb-2 text-xl font-bold">Arquitetura unificada</h3>
+            <p className="max-w-xl text-sm leading-relaxed text-gray-400">
+              O admin dinamico centraliza catalogo, cliques, pendencias, fallback e
+              execucoes automatizadas na mesma interface.
             </p>
           </div>
-          {/* Decoração sutil no fundo */}
-          <div className="absolute top-[-20%] right-[-5%] text-[120px] opacity-[0.03] pointer-events-none select-none font-black">
+          <div className="pointer-events-none absolute right-[-5%] top-[-20%] select-none text-[120px] font-black opacity-[0.03]">
             DYNAMIC
           </div>
         </div>

@@ -8,7 +8,12 @@ import {
   type DynamicSortOption,
 } from "@/components/dynamic/FloatingFiltersBar";
 import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
-import { DynamicProduct, DynamicPriceHistory } from "@prisma/client";
+import { DynamicProduct, DynamicPriceHistory, Prisma } from "@prisma/client";
+import {
+  getDynamicDisplayPrice,
+  getDynamicFallbackConfig,
+  type DynamicProductFallbackState,
+} from "@/lib/dynamicFallback";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +69,11 @@ interface DynamicAttributes {
 
 type ProductWithHistory = DynamicProduct & {
   priceHistory: DynamicPriceHistory[];
+};
+
+type VisibleProductWithHistory = ProductWithHistory & {
+  displayPrice: number;
+  isFallbackPrice: boolean;
 };
 
 const AMAZON_OFFICIAL = "Amazon.com.br";
@@ -260,9 +270,6 @@ export default async function DynamicCategoryPage({
     },
     include: {
       products: {
-        where: {
-          totalPrice: { gt: 0 },
-        },
         include: {
           priceHistory: {
             where: { createdAt: { gte: thirtyDaysAgo } },
@@ -275,6 +282,58 @@ export default async function DynamicCategoryPage({
   });
 
   if (!categoryData) return notFound();
+
+  const fallbackConfig = await getDynamicFallbackConfig();
+  const productIds = categoryData.products.map((product) => product.id);
+  const fallbackRows =
+    productIds.length > 0
+      ? await prisma.$queryRaw<
+          Array<
+            DynamicProductFallbackState & {
+              id: string;
+            }
+          >
+        >(Prisma.sql`
+          SELECT
+            "id",
+            "lastValidPrice",
+            "lastValidPriceAt",
+            "availabilityStatus"
+          FROM "DynamicProduct"
+          WHERE "id" IN (${Prisma.join(productIds)})
+        `)
+      : [];
+
+  const fallbackStateMap = new Map(
+    fallbackRows.map((row) => [
+      row.id,
+      {
+        lastValidPrice: row.lastValidPrice,
+        lastValidPriceAt: row.lastValidPriceAt,
+        availabilityStatus: row.availabilityStatus,
+      } satisfies DynamicProductFallbackState,
+    ])
+  );
+
+  const visibleProducts: VisibleProductWithHistory[] = categoryData.products
+    .map((product) => {
+      const fallbackState = fallbackStateMap.get(product.id);
+      const displayPrice = getDynamicDisplayPrice({
+        currentPrice: product.totalPrice,
+        fallbackState,
+        config: fallbackConfig,
+      });
+
+      return {
+        ...product,
+        displayPrice,
+        isFallbackPrice:
+          product.totalPrice <= 0 &&
+          displayPrice > 0 &&
+          displayPrice !== product.totalPrice,
+      };
+    })
+    .filter((product) => product.displayPrice > 0);
 
   const normalizedDisplayConfig = normalizeDisplayConfig(categoryData.displayConfig);
   const fullDisplayConfig = normalizedDisplayConfig.fields;
@@ -300,7 +359,7 @@ export default async function DynamicCategoryPage({
     dynamicFilterOptions[c.key] = new Set();
   });
 
-  categoryData.products.forEach((p: ProductWithHistory) => {
+  visibleProducts.forEach((p) => {
     const attrs = p.attributes as unknown as DynamicAttributes;
 
     if (attrs.brand) availableBrands.add(String(attrs.brand).trim());
@@ -333,7 +392,7 @@ export default async function DynamicCategoryPage({
         .map((s) => s.trim().toLowerCase())
     : [];
 
-  const matchedProducts = categoryData.products.filter((p: ProductWithHistory) => {
+  const matchedProducts = visibleProducts.filter((p) => {
     const attrs = p.attributes as unknown as DynamicAttributes;
     const pBrand = String(attrs.brand || "").trim().toLowerCase();
     const pSeller = String(attrs.seller || "").trim().toLowerCase();
@@ -364,7 +423,7 @@ export default async function DynamicCategoryPage({
     return true;
   });
 
-  const hasDoseMetric = matchedProducts.some((p: ProductWithHistory) => {
+  const hasDoseMetric = matchedProducts.some((p) => {
     const attrs = p.attributes as unknown as DynamicAttributes;
     return (
       getNumericAttribute(attrs, "precoPorDose") > 0 ||
@@ -372,7 +431,7 @@ export default async function DynamicCategoryPage({
     );
   });
 
-  const hasProteinConcentration = matchedProducts.some((p: ProductWithHistory) => {
+  const hasProteinConcentration = matchedProducts.some((p) => {
     const attrs = p.attributes as unknown as DynamicAttributes;
     return (
       getNumericAttribute(attrs, "proteinConcentration") > 0 ||
@@ -448,30 +507,30 @@ export default async function DynamicCategoryPage({
     categorySettings.bestValueAttributeKey
   );
 
-  const rankedProducts = matchedProducts.map((p: ProductWithHistory) => {
+  const rankedProducts = matchedProducts.map((p) => {
     const attrs = p.attributes as unknown as DynamicAttributes;
     const pricePerUnit = getConfiguredCurrencyMetric(
       attrs,
       fullDisplayConfig,
-      p.totalPrice,
+      p.displayPrice,
       categorySettings.bestValueAttributeKey
     );
     const doses = getNumericAttribute(attrs, "doses");
     const explicitPricePerDose = getDerivedAttributeMetric(
       attrs,
       categorySettings.dosePriceAttributeKey || "precoPorDose",
-      p.totalPrice
+      p.displayPrice
     );
     const pricePerDose =
       explicitPricePerDose > 0
         ? explicitPricePerDose
-        : doses > 0 && p.totalPrice > 0
-          ? p.totalPrice / doses
+        : doses > 0 && p.displayPrice > 0
+          ? p.displayPrice / doses
           : 0;
     const proteinConcentration = getDerivedAttributeMetric(
       attrs,
       "proteinConcentration",
-      p.totalPrice
+      p.displayPrice
     );
 
     let avgMonthly: number | null = null;
@@ -493,8 +552,8 @@ export default async function DynamicCategoryPage({
       if (averages.length > 0) {
         avgMonthly = averages.reduce((a, b) => a + b, 0) / averages.length;
 
-        if (avgMonthly > p.totalPrice) {
-          const raw = ((avgMonthly - p.totalPrice) / avgMonthly) * 100;
+        if (avgMonthly > p.displayPrice) {
+          const raw = ((avgMonthly - p.displayPrice) / avgMonthly) * 100;
           if (raw >= 5) {
             discountPercent = Math.round(raw);
           }
@@ -506,7 +565,7 @@ export default async function DynamicCategoryPage({
       id: p.id,
       name: p.name,
       imageUrl: p.imageUrl || "",
-      price: p.totalPrice,
+      price: p.displayPrice,
       affiliateUrl: p.url,
       pricePerUnit,
       ratingAverage: p.ratingAverage,
@@ -515,6 +574,7 @@ export default async function DynamicCategoryPage({
       discountPercent,
       pricePerDose,
       proteinConcentration,
+      isFallbackPrice: p.isFallbackPrice,
       attributes: attrs as Record<string, string | number | undefined>,
     };
   });
@@ -636,6 +696,12 @@ export default async function DynamicCategoryPage({
             <p className="mb-2 px-1 text-[13px] font-medium text-zinc-800">
               {finalProducts.length} produtos encontrados em {categoryData.name}
             </p>
+            {fallbackConfig.fallbackEnabled ? (
+              <p className="mb-2 px-1 text-[12px] text-amber-700">
+                Fallback de precos ativo. Produtos elegiveis podem usar o ultimo preco
+                valido de ate {fallbackConfig.fallbackMaxAgeHours}h.
+              </p>
+            ) : null}
             {order === "best_value" && bestValueHelperText ? (
               <p className="mb-3 px-1 text-[12px] text-zinc-600">
                 {bestValueHelperText}

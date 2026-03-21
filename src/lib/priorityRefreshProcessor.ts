@@ -216,6 +216,7 @@ function extractAsinFromMessage(message: Message) {
 }
 
 async function persistDynamicUpdate(productId: string, result: PriceResult) {
+  const now = new Date();
   const current = await prisma.dynamicProduct.findUnique({
     where: { id: productId },
     select: {
@@ -248,6 +249,28 @@ async function persistDynamicUpdate(productId: string, result: PriceResult) {
     },
   });
 
+  if (result.status === "OK") {
+    await prisma.$executeRaw`
+      UPDATE "DynamicProduct"
+      SET
+        "lastValidPrice" = ${result.price},
+        "lastValidPriceAt" = ${now},
+        "availabilityStatus" = 'IN_STOCK',
+        "lastAvailabilityCheckedAt" = ${now},
+        "updatedAt" = NOW()
+      WHERE "id" = ${productId}
+    `;
+  } else {
+    await prisma.$executeRaw`
+      UPDATE "DynamicProduct"
+      SET
+        "availabilityStatus" = 'OUT_OF_STOCK',
+        "lastAvailabilityCheckedAt" = ${now},
+        "updatedAt" = NOW()
+      WHERE "id" = ${productId}
+    `;
+  }
+
   const lastHistory = await prisma.dynamicPriceHistory.findFirst({
     where: { productId },
     orderBy: { createdAt: "desc" },
@@ -263,7 +286,7 @@ async function persistDynamicUpdate(productId: string, result: PriceResult) {
       data: {
         productId,
         price: result.price,
-        date: new Date(),
+        date: now,
       },
     });
   }

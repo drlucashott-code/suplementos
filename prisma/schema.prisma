@@ -148,6 +148,10 @@ model DynamicProduct {
   asin             String                @unique
   name             String
   totalPrice       Float
+  lastValidPrice   Float?
+  lastValidPriceAt DateTime?
+  availabilityStatus String?            @default("UNKNOWN")
+  lastAvailabilityCheckedAt DateTime?
   url              String
   imageUrl         String?
   categoryId       String
@@ -161,6 +165,38 @@ model DynamicProduct {
   clickEvents      DynamicProductClickEvent[]
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
+}
+
+model DynamicSiteConfig {
+  key                      String   @id
+  fallbackEnabled          Boolean  @default(false)
+  fallbackManualEnabled    Boolean  @default(false)
+  fallbackAutoEnabled      Boolean  @default(true)
+  fallbackAutoFailedProductsThreshold Int @default(20)
+  fallbackSource           String?
+  fallbackMaxAgeHours      Int      @default(24)
+  fallbackReason           String?
+  fallbackActivatedAt      DateTime?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
+model GlobalPriceRefreshRun {
+  id               String   @id @default(cuid())
+  status           String
+  startedAt        DateTime @default(now())
+  finishedAt       DateTime?
+  totalOffers      Int      @default(0)
+  updatedOffers    Int      @default(0)
+  failedOffers     Int      @default(0)
+  maxConsecutiveFailedOffers Int @default(0)
+  outOfStockOffers Int      @default(0)
+  excludedOffers   Int      @default(0)
+  errorMessage     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([startedAt(sort: Desc)])
 }
 
 model DynamicPriceHistory {
