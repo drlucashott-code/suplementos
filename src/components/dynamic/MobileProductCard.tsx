@@ -22,13 +22,122 @@ interface DisplayConfigField {
   key: string;
   label: string;
   type: "text" | "number" | "currency";
+  prefix?: string;
+  suffix?: string;
+  hideLabel?: boolean;
+  tableHeaderTemplate?: string;
 }
 
-function Star({
-  fillPercent,
-}: {
-  fillPercent: number;
-}) {
+function getNumericAttribute(
+  attributes: Record<string, string | number | undefined>,
+  key: string
+) {
+  const value = Number(attributes[key]);
+  return Number.isNaN(value) ? 0 : value;
+}
+
+function getDerivedMetricValue(
+  key: string,
+  attributes: Record<string, string | number | undefined>,
+  totalPrice: number
+) {
+  const explicitValue = getNumericAttribute(attributes, key);
+  if (explicitValue > 0) {
+    return explicitValue;
+  }
+
+  if (totalPrice <= 0) {
+    return 0;
+  }
+
+  const unitsPerBox = getNumericAttribute(attributes, "unitsPerBox");
+  const unitsPerPack = getNumericAttribute(attributes, "unitsPerPack");
+  const numberOfDoses =
+    getNumericAttribute(attributes, "numberOfDoses") ||
+    getNumericAttribute(attributes, "doses");
+  const totalProteinInGrams = getNumericAttribute(attributes, "totalProteinInGrams");
+  const cafeinaTotalMg = getNumericAttribute(attributes, "cafeinaTotalMg");
+  const gramasCreatinaPuraNoPote = getNumericAttribute(
+    attributes,
+    "gramasCreatinaPuraNoPote"
+  );
+
+  switch (key) {
+    case "precoPorBarra":
+      return unitsPerBox > 0 ? totalPrice / unitsPerBox : 0;
+    case "precoPorUnidade":
+      return unitsPerPack > 0 ? totalPrice / unitsPerPack : 0;
+    case "precoPorDose":
+      return numberOfDoses > 0 ? totalPrice / numberOfDoses : 0;
+    case "precoPorGramaProteina":
+      return totalProteinInGrams > 0 ? totalPrice / totalProteinInGrams : 0;
+    case "precoPor100MgCafeina":
+      return cafeinaTotalMg > 0 ? (totalPrice / cafeinaTotalMg) * 100 : 0;
+    case "precoPorGramaCreatina":
+      return gramasCreatinaPuraNoPote > 0 ? totalPrice / gramasCreatinaPuraNoPote : 0;
+    default:
+      return 0;
+  }
+}
+
+function getFallbackCurrencyValue(
+  key: string,
+  attributes: Record<string, string | number | undefined>,
+  totalPrice: number,
+  displayConfig: DisplayConfigField[]
+) {
+  const derivedValue = getDerivedMetricValue(key, attributes, totalPrice);
+  if (derivedValue > 0) {
+    return derivedValue;
+  }
+
+  const quantityConfig = displayConfig.find((config) => config.type === "number");
+  if (!quantityConfig || totalPrice <= 0) {
+    return 0;
+  }
+
+  const quantity = getNumericAttribute(attributes, quantityConfig.key);
+  return quantity > 0 ? totalPrice / quantity : 0;
+}
+
+function formatCurrencyValue(value: number) {
+  const decimals = value > 0 && value < 0.1 ? 3 : 2;
+  return `R$ ${value.toFixed(decimals).replace(".", ",")}`;
+}
+
+function formatRoundedNumber(value: number) {
+  return Math.round(value).toString();
+}
+
+function formatDisplayValue(
+  rawValue: string | number | undefined,
+  config: DisplayConfigField
+) {
+  if (rawValue === undefined || rawValue === null || String(rawValue).trim() === "") {
+    return "";
+  }
+
+  if (config.type === "number") {
+    const numericValue = Number(rawValue);
+    if (!Number.isNaN(numericValue)) {
+      return `${config.prefix ?? ""}${formatRoundedNumber(numericValue)}${config.suffix ?? ""}`;
+    }
+  }
+
+  return `${config.prefix ?? ""}${String(rawValue)}${config.suffix ?? ""}`;
+}
+
+function resolveTemplate(
+  template: string,
+  attributes: Record<string, string | number | undefined>
+) {
+  return template.replace(/\{([^}]+)\}/g, (_, key: string) => {
+    const value = attributes[key];
+    return value === undefined || value === null ? "" : String(value);
+  });
+}
+
+function Star({ fillPercent }: { fillPercent: number }) {
   return (
     <span className="relative inline-flex h-[11px] w-[11px] shrink-0">
       <span className="absolute inset-0 text-[11px] leading-[11px] text-[#D5D9D9]">
@@ -71,11 +180,13 @@ export function MobileProductCard({
   priority,
   displayConfig,
   highlightConfig = [],
+  analysisTitleTemplate,
 }: {
   product: DynamicProductType;
   priority: boolean;
   displayConfig: DisplayConfigField[];
   highlightConfig?: DisplayConfigField[];
+  analysisTitleTemplate?: string;
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
 
@@ -87,24 +198,23 @@ export function MobileProductCard({
 
   const formattedCount =
     reviewsCount >= 1000
-      ? (reviewsCount / 1000).toFixed(1).replace(".", ",") + " mil"
+      ? `${(reviewsCount / 1000).toFixed(1).replace(".", ",")} mil`
       : reviewsCount.toString();
 
   const visibleHighlights = highlightConfig
     .map((config) => {
       const rawValue = product.attributes[config.key];
-      if (
-        rawValue === undefined ||
-        rawValue === null ||
-        String(rawValue).trim() === ""
-      ) {
+      const value = formatDisplayValue(rawValue, config);
+
+      if (!value) {
         return null;
       }
 
       return {
         key: config.key,
         label: config.label,
-        value: String(rawValue),
+        value,
+        hideLabel: config.hideLabel ?? false,
       };
     })
     .filter(
@@ -114,8 +224,13 @@ export function MobileProductCard({
         key: string;
         label: string;
         value: string;
+        hideLabel: boolean;
       } => item !== null
     );
+
+  const tableHeaderTemplate =
+    analysisTitleTemplate ||
+    displayConfig.find((config) => config.tableHeaderTemplate)?.tableHeaderTemplate;
 
   const handleTrackClick = () => {
     const asinMatch = product.affiliateUrl.match(/\/dp\/([A-Z0-9]{10})/);
@@ -132,14 +247,14 @@ export function MobileProductCard({
   };
 
   return (
-    <div className="flex gap-3 border-b border-gray-100 bg-white relative items-stretch min-h-[250px] font-sans">
+    <div className="relative flex min-h-[250px] items-stretch gap-3 border-b border-gray-100 bg-white font-sans">
       {(product.discountPercent ?? 0) > 0 && (
-        <div className="absolute top-4 left-0 z-10 bg-[#CC0C39] text-white text-[11px] font-bold px-2 py-0.5 rounded-r-sm shadow-sm">
+        <div className="absolute left-0 top-4 z-10 rounded-r-sm bg-[#CC0C39] px-2 py-0.5 text-[11px] font-bold text-white shadow-sm">
           {product.discountPercent}% OFF
         </div>
       )}
 
-      <div className="w-[160px] bg-[#f3f3f3] flex-shrink-0 flex items-center justify-center p-3 relative">
+      <div className="relative flex w-[160px] flex-shrink-0 items-center justify-center bg-[#f3f3f3] p-3">
         {product.imageUrl ? (
           <div className="flex h-[220px] w-full items-center justify-center">
             <Image
@@ -157,7 +272,7 @@ export function MobileProductCard({
         )}
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col pr-2 py-4">
+      <div className="flex min-w-0 flex-1 flex-col py-4 pr-2">
         <h2 className="mb-1 line-clamp-3 text-[14px] font-normal leading-tight text-[#0F1111]">
           {product.name}
         </h2>
@@ -175,42 +290,58 @@ export function MobileProductCard({
             {visibleHighlights.map((item, index) => (
               <span key={item.key}>
                 {index > 0 && <span className="mr-1">•</span>}
-                {item.label}:{" "}
-                <b className="font-medium text-[#0F1111]">{item.value}</b>
+                {item.hideLabel ? (
+                  <b className="font-medium text-[#0F1111]">{item.value}</b>
+                ) : (
+                  <>
+                    {item.label}:{" "}
+                    <b className="font-medium text-[#0F1111]">{item.value}</b>
+                  </>
+                )}
               </span>
             ))}
           </div>
         )}
 
         <div
-          className={`mb-3 grid grid-cols-2 gap-2 divide-x divide-zinc-200 rounded border border-zinc-200 bg-white p-2 ${
+          className={`mb-3 grid gap-2 divide-x divide-zinc-200 rounded border border-zinc-200 bg-white p-2 ${
             rating === 0 && visibleHighlights.length === 0 ? "mt-2" : ""
           }`}
+          style={{
+            gridTemplateColumns: `repeat(${Math.max(displayConfig.length, 1)}, minmax(0, 1fr))`,
+          }}
         >
+          {tableHeaderTemplate && (
+            <div
+              className="border-b border-zinc-200 pb-2 text-center text-[11px] font-bold uppercase tracking-wide text-zinc-500"
+              style={{ gridColumn: "1 / -1" }}
+            >
+              {resolveTemplate(tableHeaderTemplate, product.attributes)}
+            </div>
+          )}
+
           {displayConfig.map((config) => {
             const rawValue = product.attributes[config.key];
             let displayValue = rawValue ? String(rawValue) : "-";
             let valueClass = "text-[#0F1111]";
 
             if (config.type === "currency") {
-              const targetConfig = displayConfig.find((c) => c.type === "number");
-              const quantity = targetConfig
-                ? Number(product.attributes[targetConfig.key])
-                : 0;
+              const numericRaw = getFallbackCurrencyValue(
+                config.key,
+                product.attributes,
+                product.price,
+                displayConfig
+              );
 
-              if (quantity > 0 && hasPrice) {
-                const calculated = product.price / quantity;
-                const decimals = calculated < 0.1 ? 3 : 2;
-                displayValue = `R$ ${calculated.toFixed(decimals).replace(".", ",")}`;
+              if (!Number.isNaN(numericRaw) && numericRaw > 0) {
+                displayValue = formatCurrencyValue(numericRaw);
               } else {
-                const numericRaw = Number(rawValue);
-                displayValue =
-                  rawValue !== undefined && !Number.isNaN(numericRaw)
-                    ? `R$ ${numericRaw.toFixed(2).replace(".", ",")}`
-                    : "R$ 0,00";
+                displayValue = "R$ 0,00";
               }
 
               valueClass = "text-green-700";
+            } else {
+              displayValue = formatDisplayValue(rawValue, config) || "-";
             }
 
             return (
@@ -285,7 +416,7 @@ export function MobileProductCard({
                       type="button"
                       onClick={() => setShowTooltip((prev) => !prev)}
                       className="p-0.5 text-zinc-400"
-                      aria-label="Informações sobre o preço médio"
+                      aria-label="Informacoes sobre o preco medio"
                     >
                       <svg
                         viewBox="0 0 24 24"
@@ -298,7 +429,7 @@ export function MobileProductCard({
 
                     {showTooltip && (
                       <div className="absolute bottom-6 left-0 z-50 w-56 rounded border border-gray-200 bg-white p-2 text-[10px] text-zinc-600 shadow-xl">
-                        Preço médio dos últimos 30 dias na Amazon.
+                        Preco medio dos ultimos 30 dias na Amazon.
                       </div>
                     )}
                   </div>
@@ -317,7 +448,7 @@ export function MobileProductCard({
               </div>
             </>
           ) : (
-            <p className="text-[13px] italic text-zinc-800">Preço indisponível</p>
+            <p className="text-[13px] italic text-zinc-800">Preco indisponivel</p>
           )}
 
           <div className="mt-3">

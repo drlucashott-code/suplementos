@@ -7,6 +7,9 @@ interface DisplayConfigField {
   key: string;
   label: string;
   type: "text" | "number" | "currency";
+  prefix?: string;
+  suffix?: string;
+  hideLabel?: boolean;
 }
 
 type GtagWindow = Window & {
@@ -19,11 +22,13 @@ function ProductListContent({
   viewEventName,
   displayConfig,
   highlightConfig,
+  analysisTitleTemplate,
 }: {
   products: DynamicProductType[];
   viewEventName: string;
   displayConfig: DisplayConfigField[];
   highlightConfig: DisplayConfigField[];
+  analysisTitleTemplate?: string;
 }) {
   const [visibleCount, setVisibleCount] = useState(6);
 
@@ -85,6 +90,7 @@ function ProductListContent({
           priority={index < 4}
           displayConfig={displayConfig}
           highlightConfig={highlightConfig}
+          analysisTitleTemplate={analysisTitleTemplate}
         />
       ))}
 
@@ -115,11 +121,13 @@ export function ProductList({
   viewEventName = "view_catalog_list",
   displayConfig,
   highlightConfig = [],
+  analysisTitleTemplate,
 }: {
   products: DynamicProductType[];
   viewEventName?: string;
   displayConfig: DisplayConfigField[];
   highlightConfig?: DisplayConfigField[];
+  analysisTitleTemplate?: string;
 }) {
   const resetKey = useMemo(() => {
     return products.map((product) => product.id).join("|");
@@ -132,6 +140,7 @@ export function ProductList({
       viewEventName={viewEventName}
       displayConfig={displayConfig}
       highlightConfig={highlightConfig}
+      analysisTitleTemplate={analysisTitleTemplate}
     />
   );
 }

@@ -22,12 +22,12 @@ type HeaderProps = {
 };
 
 const BASE_CATEGORIES: SearchCategory[] = [
-  { name: "Creatina", path: "/creatina", keywords: ["creatina", "creatine"] },
-  { name: "Whey Protein", path: "/whey", keywords: ["whey", "protein", "proteina"] },
-  { name: "Barra de Proteína", path: "/barra", keywords: ["barra", "barrinha"] },
-  { name: "Pré-Treino", path: "/pre-treino", keywords: ["pre", "treino", "pretreino"] },
-  { name: "Bebida Proteica", path: "/bebidaproteica", keywords: ["bebida", "pronta"] },
-  { name: "Café Funcional", path: "/cafe-funcional", keywords: ["cafe", "funcional"] },
+  { name: "Creatina", path: "/suplementos/creatina", keywords: ["creatina", "creatine"] },
+  { name: "Whey Protein", path: "/suplementos/whey", keywords: ["whey", "protein", "proteina"] },
+  { name: "Barra de Proteína", path: "/suplementos/barra", keywords: ["barra", "barrinha"] },
+  { name: "Pré-Treino", path: "/suplementos/pre-treino", keywords: ["pre", "treino", "pretreino"] },
+  { name: "Bebida Proteica", path: "/suplementos/bebidaproteica", keywords: ["bebida", "pronta"] },
+  { name: "Café Funcional", path: "/suplementos/cafe-funcional", keywords: ["cafe", "funcional"] },
 ];
 
 export default function Header({ extraCategories = [] }: HeaderProps) {

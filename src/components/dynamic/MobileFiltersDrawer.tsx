@@ -7,7 +7,7 @@ type Props = {
   brands: string[];
   sellers: string[];
   dynamicConfigs: { key: string; label: string }[];
-  dynamicOptions: Record<string, string[]>;
+  dynamicOptions: Record<string, Array<{ value: string; label: string }>>;
 };
 
 export function MobileFiltersDrawer({ brands, sellers, dynamicConfigs, dynamicOptions }: Props) {
@@ -108,7 +108,12 @@ export function MobileFiltersDrawer({ brands, sellers, dynamicConfigs, dynamicOp
                 <Tag key={s} label={s} active={selectedSellers.includes(s)} onClick={() => toggle(s, selectedSellers, setSelectedSellers)} />
               ))}
               {dynamicConfigs.map(c => activeTab === c.key && dynamicOptions[c.key]?.map(opt => (
-                <Tag key={opt} label={opt} active={(selectedDynamics[c.key] || []).includes(opt)} onClick={() => toggleDynamic(c.key, opt)} />
+                <Tag
+                  key={`${c.key}-${opt.value}`}
+                  label={opt.label}
+                  active={(selectedDynamics[c.key] || []).includes(opt.value)}
+                  onClick={() => toggleDynamic(c.key, opt.value)}
+                />
               )))}
             </div>
           </div>

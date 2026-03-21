@@ -33,32 +33,32 @@ const supplementsCategories: CategoryItem[] = [
   {
     title: "Barra de proteína",
     imageSrc: "https://m.media-amazon.com/images/I/61RDMRO3uCL._AC_SL1200_.jpg",
-    path: "/barra",
+    path: "/suplementos/barra",
   },
   {
     title: "Bebida proteica",
     imageSrc: "https://m.media-amazon.com/images/I/51npzHic1NL._AC_SL1000_.jpg",
-    path: "/bebidaproteica",
+    path: "/suplementos/bebidaproteica",
   },
   {
     title: "Café funcional",
     imageSrc: "https://m.media-amazon.com/images/I/61hwrgvkjrL._AC_SL1210_.jpg",
-    path: "/cafe-funcional",
+    path: "/suplementos/cafe-funcional",
   },
   {
     title: "Creatina",
     imageSrc: "https://m.media-amazon.com/images/I/81UashXoAxL._AC_SL1500_.jpg",
-    path: "/creatina",
+    path: "/suplementos/creatina",
   },
   {
     title: "Pré-treino",
     imageSrc: "https://m.media-amazon.com/images/I/61fGbsRyDWL._AC_SL1333_.jpg",
-    path: "/pre-treino",
+    path: "/suplementos/pre-treino",
   },
   {
     title: "Whey Protein",
     imageSrc: "https://m.media-amazon.com/images/I/51lOuKbCawL._AC_SL1000_.jpg",
-    path: "/whey",
+    path: "/suplementos/whey",
   },
 ];
 

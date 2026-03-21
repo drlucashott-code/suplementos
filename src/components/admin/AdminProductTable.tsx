@@ -24,6 +24,10 @@ interface DisplayConfigItem {
   visibility?: "internal" | "public_table" | "public_highlight";
 }
 
+interface DisplayConfigPayload {
+  fields: DisplayConfigItem[];
+}
+
 interface Product {
   id: string;
   name: string;
@@ -57,6 +61,22 @@ function solveMath(input: string): string {
   }
 
   return input;
+}
+
+function normalizeDisplayConfig(rawConfig: Prisma.JsonValue): DisplayConfigItem[] {
+  if (Array.isArray(rawConfig)) {
+    return rawConfig as unknown as DisplayConfigItem[];
+  }
+
+  if (
+    rawConfig &&
+    typeof rawConfig === "object" &&
+    Array.isArray((rawConfig as unknown as DisplayConfigPayload).fields)
+  ) {
+    return (rawConfig as unknown as DisplayConfigPayload).fields;
+  }
+
+  return [];
 }
 
 export function AdminProductTable({
@@ -110,8 +130,9 @@ export function AdminProductTable({
     if (!hasCategoryFilter) return [];
 
     const cat = initialProducts.find((p) => p.category.id === filterCategory);
-    const config =
-      (cat?.category?.displayConfig as unknown as DisplayConfigItem[]) || [];
+    const config = cat?.category?.displayConfig
+      ? normalizeDisplayConfig(cat.category.displayConfig)
+      : [];
 
     return config.filter(
       (c) =>

@@ -4,13 +4,28 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { SlidersHorizontal, ChevronDown } from "lucide-react";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
 
-export function FloatingFiltersBar() {
+export type DynamicSortOption = {
+  value: string;
+  label: string;
+};
+
+export function FloatingFiltersBar({
+  sortOptions = [
+    { value: "best_value", label: "Melhor custo-beneficio" },
+    { value: "price_asc", label: "Menor preco final" },
+    { value: "discount", label: "Maior desconto" },
+  ],
+  defaultOrder = "best_value",
+}: {
+  sortOptions?: DynamicSortOption[];
+  defaultOrder?: string;
+}) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
   const scrollDirection = useScrollDirection();
 
-  const order = searchParams.get("order") ?? "cheapest_unit";
+  const order = searchParams.get("order") ?? defaultOrder;
 
   function openFilters() {
     window.dispatchEvent(new CustomEvent("open-filters"));
@@ -26,42 +41,44 @@ export function FloatingFiltersBar() {
 
   return (
     <div
-      className={`sticky top-14 z-30 bg-white border-b border-zinc-200 py-2 px-3 shadow-sm transition-transform duration-300 ease-in-out ${
+      className={`sticky top-14 z-30 border-b border-zinc-200 bg-white px-3 py-2 shadow-sm transition-transform duration-300 ease-in-out ${
         isVisible ? "translate-y-0" : "-translate-y-full"
       }`}
       style={{ fontFamily: "Arial, Helvetica, sans-serif" }}
     >
-      <div className="flex items-center gap-3 max-w-[1200px] mx-auto">
+      <div className="mx-auto flex max-w-[1200px] items-center gap-3">
         <button
           onClick={openFilters}
-          className="flex items-center justify-center border border-zinc-300 rounded-lg p-2.5 bg-white shadow-sm active:bg-zinc-100 flex-shrink-0 transition-colors"
+          className="flex flex-shrink-0 items-center justify-center rounded-lg border border-zinc-300 bg-white p-2.5 shadow-sm transition-colors active:bg-zinc-100"
           aria-label="Abrir filtros"
         >
-          <SlidersHorizontal className="w-5 h-5 text-zinc-900" />
+          <SlidersHorizontal className="h-5 w-5 text-zinc-900" />
         </button>
 
-        <div className="flex-1 flex items-center gap-2">
+        <div className="flex flex-1 items-center gap-2">
           <label
             htmlFor="sort-select"
-            className="text-[13px] text-zinc-600 whitespace-nowrap leading-none font-normal"
+            className="whitespace-nowrap text-[13px] font-normal leading-none text-zinc-600"
           >
             Ordenar por:
           </label>
 
-          <div className="flex-1 relative">
+          <div className="relative flex-1">
             <select
               id="sort-select"
               value={order}
               onChange={(e) => changeOrder(e.target.value)}
-              className="w-full appearance-none border border-zinc-300 rounded-lg px-3 py-2 bg-zinc-50 text-[13px] text-zinc-900 shadow-sm outline-none pr-9 border-b-zinc-400 active:border-[#e47911] transition-all"
+              className="w-full appearance-none rounded-lg border border-b-zinc-400 border-zinc-300 bg-zinc-50 px-3 py-2 pr-9 text-[13px] text-zinc-900 shadow-sm outline-none transition-all active:border-[#e47911]"
             >
-              <option value="cheapest_unit">Melhor custo-benefício</option>
-              <option value="price_asc">Menor preço final</option>
-              <option value="discount">Maior desconto</option>
+              {sortOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
 
-            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none border-l border-zinc-300 pl-2">
-              <ChevronDown className="w-4 h-4 text-zinc-500" />
+            <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 border-l border-zinc-300 pl-2">
+              <ChevronDown className="h-4 w-4 text-zinc-500" />
             </div>
           </div>
         </div>

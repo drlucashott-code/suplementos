@@ -4,42 +4,88 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
+export type FieldVisibility = "internal" | "public_table" | "public_highlight";
+export type FieldType = "text" | "number" | "currency";
+export type SortOptionValue =
+  | "best_value"
+  | "price_asc"
+  | "discount"
+  | "dose_price_asc"
+  | "protein_pct_desc";
+
 export type ConfigField = {
   key: string;
   label: string;
-  type: "text" | "number" | "currency";
-  visibility: "internal" | "public_table" | "public_highlight";
+  type: FieldType;
+  visibility: FieldVisibility;
+  prefix?: string;
+  suffix?: string;
+  hideLabel?: boolean;
 };
+
+export type CategorySettings = {
+  analysisTitleTemplate?: string;
+  enabledSorts?: SortOptionValue[];
+  defaultSort?: SortOptionValue;
+  bestValueAttributeKey?: string;
+  dosePriceAttributeKey?: string;
+  customSorts?: Array<{
+    value: string;
+    label: string;
+    attributeKey: string;
+    direction: "asc" | "desc";
+  }>;
+};
+
+export type DisplayConfigPayload = {
+  fields: ConfigField[];
+  settings?: CategorySettings;
+};
+
+function sanitizePayload(data: {
+  name: string;
+  slug: string;
+  group: string;
+  groupName: string;
+  imageUrl?: string;
+  displayConfig: DisplayConfigPayload;
+}) {
+  return {
+    name: data.name.trim(),
+    slug: data.slug.trim(),
+    group: data.group.trim().toLowerCase(),
+    groupName: data.groupName.trim(),
+    imageUrl: data.imageUrl?.trim() || null,
+    displayConfig: data.displayConfig as Prisma.InputJsonValue,
+  };
+}
 
 export async function createDynamicCategory(data: {
   name: string;
   slug: string;
   group: string;
+  groupName: string;
   imageUrl?: string;
-  displayConfig: ConfigField[];
+  displayConfig: DisplayConfigPayload;
 }) {
   try {
+    const payload = sanitizePayload(data);
+
     const existingCategory = await prisma.dynamicCategory.findFirst({
       where: {
-        group: data.group,
-        slug: data.slug,
+        group: payload.group,
+        slug: payload.slug,
       },
     });
 
     if (existingCategory) {
       return {
-        error: `Já existe a categoria "${data.slug}" no grupo "${data.group}".`,
+        error: `Ja existe a categoria "${payload.slug}" no grupo "${payload.group}".`,
       };
     }
 
-    await (prisma.dynamicCategory as any).create({
-      data: {
-        name: data.name,
-        slug: data.slug,
-        group: data.group.toLowerCase(),
-        imageUrl: data.imageUrl?.trim() || null,
-        displayConfig: data.displayConfig as Prisma.InputJsonValue,
-      },
+    await prisma.dynamicCategory.create({
+      data: payload,
     });
 
     revalidatePath("/admin/dynamic/categorias");
@@ -57,34 +103,31 @@ export async function updateDynamicCategory(
     name: string;
     slug: string;
     group: string;
+    groupName: string;
     imageUrl?: string;
-    displayConfig: ConfigField[];
+    displayConfig: DisplayConfigPayload;
   }
 ) {
   try {
+    const payload = sanitizePayload(data);
+
     const existingCategory = await prisma.dynamicCategory.findFirst({
       where: {
-        group: data.group,
-        slug: data.slug,
+        group: payload.group,
+        slug: payload.slug,
         NOT: { id },
       },
     });
 
     if (existingCategory) {
       return {
-        error: "Este slug já está sendo usado por outra categoria neste grupo.",
+        error: "Este slug ja esta sendo usado por outra categoria neste grupo.",
       };
     }
 
-    await (prisma.dynamicCategory as any).update({
+    await prisma.dynamicCategory.update({
       where: { id },
-      data: {
-        name: data.name,
-        slug: data.slug,
-        group: data.group.toLowerCase(),
-        imageUrl: data.imageUrl?.trim() || null,
-        displayConfig: data.displayConfig as Prisma.InputJsonValue,
-      },
+      data: payload,
     });
 
     revalidatePath("/admin/dynamic/categorias");
@@ -135,7 +178,7 @@ export async function deleteDynamicCategory(id: string) {
   } catch (error) {
     console.error("Erro ao excluir categoria:", error);
     return {
-      error: "Não foi possível excluir. Verifique se existem produtos vinculados.",
+      error: "Nao foi possivel excluir. Verifique se existem produtos vinculados.",
     };
   }
 }

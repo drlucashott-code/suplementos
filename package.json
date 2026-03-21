@@ -11,6 +11,14 @@
     "update:amazon": "tsx scripts/updateAmazonPrices.ts",
     "update:ml": "tsx scripts/updateMercadoLivrePrices.ts",
     "import:amazon:creatina": "tsx scripts/importAmazonCreatines.ts",
+    "migrate:legacy:cafe-funcional": "tsx scripts/migrateLegacyCafeFuncionalToDynamic.ts",
+    "migrate:legacy:bebida-proteica": "tsx scripts/migrateLegacyProteinDrinkToDynamic.ts",
+    "migrate:legacy:barra": "tsx scripts/migrateLegacyProteinBarToDynamic.ts",
+    "migrate:legacy:whey": "tsx scripts/migrateLegacyWheyToDynamic.ts",
+    "migrate:legacy:creatina": "tsx scripts/migrateLegacyCreatineToDynamic.ts",
+    "migrate:legacy:pre-treino": "tsx scripts/migrateLegacyPreWorkoutToDynamic.ts",
+    "migrate:legacy:suplementos": "tsx scripts/migrateAllLegacySupplementsToDynamic.ts",
+    "cleanup:dynamic:price-metrics": "tsx scripts/cleanupDynamicSupplementPriceMetrics.ts",
     "db:seed": "prisma db seed"
   },
   "dependencies": {
