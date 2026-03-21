@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "update:amazon": "tsx scripts/updateAmazonPrices.ts",
+    "process:priority-refresh": "tsx scripts/processPriorityDynamicRefreshQueue.ts",
     "update:ml": "tsx scripts/updateMercadoLivrePrices.ts",
     "import:amazon:creatina": "tsx scripts/importAmazonCreatines.ts",
     "migrate:legacy:cafe-funcional": "tsx scripts/migrateLegacyCafeFuncionalToDynamic.ts",

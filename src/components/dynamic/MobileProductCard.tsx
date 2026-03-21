@@ -244,6 +244,22 @@ export function MobileProductCard({
       asin,
       categoria: "dinamica",
     });
+
+    if (asin !== "SEM_ASIN") {
+      void fetch("/api/priority-refresh", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          asin,
+          reason: "click",
+        }),
+        keepalive: true,
+      }).catch(() => {
+        // Mantemos o clique fluindo mesmo se a fila falhar temporariamente.
+      });
+    }
   };
 
   return (
