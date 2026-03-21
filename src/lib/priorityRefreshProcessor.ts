@@ -52,6 +52,8 @@ export type PriorityRefreshRunSummary = {
   uniqueAsins: number;
   updatedProducts: number;
   skippedProducts: number;
+  updatedAsins: string[];
+  runId?: string;
 };
 
 function assertEnv() {
@@ -269,81 +271,149 @@ async function persistDynamicUpdate(productId: string, result: PriceResult) {
 export async function processPriorityRefreshQueue() {
   assertEnv();
 
+  const runId = crypto.randomUUID();
+
+  await prisma.$executeRaw`
+    INSERT INTO "PriorityRefreshRun" (
+      "id",
+      "source",
+      "status",
+      "startedAt",
+      "createdAt",
+      "updatedAt",
+      "processedMessages",
+      "uniqueAsins",
+      "updatedProducts",
+      "skippedProducts"
+    )
+    VALUES (
+      ${runId},
+      'sqs_priority',
+      'running',
+      NOW(),
+      NOW(),
+      NOW(),
+      0,
+      0,
+      0,
+      0
+    )
+  `;
+
   const summary: PriorityRefreshRunSummary = {
     processedMessages: 0,
     uniqueAsins: 0,
     updatedProducts: 0,
     skippedProducts: 0,
+    updatedAsins: [],
+    runId,
   };
 
-  while (true) {
-    const batch = await sqsClient.send(
-      new ReceiveMessageCommand({
-        QueueUrl: queueUrl,
-        MaxNumberOfMessages: BATCH_SIZE,
-        WaitTimeSeconds: 5,
-      })
-    );
-
-    const messages = batch.Messages || [];
-    if (messages.length === 0) {
-      break;
-    }
-
-    summary.processedMessages += messages.length;
-
-    const uniqueAsins = Array.from(
-      new Set(messages.map(extractAsinFromMessage).filter(Boolean))
-    ) as string[];
-
-    summary.uniqueAsins += uniqueAsins.length;
-
-    const products = await prisma.dynamicProduct.findMany({
-      where: {
-        asin: {
-          in: uniqueAsins,
-        },
-      },
-      select: {
-        id: true,
-        asin: true,
-        name: true,
-      },
-    });
-
-    const productMap = new Map(products.map((product) => [product.asin, product]));
-    const results = await fetchAmazonPricesBatch(uniqueAsins);
-
-    for (const asin of uniqueAsins) {
-      const product = productMap.get(asin);
-      const result = results[asin];
-
-      if (!product || !result || result.status !== "OK") {
-        summary.skippedProducts += 1;
-        continue;
-      }
-
-      const updated = await persistDynamicUpdate(product.id, result);
-      if (updated) {
-        summary.updatedProducts += 1;
-      } else {
-        summary.skippedProducts += 1;
-      }
-    }
-
-    const deletableMessages = messages.filter((message) => message.ReceiptHandle);
-    if (deletableMessages.length > 0) {
-      await sqsClient.send(
-        new DeleteMessageBatchCommand({
+  try {
+    while (true) {
+      const batch = await sqsClient.send(
+        new ReceiveMessageCommand({
           QueueUrl: queueUrl,
-          Entries: deletableMessages.map((message, index) => ({
-            Id: `msg-${index}`,
-            ReceiptHandle: message.ReceiptHandle!,
-          })),
+          MaxNumberOfMessages: BATCH_SIZE,
+          WaitTimeSeconds: 5,
         })
       );
-    }
-  }
 
-  return summary;
+      const messages = batch.Messages || [];
+      if (messages.length === 0) {
+        break;
+      }
+
+      summary.processedMessages += messages.length;
+
+      const uniqueAsins = Array.from(
+        new Set(messages.map(extractAsinFromMessage).filter(Boolean))
+      ) as string[];
+
+      summary.uniqueAsins += uniqueAsins.length;
+
+      const products = await prisma.dynamicProduct.findMany({
+        where: {
+          asin: {
+            in: uniqueAsins,
+          },
+        },
+        select: {
+          id: true,
+          asin: true,
+          name: true,
+        },
+      });
+
+      const productMap = new Map(products.map((product) => [product.asin, product]));
+      const results = await fetchAmazonPricesBatch(uniqueAsins);
+
+      for (const asin of uniqueAsins) {
+        const product = productMap.get(asin);
+        const result = results[asin];
+
+        if (!product || !result || result.status !== "OK") {
+          summary.skippedProducts += 1;
+          continue;
+        }
+
+        const updated = await persistDynamicUpdate(product.id, result);
+        if (updated) {
+          summary.updatedProducts += 1;
+          summary.updatedAsins.push(asin);
+        } else {
+          summary.skippedProducts += 1;
+        }
+      }
+
+      const deletableMessages = messages.filter((message) => message.ReceiptHandle);
+      if (deletableMessages.length > 0) {
+        await sqsClient.send(
+          new DeleteMessageBatchCommand({
+            QueueUrl: queueUrl,
+            Entries: deletableMessages.map((message, index) => ({
+              Id: `msg-${index}`,
+              ReceiptHandle: message.ReceiptHandle!,
+            })),
+          })
+        );
+      }
+    }
+
+    await prisma.$executeRaw`
+      UPDATE "PriorityRefreshRun"
+      SET
+        "status" = 'success',
+        "finishedAt" = NOW(),
+        "processedMessages" = ${summary.processedMessages},
+        "uniqueAsins" = ${summary.uniqueAsins},
+        "updatedProducts" = ${summary.updatedProducts},
+        "skippedProducts" = ${summary.skippedProducts},
+        "updatedAsins" = ${JSON.stringify(summary.updatedAsins)}::jsonb,
+        "updatedAt" = NOW()
+      WHERE "id" = ${runId}
+    `;
+
+    return summary;
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Erro desconhecido no processamento";
+
+    await prisma.$executeRaw`
+      UPDATE "PriorityRefreshRun"
+      SET
+        "status" = 'error',
+        "finishedAt" = NOW(),
+        "processedMessages" = ${summary.processedMessages},
+        "uniqueAsins" = ${summary.uniqueAsins},
+        "updatedProducts" = ${summary.updatedProducts},
+        "skippedProducts" = ${summary.skippedProducts},
+        "updatedAsins" = ${JSON.stringify(summary.updatedAsins)}::jsonb,
+        "errorMessage" = ${errorMessage},
+        "updatedAt" = NOW()
+      WHERE "id" = ${runId}
+    `;
+
+    throw error;
+  }
 }

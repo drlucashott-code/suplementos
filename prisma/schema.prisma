@@ -185,3 +185,21 @@ model DynamicProductClickStats {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }
+
+model PriorityRefreshRun {
+  id                String   @id @default(cuid())
+  source            String   @default("sqs_priority")
+  status            String
+  startedAt         DateTime @default(now())
+  finishedAt        DateTime?
+  processedMessages Int      @default(0)
+  uniqueAsins       Int      @default(0)
+  updatedProducts   Int      @default(0)
+  skippedProducts   Int      @default(0)
+  errorMessage      String?
+  updatedAsins      Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([startedAt(sort: Desc)])
+}

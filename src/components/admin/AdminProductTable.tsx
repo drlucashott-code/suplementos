@@ -40,10 +40,6 @@ interface Product {
     name: string;
     displayConfig: Prisma.JsonValue;
   };
-  clickStats: {
-    clickCount: number;
-    lastClickedAt: string | Date | null;
-  } | null;
 }
 
 interface CategoryOption {
@@ -202,16 +198,6 @@ export function AdminProductTable({
         } else if (sortConfig.key === "totalPrice") {
           aVal = a.totalPrice;
           bVal = b.totalPrice;
-        } else if (sortConfig.key === "clickCount") {
-          aVal = a.clickStats?.clickCount ?? 0;
-          bVal = b.clickStats?.clickCount ?? 0;
-        } else if (sortConfig.key === "lastClickedAt") {
-          aVal = a.clickStats?.lastClickedAt
-            ? new Date(a.clickStats.lastClickedAt).getTime()
-            : 0;
-          bVal = b.clickStats?.lastClickedAt
-            ? new Date(b.clickStats.lastClickedAt).getTime()
-            : 0;
         } else if (sortConfig.key === "name") {
           aVal = a.name;
           bVal = b.name;
@@ -327,53 +313,6 @@ export function AdminProductTable({
 
         <div className="rounded-full bg-gray-100 px-3 py-1 text-[10px] font-bold uppercase text-gray-400">
           Total: {processedProducts.length} itens
-        </div>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-3">
-        <div className="rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
-          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-            Produtos com clique
-          </div>
-          <div className="mt-1 text-2xl font-black text-gray-900">
-            {
-              processedProducts.filter(
-                (product) => (product.clickStats?.clickCount ?? 0) > 0
-              ).length
-            }
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
-          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-            Cliques acumulados
-          </div>
-          <div className="mt-1 text-2xl font-black text-gray-900">
-            {processedProducts.reduce(
-              (total, product) => total + (product.clickStats?.clickCount ?? 0),
-              0
-            )}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
-          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-            Ultimo clique
-          </div>
-          <div className="mt-1 text-sm font-black text-gray-900">
-            {(() => {
-              const lastClicked = processedProducts
-                .map((product) => product.clickStats?.lastClickedAt)
-                .filter((value): value is string | Date => Boolean(value))
-                .sort(
-                  (a, b) => new Date(b).getTime() - new Date(a).getTime()
-                )[0];
-
-              return lastClicked
-                ? new Date(lastClicked).toLocaleString("pt-BR")
-                : "Sem cliques";
-            })()}
-          </div>
         </div>
       </div>
 
@@ -635,20 +574,6 @@ export function AdminProductTable({
                 </th>
 
                 <th
-                  className="w-28 cursor-pointer p-4 text-center text-black hover:text-black"
-                  onClick={() => toggleSort("clickCount")}
-                >
-                  Cliques
-                </th>
-
-                <th
-                  className="w-40 cursor-pointer p-4 text-center text-black hover:text-black"
-                  onClick={() => toggleSort("lastClickedAt")}
-                >
-                  Ultimo clique
-                </th>
-
-                <th
                   className="w-32 cursor-pointer p-4 text-center text-black hover:text-black"
                   onClick={() => toggleSort("totalPrice")}
                 >
@@ -751,16 +676,6 @@ export function AdminProductTable({
                           handleQuickUpdate(p.id, "marca", e.target.value, true)
                         }
                       />
-                    </td>
-
-                    <td className="p-4 text-center text-[12px] font-black text-gray-700">
-                      {p.clickStats?.clickCount ?? 0}
-                    </td>
-
-                    <td className="p-4 text-center text-[11px] font-bold text-gray-500">
-                      {p.clickStats?.lastClickedAt
-                        ? new Date(p.clickStats.lastClickedAt).toLocaleString("pt-BR")
-                        : "Nunca"}
                     </td>
 
                     <td className="p-4 text-center text-xs font-black text-green-700">

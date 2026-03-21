@@ -82,6 +82,22 @@ export default async function AdminDynamicDashboard() {
           />
 
           <AdminCard 
+            title="Cliques"
+            description="Acompanhe os produtos mais clicados e veja a atividade recente por produto."
+            href="/admin/dynamic/cliques"
+            icon="ðŸ–±ï¸"
+            color="sky"
+          />
+
+          <AdminCard 
+            title="Pendencias"
+            description="Veja produtos sem preco, sem imagem, sem seller ou com dados criticos faltando."
+            href="/admin/dynamic/pendencias"
+            icon="âš ï¸"
+            color="orange"
+          />
+
+          <AdminCard 
             title="Criar Nova Categoria"
             description="Defina novos slugs e campos de cálculo (ex: Preço por Litro, por Rolo, por KG)."
             href="/admin/dynamic/nova-categoria"
@@ -92,7 +108,7 @@ export default async function AdminDynamicDashboard() {
           <AdminCard 
             title="Update Prices"
             description="Acompanhe o status da sua rotina de atualização automática de preços."
-            href="#"
+            href="/admin/dynamic/execucoes"
             icon="💰"
             color="red"
           />
