@@ -7,6 +7,7 @@ import {
   type Message,
 } from "@aws-sdk/client-sqs";
 import { prisma } from "@/lib/prisma";
+import { refreshDynamicProductPriceStats } from "@/lib/dynamicPriceStats";
 
 const sqsClient = new SQSClient({ region: process.env.AWS_REGION || "us-east-2" });
 const queueUrl =
@@ -290,6 +291,8 @@ async function persistDynamicUpdate(productId: string, result: PriceResult) {
       },
     });
   }
+
+  await refreshDynamicProductPriceStats(productId);
 
   return true;
 }

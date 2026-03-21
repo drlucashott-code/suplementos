@@ -152,6 +152,10 @@ model DynamicProduct {
   lastValidPriceAt DateTime?
   availabilityStatus String?            @default("UNKNOWN")
   lastAvailabilityCheckedAt DateTime?
+  averagePrice30d  Float?
+  lowestPrice30d   Float?
+  highestPrice30d  Float?
+  priceStatsUpdatedAt DateTime?
   url              String
   imageUrl         String?
   categoryId       String

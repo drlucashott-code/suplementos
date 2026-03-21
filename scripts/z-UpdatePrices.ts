@@ -3,6 +3,7 @@ import https from "https";
 import crypto from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { reconcileDynamicFallbackState } from "../src/lib/dynamicFallback";
+import { refreshDynamicProductPriceStats } from "../src/lib/dynamicPriceStats";
 
 const prisma = new PrismaClient();
 
@@ -229,6 +230,8 @@ async function persistDynamicUpdate(
       },
     });
 
+    await refreshDynamicProductPriceStats(product.id);
+
     return {
       logStatus: `OK R$ ${result.price.toFixed(2)}`,
       outcome: "UPDATED" as PersistOutcome,
@@ -256,6 +259,8 @@ async function persistDynamicUpdate(
       },
     },
   });
+
+  await refreshDynamicProductPriceStats(product.id);
 
   return { logStatus, outcome };
 }

@@ -8,7 +8,7 @@ import {
   type DynamicSortOption,
 } from "@/components/dynamic/FloatingFiltersBar";
 import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
-import { DynamicProduct, DynamicPriceHistory, Prisma } from "@prisma/client";
+import { DynamicProduct, Prisma } from "@prisma/client";
 import {
   getDynamicDisplayPrice,
   getDynamicFallbackConfig,
@@ -68,7 +68,9 @@ interface DynamicAttributes {
 }
 
 type ProductWithHistory = DynamicProduct & {
-  priceHistory: DynamicPriceHistory[];
+  averagePrice30d: number | null;
+  lowestPrice30d: number | null;
+  highestPrice30d: number | null;
 };
 
 type VisibleProductWithHistory = ProductWithHistory & {
@@ -260,9 +262,6 @@ export default async function DynamicCategoryPage({
   const search = await searchParams;
   const searchQuery = (search.q as string) || "";
 
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
   const categoryData = await prisma.dynamicCategory.findFirst({
     where: {
       slug,
@@ -270,12 +269,6 @@ export default async function DynamicCategoryPage({
     },
     include: {
       products: {
-        include: {
-          priceHistory: {
-            where: { createdAt: { gte: thirtyDaysAgo } },
-            orderBy: { createdAt: "desc" },
-          },
-        },
         orderBy: { totalPrice: "asc" },
       },
     },
@@ -291,6 +284,9 @@ export default async function DynamicCategoryPage({
           Array<
             DynamicProductFallbackState & {
               id: string;
+              averagePrice30d: number | null;
+              lowestPrice30d: number | null;
+              highestPrice30d: number | null;
             }
           >
         >(Prisma.sql`
@@ -298,26 +294,39 @@ export default async function DynamicCategoryPage({
             "id",
             "lastValidPrice",
             "lastValidPriceAt",
-            "availabilityStatus"
+            "availabilityStatus",
+            "averagePrice30d",
+            "lowestPrice30d",
+            "highestPrice30d"
           FROM "DynamicProduct"
           WHERE "id" IN (${Prisma.join(productIds)})
         `)
       : [];
 
-  const fallbackStateMap = new Map(
-    fallbackRows.map((row) => [
-      row.id,
-      {
-        lastValidPrice: row.lastValidPrice,
-        lastValidPriceAt: row.lastValidPriceAt,
-        availabilityStatus: row.availabilityStatus,
-      } satisfies DynamicProductFallbackState,
-    ])
-  );
+   const productStateMap = new Map(
+     fallbackRows.map((row) => [
+       row.id,
+       {
+         lastValidPrice: row.lastValidPrice,
+         lastValidPriceAt: row.lastValidPriceAt,
+         availabilityStatus: row.availabilityStatus,
+         averagePrice30d: row.averagePrice30d,
+         lowestPrice30d: row.lowestPrice30d,
+         highestPrice30d: row.highestPrice30d,
+       },
+     ])
+   );
 
   const visibleProducts: VisibleProductWithHistory[] = categoryData.products
     .map((product) => {
-      const fallbackState = fallbackStateMap.get(product.id);
+      const productState = productStateMap.get(product.id);
+      const fallbackState: DynamicProductFallbackState | undefined = productState
+        ? {
+            lastValidPrice: productState.lastValidPrice,
+            lastValidPriceAt: productState.lastValidPriceAt,
+            availabilityStatus: productState.availabilityStatus,
+          }
+        : undefined;
       const displayPrice = getDynamicDisplayPrice({
         currentPrice: product.totalPrice,
         fallbackState,
@@ -326,6 +335,9 @@ export default async function DynamicCategoryPage({
 
       return {
         ...product,
+        averagePrice30d: productState?.averagePrice30d ?? null,
+        lowestPrice30d: productState?.lowestPrice30d ?? null,
+        highestPrice30d: productState?.highestPrice30d ?? null,
         displayPrice,
         isFallbackPrice:
           product.totalPrice <= 0 &&
@@ -533,31 +545,13 @@ export default async function DynamicCategoryPage({
       p.displayPrice
     );
 
-    let avgMonthly: number | null = null;
+    const avgMonthly = p.averagePrice30d ?? null;
     let discountPercent: number | null = null;
 
-    if (p.priceHistory.length > 0) {
-      const dailyPrices = new Map<string, number[]>();
-
-      p.priceHistory.forEach((h: DynamicPriceHistory) => {
-        const day = h.createdAt.toISOString().split("T")[0];
-        if (!dailyPrices.has(day)) dailyPrices.set(day, []);
-        dailyPrices.get(day)!.push(h.price);
-      });
-
-      const averages = Array.from(dailyPrices.values()).map((arr) => {
-        return arr.reduce((a, b) => a + b, 0) / arr.length;
-      });
-
-      if (averages.length > 0) {
-        avgMonthly = averages.reduce((a, b) => a + b, 0) / averages.length;
-
-        if (avgMonthly > p.displayPrice) {
-          const raw = ((avgMonthly - p.displayPrice) / avgMonthly) * 100;
-          if (raw >= 5) {
-            discountPercent = Math.round(raw);
-          }
-        }
+    if (avgMonthly && avgMonthly > p.displayPrice) {
+      const raw = ((avgMonthly - p.displayPrice) / avgMonthly) * 100;
+      if (raw >= 5) {
+        discountPercent = Math.round(raw);
       }
     }
 
