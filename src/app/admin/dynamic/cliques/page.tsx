@@ -25,6 +25,12 @@ type SourceSummaryRow = {
   clickCount: number;
 };
 
+type DailyClickRow = {
+  day: Date;
+  clickCount: number;
+  uniqueProducts: number;
+};
+
 function getSourceLabel(value: string | null) {
   if (!value) {
     return "Direto";
@@ -141,10 +147,30 @@ async function getSourceSummary(): Promise<SourceSummaryRow[]> {
   }));
 }
 
+async function getDailyClickSummary(): Promise<DailyClickRow[]> {
+  const rows = await prisma.$queryRaw<DailyClickRow[]>`
+    SELECT
+      DATE_TRUNC('day', "createdAt") AS "day",
+      COUNT(*) AS "clickCount",
+      COUNT(DISTINCT "productId") AS "uniqueProducts"
+    FROM "DynamicProductClickEvent"
+    GROUP BY 1
+    ORDER BY 1 DESC
+    LIMIT 14
+  `;
+
+  return rows.map((row) => ({
+    day: new Date(row.day),
+    clickCount: Number(row.clickCount) || 0,
+    uniqueProducts: Number(row.uniqueProducts) || 0,
+  }));
+}
+
 export default async function AdminDynamicClicksPage() {
-  const [clickedProducts, sourceSummary] = await Promise.all([
+  const [clickedProducts, sourceSummary, dailySummary] = await Promise.all([
     getClickedProducts(),
     getSourceSummary(),
+    getDailyClickSummary(),
   ]);
 
   const totalClicks = clickedProducts.reduce(
@@ -231,23 +257,51 @@ export default async function AdminDynamicClicksPage() {
           </div>
         </div>
 
-        {sourceSummary.length > 0 && (
-          <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-            <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Top origens
+        <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+              Cliques por dia
             </div>
-            <div className="flex flex-wrap gap-2">
-              {sourceSummary.map((item) => (
-                <span
-                  key={item.source}
-                  className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-black text-blue-700"
-                >
-                  {getSourceLabel(item.source)} • {item.clickCount}
-                </span>
-              ))}
+            <div className="text-[11px] font-bold text-gray-500">
+              Ultimos 14 dias
             </div>
           </div>
-        )}
+
+          {dailySummary.length === 0 ? (
+            <div className="py-4 text-sm font-semibold text-gray-400">
+              Nenhum clique registrado ainda.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-[520px] w-full border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                    <th className="px-2 py-3 text-black">Data</th>
+                    <th className="px-2 py-3 text-center text-black">Cliques</th>
+                    <th className="px-2 py-3 text-center text-black">
+                      Produtos unicos
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {dailySummary.map((day) => (
+                    <tr key={day.day.toISOString()}>
+                      <td className="px-2 py-3 text-sm font-bold text-gray-900">
+                        {day.day.toLocaleDateString("pt-BR")}
+                      </td>
+                      <td className="px-2 py-3 text-center text-sm font-black text-gray-900">
+                        {day.clickCount}
+                      </td>
+                      <td className="px-2 py-3 text-center text-sm font-bold text-gray-500">
+                        {day.uniqueProducts}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
         <div className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-xl shadow-gray-200/50">
           <div className="overflow-x-auto">
