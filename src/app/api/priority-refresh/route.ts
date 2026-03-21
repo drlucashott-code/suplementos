@@ -10,6 +10,12 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as {
       asin?: string;
       reason?: "click" | "admin" | "system";
+      utmSource?: string;
+      utmMedium?: string;
+      utmCampaign?: string;
+      inferredSource?: string;
+      pagePath?: string;
+      referrer?: string;
     };
 
     const asin = body.asin?.trim().toUpperCase() || "";
@@ -32,6 +38,18 @@ export async function POST(request: NextRequest) {
     });
 
     if (product) {
+      const normalizeOptionalText = (value: string | undefined, maxLength = 255) => {
+        const normalized = value?.trim();
+        return normalized ? normalized.slice(0, maxLength) : null;
+      };
+
+      const utmSource = normalizeOptionalText(body.utmSource, 100);
+      const utmMedium = normalizeOptionalText(body.utmMedium, 100);
+      const utmCampaign = normalizeOptionalText(body.utmCampaign, 150);
+      const inferredSource = normalizeOptionalText(body.inferredSource, 100);
+      const pagePath = normalizeOptionalText(body.pagePath, 300);
+      const referrer = normalizeOptionalText(body.referrer, 500);
+
       await prisma.$executeRaw`
         INSERT INTO "DynamicProductClickStats" ("id", "productId", "clickCount", "lastClickedAt", "createdAt", "updatedAt")
         VALUES (${crypto.randomUUID()}, ${product.id}, 1, NOW(), NOW(), NOW())
@@ -40,6 +58,31 @@ export async function POST(request: NextRequest) {
           "clickCount" = "DynamicProductClickStats"."clickCount" + 1,
           "lastClickedAt" = NOW(),
           "updatedAt" = NOW()
+      `;
+
+      await prisma.$executeRaw`
+        INSERT INTO "DynamicProductClickEvent" (
+          "id",
+          "productId",
+          "utmSource",
+          "utmMedium",
+          "utmCampaign",
+          "inferredSource",
+          "pagePath",
+          "referrer",
+          "createdAt"
+        )
+        VALUES (
+          ${crypto.randomUUID()},
+          ${product.id},
+          ${utmSource},
+          ${utmMedium},
+          ${utmCampaign},
+          ${inferredSource},
+          ${pagePath},
+          ${referrer},
+          NOW()
+        )
       `;
     }
 

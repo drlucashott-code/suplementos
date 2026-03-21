@@ -26,33 +26,73 @@ type RawProduct = {
   category: {
     name: string;
     slug: string;
+    displayConfig: unknown;
   };
 };
 
-function getNumber(
+type DisplayConfigField = {
+  key?: string;
+  label?: string;
+  type?: "text" | "number" | "currency";
+  public?: boolean;
+  visibility?: string;
+};
+
+function getDefinedValue(
   attributes: Record<string, string | number | boolean | null | undefined>,
-  key: string
+  keys: string[]
 ) {
-  const value = Number(attributes[key]);
-  return Number.isNaN(value) ? 0 : value;
+  for (const key of keys) {
+    if (!(key in attributes)) {
+      continue;
+    }
+
+    const value = attributes[key];
+    if (value === null || value === undefined) {
+      continue;
+    }
+
+    if (typeof value === "string" && value.trim() === "") {
+      continue;
+    }
+
+    return value;
+  }
+
+  return null;
+}
+
+function hasFilledField(
+  attributes: Record<string, string | number | boolean | null | undefined>,
+  keys: string[]
+) {
+  return getDefinedValue(attributes, keys) !== null;
+}
+
+function getNormalizedDisplayConfig(displayConfig: unknown): DisplayConfigField[] {
+  if (Array.isArray(displayConfig)) {
+    return displayConfig as DisplayConfigField[];
+  }
+
+  if (
+    displayConfig &&
+    typeof displayConfig === "object" &&
+    "fields" in displayConfig &&
+    Array.isArray((displayConfig as { fields?: unknown }).fields)
+  ) {
+    return (displayConfig as { fields: DisplayConfigField[] }).fields;
+  }
+
+  return [];
 }
 
 function getIssues(product: RawProduct) {
   const issues: string[] = [];
   const attrs = product.attributes || {};
-  const seller = String(attrs.seller || "").trim();
   const migrationPendingReason = String(attrs.migrationPendingReason || "").trim();
-
-  if (product.totalPrice <= 0) {
-    issues.push("Sem preco");
-  }
 
   if (!product.imageUrl) {
     issues.push("Sem imagem");
-  }
-
-  if (!seller) {
-    issues.push("Sem seller");
   }
 
   if (migrationPendingReason) {
@@ -61,63 +101,94 @@ function getIssues(product: RawProduct) {
 
   switch (product.category.slug) {
     case "whey": {
-      if (getNumber(attrs, "doseInGrams") <= 0) issues.push("Sem dose (g)");
-      if (getNumber(attrs, "proteinPerDoseInGrams") <= 0) {
-        issues.push("Sem proteina por dose");
+      if (!hasFilledField(attrs, ["doseInGrams"])) {
+        issues.push("Dose nao preenchida");
       }
-      if (getNumber(attrs, "totalProteinInGrams") <= 0) {
-        issues.push("Sem proteina total");
+      if (!hasFilledField(attrs, ["proteinPerDoseInGrams"])) {
+        issues.push("Proteina por dose nao preenchida");
       }
       break;
     }
     case "barra": {
-      if (getNumber(attrs, "unitsPerBox") <= 0) issues.push("Sem unidades por caixa");
-      if (getNumber(attrs, "proteinPerDoseInGrams") <= 0) {
-        issues.push("Sem proteina por barra");
+      if (!hasFilledField(attrs, ["unitsPerBox"])) {
+        issues.push("Unidades por caixa nao preenchidas");
       }
-      if (getNumber(attrs, "totalProteinInGrams") <= 0) {
-        issues.push("Sem proteina total");
+      if (!hasFilledField(attrs, ["proteinPerDoseInGrams"])) {
+        issues.push("Proteina por barra nao preenchida");
       }
       break;
     }
     case "bebidaproteica": {
-      if (getNumber(attrs, "unitsPerPack") <= 0) issues.push("Sem unidades por pack");
-      if (getNumber(attrs, "proteinPerUnitInGrams") <= 0) {
-        issues.push("Sem proteina por unidade");
+      if (!hasFilledField(attrs, ["unitsPerPack"])) {
+        issues.push("Unidades por pack nao preenchidas");
       }
-      if (getNumber(attrs, "totalProteinInGrams") <= 0) {
-        issues.push("Sem proteina total");
+      if (!hasFilledField(attrs, ["proteinPerUnitInGrams"])) {
+        issues.push("Proteina por unidade nao preenchida");
       }
       break;
     }
     case "cafe-funcional": {
-      if (getNumber(attrs, "doseInGrams") <= 0) issues.push("Sem dose (g)");
-      if (getNumber(attrs, "caffeinePerDoseInMg") <= 0) {
-        issues.push("Sem cafeina por dose");
+      if (!hasFilledField(attrs, ["doseInGrams"])) {
+        issues.push("Dose nao preenchida");
       }
-      if (getNumber(attrs, "cafeinaTotalMg") <= 0) {
-        issues.push("Sem cafeina total");
+      if (!hasFilledField(attrs, ["caffeinePerDoseInMg", "cafeinaPorDoseMg"])) {
+        issues.push("Cafeina por dose nao preenchida");
+      }
+      if (!hasFilledField(attrs, ["cafeinaTotalMg"])) {
+        issues.push("Cafeina total nao preenchida");
       }
       break;
     }
     case "creatina": {
-      if (getNumber(attrs, "doseInGrams") <= 0) issues.push("Sem dose (g)");
-      if (getNumber(attrs, "gramasCreatinaPuraNoPote") <= 0) {
-        issues.push("Sem creatina pura no pote");
+      if (!hasFilledField(attrs, ["doseInGrams", "unitsPerDose"])) {
+        issues.push("Dose nao preenchida");
+      }
+      if (!hasFilledField(attrs, ["gramasCreatinaPuraNoPote", "creatinaPorDose"])) {
+        issues.push("Creatina pura nao preenchida");
       }
       break;
     }
     case "pre-treino": {
-      if (getNumber(attrs, "doseInGrams") <= 0) issues.push("Sem dose (g)");
-      if (getNumber(attrs, "caffeinePerDoseInMg") <= 0) {
-        issues.push("Sem cafeina por dose");
+      if (!hasFilledField(attrs, ["doseInGrams"])) {
+        issues.push("Dose nao preenchida");
       }
-      if (getNumber(attrs, "numberOfDoses") <= 0) {
-        issues.push("Sem numero de doses");
+      if (!hasFilledField(attrs, ["caffeinePerDoseInMg", "cafeinaPorDoseMg"])) {
+        issues.push("Cafeina por dose nao preenchida");
+      }
+      if (!hasFilledField(attrs, ["numberOfDoses", "doses"])) {
+        issues.push("Numero de doses nao preenchido");
       }
       break;
     }
     default:
+      for (const field of getNormalizedDisplayConfig(product.category.displayConfig)) {
+        if (!field.key || field.type === "currency") {
+          continue;
+        }
+
+        const shouldValidate =
+          field.public === true ||
+          field.visibility === "public_table" ||
+          field.visibility === "public_highlight";
+
+        if (!shouldValidate) {
+          continue;
+        }
+
+        const value = getDefinedValue(attrs, [field.key]);
+        const label = field.label || field.key;
+
+        if (field.type === "number") {
+          if (value === null || Number(value) <= 0) {
+            issues.push(`${label} nao preenchido`);
+          }
+          continue;
+        }
+
+        if (value === null) {
+          issues.push(`${label} nao preenchido`);
+        }
+      }
       break;
   }
 
@@ -131,6 +202,7 @@ async function getPendingProducts(): Promise<PendingProduct[]> {
         select: {
           name: true,
           slug: true,
+          displayConfig: true,
         },
       },
     },
@@ -157,6 +229,7 @@ async function getPendingProducts(): Promise<PendingProduct[]> {
         category: {
           name: product.category.name,
           slug: product.category.slug,
+          displayConfig: product.category.displayConfig,
         },
       });
 
@@ -183,8 +256,8 @@ export default async function AdminDynamicPendingPage() {
     0
   );
 
-  const productsWithoutPrice = pendingProducts.filter((product) =>
-    product.issues.includes("Sem preco")
+  const productsWithoutImage = pendingProducts.filter((product) =>
+    product.issues.includes("Sem imagem")
   ).length;
 
   const migrationPendencies = pendingProducts.filter((product) =>
@@ -203,11 +276,10 @@ export default async function AdminDynamicPendingPage() {
               </span>
             </div>
             <h1 className="text-4xl font-black tracking-tight text-gray-900">
-              FALHAS E PENDÊNCIAS
+              FALHAS E PENDENCIAS
             </h1>
             <p className="mt-1 text-sm font-medium text-gray-500">
-              Produtos que precisam de revisão para manter comparações e
-              atualizações confiáveis.
+              Exibe apenas lacunas acionaveis de cadastro e atributos por categoria.
             </p>
           </div>
 
@@ -216,7 +288,7 @@ export default async function AdminDynamicPendingPage() {
               href="/admin/dynamic"
               className="rounded-2xl border border-gray-200 bg-white px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500 shadow-sm transition-all hover:text-black"
             >
-              ← Painel dinâmico
+              {"<-"} Painel dinamico
             </Link>
             <Link
               href="/admin/dynamic/produtos"
@@ -230,7 +302,7 @@ export default async function AdminDynamicPendingPage() {
         <div className="mb-6 grid gap-3 md:grid-cols-3">
           <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
             <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Produtos com pendência
+              Produtos com pendencia
             </div>
             <div className="mt-1 text-3xl font-black text-gray-900">
               {pendingProducts.length}
@@ -248,10 +320,10 @@ export default async function AdminDynamicPendingPage() {
 
           <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
             <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Sem preço / migração
+              Sem imagem / migracao
             </div>
             <div className="mt-1 text-sm font-black text-gray-900">
-              {productsWithoutPrice} sem preço • {migrationPendencies} migração
+              {productsWithoutImage} sem imagem • {migrationPendencies} migracao
             </div>
           </div>
         </div>
@@ -265,8 +337,9 @@ export default async function AdminDynamicPendingPage() {
                   <th className="p-4 text-black">Produto</th>
                   <th className="w-36 p-4 text-center text-black">Categoria</th>
                   <th className="w-36 p-4 text-center text-black">ASIN</th>
-                  <th className="w-28 p-4 text-center text-black">Preço</th>
-                  <th className="p-4 text-black">Pendências</th>
+                  <th className="w-28 p-4 text-center text-black">Preco</th>
+                  <th className="p-4 text-black">Pendencias</th>
+                  <th className="w-36 p-4 text-center text-black">Acao</th>
                 </tr>
               </thead>
 
@@ -274,15 +347,18 @@ export default async function AdminDynamicPendingPage() {
                 {pendingProducts.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="p-10 text-center text-sm font-semibold text-gray-400"
                     >
-                      Nenhuma pendência encontrada no momento.
+                      Nenhuma pendencia encontrada no momento.
                     </td>
                   </tr>
                 ) : (
                   pendingProducts.map((product) => (
-                    <tr key={product.id} className="transition-colors hover:bg-gray-50/50">
+                    <tr
+                      key={product.id}
+                      className="transition-colors hover:bg-gray-50/50"
+                    >
                       <td className="p-4 text-center">
                         <div className="relative mx-auto h-14 w-14 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
                           {product.imageUrl ? (
@@ -319,14 +395,14 @@ export default async function AdminDynamicPendingPage() {
                           rel="noopener noreferrer"
                           className="inline-block rounded bg-blue-50 px-2 py-1 font-mono text-[10px] font-black uppercase text-blue-600 transition hover:bg-blue-600 hover:text-white"
                         >
-                          {product.asin} ↗
+                          {product.asin} {"->"}
                         </a>
                       </td>
 
                       <td className="p-4 text-center text-[12px] font-black text-gray-700">
                         {product.totalPrice > 0
                           ? `R$ ${product.totalPrice.toFixed(2).replace(".", ",")}`
-                          : "—"}
+                          : "-"}
                       </td>
 
                       <td className="p-4">
@@ -340,6 +416,15 @@ export default async function AdminDynamicPendingPage() {
                             </span>
                           ))}
                         </div>
+                      </td>
+
+                      <td className="p-4 text-center">
+                        <Link
+                          href={`/admin/dynamic/produtos/${product.id}`}
+                          className="inline-flex rounded-xl border border-gray-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-gray-700 shadow-sm transition hover:bg-gray-50 hover:text-black"
+                        >
+                          Corrigir
+                        </Link>
                       </td>
                     </tr>
                   ))

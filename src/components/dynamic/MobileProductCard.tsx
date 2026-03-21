@@ -28,6 +28,17 @@ interface DisplayConfigField {
   tableHeaderTemplate?: string;
 }
 
+type ClickTrackingContext = {
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  inferredSource?: string;
+  pagePath?: string;
+  referrer?: string;
+};
+
+const ATTRIBUTION_STORAGE_KEY = "amazonpicks-attribution";
+
 function getNumericAttribute(
   attributes: Record<string, string | number | undefined>,
   key: string
@@ -135,6 +146,77 @@ function resolveTemplate(
     const value = attributes[key];
     return value === undefined || value === null ? "" : String(value);
   });
+}
+
+function inferSourceFromReferrer(referrer: string) {
+  if (!referrer) {
+    return undefined;
+  }
+
+  try {
+    const hostname = new URL(referrer).hostname.toLowerCase().replace(/^www\./, "");
+
+    if (hostname.includes("instagram")) return "instagram";
+    if (hostname.includes("facebook")) return "facebook";
+    if (hostname.includes("t.co") || hostname.includes("twitter") || hostname.includes("x.com")) {
+      return "x";
+    }
+    if (hostname.includes("google")) return "google";
+    if (hostname.includes("youtube")) return "youtube";
+    if (hostname.includes("whatsapp")) return "whatsapp";
+    if (hostname.includes("pinterest")) return "pinterest";
+
+    return hostname;
+  } catch {
+    return undefined;
+  }
+}
+
+function getClickTrackingContext(): ClickTrackingContext {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  const readStored = () => {
+    try {
+      const raw = window.sessionStorage.getItem(ATTRIBUTION_STORAGE_KEY);
+      return raw ? (JSON.parse(raw) as ClickTrackingContext) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const writeStored = (value: ClickTrackingContext) => {
+    try {
+      window.sessionStorage.setItem(ATTRIBUTION_STORAGE_KEY, JSON.stringify(value));
+    } catch {
+      // Ignoramos falhas de storage para nao interromper o clique.
+    }
+  };
+
+  const stored = readStored();
+  const searchParams = new URLSearchParams(window.location.search);
+
+  const currentReferrer = document.referrer || stored.referrer || "";
+  const currentContext: ClickTrackingContext = {
+    utmSource: searchParams.get("utm_source") || stored.utmSource,
+    utmMedium: searchParams.get("utm_medium") || stored.utmMedium,
+    utmCampaign: searchParams.get("utm_campaign") || stored.utmCampaign,
+    referrer: currentReferrer || undefined,
+    inferredSource:
+      stored.inferredSource || inferSourceFromReferrer(currentReferrer) || undefined,
+    pagePath: `${window.location.pathname}${window.location.search}`,
+  };
+
+  writeStored({
+    utmSource: currentContext.utmSource,
+    utmMedium: currentContext.utmMedium,
+    utmCampaign: currentContext.utmCampaign,
+    inferredSource: currentContext.inferredSource,
+    referrer: currentContext.referrer,
+  });
+
+  return currentContext;
 }
 
 function Star({ fillPercent }: { fillPercent: number }) {
@@ -246,6 +328,8 @@ export function MobileProductCard({
     });
 
     if (asin !== "SEM_ASIN") {
+      const trackingContext = getClickTrackingContext();
+
       void fetch("/api/priority-refresh", {
         method: "POST",
         headers: {
@@ -254,6 +338,7 @@ export function MobileProductCard({
         body: JSON.stringify({
           asin,
           reason: "click",
+          ...trackingContext,
         }),
         keepalive: true,
       }).catch(() => {

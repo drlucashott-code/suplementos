@@ -229,7 +229,10 @@ async function persistDynamicUpdate(productId: string, result: PriceResult) {
 
   const attributes = {
     ...(current.attributes as Record<string, string | number | boolean | undefined>),
-    seller: result.merchantName ?? undefined,
+    seller:
+      result.status === "OUT_OF_STOCK"
+        ? "Indisponivel"
+        : (result.merchantName ?? undefined),
     asin: result.asin,
   };
 
@@ -352,7 +355,7 @@ export async function processPriorityRefreshQueue() {
         const product = productMap.get(asin);
         const result = results[asin];
 
-        if (!product || !result || result.status !== "OK") {
+        if (!product || !result) {
           summary.skippedProducts += 1;
           continue;
         }
