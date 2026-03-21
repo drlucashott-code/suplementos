@@ -157,6 +157,7 @@ model DynamicProduct {
   ratingCount      Int?
   ratingsUpdatedAt DateTime?
   priceHistory     DynamicPriceHistory[]
+  clickStats       DynamicProductClickStats?
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
 }
@@ -173,4 +174,14 @@ model DynamicPriceHistory {
 
   @@unique([productId, date])
   @@index([productId, date])
+}
+
+model DynamicProductClickStats {
+  id            String         @id @default(cuid())
+  productId     String         @unique
+  product       DynamicProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  clickCount    Int            @default(0)
+  lastClickedAt DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }

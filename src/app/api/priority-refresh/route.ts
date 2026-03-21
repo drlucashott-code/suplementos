@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "node:crypto";
+import { prisma } from "@/lib/prisma";
 import { enqueuePriorityRefresh } from "@/lib/priorityRefreshQueue";
 
 const ASIN_PATTERN = /^[A-Z0-9]{10}$/;
@@ -23,6 +25,23 @@ export async function POST(request: NextRequest) {
       asin,
       reason: body.reason ?? "click",
     });
+
+    const product = await prisma.dynamicProduct.findUnique({
+      where: { asin },
+      select: { id: true },
+    });
+
+    if (product) {
+      await prisma.$executeRaw`
+        INSERT INTO "DynamicProductClickStats" ("id", "productId", "clickCount", "lastClickedAt", "createdAt", "updatedAt")
+        VALUES (${crypto.randomUUID()}, ${product.id}, 1, NOW(), NOW(), NOW())
+        ON CONFLICT ("productId")
+        DO UPDATE SET
+          "clickCount" = "DynamicProductClickStats"."clickCount" + 1,
+          "lastClickedAt" = NOW(),
+          "updatedAt" = NOW()
+      `;
+    }
 
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {

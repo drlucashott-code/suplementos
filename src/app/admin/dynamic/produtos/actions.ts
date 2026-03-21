@@ -11,6 +11,12 @@ export type DynamicAttributes = {
   [key: string]: string | number | boolean | null | undefined;
 };
 
+type ClickStatsRow = {
+  productId: string;
+  clickCount: number;
+  lastClickedAt: Date | null;
+};
+
 // Interface para o retorno da busca Amazon
 export interface AmazonImportResult {
   asin: string; // ✅ ASIN agora é obrigatório no retorno
@@ -231,7 +237,7 @@ export async function createDynamicProduct(data: {
  */
 export async function getDynamicProducts() {
   try {
-    return await prisma.dynamicProduct.findMany({
+    const products = await prisma.dynamicProduct.findMany({
       include: {
         category: {
           select: { id: true, name: true, group: true, displayConfig: true }
@@ -239,6 +245,26 @@ export async function getDynamicProducts() {
       },
       orderBy: { createdAt: 'desc' }
     });
+
+    const clickStats = await prisma.$queryRaw<ClickStatsRow[]>`
+      SELECT "productId", "clickCount", "lastClickedAt"
+      FROM "DynamicProductClickStats"
+    `;
+
+    const clickStatsMap = new Map(
+      clickStats.map((row) => [
+        row.productId,
+        {
+          clickCount: Number(row.clickCount) || 0,
+          lastClickedAt: row.lastClickedAt,
+        },
+      ])
+    );
+
+    return products.map((product) => ({
+      ...product,
+      clickStats: clickStatsMap.get(product.id) ?? null,
+    }));
   } catch (error) {
     console.error("Erro ao buscar produtos:", error);
     return [];
