@@ -51,8 +51,7 @@ const houseCategoryFallbackMap = Object.fromEntries(
   houseCategoryFallbacks.map((item) => [item.path.replace("/casa/", ""), item])
 );
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 600;
 
 async function getHouseCategories(): Promise<CategoryItem[]> {
   try {

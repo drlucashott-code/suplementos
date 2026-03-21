@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, TrendingUp, ShieldCheck, Dumbbell, Home } from "lucide-react";
+import { BarChart3, TrendingUp, ShieldCheck, Dumbbell, Home, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "./Header";
@@ -31,7 +31,7 @@ export type CategoryItem = {
 
 const supplementsCategories: CategoryItem[] = [
   {
-    title: "Barra de proteína",
+    title: "Barra de proteina",
     imageSrc: "https://m.media-amazon.com/images/I/61RDMRO3uCL._AC_SL1200_.jpg",
     path: "/suplementos/barra",
   },
@@ -41,7 +41,7 @@ const supplementsCategories: CategoryItem[] = [
     path: "/suplementos/bebidaproteica",
   },
   {
-    title: "Café funcional",
+    title: "Cafe funcional",
     imageSrc: "https://m.media-amazon.com/images/I/61hwrgvkjrL._AC_SL1210_.jpg",
     path: "/suplementos/cafe-funcional",
   },
@@ -51,7 +51,7 @@ const supplementsCategories: CategoryItem[] = [
     path: "/suplementos/creatina",
   },
   {
-    title: "Pré-treino",
+    title: "Pre-treino",
     imageSrc: "https://m.media-amazon.com/images/I/61fGbsRyDWL._AC_SL1333_.jpg",
     path: "/suplementos/pre-treino",
   },
@@ -82,14 +82,17 @@ export default function HomePageClient({
   const router = useRouter();
   const [selectedHub, setSelectedHub] = useState<HubKey>("suplementos");
 
-  const visibleCategories = useMemo(() => {
-    const categoryGroups: Record<HubKey, CategoryItem[]> = {
-      suplementos: supplementsCategories,
-      casa: houseCategories,
-    };
+  const categoryGroups = useMemo<Record<HubKey, CategoryItem[]>>(
+    () => ({
+      suplementos: sortCategories(supplementsCategories),
+      casa: sortCategories(houseCategories),
+    }),
+    [houseCategories]
+  );
 
-    return sortCategories(categoryGroups[selectedHub]);
-  }, [houseCategories, selectedHub]);
+  const visibleCategories = categoryGroups[selectedHub];
+  const supplementsPreview = categoryGroups.suplementos.slice(0, 4);
+  const housePreview = categoryGroups.casa.slice(0, 4);
 
   const handleCategoryClick = (path: string, categoryName: string) => {
     const win = window as typeof window & { dataLayer?: object[] };
@@ -117,144 +120,270 @@ export default function HomePageClient({
   };
 
   return (
-    <main className="min-h-screen bg-[#EAEDED] pb-20 font-sans">
+    <main className="min-h-screen bg-[#E3E6E6] pb-12 font-sans">
       <TrackHomeView />
 
       <Header extraCategories={houseCategories} />
 
-      <div className="flex items-center justify-center gap-2 bg-[#37475A] px-4 py-2.5 text-[12px] font-medium text-white shadow-inner">
-        <ShieldCheck className="h-4 w-4 text-[#FF9900]" />
-        <span>Comparador verificado de ofertas Amazon</span>
+      <div className="bg-[#37475A] px-4 py-2 text-center text-[12px] font-medium text-white">
+        Compare ofertas Amazon com leitura tecnica de preco.
       </div>
 
-      <div className="relative overflow-hidden border-b border-gray-200 bg-white">
-        <div className="relative z-10 mx-auto max-w-lg px-5 pb-10 pt-8 text-center">
-          <span className="mb-4 inline-block rounded border border-gray-300 bg-[#F0F2F2] px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[#007185]">
-            Guia do Consumidor
-          </span>
+      <div className="mx-auto max-w-[1500px] px-3 pb-8 pt-4 md:px-5">
+        <section className="relative overflow-hidden rounded-2xl border border-[#d5d9d9] bg-[linear-gradient(90deg,#131921_0%,#1f2f46_52%,#23415d_100%)] text-white shadow-sm">
+          <div className="grid gap-6 px-5 py-6 md:grid-cols-[1.2fr_0.8fr] md:px-8 md:py-8">
+            <div>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#FFB84D]">
+                Amazon Picks
+              </p>
+              <h1 className="max-w-2xl text-[24px] font-bold leading-tight md:text-[34px]">
+                Encontre a categoria certa e compare pelo criterio que realmente importa.
+              </h1>
+              <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-white/84 md:text-[14px]">
+                Preco por dose, por unidade, por grama e historico de 30 dias para
+                decidir melhor antes de abrir a oferta na Amazon.
+              </p>
 
-          <h1 className="mb-8 text-[18px] font-bold leading-snug text-[#0F1111] sm:text-[20px]">
-            Utilizamos filtros inteligentes para encontrar o melhor produto para você.
-          </h1>
-
-          <div className="mt-2 grid grid-cols-2 gap-8 px-2">
-            <div className="flex flex-col items-center gap-2 text-center">
-              <BarChart3 className="h-8 w-8 text-[#007185]" />
-              <div className="flex flex-col">
-                <span className="text-[14px] font-bold text-[#0F1111]">
-                  Análise Técnica
-                </span>
-                <span className="text-[12px] text-[#565959]">
-                  Custo real por unidade
-                </span>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <TrustPill icon={<BarChart3 className="h-3.5 w-3.5" />} label="Analise tecnica" />
+                <TrustPill icon={<TrendingUp className="h-3.5 w-3.5" />} label="Historico de 30 dias" />
+                <TrustPill icon={<ShieldCheck className="h-3.5 w-3.5" />} label="Ofertas Amazon" />
               </div>
             </div>
 
-            <div className="flex flex-col items-center gap-2 text-center">
-              <TrendingUp className="h-8 w-8 text-[#007185]" />
-              <div className="flex flex-col">
-                <span className="text-[14px] font-bold text-[#0F1111]">
-                  Preço Justo
-                </span>
-                <span className="text-[12px] text-[#565959]">
-                  Histórico de 30 dias
-                </span>
-              </div>
+            <div className="grid grid-cols-2 gap-3">
+              <QuickCategoryCard
+                title="Whey Protein"
+                subtitle="Proteina e custo real"
+                imageSrc="https://m.media-amazon.com/images/I/51lOuKbCawL._AC_SL1000_.jpg"
+                onClick={() => router.push("/suplementos/whey")}
+              />
+              <QuickCategoryCard
+                title="Creatina"
+                subtitle="Dose e pureza"
+                imageSrc="https://m.media-amazon.com/images/I/81UashXoAxL._AC_SL1500_.jpg"
+                onClick={() => router.push("/suplementos/creatina")}
+              />
+              <QuickCategoryCard
+                title="Casa"
+                subtitle="Higiene e limpeza"
+                imageSrc={
+                  housePreview[0]?.imageSrc ||
+                  "https://m.media-amazon.com/images/I/618cxCZ8wHL._AC_SL1000_.jpg"
+                }
+                onClick={() => handleHubClick("casa")}
+              />
+              <QuickCategoryCard
+                title="Pre-treino"
+                subtitle="Cafeina e custo por dose"
+                imageSrc="https://m.media-amazon.com/images/I/61fGbsRyDWL._AC_SL1333_.jpg"
+                onClick={() => router.push("/suplementos/pre-treino")}
+              />
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className="absolute bottom-0 h-6 w-full bg-gradient-to-b from-transparent to-[#EAEDED]/50" />
-      </div>
+        <section className="mt-4 grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <aside className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm">
+            <p className="text-[18px] font-bold text-[#0F1111]">Departamentos</p>
+            <div className="mt-4 grid gap-3">
+              <HubPanel
+                title="Suplementos"
+                subtitle="Creatina, whey, barras e mais"
+                icon={<Dumbbell className="h-5 w-5" />}
+                active={selectedHub === "suplementos"}
+                onClick={() => handleHubClick("suplementos")}
+              />
+              <HubPanel
+                title="Casa & Bem-estar"
+                subtitle="Higiene, limpeza e cuidados"
+                icon={<Home className="h-5 w-5" />}
+                active={selectedHub === "casa"}
+                onClick={() => handleHubClick("casa")}
+              />
+            </div>
+          </aside>
 
-      <div className="relative z-20 mx-auto mt-4 max-w-xl space-y-4 px-4">
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="grid grid-cols-2 gap-3">
-            <HubCard
-              title="Suplementos"
-              subtitle="Creatina, whey, barras e mais"
-              icon={<Dumbbell className="h-6 w-6" />}
-              active={selectedHub === "suplementos"}
-              onClick={() => handleHubClick("suplementos")}
-            />
+          <div className="grid gap-4">
+            <section className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm md:p-5">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-[20px] font-bold text-[#0F1111]">
+                    {selectedHub === "suplementos"
+                      ? "Compare por categoria em suplementos"
+                      : "Compare por categoria em casa"}
+                  </h2>
+                  <p className="text-[12px] text-[#565959]">
+                    Abra uma categoria para ver os produtos com ordenacao e filtros proprios.
+                  </p>
+                </div>
+              </div>
 
-            <HubCard
-              title="Casa & Bem-estar"
-              subtitle="Higiene, limpeza e cuidados"
-              icon={<Home className="h-6 w-6" />}
-              active={selectedHub === "casa"}
-              badge="Novo"
-              onClick={() => handleHubClick("casa")}
-            />
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+                {visibleCategories.map((category) => (
+                  <CategoryCard
+                    key={category.title}
+                    title={category.title}
+                    imageSrc={category.imageSrc}
+                    disabled={category.disabled}
+                    onClick={() => handleCategoryClick(category.path, category.title)}
+                  />
+                ))}
+              </div>
+            </section>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <CategoryStrip
+                title="Suplementos em destaque"
+                subtitle="Whey, creatina, barras e comparacoes por dose."
+                items={supplementsPreview}
+                onItemClick={(item) => router.push(item.path)}
+              />
+              <CategoryStrip
+                title="Casa & bem-estar"
+                subtitle="Categorias de higiene e limpeza organizadas em um so lugar."
+                items={housePreview}
+                onItemClick={(item) => router.push(item.path)}
+              />
+            </div>
           </div>
-        </div>
+        </section>
 
-        <div className="grid grid-cols-2 gap-3">
-          {visibleCategories.map((category) => (
-            <CategoryCard
-              key={category.title}
-              title={category.title}
-              imageSrc={category.imageSrc}
-              disabled={category.disabled}
-              onClick={() => handleCategoryClick(category.path, category.title)}
-            />
-          ))}
-        </div>
-
-        <footer className="flex flex-col items-center px-4 pb-6 pt-10 text-center">
+        <footer className="mt-8 flex flex-col items-center px-4 pb-4 pt-6 text-center">
           <FeedbackModal />
-
-          <div className="mx-auto mb-4 w-16 border-t border-gray-300" />
+          <div className="mx-auto mb-4 mt-6 w-16 border-t border-gray-300" />
           <p className="px-6 text-[11px] leading-tight text-[#565959]">
             Participamos do Programa de Associados da Amazon Services LLC.
           </p>
-          <p className="mt-2 text-[11px] text-[#565959]">
-            &copy; 2026 Amazon Picks.
-          </p>
+          <p className="mt-2 text-[11px] text-[#565959]">&copy; 2026 Amazon Picks.</p>
         </footer>
       </div>
     </main>
   );
 }
 
-interface HubCardProps {
+function TrustPill({
+  icon,
+  label,
+}: {
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[12px] font-medium text-white backdrop-blur-sm">
+      {icon}
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function QuickCategoryCard({
+  title,
+  subtitle,
+  imageSrc,
+  onClick,
+}: {
+  title: string;
+  subtitle: string;
+  imageSrc: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="group overflow-hidden rounded-2xl border border-white/10 bg-white/8 p-3 text-left transition hover:bg-white/12"
+    >
+      <div className="relative h-[96px] overflow-hidden rounded-xl bg-white/95">
+        <Image
+          src={imageSrc}
+          alt={title}
+          fill
+          sizes="(max-width: 768px) 40vw, 220px"
+          className="object-contain p-2 transition-transform duration-300 group-hover:scale-[1.04]"
+          unoptimized
+        />
+      </div>
+      <p className="mt-3 text-[14px] font-bold text-white">{title}</p>
+      <p className="text-[12px] text-white/76">{subtitle}</p>
+    </button>
+  );
+}
+
+function HubPanel({
+  title,
+  subtitle,
+  icon,
+  active,
+  onClick,
+}: {
   title: string;
   subtitle: string;
   icon: React.ReactNode;
   active?: boolean;
-  badge?: string;
   onClick: () => void;
-}
-
-function HubCard({ title, subtitle, icon, active, badge, onClick }: HubCardProps) {
+}) {
   return (
     <button
       onClick={onClick}
-      className={`relative rounded-xl border p-4 text-left transition-all ${
+      className={`rounded-xl border p-4 text-left transition ${
         active
-          ? "border-[#007185] bg-[#E6F4F1] shadow-sm"
-          : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm"
+          ? "border-[#007185] bg-[#E6F4F1]"
+          : "border-[#d5d9d9] bg-[#F8FAFA] hover:border-[#aab7b8]"
       }`}
     >
-      {badge && (
-        <span className="absolute right-3 top-3 rounded-full bg-[#CC0C39] px-2 py-0.5 text-[9px] font-black uppercase text-white shadow-sm">
-          {badge}
-        </span>
-      )}
-
-      <div
-        className={`mb-3 inline-flex rounded-lg p-2 ${
-          active ? "bg-white text-[#007185]" : "bg-[#F7F8F8] text-[#565959]"
-        }`}
-      >
+      <div className="mb-2 inline-flex rounded-lg bg-white p-2 text-[#007185] shadow-sm">
         {icon}
       </div>
-
-      <div className="space-y-1">
-        <h3 className="text-[15px] font-bold text-[#0F1111]">{title}</h3>
-        <p className="text-[12px] leading-snug text-[#565959]">{subtitle}</p>
-      </div>
+      <p className="text-[15px] font-bold text-[#0F1111]">{title}</p>
+      <p className="mt-1 text-[12px] leading-snug text-[#565959]">{subtitle}</p>
     </button>
+  );
+}
+
+function CategoryStrip({
+  title,
+  subtitle,
+  items,
+  onItemClick,
+}: {
+  title: string;
+  subtitle: string;
+  items: CategoryItem[];
+  onItemClick: (item: CategoryItem) => void;
+}) {
+  return (
+    <section className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm md:p-5">
+      <h3 className="text-[18px] font-bold text-[#0F1111]">{title}</h3>
+      <p className="mt-1 text-[12px] text-[#565959]">{subtitle}</p>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        {items.map((item) => (
+          <button
+            key={item.path}
+            onClick={() => onItemClick(item)}
+            className="group rounded-xl border border-[#d5d9d9] bg-[#F8FAFA] p-3 text-left transition hover:border-[#aab7b8] hover:bg-white"
+          >
+            <div className="relative h-[90px] overflow-hidden rounded-lg bg-white">
+              <Image
+                src={item.imageSrc}
+                alt={item.title}
+                fill
+                sizes="(max-width: 768px) 42vw, 260px"
+                className="object-contain p-2"
+                unoptimized
+              />
+            </div>
+            <p className="mt-3 line-clamp-2 text-[13px] font-bold leading-snug text-[#0F1111]">
+              {item.title}
+            </p>
+            <span className="mt-2 inline-flex items-center gap-1 text-[12px] font-medium text-[#007185]">
+              Ver categoria
+              <ChevronRight className="h-3.5 w-3.5" />
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -269,34 +398,35 @@ function CategoryCard({ title, imageSrc, onClick, disabled }: CategoryCardProps)
   return (
     <div
       onClick={!disabled ? onClick : undefined}
-      className={`
-        relative h-[160px] rounded-lg border bg-white p-4 shadow-sm transition-all
-        flex flex-col items-center justify-between
-        ${
-          disabled
-            ? "cursor-not-allowed border-gray-100 bg-gray-50 opacity-60"
-            : "cursor-pointer border-gray-200 hover:shadow-md active:scale-[0.98] active:border-[#e47911]"
-        }
-      `}
+      className={`relative overflow-hidden rounded-xl border p-3 shadow-sm transition ${
+        disabled
+          ? "cursor-not-allowed border-gray-100 bg-gray-50 opacity-60"
+          : "cursor-pointer border-[#d5d9d9] bg-[#F8FAFA] hover:border-[#aab7b8] hover:bg-white"
+      }`}
     >
-      <h2 className="mb-2 w-full text-center text-[14px] font-bold leading-tight text-[#0F1111]">
-        {title}
-      </h2>
-
-      <div className="relative flex h-28 w-28 items-center justify-center">
+      <div className="relative h-[116px] overflow-hidden rounded-lg bg-white">
         <Image
           src={imageSrc}
           alt={title}
           fill
-          sizes="112px"
-          className="object-contain p-1 drop-shadow-sm mix-blend-multiply"
+          sizes="(max-width: 768px) 42vw, 220px"
+          className="object-contain p-2 mix-blend-multiply"
           unoptimized
         />
       </div>
 
-      {disabled && (
-        <span className="absolute bottom-2 right-2 rounded border border-gray-200 bg-gray-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-gray-400">
-          em breve
+      <h2 className="mt-3 min-h-[36px] text-[14px] font-bold leading-tight text-[#0F1111]">
+        {title}
+      </h2>
+
+      {!disabled ? (
+        <span className="mt-2 inline-flex items-center gap-1 text-[12px] font-medium text-[#007185]">
+          Acessar comparador
+          <ChevronRight className="h-3.5 w-3.5" />
+        </span>
+      ) : (
+        <span className="mt-2 inline-flex rounded border border-gray-200 bg-gray-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-gray-400">
+          Em breve
         </span>
       )}
     </div>

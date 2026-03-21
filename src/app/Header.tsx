@@ -24,10 +24,10 @@ type HeaderProps = {
 const BASE_CATEGORIES: SearchCategory[] = [
   { name: "Creatina", path: "/suplementos/creatina", keywords: ["creatina", "creatine"] },
   { name: "Whey Protein", path: "/suplementos/whey", keywords: ["whey", "protein", "proteina"] },
-  { name: "Barra de Proteína", path: "/suplementos/barra", keywords: ["barra", "barrinha"] },
-  { name: "Pré-Treino", path: "/suplementos/pre-treino", keywords: ["pre", "treino", "pretreino"] },
+  { name: "Barra de Proteina", path: "/suplementos/barra", keywords: ["barra", "barrinha"] },
+  { name: "Pre-Treino", path: "/suplementos/pre-treino", keywords: ["pre", "treino", "pretreino"] },
   { name: "Bebida Proteica", path: "/suplementos/bebidaproteica", keywords: ["bebida", "pronta"] },
-  { name: "Café Funcional", path: "/suplementos/cafe-funcional", keywords: ["cafe", "funcional"] },
+  { name: "Cafe Funcional", path: "/suplementos/cafe-funcional", keywords: ["cafe", "funcional"] },
 ];
 
 export default function Header({ extraCategories = [] }: HeaderProps) {
@@ -44,16 +44,12 @@ export default function Header({ extraCategories = [] }: HeaderProps) {
         .split("/")
         .filter(Boolean)
         .flatMap((part) => removeAccents(part.toLowerCase()).split("-"));
-      const titleKeywords = normalizedTitle
-        .split(/[\s/&-]+/)
-        .filter(Boolean);
+      const titleKeywords = normalizedTitle.split(/[\s/&-]+/).filter(Boolean);
 
       return {
         name: category.title,
         path: category.path,
-        keywords: Array.from(
-          new Set([normalizedTitle, ...titleKeywords, ...slugKeywords])
-        ),
+        keywords: Array.from(new Set([normalizedTitle, ...titleKeywords, ...slugKeywords])),
       };
     });
 
@@ -108,41 +104,41 @@ export default function Header({ extraCategories = [] }: HeaderProps) {
     } else if (suggestions.length > 0) {
       router.push(suggestions[0].path);
     } else {
-      console.warn("Categoria não identificada para a busca:", query);
+      console.warn("Categoria nao identificada para a busca:", query);
     }
 
     setShowSuggestions(false);
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-[#232f3e] px-4 py-3 shadow-md">
-      <div className="mx-auto flex max-w-7xl flex-col items-center justify-center gap-4 lg:flex-row lg:gap-8">
-        <div className="flex-shrink-0 cursor-pointer" onClick={() => router.push("/")}>
-          <h1 className="text-xl font-bold tracking-tight text-white">
+    <header className="sticky top-0 z-50 w-full bg-[#131921] px-3 py-3 shadow-md md:px-4">
+      <div className="mx-auto flex max-w-[1500px] flex-col gap-3 lg:flex-row lg:items-center lg:gap-5">
+        <div className="flex shrink-0 cursor-pointer items-center" onClick={() => router.push("/")}>
+          <h1 className="text-[24px] font-bold tracking-tight text-white">
             amazon<span className="text-[#febd69]">picks</span>
           </h1>
         </div>
 
-        <div className="relative flex w-full max-w-[600px]" ref={wrapperRef}>
-          <form onSubmit={handleSearch} className="flex flex-grow items-center">
+        <div className="relative flex w-full" ref={wrapperRef}>
+          <form onSubmit={handleSearch} className="flex w-full items-center">
             <input
               type="text"
               value={query}
               onChange={handleInputChange}
               onFocus={() => query.length > 0 && setShowSuggestions(true)}
-              placeholder="O que você está procurando?"
-              className="h-10 w-full rounded-l-sm border-none bg-white px-3 text-base text-black outline-none"
+              placeholder="O que voce esta procurando?"
+              className="h-11 w-full rounded-l-md border-none bg-white px-4 text-[15px] text-black outline-none"
             />
             <button
               type="submit"
-              className="h-10 rounded-r-sm bg-[#febd69] px-4 transition-colors hover:bg-[#f3a847]"
+              className="flex h-11 items-center justify-center rounded-r-md bg-[#febd69] px-4 transition-colors hover:bg-[#f3a847]"
             >
               <Search className="h-5 w-5 text-[#232f3e]" />
             </button>
           </form>
 
           {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute left-0 top-11 z-[100] w-full overflow-hidden rounded-md border border-gray-200 bg-white shadow-xl">
+            <div className="absolute left-0 top-[46px] z-[100] w-full overflow-hidden rounded-md border border-gray-200 bg-white shadow-xl">
               {suggestions.map((cat) => (
                 <div
                   key={cat.path}
