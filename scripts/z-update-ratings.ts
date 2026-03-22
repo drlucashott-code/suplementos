@@ -13,6 +13,31 @@ type RatingResult =
   | { rating: number | null; count: number | null; status: "success" | "not_found" }
   | { rating: null; count: null; status: "error" };
 
+function getFirstText($: cheerio.CheerioAPI, selectors: string[]) {
+  for (const selector of selectors) {
+    const value = $(selector).first().text().trim();
+    if (value) {
+      return value;
+    }
+  }
+
+  return "";
+}
+
+function getFirstAttr(
+  $: cheerio.CheerioAPI,
+  selectors: Array<{ selector: string; attr: string }>
+) {
+  for (const entry of selectors) {
+    const value = $(entry.selector).first().attr(entry.attr)?.trim();
+    if (value) {
+      return value;
+    }
+  }
+
+  return "";
+}
+
 async function fetchAmazonRatings(asin: string): Promise<RatingResult> {
   const url = `https://www.amazon.com.br/dp/${asin}`;
 
@@ -31,14 +56,29 @@ async function fetchAmazonRatings(asin: string): Promise<RatingResult> {
     const $ = cheerio.load(data);
 
     const ratingText =
-      $("#acrPopover").attr("title") || $("span.a-icon-alt").first().text();
+      getFirstAttr($, [{ selector: "#acrPopover", attr: "title" }]) ||
+      getFirstText($, [
+        "[data-hook='average-star-rating'] .a-icon-alt",
+        "[data-hook='rating-out-of-text']",
+        "#acrPopover .a-icon-alt",
+        "span.a-icon-alt",
+      ]);
 
     const rating = ratingText
       ? parseFloat(ratingText.split(" ")[0].replace(",", "."))
       : null;
 
-    const countRaw = $("#acrCustomerReviewText").first().text();
+    const countRaw = getFirstText($, [
+      "#acrCustomerReviewText",
+      "[data-hook='total-review-count']",
+      "#acrCustomerReviewLink",
+    ]);
     const count = countRaw ? parseInt(countRaw.replace(/[^0-9]/g, ""), 10) : null;
+
+    if (rating === null && count === null) {
+      console.warn(`  ⚠️ Nenhuma avaliação encontrada no HTML do ASIN ${asin}.`);
+      return { rating: null, count: null, status: "error" };
+    }
 
     return { rating, count, status: "success" };
   } catch (error: unknown) {
@@ -93,6 +133,27 @@ async function processProduct(product: { id: string; asin: string; name: string 
 }
 
 async function main() {
+  const asinArg = process.argv
+    .map((value) => value.trim().toUpperCase())
+    .find((value) => value.startsWith("--ASIN="));
+  const singleAsin = asinArg?.split("=")[1];
+
+  if (singleAsin) {
+    const product = await prisma.dynamicProduct.findUnique({
+      where: { asin: singleAsin },
+      select: { id: true, asin: true, name: true },
+    });
+
+    if (!product) {
+      console.log(`❌ ASIN ${singleAsin} não encontrado em DynamicProduct.`);
+      return;
+    }
+
+    console.log(`🎯 Modo teste por ASIN: ${singleAsin}`);
+    await processProduct(product);
+    return;
+  }
+
   const trintaDiasAtras = new Date();
   trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
 
