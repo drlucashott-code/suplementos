@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { deleteProductIssueReport } from "@/app/admin/dynamic/reports/actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -79,7 +80,7 @@ export default async function AdminDynamicReportsPage() {
               PROBLEMAS REPORTADOS
             </h1>
             <p className="mt-1 text-sm font-medium text-gray-500">
-              Reports anônimos enviados pelos cards de oferta.
+              Reports anônimos enviados pelos cards de oferta e das categorias.
             </p>
           </div>
 
@@ -118,7 +119,7 @@ export default async function AdminDynamicReportsPage() {
 
         <div className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-xl shadow-gray-200/50">
           <div className="overflow-x-auto">
-            <table className="min-w-[1100px] w-full border-collapse text-left">
+            <table className="min-w-[1180px] w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50 text-[10px] font-black uppercase tracking-widest text-gray-400">
                   <th className="p-4 text-black">Produto</th>
@@ -126,7 +127,7 @@ export default async function AdminDynamicReportsPage() {
                   <th className="w-44 p-4 text-black">Quando</th>
                   <th className="w-40 p-4 text-black">Origem</th>
                   <th className="p-4 text-black">Detalhes</th>
-                  <th className="w-40 p-4 text-black">Ações</th>
+                  <th className="w-52 p-4 text-black">Ações</th>
                 </tr>
               </thead>
 
@@ -182,6 +183,7 @@ export default async function AdminDynamicReportsPage() {
                           >
                             Admin
                           </Link>
+
                           <a
                             href={`https://www.amazon.com.br/dp/${report.asin}`}
                             target="_blank"
@@ -190,6 +192,16 @@ export default async function AdminDynamicReportsPage() {
                           >
                             Amazon
                           </a>
+
+                          <form action={deleteProductIssueReport}>
+                            <input type="hidden" name="reportId" value={report.id} />
+                            <button
+                              type="submit"
+                              className="rounded-full bg-red-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-red-700"
+                            >
+                              Excluir
+                            </button>
+                          </form>
                         </div>
                       </td>
                     </tr>
