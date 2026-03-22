@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { sendGAEvent } from "@next/third-parties/google";
+import { trackProductClick } from "@/lib/client/productClickTracking";
 
 export type DynamicProductType = {
   id: string;
@@ -27,17 +27,6 @@ interface DisplayConfigField {
   hideLabel?: boolean;
   tableHeaderTemplate?: string;
 }
-
-type ClickTrackingContext = {
-  utmSource?: string;
-  utmMedium?: string;
-  utmCampaign?: string;
-  inferredSource?: string;
-  pagePath?: string;
-  referrer?: string;
-};
-
-const ATTRIBUTION_STORAGE_KEY = "amazonpicks-attribution";
 
 function getNumericAttribute(
   attributes: Record<string, string | number | undefined>,
@@ -148,77 +137,6 @@ function resolveTemplate(
   });
 }
 
-function inferSourceFromReferrer(referrer: string) {
-  if (!referrer) {
-    return undefined;
-  }
-
-  try {
-    const hostname = new URL(referrer).hostname.toLowerCase().replace(/^www\./, "");
-
-    if (hostname.includes("instagram")) return "instagram";
-    if (hostname.includes("facebook")) return "facebook";
-    if (hostname.includes("t.co") || hostname.includes("twitter") || hostname.includes("x.com")) {
-      return "x";
-    }
-    if (hostname.includes("google")) return "google";
-    if (hostname.includes("youtube")) return "youtube";
-    if (hostname.includes("whatsapp")) return "whatsapp";
-    if (hostname.includes("pinterest")) return "pinterest";
-
-    return hostname;
-  } catch {
-    return undefined;
-  }
-}
-
-function getClickTrackingContext(): ClickTrackingContext {
-  if (typeof window === "undefined") {
-    return {};
-  }
-
-  const readStored = () => {
-    try {
-      const raw = window.sessionStorage.getItem(ATTRIBUTION_STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as ClickTrackingContext) : {};
-    } catch {
-      return {};
-    }
-  };
-
-  const writeStored = (value: ClickTrackingContext) => {
-    try {
-      window.sessionStorage.setItem(ATTRIBUTION_STORAGE_KEY, JSON.stringify(value));
-    } catch {
-      // Ignoramos falhas de storage para nao interromper o clique.
-    }
-  };
-
-  const stored = readStored();
-  const searchParams = new URLSearchParams(window.location.search);
-
-  const currentReferrer = document.referrer || stored.referrer || "";
-  const currentContext: ClickTrackingContext = {
-    utmSource: searchParams.get("utm_source") || stored.utmSource,
-    utmMedium: searchParams.get("utm_medium") || stored.utmMedium,
-    utmCampaign: searchParams.get("utm_campaign") || stored.utmCampaign,
-    referrer: currentReferrer || undefined,
-    inferredSource:
-      stored.inferredSource || inferSourceFromReferrer(currentReferrer) || undefined,
-    pagePath: `${window.location.pathname}${window.location.search}`,
-  };
-
-  writeStored({
-    utmSource: currentContext.utmSource,
-    utmMedium: currentContext.utmMedium,
-    utmCampaign: currentContext.utmCampaign,
-    inferredSource: currentContext.inferredSource,
-    referrer: currentContext.referrer,
-  });
-
-  return currentContext;
-}
-
 function Star({ fillPercent }: { fillPercent: number }) {
   return (
     <span className="relative inline-flex h-[11px] w-[11px] shrink-0">
@@ -316,33 +234,15 @@ export function MobileProductCard({
 
   const handleTrackClick = () => {
     const asinMatch = product.affiliateUrl.match(/\/dp\/([A-Z0-9]{10})/);
-    const asin = asinMatch ? asinMatch[1] : "SEM_ASIN";
+    const asin = asinMatch ? asinMatch[1] : "";
 
-    sendGAEvent("event", "click_na_oferta", {
-      produto_nome: `${product.name} - ${asin}`,
-      produto_id: product.id,
-      valor: product.price || 0,
-      loja: "Amazon",
-      asin,
-      categoria: "dinamica",
-    });
-
-    if (asin !== "SEM_ASIN") {
-      const trackingContext = getClickTrackingContext();
-
-      void fetch("/api/priority-refresh", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          asin,
-          reason: "click",
-          ...trackingContext,
-        }),
-        keepalive: true,
-      }).catch(() => {
-        // Mantemos o clique fluindo mesmo se a fila falhar temporariamente.
+    if (asin) {
+      trackProductClick({
+        asin,
+        productId: product.id,
+        productName: product.name,
+        value: product.price || 0,
+        category: "dinamica",
       });
     }
   };

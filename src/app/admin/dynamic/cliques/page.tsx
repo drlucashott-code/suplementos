@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const CLICK_TIMEZONE = "America/Sao_Paulo";
+
 type ClickedProductRow = {
   id: string;
   name: string;
@@ -26,10 +28,25 @@ type SourceSummaryRow = {
 };
 
 type DailyClickRow = {
-  day: Date;
+  day: string;
   clickCount: number;
   uniqueProducts: number;
 };
+
+function formatClickDateTime(value: Date | string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: CLICK_TIMEZONE,
+    dateStyle: "short",
+    timeStyle: "medium",
+  }).format(new Date(value));
+}
+
+function formatClickDate(value: Date | string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: CLICK_TIMEZONE,
+    dateStyle: "short",
+  }).format(new Date(value));
+}
 
 function getSourceLabel(value: string | null) {
   if (!value) {
@@ -150,7 +167,10 @@ async function getSourceSummary(): Promise<SourceSummaryRow[]> {
 async function getDailyClickSummary(): Promise<DailyClickRow[]> {
   const rows = await prisma.$queryRaw<DailyClickRow[]>`
     SELECT
-      DATE_TRUNC('day', "createdAt") AS "day",
+      TO_CHAR(
+        DATE_TRUNC('day', "createdAt" AT TIME ZONE ${CLICK_TIMEZONE}),
+        'YYYY-MM-DD'
+      ) AS "day",
       COUNT(*) AS "clickCount",
       COUNT(DISTINCT "productId") AS "uniqueProducts"
     FROM "DynamicProductClickEvent"
@@ -160,7 +180,7 @@ async function getDailyClickSummary(): Promise<DailyClickRow[]> {
   `;
 
   return rows.map((row) => ({
-    day: new Date(row.day),
+    day: row.day,
     clickCount: Number(row.clickCount) || 0,
     uniqueProducts: Number(row.uniqueProducts) || 0,
   }));
@@ -240,7 +260,7 @@ export default async function AdminDynamicClicksPage() {
               Ultimo clique
             </div>
             <div className="mt-2 text-sm font-black text-gray-900">
-              {lastClick ? new Date(lastClick).toLocaleString("pt-BR") : "Sem cliques"}
+              {lastClick ? formatClickDateTime(lastClick) : "Sem cliques"}
             </div>
           </div>
 
@@ -285,9 +305,9 @@ export default async function AdminDynamicClicksPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {dailySummary.map((day) => (
-                    <tr key={day.day.toISOString()}>
+                    <tr key={day.day}>
                       <td className="px-2 py-3 text-sm font-bold text-gray-900">
-                        {day.day.toLocaleDateString("pt-BR")}
+                        {formatClickDate(day.day)}
                       </td>
                       <td className="px-2 py-3 text-center text-sm font-black text-gray-900">
                         {day.clickCount}
@@ -377,7 +397,7 @@ export default async function AdminDynamicClicksPage() {
 
                       <td className="p-4 text-center text-[12px] font-bold text-gray-500">
                         {product.lastClickedAt
-                          ? new Date(product.lastClickedAt).toLocaleString("pt-BR")
+                          ? formatClickDateTime(product.lastClickedAt)
                           : "Nunca"}
                       </td>
 

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 
 export type BestDeal = {
   id: string;
+  asin: string;
   name: string;
   imageUrl: string;
   url: string;
@@ -21,6 +22,7 @@ export async function getBestDeals(
   const rows = await prisma.$queryRaw<
     Array<{
       id: string;
+      asin: string;
       name: string;
       imageUrl: string | null;
       url: string;
@@ -34,6 +36,7 @@ export async function getBestDeals(
   >(Prisma.sql`
     SELECT
       p."id",
+      p."asin",
       p."name",
       p."imageUrl",
       p."url",
@@ -60,6 +63,7 @@ export async function getBestDeals(
 
   return rows.map((row) => ({
     id: row.id,
+    asin: row.asin,
     name: row.name,
     imageUrl:
       row.imageUrl || "https://m.media-amazon.com/images/I/61NJbm2a9tL._AC_SL1200_.jpg",

@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import Header from "@/app/Header";
+import TrackedDealLink from "@/components/TrackedDealLink";
 import { getBestDeals } from "@/lib/bestDeals";
 
 export const revalidate = 600;
@@ -71,11 +72,14 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
 
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
             {deals.map((item) => (
-              <a
+              <TrackedDealLink
                 key={item.id}
+                asin={item.asin}
                 href={item.url}
-                target="_blank"
-                rel="noreferrer sponsored"
+                productId={item.id}
+                productName={item.name}
+                value={item.totalPrice}
+                category="pagina_ofertas"
                 className="group rounded-xl border border-[#d5d9d9] bg-[#F8FAFA] p-3 text-left transition hover:border-[#aab7b8] hover:bg-white"
               >
                 <div className="relative h-[110px] overflow-hidden rounded-lg bg-white">
@@ -93,18 +97,23 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
                   {item.name}
                 </p>
                 <p className="mt-1 text-[11px] text-[#565959]">{item.categoryName}</p>
-                <div className="mt-2 flex items-center justify-between gap-2">
+                <div className="mt-2 flex justify-center">
                   <span className="rounded-full bg-[#CC0C39] px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white">
                     -{item.discountPercent}%
                   </span>
-                  <span className="text-[13px] font-bold text-[#0F1111]">
-                    {formatCurrency(item.totalPrice)}
-                  </span>
                 </div>
-                <p className="mt-1 text-[11px] text-[#565959]">
-                  Média 30d: {formatCurrency(item.averagePrice30d)}
-                </p>
-              </a>
+                <div className="mt-2 text-center">
+                  <div className="text-[19px] font-black leading-none text-[#0F1111]">
+                    {formatCurrency(item.totalPrice)}
+                  </div>
+                  <p className="mt-1 text-[11px] text-[#565959]">
+                    De:{" "}
+                    <span className="line-through">
+                      {formatCurrency(item.averagePrice30d)}
+                    </span>
+                  </p>
+                </div>
+              </TrackedDealLink>
             ))}
           </div>
         </section>

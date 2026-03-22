@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "./Header";
 import FeedbackModal from "./FeedbackModal";
+import TrackedDealLink from "@/components/TrackedDealLink";
 import type { BestDeal } from "@/lib/bestDeals";
 
 function TrackHomeView() {
@@ -347,10 +348,13 @@ function HubPanel({
 
 function BestDealCard({ item }: { item: BestDeal }) {
   return (
-    <a
+    <TrackedDealLink
+      asin={item.asin}
       href={item.url}
-      target="_blank"
-      rel="noreferrer sponsored"
+      productId={item.id}
+      productName={item.name}
+      value={item.totalPrice}
+      category="home_ofertas"
       className="group rounded-xl border border-[#d5d9d9] bg-[#F8FAFA] p-3 text-left transition hover:border-[#aab7b8] hover:bg-white"
     >
       <div className="relative h-[88px] overflow-hidden rounded-lg bg-white">
@@ -367,18 +371,20 @@ function BestDealCard({ item }: { item: BestDeal }) {
         {item.name}
       </p>
       <p className="mt-1 text-[11px] text-[#565959]">{item.categoryName}</p>
-      <div className="mt-2 flex items-center justify-between gap-2">
+      <div className="mt-2 flex justify-center">
         <span className="rounded-full bg-[#CC0C39] px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white">
           -{item.discountPercent}%
         </span>
-        <span className="text-[13px] font-bold text-[#0F1111]">
-          {formatCurrency(item.totalPrice)}
-        </span>
       </div>
-      <p className="mt-1 text-[11px] text-[#565959]">
-        Média 30d: {formatCurrency(item.averagePrice30d)}
-      </p>
-    </a>
+      <div className="mt-2 text-center">
+        <div className="text-[18px] font-black leading-none text-[#0F1111]">
+          {formatCurrency(item.totalPrice)}
+        </div>
+        <p className="mt-1 text-[11px] text-[#565959]">
+          De: <span className="line-through">{formatCurrency(item.averagePrice30d)}</span>
+        </p>
+      </div>
+    </TrackedDealLink>
   );
 }
 
