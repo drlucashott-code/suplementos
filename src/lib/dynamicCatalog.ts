@@ -55,6 +55,8 @@ type ProductWithStats = DynamicProduct & {
   averagePrice30d: number | null;
   lowestPrice30d: number | null;
   highestPrice30d: number | null;
+  likeCount: number;
+  dislikeCount: number;
 };
 
 type VisibleProductWithStats = ProductWithStats & {
@@ -71,6 +73,8 @@ export type CatalogProduct = {
   pricePerUnit: number;
   ratingAverage?: number | null;
   ratingCount?: number | null;
+  likeCount?: number;
+  dislikeCount?: number;
   avgPrice?: number | null;
   discountPercent?: number | null;
   pricePerDose?: number;
@@ -311,6 +315,8 @@ export async function getDynamicCatalogData({
               averagePrice30d: number | null;
               lowestPrice30d: number | null;
               highestPrice30d: number | null;
+              likeCount: number;
+              dislikeCount: number;
             }
           >
         >(Prisma.sql`
@@ -321,7 +327,19 @@ export async function getDynamicCatalogData({
             "availabilityStatus",
             "averagePrice30d",
             "lowestPrice30d",
-            "highestPrice30d"
+            "highestPrice30d",
+            COALESCE((
+              SELECT COUNT(*)::int
+              FROM "DynamicProductReaction" r
+              WHERE r."productId" = "DynamicProduct"."id"
+                AND r."reaction" = 'like'
+            ), 0) AS "likeCount",
+            COALESCE((
+              SELECT COUNT(*)::int
+              FROM "DynamicProductReaction" r
+              WHERE r."productId" = "DynamicProduct"."id"
+                AND r."reaction" = 'dislike'
+            ), 0) AS "dislikeCount"
           FROM "DynamicProduct"
           WHERE "id" IN (${Prisma.join(productIds)})
         `)
@@ -337,6 +355,8 @@ export async function getDynamicCatalogData({
         averagePrice30d: row.averagePrice30d,
         lowestPrice30d: row.lowestPrice30d,
         highestPrice30d: row.highestPrice30d,
+        likeCount: row.likeCount,
+        dislikeCount: row.dislikeCount,
       },
     ])
   );
@@ -362,6 +382,8 @@ export async function getDynamicCatalogData({
         averagePrice30d: productState?.averagePrice30d ?? null,
         lowestPrice30d: productState?.lowestPrice30d ?? null,
         highestPrice30d: productState?.highestPrice30d ?? null,
+        likeCount: productState?.likeCount ?? 0,
+        dislikeCount: productState?.dislikeCount ?? 0,
         displayPrice,
         isFallbackPrice:
           product.totalPrice <= 0 &&
@@ -589,6 +611,8 @@ export async function getDynamicCatalogData({
       pricePerUnit,
       ratingAverage: p.ratingAverage,
       ratingCount: p.ratingCount,
+      likeCount: p.likeCount,
+      dislikeCount: p.dislikeCount,
       avgPrice: avgMonthly,
       discountPercent,
       pricePerDose,

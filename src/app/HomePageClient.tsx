@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, TrendingUp, Dumbbell, Home } from "lucide-react";
+import { BarChart3, Dumbbell, Home, TrendingUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "./Header";
@@ -131,9 +131,9 @@ export default function HomePageClient({
         Compare ofertas Amazon com leitura técnica de preço.
       </div>
 
-      <div className="mx-auto max-w-[1500px] px-3 pb-8 pt-4 md:px-5">
+      <div className="mx-auto max-w-[1560px] px-3 pb-8 pt-4 md:px-5">
         <section className="relative overflow-hidden rounded-2xl border border-[#d5d9d9] bg-[linear-gradient(90deg,#131921_0%,#1f2f46_52%,#23415d_100%)] text-white shadow-sm">
-          <div className="grid gap-4 px-4 py-4 md:grid-cols-[1.2fr_0.8fr] md:px-8 md:py-8">
+          <div className="grid gap-4 px-4 py-4 md:grid-cols-[1.15fr_0.85fr] md:px-8 md:py-8">
             <div>
               <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#FFB84D]">
                 Amazon Picks
@@ -181,7 +181,7 @@ export default function HomePageClient({
           </div>
         </section>
 
-        <section className="mt-4 grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <section className="mt-4 grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
           <aside className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm">
             <p className="text-[18px] font-bold text-[#0F1111]">Departamentos</p>
             <div className="mt-4 grid gap-3">
@@ -215,7 +215,7 @@ export default function HomePageClient({
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
                 {visibleCategories.map((category) => (
                   <CategoryCard
                     key={category.title}
@@ -235,7 +235,7 @@ export default function HomePageClient({
                 </h3>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
                 {bestDeals.map((item) => (
                   <BestDealProductCard
                     key={item.id}
@@ -300,19 +300,19 @@ function QuickCategoryCard({
   return (
     <button
       onClick={onClick}
-      className="group overflow-hidden rounded-2xl border border-white/10 bg-white/8 p-3 text-center transition hover:bg-white/12"
+      className="group overflow-hidden rounded-2xl border border-white/10 bg-white/8 p-3.5 text-center transition hover:bg-white/12"
     >
-      <div className="relative h-[82px] overflow-hidden rounded-xl bg-white/95 md:h-[96px]">
+      <div className="relative h-[98px] overflow-hidden rounded-xl bg-white/95 md:h-[118px]">
         <Image
           src={imageSrc}
           alt={title}
           fill
-          sizes="(max-width: 768px) 40vw, 220px"
+          sizes="(max-width: 768px) 42vw, 240px"
           className="object-contain p-2 transition-transform duration-300 group-hover:scale-[1.04]"
           unoptimized
         />
       </div>
-      <p className="mt-2 text-[13px] font-bold leading-tight text-white md:mt-3 md:text-[14px]">
+      <p className="mt-2.5 text-[13px] font-bold leading-tight text-white md:mt-3 md:text-[14px]">
         {title}
       </p>
       <p className="text-[11px] text-white/76 md:text-[12px]">{subtitle}</p>
@@ -362,24 +362,24 @@ function CategoryCard({ title, imageSrc, onClick, disabled }: CategoryCardProps)
   return (
     <div
       onClick={!disabled ? onClick : undefined}
-      className={`relative overflow-hidden rounded-xl border p-3 text-center shadow-sm transition ${
+      className={`relative overflow-hidden rounded-xl border p-3.5 text-center shadow-sm transition ${
         disabled
           ? "cursor-not-allowed border-gray-100 bg-gray-50 opacity-60"
           : "cursor-pointer border-[#d5d9d9] bg-[#F8FAFA] hover:border-[#aab7b8] hover:bg-white"
       }`}
     >
-      <div className="relative h-[98px] overflow-hidden rounded-lg bg-white md:h-[116px]">
+      <div className="relative h-[112px] overflow-hidden rounded-lg bg-white md:h-[132px]">
         <Image
           src={imageSrc}
           alt={title}
           fill
-          sizes="(max-width: 768px) 42vw, 220px"
+          sizes="(max-width: 768px) 44vw, 240px"
           className="object-contain p-2 mix-blend-multiply"
           unoptimized
         />
       </div>
 
-      <h2 className="mt-3 min-h-[34px] text-[13px] font-bold leading-tight text-[#0F1111] md:text-[14px]">
+      <h2 className="mt-3.5 min-h-[36px] text-[13px] font-bold leading-tight text-[#0F1111] md:text-[14px]">
         {title}
       </h2>
 

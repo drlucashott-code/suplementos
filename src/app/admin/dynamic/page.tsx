@@ -201,6 +201,14 @@ export default async function AdminDynamicDashboard() {
           />
 
           <AdminCard
+            title="Reports"
+            description="Problemas reportados pelos usuarios nos cards de oferta."
+            href="/admin/dynamic/reports"
+            icon="?"
+            color="orange"
+          />
+
+          <AdminCard
             title="Ver no Site"
             description="Abra a versao publica para validar categorias, cards e ordenacoes."
             href="/"

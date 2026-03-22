@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
+import SavedDealsLink from "@/components/SavedDealsLink";
 
 const removeAccents = (str: string) => {
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -156,6 +157,8 @@ export default function Header({ extraCategories = [] }: HeaderProps) {
             </div>
           )}
         </div>
+
+        <SavedDealsLink />
       </div>
     </header>
   );

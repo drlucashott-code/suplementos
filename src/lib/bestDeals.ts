@@ -12,6 +12,8 @@ export type BestDeal = {
   discountPercent: number;
   ratingAverage: number | null;
   ratingCount: number | null;
+  likeCount: number;
+  dislikeCount: number;
   attributes: Record<string, string | number | boolean | null>;
   categoryName: string;
   categoryGroup: string;
@@ -34,6 +36,8 @@ export async function getBestDeals(
       discountPercent: number;
       ratingAverage: number | null;
       ratingCount: number | null;
+      likeCount: number;
+      dislikeCount: number;
       attributes: unknown;
       categoryName: string;
       categoryGroup: string;
@@ -51,6 +55,18 @@ export async function getBestDeals(
       ROUND((((p."averagePrice30d" - p."totalPrice") / p."averagePrice30d") * 100))::int AS "discountPercent",
       p."ratingAverage",
       p."ratingCount",
+      COALESCE((
+        SELECT COUNT(*)::int
+        FROM "DynamicProductReaction" r
+        WHERE r."productId" = p."id"
+          AND r."reaction" = 'like'
+      ), 0) AS "likeCount",
+      COALESCE((
+        SELECT COUNT(*)::int
+        FROM "DynamicProductReaction" r
+        WHERE r."productId" = p."id"
+          AND r."reaction" = 'dislike'
+      ), 0) AS "dislikeCount",
       p."attributes",
       c."name" AS "categoryName",
       c."group" AS "categoryGroup",
@@ -82,6 +98,8 @@ export async function getBestDeals(
     discountPercent: row.discountPercent,
     ratingAverage: row.ratingAverage,
     ratingCount: row.ratingCount,
+    likeCount: row.likeCount,
+    dislikeCount: row.dislikeCount,
     attributes:
       row.attributes && typeof row.attributes === "object"
         ? (row.attributes as Record<string, string | number | boolean | null>)

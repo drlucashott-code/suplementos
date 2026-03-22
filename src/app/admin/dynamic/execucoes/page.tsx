@@ -162,7 +162,13 @@ export default async function AdminDynamicExecutionsPage() {
                   runs.map((run: ExecutionRow) => {
                     const duration = getDurationInSeconds(run.startedAt, run.finishedAt);
                     const updatedAsins = Array.isArray(run.updatedAsins)
-                      ? run.updatedAsins
+                      ? Array.from(
+                          new Set(
+                            run.updatedAsins
+                              .map((asin) => String(asin).trim().toUpperCase())
+                              .filter((asin) => /^[A-Z0-9]{10}$/.test(asin))
+                          )
+                        )
                       : [];
 
                     return (
@@ -212,13 +218,16 @@ export default async function AdminDynamicExecutionsPage() {
                         <td className="p-4">
                           {updatedAsins.length > 0 ? (
                             <div className="flex flex-wrap gap-2">
-                              {updatedAsins.slice(0, 8).map((asin) => (
-                                <span
-                                  key={String(asin)}
+                              {updatedAsins.slice(0, 8).map((asin, index) => (
+                                <a
+                                  key={`${String(asin)}-${index}`}
+                                  href={`https://www.amazon.com.br/dp/${asin}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
                                   className="rounded-full bg-blue-50 px-2 py-1 font-mono text-[10px] font-black uppercase text-blue-600"
                                 >
                                   {String(asin)}
-                                </span>
+                                </a>
                               ))}
                               {updatedAsins.length > 8 ? (
                                 <span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-black uppercase text-gray-500">

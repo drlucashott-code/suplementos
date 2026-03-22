@@ -199,25 +199,22 @@ async function getSourceSummary(): Promise<SourceSummaryRow[]> {
 async function getDailyClickSummary(): Promise<DailyClickRow[]> {
   const rows = await prisma.$queryRaw<DailyClickRow[]>`
     SELECT
-      TO_CHAR(
+      TO_CHAR(base."localDay", 'YYYY-MM-DD') AS "day",
+      TO_CHAR(base."localDay", 'DD/MM/YYYY') AS "dayLabel",
+      base."clickCount",
+      base."uniqueProducts"
+    FROM (
+      SELECT
         DATE_TRUNC(
           'day',
           ("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${CLICK_TIMEZONE}
-        ),
-        'YYYY-MM-DD'
-      ) AS "day",
-      TO_CHAR(
-        DATE_TRUNC(
-          'day',
-          ("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${CLICK_TIMEZONE}
-        ),
-        'DD/MM/YYYY'
-      ) AS "dayLabel",
-      COUNT(*) AS "clickCount",
-      COUNT(DISTINCT "productId") AS "uniqueProducts"
-    FROM "DynamicProductClickEvent"
-    GROUP BY 1
-    ORDER BY 1 DESC
+        ) AS "localDay",
+        COUNT(*)::int AS "clickCount",
+        COUNT(DISTINCT "productId")::int AS "uniqueProducts"
+      FROM "DynamicProductClickEvent"
+      GROUP BY 1
+    ) base
+    ORDER BY base."localDay" DESC
     LIMIT 14
   `;
 
