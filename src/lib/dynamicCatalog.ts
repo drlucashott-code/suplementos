@@ -1,4 +1,5 @@
 import { DynamicProduct, Prisma } from "@prisma/client";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import {
   getDynamicDisplayPrice,
@@ -112,6 +113,12 @@ type CategoryWithVisibleProducts = {
   name: string;
   displayConfig: unknown;
   products: DynamicProduct[];
+};
+
+type ReactionCountRow = {
+  productId: string;
+  likeCount: number;
+  dislikeCount: number;
 };
 
 const AMAZON_OFFICIAL = "Amazon.com.br";
@@ -284,6 +291,145 @@ const getBestValueHelperText = (attributeKey?: string) => {
   }
 };
 
+async function fetchDynamicCatalogBaseData(
+  group: string,
+  slug: string
+): Promise<{
+  categoryData: CategoryWithVisibleProducts;
+  fallbackConfig: Awaited<ReturnType<typeof getDynamicFallbackConfig>>;
+  visibleProducts: VisibleProductWithStats[];
+} | null> {
+  const getCachedBaseData = unstable_cache(
+    async () => {
+      const categoryData = await prisma.dynamicCategory.findFirst({
+        where: {
+          slug,
+          group,
+        },
+        include: {
+          products: {
+            where: { isVisibleOnSite: true },
+            orderBy: { totalPrice: "asc" },
+          },
+        },
+      });
+
+      if (!categoryData) return null;
+
+      const fallbackConfig = await getDynamicFallbackConfig();
+      const productIds = categoryData.products.map((product) => product.id);
+
+      const fallbackRows =
+        productIds.length > 0
+          ? await prisma.$queryRaw<
+              Array<
+                DynamicProductFallbackState & {
+                  id: string;
+                  averagePrice30d: number | null;
+                  lowestPrice30d: number | null;
+                  highestPrice30d: number | null;
+                }
+              >
+            >(Prisma.sql`
+              SELECT
+                "id",
+                "lastValidPrice",
+                "lastValidPriceAt",
+                "availabilityStatus",
+                "averagePrice30d",
+                "lowestPrice30d",
+                "highestPrice30d"
+              FROM "DynamicProduct"
+              WHERE "id" IN (${Prisma.join(productIds)})
+            `)
+          : [];
+
+      const reactionRows =
+        productIds.length > 0
+          ? await prisma.$queryRaw<ReactionCountRow[]>(Prisma.sql`
+              SELECT
+                "productId",
+                COUNT(*) FILTER (WHERE "reaction" = 'like')::int AS "likeCount",
+                COUNT(*) FILTER (WHERE "reaction" = 'dislike')::int AS "dislikeCount"
+              FROM "DynamicProductReaction"
+              WHERE "productId" IN (${Prisma.join(productIds)})
+              GROUP BY "productId"
+            `)
+          : [];
+
+      const reactionMap = new Map(
+        reactionRows.map((row) => [
+          row.productId,
+          {
+            likeCount: row.likeCount,
+            dislikeCount: row.dislikeCount,
+          },
+        ])
+      );
+
+      const productStateMap = new Map(
+        fallbackRows.map((row) => [
+          row.id,
+          {
+            lastValidPrice: row.lastValidPrice,
+            lastValidPriceAt: row.lastValidPriceAt,
+            availabilityStatus: row.availabilityStatus,
+            averagePrice30d: row.averagePrice30d,
+            lowestPrice30d: row.lowestPrice30d,
+            highestPrice30d: row.highestPrice30d,
+            likeCount: reactionMap.get(row.id)?.likeCount ?? 0,
+            dislikeCount: reactionMap.get(row.id)?.dislikeCount ?? 0,
+          },
+        ])
+      );
+
+      const visibleProducts: VisibleProductWithStats[] = categoryData.products
+        .map((product) => {
+          const productState = productStateMap.get(product.id);
+          const fallbackState: DynamicProductFallbackState | undefined = productState
+            ? {
+                lastValidPrice: productState.lastValidPrice,
+                lastValidPriceAt: productState.lastValidPriceAt,
+                availabilityStatus: productState.availabilityStatus,
+              }
+            : undefined;
+          const displayPrice = getDynamicDisplayPrice({
+            currentPrice: product.totalPrice,
+            fallbackState,
+            config: fallbackConfig,
+          });
+
+          return {
+            ...product,
+            averagePrice30d: productState?.averagePrice30d ?? null,
+            lowestPrice30d: productState?.lowestPrice30d ?? null,
+            highestPrice30d: productState?.highestPrice30d ?? null,
+            likeCount: productState?.likeCount ?? 0,
+            dislikeCount: productState?.dislikeCount ?? 0,
+            displayPrice,
+            isFallbackPrice:
+              product.totalPrice <= 0 &&
+              displayPrice > 0 &&
+              displayPrice !== product.totalPrice,
+          };
+        })
+        .filter((product) => product.displayPrice > 0);
+
+      return {
+        categoryData,
+        fallbackConfig,
+        visibleProducts,
+      };
+    },
+    ["dynamic-catalog-base", group, slug],
+    {
+      revalidate: 300,
+    }
+  );
+
+  return getCachedBaseData();
+}
+
 export async function getDynamicCatalogData({
   group,
   slug,
@@ -297,109 +443,10 @@ export async function getDynamicCatalogData({
   limit: number;
   offset: number;
 }): Promise<DynamicCatalogData | null> {
-  const categoryData = await prisma.dynamicCategory.findFirst({
-    where: {
-      slug,
-      group,
-    },
-    include: {
-      products: {
-        where: { isVisibleOnSite: true },
-        orderBy: { totalPrice: "asc" },
-      },
-    },
-  });
+  const baseData = await fetchDynamicCatalogBaseData(group, slug);
+  if (!baseData) return null;
 
-  if (!categoryData) return null;
-
-  const fallbackConfig = await getDynamicFallbackConfig();
-  const productIds = categoryData.products.map((product) => product.id);
-  const fallbackRows =
-    productIds.length > 0
-      ? await prisma.$queryRaw<
-          Array<
-            DynamicProductFallbackState & {
-              id: string;
-              averagePrice30d: number | null;
-              lowestPrice30d: number | null;
-              highestPrice30d: number | null;
-              likeCount: number;
-              dislikeCount: number;
-            }
-          >
-        >(Prisma.sql`
-          SELECT
-            "id",
-            "lastValidPrice",
-            "lastValidPriceAt",
-            "availabilityStatus",
-            "averagePrice30d",
-            "lowestPrice30d",
-            "highestPrice30d",
-            COALESCE((
-              SELECT COUNT(*)::int
-              FROM "DynamicProductReaction" r
-              WHERE r."productId" = "DynamicProduct"."id"
-                AND r."reaction" = 'like'
-            ), 0) AS "likeCount",
-            COALESCE((
-              SELECT COUNT(*)::int
-              FROM "DynamicProductReaction" r
-              WHERE r."productId" = "DynamicProduct"."id"
-                AND r."reaction" = 'dislike'
-            ), 0) AS "dislikeCount"
-          FROM "DynamicProduct"
-          WHERE "id" IN (${Prisma.join(productIds)})
-        `)
-      : [];
-
-  const productStateMap = new Map(
-    fallbackRows.map((row) => [
-      row.id,
-      {
-        lastValidPrice: row.lastValidPrice,
-        lastValidPriceAt: row.lastValidPriceAt,
-        availabilityStatus: row.availabilityStatus,
-        averagePrice30d: row.averagePrice30d,
-        lowestPrice30d: row.lowestPrice30d,
-        highestPrice30d: row.highestPrice30d,
-        likeCount: row.likeCount,
-        dislikeCount: row.dislikeCount,
-      },
-    ])
-  );
-
-  const visibleProducts: VisibleProductWithStats[] = categoryData.products
-    .map((product) => {
-      const productState = productStateMap.get(product.id);
-      const fallbackState: DynamicProductFallbackState | undefined = productState
-        ? {
-            lastValidPrice: productState.lastValidPrice,
-            lastValidPriceAt: productState.lastValidPriceAt,
-            availabilityStatus: productState.availabilityStatus,
-          }
-        : undefined;
-      const displayPrice = getDynamicDisplayPrice({
-        currentPrice: product.totalPrice,
-        fallbackState,
-        config: fallbackConfig,
-      });
-
-      return {
-        ...product,
-        averagePrice30d: productState?.averagePrice30d ?? null,
-        lowestPrice30d: productState?.lowestPrice30d ?? null,
-        highestPrice30d: productState?.highestPrice30d ?? null,
-        likeCount: productState?.likeCount ?? 0,
-        dislikeCount: productState?.dislikeCount ?? 0,
-        displayPrice,
-        isFallbackPrice:
-          product.totalPrice <= 0 &&
-          displayPrice > 0 &&
-          displayPrice !== product.totalPrice,
-      };
-    })
-    .filter((product) => product.displayPrice > 0);
+  const { categoryData, fallbackConfig, visibleProducts } = baseData;
 
   const normalizedDisplayConfig = normalizeDisplayConfig(categoryData.displayConfig);
   const fullDisplayConfig = normalizedDisplayConfig.fields;
