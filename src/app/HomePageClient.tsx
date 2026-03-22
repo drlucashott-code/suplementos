@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, TrendingUp, Dumbbell, Home, ChevronRight } from "lucide-react";
+import { BarChart3, TrendingUp, Dumbbell, Home } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "./Header";
@@ -228,25 +228,25 @@ export default function HomePageClient({
             </section>
 
             <section className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm md:p-5">
-              <div className="mb-4 flex items-end justify-between gap-3">
-                <div>
-                  <h3 className="text-[18px] font-bold text-[#0F1111]">
-                    Melhores ofertas do momento
-                  </h3>
-                </div>
-
-                <button
-                  onClick={() => router.push("/ofertas")}
-                  className="shrink-0 text-[12px] font-bold text-[#007185] hover:underline"
-                >
-                  Ver mais
-                </button>
+              <div className="mb-4">
+                <h3 className="text-[18px] font-bold text-[#0F1111]">
+                  Melhores ofertas do momento
+                </h3>
               </div>
 
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
                 {bestDeals.map((item) => (
                   <BestDealCard key={item.id} item={item} />
                 ))}
+              </div>
+
+              <div className="mt-4 flex justify-center">
+                <button
+                  onClick={() => router.push("/ofertas")}
+                  className="text-[12px] font-bold text-[#007185] hover:underline"
+                >
+                  Ver mais
+                </button>
               </div>
             </section>
           </div>
