@@ -25,14 +25,13 @@ export async function refreshDynamicProductPriceStats(productId: string) {
 
   const row = rows[0];
 
-  await prisma.$executeRaw`
-    UPDATE "DynamicProduct"
-    SET
-      "averagePrice30d" = ${row?.averagePrice30d ?? null},
-      "lowestPrice30d" = ${row?.lowestPrice30d ?? null},
-      "highestPrice30d" = ${row?.highestPrice30d ?? null},
-      "priceStatsUpdatedAt" = NOW(),
-      "updatedAt" = NOW()
-    WHERE "id" = ${productId}
-  `;
+  await prisma.dynamicProduct.update({
+    where: { id: productId },
+    data: {
+      averagePrice30d: row?.averagePrice30d ?? null,
+      lowestPrice30d: row?.lowestPrice30d ?? null,
+      highestPrice30d: row?.highestPrice30d ?? null,
+      priceStatsUpdatedAt: new Date(),
+    },
+  });
 }
