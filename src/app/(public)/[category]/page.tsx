@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getOptimizedAmazonUrl } from "@/lib/utils";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
@@ -91,11 +92,12 @@ export default async function CategoryGroupPage({ params }: PageProps) {
                       >
                         {product.imageUrl ? (
                           <Image
-                            src={product.imageUrl}
+                            src={getOptimizedAmazonUrl(product.imageUrl, 160)}
                             alt={product.name}
                             fill
                             sizes="80px"
                             className="object-contain p-1.5 mix-blend-multiply transition-transform group-hover:scale-110"
+                            unoptimized
                           />
                         ) : null}
                       </div>

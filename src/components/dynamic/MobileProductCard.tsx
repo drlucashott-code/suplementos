@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { trackProductClick } from "@/lib/client/productClickTracking";
 import type { SaveableDeal } from "@/lib/client/savedDeals";
 import { SAVED_DEALS_EVENT, isDealSaved, toggleSavedDeal } from "@/lib/client/savedDeals";
+import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 export type DynamicProductType = {
   id: string;
@@ -334,13 +335,14 @@ export function MobileProductCard({
           {product.imageUrl ? (
             <div className="flex h-[220px] w-full items-center justify-center">
               <Image
-                src={product.imageUrl}
+                src={getOptimizedAmazonUrl(product.imageUrl, 320)}
                 alt={product.name}
                 width={260}
                 height={260}
                 sizes="160px"
                 priority={priority}
                 className="h-auto w-auto max-h-[190px] max-w-[120px] object-contain mix-blend-multiply"
+                unoptimized
               />
             </div>
           ) : (

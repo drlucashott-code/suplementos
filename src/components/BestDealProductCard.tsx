@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import TrackedDealLink from "@/components/TrackedDealLink";
 import type { BestDeal } from "@/lib/bestDeals";
 import { SAVED_DEALS_EVENT, isDealSaved, toggleSavedDeal } from "@/lib/client/savedDeals";
+import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 const REPORT_REASONS = [
   "Preço desatualizado",
@@ -183,7 +184,7 @@ export default function BestDealProductCard({
             }`}
           >
             <Image
-              src={item.imageUrl}
+              src={getOptimizedAmazonUrl(item.imageUrl, compact ? 240 : 320)}
               alt={item.name}
               fill
               sizes={

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { CreatineForm } from "@prisma/client";
 import { useState } from "react";
 import { sendGAEvent } from '@next/third-parties/google';
+import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 export type Product = {
   id: string;
@@ -90,13 +91,14 @@ export function MobileProductCard({
       {/* Coluna da Imagem */}
       <div className="w-[140px] bg-[#f3f3f3] flex-shrink-0 flex items-center justify-center p-2 relative">
         <Image
-          src={product.imageUrl}
+          src={getOptimizedAmazonUrl(product.imageUrl, 320)}
           alt={product.name}
           width={230}
           height={230}
           sizes="140px"
           priority={priority} 
           className="w-full h-auto max-h-[220px] object-contain mix-blend-multiply"
+          unoptimized
         />
       </div>
 
