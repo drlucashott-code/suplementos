@@ -83,9 +83,16 @@ export default function BestDealProductCard({
       </div>
 
       <p
-        className={`mt-1.5 min-h-[40px] line-clamp-2 font-medium leading-snug text-[#2162A1] group-hover:text-[#174e87] ${
+        className={`mt-1.5 h-[40px] font-medium leading-[20px] text-[#2162A1] group-hover:text-[#174e87] ${
           compact ? "text-[12px]" : "text-[14px]"
         }`}
+        style={{
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+          maxHeight: "40px",
+        }}
       >
         {item.name}
       </p>
