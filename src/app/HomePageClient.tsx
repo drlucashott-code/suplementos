@@ -242,6 +242,7 @@ export default function HomePageClient({
                     item={item}
                     category="home_ofertas"
                     compact
+                    showActions={false}
                   />
                 ))}
               </div>

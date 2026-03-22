@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search } from "lucide-react";
-import SavedDealsLink from "@/components/SavedDealsLink";
+import { Bookmark, Search } from "lucide-react";
+import SavedDealsPanel from "@/components/SavedDealsPanel";
+import { SAVED_DEALS_EVENT, getSavedDeals } from "@/lib/client/savedDeals";
 
 const removeAccents = (str: string) => {
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -35,6 +36,8 @@ export default function Header({ extraCategories = [] }: HeaderProps) {
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<Array<{ name: string; path: string }>>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
+  const [savedOpen, setSavedOpen] = useState(false);
   const router = useRouter();
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -66,6 +69,19 @@ export default function Header({ extraCategories = [] }: HeaderProps) {
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const sync = () => setSavedCount(getSavedDeals().length);
+
+    sync();
+    window.addEventListener("storage", sync);
+    window.addEventListener(SAVED_DEALS_EVENT, sync);
+
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener(SAVED_DEALS_EVENT, sync);
+    };
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -112,56 +128,92 @@ export default function Header({ extraCategories = [] }: HeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-[#131921] px-3 py-3 shadow-md md:px-4">
-      <div className="mx-auto flex max-w-[1500px] flex-col gap-3 lg:flex-row lg:items-center lg:gap-5">
-        <div className="flex shrink-0 cursor-pointer items-center" onClick={() => router.push("/")}>
-          <h1 className="text-[24px] font-bold tracking-tight text-white">
-            amazon<span className="text-[#febd69]">picks</span>
-          </h1>
-        </div>
+    <>
+      <header className="sticky top-0 z-50 w-full bg-[#131921] px-3 py-3 shadow-md md:px-4">
+        <div className="mx-auto max-w-[1500px]">
+          <div className="flex shrink-0 cursor-pointer items-center" onClick={() => router.push("/")}>
+            <h1 className="text-[24px] font-bold tracking-tight text-white">
+              amazon<span className="text-[#febd69]">picks</span>
+            </h1>
+          </div>
 
-        <div className="relative flex w-full" ref={wrapperRef}>
-          <form onSubmit={handleSearch} className="flex w-full items-center">
-            <input
-              type="text"
-              value={query}
-              onChange={handleInputChange}
-              onFocus={() => query.length > 0 && setShowSuggestions(true)}
-              placeholder="O que você está procurando?"
-              className="h-11 w-full rounded-l-md border-none bg-white px-4 text-[15px] text-black outline-none"
-            />
-            <button
-              type="submit"
-              className="flex h-11 items-center justify-center rounded-r-md bg-[#febd69] px-4 transition-colors hover:bg-[#f3a847]"
-            >
-              <Search className="h-5 w-5 text-[#232f3e]" />
-            </button>
-          </form>
-
-          {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute left-0 top-[46px] z-[100] w-full overflow-hidden rounded-md border border-gray-200 bg-white shadow-xl">
-              {suggestions.map((cat) => (
-                <div
-                  key={cat.path}
-                  onClick={() => {
-                    router.push(cat.path);
-                    setQuery("");
-                    setShowSuggestions(false);
-                  }}
-                  className="flex cursor-pointer items-center gap-2 border-b px-4 py-3 text-sm text-gray-800 hover:bg-gray-100 last:border-none"
+          <div className="mt-3 flex items-center gap-2">
+            <div className="relative min-w-0 flex-1" ref={wrapperRef}>
+              <form onSubmit={handleSearch} className="flex w-full items-center">
+                <input
+                  type="text"
+                  value={query}
+                  onChange={handleInputChange}
+                  onFocus={() => query.length > 0 && setShowSuggestions(true)}
+                  placeholder="O que você está procurando?"
+                  className="h-11 w-full rounded-l-md border-none bg-white px-4 text-[15px] text-black outline-none"
+                />
+                <button
+                  type="submit"
+                  className="flex h-11 w-12 items-center justify-center rounded-r-md border-l border-zinc-200 bg-white text-[#232f3e] transition-colors hover:bg-zinc-50"
+                  aria-label="Buscar"
                 >
-                  <Search className="h-4 w-4 text-gray-400" />
-                  <span>{cat.name}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                  <Search className="h-5 w-5" />
+                </button>
+              </form>
 
-        <div className="ml-1 flex shrink-0 items-center">
-          <SavedDealsLink />
+              {showSuggestions && suggestions.length > 0 ? (
+                <div className="absolute left-0 top-[46px] z-[100] w-full overflow-hidden rounded-md border border-gray-200 bg-white shadow-xl">
+                  {suggestions.map((cat) => (
+                    <div
+                      key={cat.path}
+                      onClick={() => {
+                        router.push(cat.path);
+                        setQuery("");
+                        setShowSuggestions(false);
+                      }}
+                      className="flex cursor-pointer items-center gap-2 border-b px-4 py-3 text-sm text-gray-800 hover:bg-gray-100 last:border-none"
+                    >
+                      <Search className="h-4 w-4 text-gray-400" />
+                      <span>{cat.name}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSavedOpen((current) => !current)}
+              className={`relative inline-grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-md transition ${
+                savedOpen
+                  ? "bg-[#f3a847] text-[#131921]"
+                  : "bg-[#febd69] text-[#131921] hover:bg-[#f3a847]"
+              }`}
+              aria-label={savedOpen ? "Fechar ofertas salvas" : "Abrir ofertas salvas"}
+              aria-expanded={savedOpen}
+            >
+              <Bookmark className="h-5 w-5" />
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#131921] px-1 text-[10px] font-bold text-white">
+                {savedCount}
+              </span>
+            </button>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      {savedOpen ? (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-[55] bg-black/35"
+            aria-label="Fechar ofertas salvas"
+            onClick={() => setSavedOpen(false)}
+          />
+          <div className="fixed inset-x-0 top-[104px] z-[60] px-3 md:top-[116px] md:px-5">
+            <div className="mx-auto max-w-[1500px]">
+              <div className="max-h-[calc(100vh-124px)] overflow-hidden rounded-2xl">
+                <SavedDealsPanel onClose={() => setSavedOpen(false)} />
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
+    </>
   );
 }

@@ -59,10 +59,12 @@ export default function BestDealProductCard({
   item,
   category,
   compact = false,
+  showActions = true,
 }: {
   item: BestDeal;
   category: string;
   compact?: boolean;
+  showActions?: boolean;
 }) {
   const price = formatPriceParts(item.totalPrice);
   const hasRating = (item.ratingAverage || 0) > 0 && (item.ratingCount || 0) > 0;
@@ -131,38 +133,40 @@ export default function BestDealProductCard({
   return (
     <>
       <div className="relative h-full">
-        <div className="absolute right-2 top-2 z-10 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              setReportOpen(true);
-              setReportState("idle");
-            }}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:text-[#0F1111]"
-            aria-label="Reportar problema"
-          >
-            <AlertTriangle className="h-4 w-4" />
-          </button>
+        {showActions ? (
+          <div className="absolute right-2 top-2 z-10 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setReportOpen(true);
+                setReportState("idle");
+              }}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:text-[#0F1111]"
+              aria-label="Reportar problema"
+            >
+              <AlertTriangle className="h-4 w-4" />
+            </button>
 
-          <button
-            type="button"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              setSaved(toggleSavedDeal(item));
-            }}
-            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border shadow-sm transition ${
-              saved
-                ? "border-[#f0c14b] bg-[#fff7d6] text-[#b77900]"
-                : "border-gray-200 bg-white text-gray-500 hover:text-[#0F1111]"
-            }`}
-            aria-label={saved ? "Remover dos salvos" : "Salvar oferta"}
-          >
-            <Bookmark className={`h-4 w-4 ${saved ? "fill-current" : ""}`} />
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setSaved(toggleSavedDeal(item));
+              }}
+              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border shadow-sm transition ${
+                saved
+                  ? "border-[#f0c14b] bg-[#fff7d6] text-[#b77900]"
+                  : "border-gray-200 bg-white text-gray-500 hover:text-[#0F1111]"
+              }`}
+              aria-label={saved ? "Remover dos salvos" : "Salvar oferta"}
+            >
+              <Bookmark className={`h-4 w-4 ${saved ? "fill-current" : ""}`} />
+            </button>
+          </div>
+        ) : null}
 
         <TrackedDealLink
           asin={item.asin}
@@ -238,7 +242,7 @@ export default function BestDealProductCard({
         </TrackedDealLink>
       </div>
 
-      {reportOpen ? (
+      {showActions && reportOpen ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4"
           onClick={() => {
