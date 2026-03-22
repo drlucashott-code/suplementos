@@ -3,13 +3,16 @@ import https from "https";
 import crypto from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { reconcileDynamicFallbackState } from "../src/lib/dynamicFallback";
-import { refreshDynamicProductPriceStats } from "../src/lib/dynamicPriceStats";
+import { refreshDynamicProductPriceStatsBulk } from "../src/lib/dynamicPriceStats";
 
 const prisma = new PrismaClient();
 
-const REQUEST_DELAY_MS = 2000;
+const REQUEST_DELAY_MS = Number(process.env.AMAZON_GLOBAL_REQUEST_DELAY_MS ?? 1200);
 const RECHECK_DELAY_MS = 5000;
-const BATCH_SIZE = 10;
+const BATCH_SIZE = Math.min(
+  Number(process.env.AMAZON_GLOBAL_BATCH_SIZE ?? 10),
+  10
+);
 const VARIATION_THRESHOLD = 0.2;
 
 const AMAZON_ACCESS_KEY = process.env.AMAZON_ACCESS_KEY;
@@ -230,11 +233,10 @@ async function persistDynamicUpdate(
       },
     });
 
-    await refreshDynamicProductPriceStats(product.id);
-
     return {
       logStatus: `OK R$ ${result.price.toFixed(2)}`,
       outcome: "UPDATED" as PersistOutcome,
+      shouldRefreshPriceStats: true,
     };
   }
 
@@ -260,9 +262,7 @@ async function persistDynamicUpdate(
     },
   });
 
-  await refreshDynamicProductPriceStats(product.id);
-
-  return { logStatus, outcome };
+  return { logStatus, outcome, shouldRefreshPriceStats: false };
 }
 
 function incrementCounters(counters: RunCounters, outcome: PersistOutcome) {
@@ -308,6 +308,7 @@ async function updateAmazonPrices() {
     excludedOffers: 0,
   };
   let currentFailedStreak = 0;
+  const statsRefreshProductIds = new Set<string>();
 
   await prisma.$executeRaw`
     INSERT INTO "GlobalPriceRefreshRun" (
@@ -406,8 +407,12 @@ async function updateAmazonPrices() {
           }
         }
 
-        const { logStatus, outcome } = await persistDynamicUpdate(product, result);
+        const { logStatus, outcome, shouldRefreshPriceStats } =
+          await persistDynamicUpdate(product, result);
         incrementCounters(counters, outcome);
+        if (shouldRefreshPriceStats) {
+          statsRefreshProductIds.add(product.id);
+        }
         if (outcome === "FAILED") {
           currentFailedStreak += 1;
           counters.maxConsecutiveFailedOffers = Math.max(
@@ -464,8 +469,12 @@ async function updateAmazonPrices() {
           const asin = product.asin || "---";
           const result = apiResults[asin];
 
-          const { logStatus, outcome } = await persistDynamicUpdate(product, result);
+          const { logStatus, outcome, shouldRefreshPriceStats } =
+            await persistDynamicUpdate(product, result);
           incrementCounters(counters, outcome);
+          if (shouldRefreshPriceStats) {
+            statsRefreshProductIds.add(product.id);
+          }
           if (outcome === "FAILED") {
             currentFailedStreak += 1;
             counters.maxConsecutiveFailedOffers = Math.max(
@@ -490,6 +499,13 @@ async function updateAmazonPrices() {
           await new Promise((resolve) => setTimeout(resolve, REQUEST_DELAY_MS));
         }
       }
+    }
+
+    if (statsRefreshProductIds.size > 0) {
+      console.log(
+        `Atualizando estatisticas de preco para ${statsRefreshProductIds.size} produtos`
+      );
+      await refreshDynamicProductPriceStatsBulk([...statsRefreshProductIds]);
     }
 
     await finalizeGlobalRun({
