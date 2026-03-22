@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, TrendingUp, ShieldCheck, Dumbbell, Home, ChevronRight } from "lucide-react";
+import { BarChart3, TrendingUp, Dumbbell, Home, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "./Header";
 import FeedbackModal from "./FeedbackModal";
+import type { BestDeal } from "@/lib/bestDeals";
 
 function TrackHomeView() {
   useEffect(() => {
@@ -27,17 +28,6 @@ export type CategoryItem = {
   imageSrc: string;
   path: string;
   disabled?: boolean;
-};
-
-export type FeaturedDeal = {
-  id: string;
-  name: string;
-  imageUrl: string;
-  url: string;
-  totalPrice: number;
-  averagePrice30d: number;
-  discountPercent: number;
-  categoryName: string;
 };
 
 const supplementsCategories: CategoryItem[] = [
@@ -87,12 +77,10 @@ function sortCategories(items: CategoryItem[]) {
 
 export default function HomePageClient({
   houseCategories,
-  supplementsDeals,
-  houseDeals,
+  bestDeals,
 }: {
   houseCategories: CategoryItem[];
-  supplementsDeals: FeaturedDeal[];
-  houseDeals: FeaturedDeal[];
+  bestDeals: BestDeal[];
 }) {
   const router = useRouter();
   const [selectedHub, setSelectedHub] = useState<HubKey>("suplementos");
@@ -215,17 +203,15 @@ export default function HomePageClient({
 
           <div className="grid gap-4">
             <section className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm md:p-5">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-[20px] font-bold text-[#0F1111]">
-                    {selectedHub === "suplementos"
-                      ? "Compare por categoria em suplementos"
-                      : "Compare por categoria em casa"}
-                  </h2>
-                  <p className="text-[12px] text-[#565959]">
-                    Abra uma categoria para ver os produtos com ordenação e filtros próprios.
-                  </p>
-                </div>
+              <div className="mb-4">
+                <h2 className="text-[20px] font-bold text-[#0F1111]">
+                  {selectedHub === "suplementos"
+                    ? "Compare por categoria em suplementos"
+                    : "Compare por categoria em casa"}
+                </h2>
+                <p className="text-[12px] text-[#565959]">
+                  Abra uma categoria para ver os produtos com ordenação e filtros próprios.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
@@ -241,18 +227,31 @@ export default function HomePageClient({
               </div>
             </section>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <DealsStrip
-                title="Suplementos em destaque"
-                subtitle="Produtos com maior desconto versus a média de 30 dias."
-                items={supplementsDeals}
-              />
-              <DealsStrip
-                title="Casa & bem-estar"
-                subtitle="Produtos de casa com melhor desconto agora."
-                items={houseDeals}
-              />
-            </div>
+            <section className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm md:p-5">
+              <div className="mb-4 flex items-end justify-between gap-3">
+                <div>
+                  <h3 className="text-[18px] font-bold text-[#0F1111]">
+                    Melhores ofertas do momento
+                  </h3>
+                  <p className="mt-1 text-[12px] text-[#565959]">
+                    Produtos com maior desconto versus a média de 30 dias.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => router.push("/ofertas")}
+                  className="shrink-0 text-[12px] font-bold text-[#007185] hover:underline"
+                >
+                  Ver mais
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+                {bestDeals.map((item) => (
+                  <BestDealCard key={item.id} item={item} />
+                ))}
+              </div>
+            </section>
           </div>
         </section>
 
@@ -298,7 +297,7 @@ function QuickCategoryCard({
   return (
     <button
       onClick={onClick}
-      className="group overflow-hidden rounded-2xl border border-white/10 bg-white/8 p-3 text-left transition hover:bg-white/12"
+      className="group overflow-hidden rounded-2xl border border-white/10 bg-white/8 p-3 text-center transition hover:bg-white/12"
     >
       <div className="relative h-[82px] overflow-hidden rounded-xl bg-white/95 md:h-[96px]">
         <Image
@@ -349,58 +348,40 @@ function HubPanel({
   );
 }
 
-function DealsStrip({
-  title,
-  subtitle,
-  items,
-}: {
-  title: string;
-  subtitle: string;
-  items: FeaturedDeal[];
-}) {
+function BestDealCard({ item }: { item: BestDeal }) {
   return (
-    <section className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm md:p-5">
-      <h3 className="text-[18px] font-bold text-[#0F1111]">{title}</h3>
-      <p className="mt-1 text-[12px] text-[#565959]">{subtitle}</p>
-
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        {items.map((item) => (
-          <a
-            key={item.id}
-            href={item.url}
-            target="_blank"
-            rel="noreferrer sponsored"
-            className="group rounded-xl border border-[#d5d9d9] bg-[#F8FAFA] p-3 text-left transition hover:border-[#aab7b8] hover:bg-white"
-          >
-            <div className="relative h-[84px] overflow-hidden rounded-lg bg-white">
-              <Image
-                src={item.imageUrl}
-                alt={item.name}
-                fill
-                sizes="(max-width: 768px) 42vw, 260px"
-                className="object-contain p-2"
-                unoptimized
-              />
-            </div>
-            <p className="mt-3 line-clamp-2 text-[12px] font-bold leading-snug text-[#0F1111]">
-              {item.name}
-            </p>
-            <p className="mt-1 text-[11px] text-[#565959]">{item.categoryName}</p>
-            <div className="mt-2 flex items-center justify-between gap-2">
-              <span className="rounded-full bg-[#CC0C39] px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white">
-                -{item.discountPercent}%
-              </span>
-              <span className="text-[13px] font-bold text-[#0F1111]">
-                {formatCurrency(item.totalPrice)}
-              </span>
-            </div>
-            <p className="mt-1 text-[11px] text-[#565959]">
-              Média 30d: {formatCurrency(item.averagePrice30d)}
-            </p>
-          </a>
-        ))}
+    <a
+      href={item.url}
+      target="_blank"
+      rel="noreferrer sponsored"
+      className="group rounded-xl border border-[#d5d9d9] bg-[#F8FAFA] p-3 text-left transition hover:border-[#aab7b8] hover:bg-white"
+    >
+      <div className="relative h-[88px] overflow-hidden rounded-lg bg-white">
+        <Image
+          src={item.imageUrl}
+          alt={item.name}
+          fill
+          sizes="(max-width: 768px) 42vw, 220px"
+          className="object-contain p-2"
+          unoptimized
+        />
       </div>
-    </section>
+      <p className="mt-3 line-clamp-2 text-[12px] font-bold leading-snug text-[#0F1111]">
+        {item.name}
+      </p>
+      <p className="mt-1 text-[11px] text-[#565959]">{item.categoryName}</p>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <span className="rounded-full bg-[#CC0C39] px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white">
+          -{item.discountPercent}%
+        </span>
+        <span className="text-[13px] font-bold text-[#0F1111]">
+          {formatCurrency(item.totalPrice)}
+        </span>
+      </div>
+      <p className="mt-1 text-[11px] text-[#565959]">
+        Média 30d: {formatCurrency(item.averagePrice30d)}
+      </p>
+    </a>
   );
 }
 
@@ -422,7 +403,7 @@ function CategoryCard({ title, imageSrc, onClick, disabled }: CategoryCardProps)
   return (
     <div
       onClick={!disabled ? onClick : undefined}
-      className={`relative overflow-hidden rounded-xl border p-3 shadow-sm transition ${
+      className={`relative overflow-hidden rounded-xl border p-3 text-center shadow-sm transition ${
         disabled
           ? "cursor-not-allowed border-gray-100 bg-gray-50 opacity-60"
           : "cursor-pointer border-[#d5d9d9] bg-[#F8FAFA] hover:border-[#aab7b8] hover:bg-white"
@@ -443,16 +424,11 @@ function CategoryCard({ title, imageSrc, onClick, disabled }: CategoryCardProps)
         {title}
       </h2>
 
-      {!disabled ? (
-        <span className="mt-2 inline-flex items-center gap-1 text-[12px] font-medium text-[#007185]">
-          Acessar comparador
-          <ChevronRight className="h-3.5 w-3.5" />
-        </span>
-      ) : (
+      {disabled ? (
         <span className="mt-2 inline-flex rounded border border-gray-200 bg-gray-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-gray-400">
           Em breve
         </span>
-      )}
+      ) : null}
     </div>
   );
 }
