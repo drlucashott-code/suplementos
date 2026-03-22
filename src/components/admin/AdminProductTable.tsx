@@ -81,6 +81,25 @@ function normalizeDisplayConfig(rawConfig: Prisma.JsonValue): DisplayConfigItem[
   return [];
 }
 
+function getAttributeValue(
+  attrs: DynamicAttributes,
+  key: string
+): string | number | boolean | null | undefined {
+  if (attrs[key] !== undefined && attrs[key] !== null && attrs[key] !== "") {
+    return attrs[key];
+  }
+
+  if (key === "volume" && attrs.volumeMl !== undefined && attrs.volumeMl !== null) {
+    return attrs.volumeMl;
+  }
+
+  if (key === "volumeMl" && attrs.volume !== undefined && attrs.volume !== null) {
+    return attrs.volume;
+  }
+
+  return attrs[key];
+}
+
 export function AdminProductTable({
   initialProducts,
   categories,
@@ -244,8 +263,8 @@ export function AdminProductTable({
           aVal = a.name;
           bVal = b.name;
         } else {
-          aVal = String(attrsA[sortConfig.key] || "");
-          bVal = String(attrsB[sortConfig.key] || "");
+          aVal = String(getAttributeValue(attrsA, sortConfig.key) || "");
+          bVal = String(getAttributeValue(attrsB, sortConfig.key) || "");
         }
 
         if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
@@ -744,7 +763,7 @@ export function AdminProductTable({
                       <td key={col.key} className="p-4 text-center">
                         <input
                           className="w-full max-w-[90px] rounded-lg border border-transparent bg-gray-50 p-1.5 text-center text-[11px] font-black outline-none hover:border-gray-200 focus:border-yellow-400 focus:bg-white"
-                          defaultValue={String(attrs[col.key] || "")}
+                          defaultValue={String(getAttributeValue(attrs, col.key) || "")}
                           onBlur={(e) => {
                             const val =
                               col.type === "number"
@@ -755,7 +774,7 @@ export function AdminProductTable({
 
                             handleQuickUpdate(
                               p.id,
-                              col.key,
+                              col.key === "volume" ? "volumeMl" : col.key,
                               col.type === "number" ? Number(val) : val,
                               true
                             );

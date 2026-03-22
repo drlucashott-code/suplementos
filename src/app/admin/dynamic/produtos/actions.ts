@@ -1,4 +1,4 @@
-'use server';
+﻿'use server';
 
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client'; 
@@ -11,9 +11,77 @@ export type DynamicAttributes = {
   [key: string]: string | number | boolean | null | undefined;
 };
 
+function extractVolumeMlFromTitle(title: string): number | null {
+  const normalizedTitle = title
+    .toLowerCase()
+    .replace(/,/g, '.')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const packMatch = normalizedTitle.match(
+    /(\d+)\s*(?:x|un(?:id(?:ades?)?)?|frascos?|embalagens?)\s*(?:de\s*)?(\d+(?:\.\d+)?)\s*(ml|l)\b/
+  );
+
+  if (packMatch) {
+    const units = Number(packMatch[1]);
+    const amount = Number(packMatch[2]);
+    const unit = packMatch[3];
+
+    if (!Number.isNaN(units) && !Number.isNaN(amount)) {
+      const totalMl = unit === 'l' ? units * amount * 1000 : units * amount;
+      return Math.round(totalMl);
+    }
+  }
+
+  const singleMatch = normalizedTitle.match(/(\d+(?:\.\d+)?)\s*(ml|l)\b/);
+
+  if (!singleMatch) {
+    return null;
+  }
+
+  const amount = Number(singleMatch[1]);
+  if (Number.isNaN(amount)) {
+    return null;
+  }
+
+  return Math.round(singleMatch[2] === 'l' ? amount * 1000 : amount);
+}
+
+function isHairVolumeCategory(category: { name?: string | null; slug?: string | null }) {
+  const normalizedName = category.name?.toLowerCase() ?? '';
+  const normalizedSlug = category.slug?.toLowerCase() ?? '';
+
+  return (
+    normalizedName.includes('condicionador') ||
+    normalizedSlug.includes('condicionador') ||
+    normalizedName.includes('shampoo') ||
+    normalizedSlug.includes('shampoo')
+  );
+}
+
+function enrichAttributesForCategory(params: {
+  category: { name?: string | null; slug?: string | null };
+  productName: string;
+  attributes: DynamicAttributes;
+}): DynamicAttributes {
+  const enrichedAttributes = { ...params.attributes };
+
+  if (isHairVolumeCategory(params.category)) {
+    const currentVolume = Number(enrichedAttributes.volumeMl);
+    if (!Number.isFinite(currentVolume) || currentVolume <= 0) {
+      const extractedVolumeMl = extractVolumeMlFromTitle(params.productName);
+      if (extractedVolumeMl) {
+        enrichedAttributes.volumeMl = extractedVolumeMl;
+      }
+    }
+  }
+
+  return enrichedAttributes;
+}
+
 // Interface para o retorno da busca Amazon
 export interface AmazonImportResult {
-  asin: string; // ✅ ASIN agora é obrigatório no retorno
+  asin: string; // âœ… ASIN agora Ã© obrigatÃ³rio no retorno
   name: string;
   totalPrice: number;
   imageUrl: string;
@@ -44,7 +112,7 @@ export async function getProductById(id: string) {
  */
 export async function fetchAmazonProductData(asin: string): Promise<AmazonImportResult | { error: string }> {
   try {
-    // Simulação de busca - aqui entra sua lógica de scraper
+    // SimulaÃ§Ã£o de busca - aqui entra sua lÃ³gica de scraper
     return {
       asin: asin,
       name: `Produto Amazon ${asin}`, 
@@ -61,17 +129,24 @@ export async function fetchAmazonProductData(asin: string): Promise<AmazonImport
 
 /**
  * IMPORTAÇÃO EM MASSA (Bulk Import)
- * 🚀 CORRIGIDO: Agora envia o 'asin' na raiz do objeto
+ * CORRIGIDO: Agora envia o ''asin'' na raiz do objeto
  */
 export async function importBulkProducts(data: { asins: string; categoryId: string }) {
   const asinList = data.asins.split(',').map(a => a.trim()).filter(a => a !== '');
   const results = [];
+  const category = await prisma.dynamicCategory.findUnique({
+    where: { id: data.categoryId },
+    select: { id: true, name: true, slug: true }
+  });
+
+  if (!category) {
+    return { error: "Categoria não encontrada." };
+  }
 
   for (const asin of asinList) {
     try {
-      // 1. Verifica se o ASIN já existe para evitar erro de Unique Constraint
       const alreadyExists = await prisma.dynamicProduct.findUnique({
-        where: { asin: asin }
+        where: { asin }
       });
 
       if (alreadyExists) {
@@ -80,22 +155,24 @@ export async function importBulkProducts(data: { asins: string; categoryId: stri
       }
 
       const scraped = await fetchAmazonProductData(asin);
-      
       if ('error' in scraped) throw new Error(scraped.error);
 
-      // 2. Cria o registro com o campo 'asin' na raiz
       await prisma.dynamicProduct.create({
         data: {
-          asin: asin, // ✅ Campo obrigatório no banco
+          asin,
           name: scraped.name,
           imageUrl: scraped.imageUrl,
           url: scraped.url,
-          totalPrice: scraped.totalPrice || 0, 
+          totalPrice: scraped.totalPrice || 0,
           categoryId: data.categoryId,
-          attributes: {
-            marca: scraped.brand || "Não Informada",
-            asin: asin,
-          } as Prisma.InputJsonValue,
+          attributes: enrichAttributesForCategory({
+            category,
+            productName: scraped.name,
+            attributes: {
+              marca: scraped.brand || "Não Informada",
+              asin,
+            },
+          }) as Prisma.InputJsonValue,
         }
       });
       results.push({ asin, status: 'success' });
@@ -145,6 +222,10 @@ export async function updateManyProducts(ids: string[], key: string, value: stri
 /**
  * ATUALIZAR PRODUTO (Individual / In-line)
  */
+
+/**
+ * ATUALIZAR PRODUTO (Individual / In-line)
+ */
 export async function updateDynamicProduct(id: string, data: {
   name?: string;
   totalPrice?: number;
@@ -180,13 +261,13 @@ export async function updateDynamicProduct(id: string, data: {
     return { success: true };
   } catch (err) {
     console.error("Erro ao atualizar produto:", err);
-    return { error: "Falha ao salvar alterações." };
+    return { error: "Falha ao salvar alteraÃ§Ãµes." };
   }
 }
 
 /**
- * CRIAR PRODUTO (Individual via Formulário)
- * 🚀 CORRIGIDO: Extração e envio do 'asin' obrigatório
+ * CRIAR PRODUTO (Individual via FormulÃ¡rio)
+ * ðŸš€ CORRIGIDO: ExtraÃ§Ã£o e envio do 'asin' obrigatÃ³rio
  */
 export async function createDynamicProduct(data: {
   name: string;
@@ -197,7 +278,15 @@ export async function createDynamicProduct(data: {
   attributes: DynamicAttributes;
 }) {
   try {
-    // Tenta extrair o ASIN da URL caso não venha nos atributos
+    const category = await prisma.dynamicCategory.findUnique({
+      where: { id: data.categoryId },
+      select: { id: true, name: true, slug: true }
+    });
+
+    if (!category) {
+      return { error: "Categoria não encontrada." };
+    }
+
     const asinMatch = data.url.match(/\/dp\/([A-Z0-9]{10})/);
     const extractedAsin = asinMatch ? asinMatch[1] : undefined;
     const finalAsin = (data.attributes?.asin as string) || extractedAsin;
@@ -206,22 +295,25 @@ export async function createDynamicProduct(data: {
       return { error: "Não foi possível identificar o ASIN do produto." };
     }
 
-    // Verifica se já existe
     const exists = await prisma.dynamicProduct.findUnique({ where: { asin: finalAsin } });
     if (exists) return { error: "Este produto (ASIN) já está cadastrado." };
 
     await prisma.dynamicProduct.create({ 
       data: {
-        asin: finalAsin, // ✅ Campo obrigatório na raiz
+        asin: finalAsin,
         name: data.name,
         totalPrice: data.totalPrice,
         url: data.url,
         imageUrl: data.imageUrl,
         categoryId: data.categoryId,
-        attributes: {
-          ...data.attributes,
-          asin: finalAsin 
-        } as Prisma.InputJsonValue
+        attributes: enrichAttributesForCategory({
+          category,
+          productName: data.name,
+          attributes: {
+            ...data.attributes,
+            asin: finalAsin,
+          },
+        }) as Prisma.InputJsonValue
       } 
     });
     
@@ -296,7 +388,7 @@ export async function deleteDynamicProduct(id: string) {
 }
 
 /**
- * EXCLUIR MÚLTIPLOS PRODUTOS (Bulk Delete)
+ * EXCLUIR MÃšLTIPLOS PRODUTOS (Bulk Delete)
  */
 export async function deleteManyProducts(ids: string[]) {
   try {
@@ -324,3 +416,5 @@ export async function getHomeCategories() {
     return [];
   }
 }
+
+

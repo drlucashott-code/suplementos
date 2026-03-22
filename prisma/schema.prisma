@@ -294,3 +294,43 @@ model PriorityRefreshRun {
 
   @@index([startedAt(sort: Desc)])
 }
+
+model DynamicImportRun {
+  id                  String   @id @default(cuid())
+  status              String
+  categoryId          String
+  totalItems          Int      @default(0)
+  processedItems      Int      @default(0)
+  importedItems       Int      @default(0)
+  skippedItems        Int      @default(0)
+  errorItems          Int      @default(0)
+  cancelRequested     Boolean  @default(false)
+  filters             Json?
+  logs                Json?
+  startedAt           DateTime @default(now())
+  finishedAt          DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([status, startedAt(sort: Desc)])
+  @@index([startedAt(sort: Desc)])
+}
+
+model DynamicDiscoveryRun {
+  id                  String   @id @default(cuid())
+  status              String
+  totalSearches       Int      @default(0)
+  processedSearches   Int      @default(0)
+  foundItems          Int      @default(0)
+  cancelRequested     Boolean  @default(false)
+  inputs              Json?
+  items               Json?
+  logs                Json?
+  startedAt           DateTime @default(now())
+  finishedAt          DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([status, startedAt(sort: Desc)])
+  @@index([startedAt(sort: Desc)])
+}
