@@ -29,6 +29,17 @@ export type CategoryItem = {
   disabled?: boolean;
 };
 
+export type FeaturedDeal = {
+  id: string;
+  name: string;
+  imageUrl: string;
+  url: string;
+  totalPrice: number;
+  averagePrice30d: number;
+  discountPercent: number;
+  categoryName: string;
+};
+
 const supplementsCategories: CategoryItem[] = [
   {
     title: "Barra de proteina",
@@ -76,8 +87,12 @@ function sortCategories(items: CategoryItem[]) {
 
 export default function HomePageClient({
   houseCategories,
+  supplementsDeals,
+  houseDeals,
 }: {
   houseCategories: CategoryItem[];
+  supplementsDeals: FeaturedDeal[];
+  houseDeals: FeaturedDeal[];
 }) {
   const router = useRouter();
   const [selectedHub, setSelectedHub] = useState<HubKey>("suplementos");
@@ -91,9 +106,6 @@ export default function HomePageClient({
   );
 
   const visibleCategories = categoryGroups[selectedHub];
-  const supplementsPreview = categoryGroups.suplementos.slice(0, 4);
-  const housePreview = categoryGroups.casa.slice(0, 4);
-
   const handleCategoryClick = (path: string, categoryName: string) => {
     const win = window as typeof window & { dataLayer?: object[] };
     if (win.dataLayer) {
@@ -125,33 +137,33 @@ export default function HomePageClient({
 
       <Header extraCategories={houseCategories} />
 
-      <div className="bg-[#37475A] px-4 py-2 text-center text-[12px] font-medium text-white">
+      <div className="bg-[#37475A] px-4 py-2 text-center text-[11px] font-medium text-white">
         Compare ofertas Amazon com leitura tecnica de preco.
       </div>
 
       <div className="mx-auto max-w-[1500px] px-3 pb-8 pt-4 md:px-5">
         <section className="relative overflow-hidden rounded-2xl border border-[#d5d9d9] bg-[linear-gradient(90deg,#131921_0%,#1f2f46_52%,#23415d_100%)] text-white shadow-sm">
-          <div className="grid gap-6 px-5 py-6 md:grid-cols-[1.2fr_0.8fr] md:px-8 md:py-8">
+          <div className="grid gap-4 px-4 py-4 md:grid-cols-[1.2fr_0.8fr] md:px-8 md:py-8">
             <div>
               <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#FFB84D]">
                 Amazon Picks
               </p>
-              <h1 className="max-w-2xl text-[24px] font-bold leading-tight md:text-[34px]">
+              <h1 className="max-w-2xl text-[20px] font-bold leading-tight md:text-[34px]">
                 Encontre a categoria certa e compare pelo criterio que realmente importa.
               </h1>
-              <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-white/84 md:text-[14px]">
+              <p className="mt-2 max-w-xl text-[12px] leading-relaxed text-white/84 md:mt-3 md:text-[14px]">
                 Preco por dose, por unidade, por grama e historico de 30 dias para
                 decidir melhor antes de abrir a oferta na Amazon.
               </p>
 
-              <div className="mt-5 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 <TrustPill icon={<BarChart3 className="h-3.5 w-3.5" />} label="Analise tecnica" />
                 <TrustPill icon={<TrendingUp className="h-3.5 w-3.5" />} label="Historico de 30 dias" />
                 <TrustPill icon={<ShieldCheck className="h-3.5 w-3.5" />} label="Ofertas Amazon" />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="hidden grid-cols-2 gap-3 md:grid">
               <QuickCategoryCard
                 title="Whey Protein"
                 subtitle="Proteina e custo real"
@@ -168,7 +180,7 @@ export default function HomePageClient({
                 title="Casa"
                 subtitle="Higiene e limpeza"
                 imageSrc={
-                  housePreview[0]?.imageSrc ||
+                  houseCategories[0]?.imageSrc ||
                   "https://m.media-amazon.com/images/I/618cxCZ8wHL._AC_SL1000_.jpg"
                 }
                 onClick={() => handleHubClick("casa")}
@@ -233,17 +245,15 @@ export default function HomePageClient({
             </section>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <CategoryStrip
+              <DealsStrip
                 title="Suplementos em destaque"
-                subtitle="Whey, creatina, barras e comparacoes por dose."
-                items={supplementsPreview}
-                onItemClick={(item) => router.push(item.path)}
+                subtitle="Produtos com maior desconto versus a media de 30 dias."
+                items={supplementsDeals}
               />
-              <CategoryStrip
+              <DealsStrip
                 title="Casa & bem-estar"
-                subtitle="Categorias de higiene e limpeza organizadas em um so lugar."
-                items={housePreview}
-                onItemClick={(item) => router.push(item.path)}
+                subtitle="Produtos de casa com melhor desconto agora."
+                items={houseDeals}
               />
             </div>
           </div>
@@ -270,7 +280,7 @@ function TrustPill({
   label: string;
 }) {
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[12px] font-medium text-white backdrop-blur-sm">
+    <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-2.5 py-1.5 text-[11px] font-medium text-white backdrop-blur-sm">
       {icon}
       <span>{label}</span>
     </div>
@@ -325,7 +335,7 @@ function HubPanel({
   return (
     <button
       onClick={onClick}
-      className={`rounded-xl border p-4 text-left transition ${
+      className={`rounded-xl border p-3.5 text-left transition ${
         active
           ? "border-[#007185] bg-[#E6F4F1]"
           : "border-[#d5d9d9] bg-[#F8FAFA] hover:border-[#aab7b8]"
@@ -334,22 +344,20 @@ function HubPanel({
       <div className="mb-2 inline-flex rounded-lg bg-white p-2 text-[#007185] shadow-sm">
         {icon}
       </div>
-      <p className="text-[15px] font-bold text-[#0F1111]">{title}</p>
+      <p className="text-[14px] font-bold text-[#0F1111]">{title}</p>
       <p className="mt-1 text-[12px] leading-snug text-[#565959]">{subtitle}</p>
     </button>
   );
 }
 
-function CategoryStrip({
+function DealsStrip({
   title,
   subtitle,
   items,
-  onItemClick,
 }: {
   title: string;
   subtitle: string;
-  items: CategoryItem[];
-  onItemClick: (item: CategoryItem) => void;
+  items: FeaturedDeal[];
 }) {
   return (
     <section className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm md:p-5">
@@ -358,33 +366,50 @@ function CategoryStrip({
 
       <div className="mt-4 grid grid-cols-2 gap-3">
         {items.map((item) => (
-          <button
-            key={item.path}
-            onClick={() => onItemClick(item)}
+          <a
+            key={item.id}
+            href={item.url}
+            target="_blank"
+            rel="noreferrer sponsored"
             className="group rounded-xl border border-[#d5d9d9] bg-[#F8FAFA] p-3 text-left transition hover:border-[#aab7b8] hover:bg-white"
           >
-            <div className="relative h-[90px] overflow-hidden rounded-lg bg-white">
+            <div className="relative h-[84px] overflow-hidden rounded-lg bg-white">
               <Image
-                src={item.imageSrc}
-                alt={item.title}
+                src={item.imageUrl}
+                alt={item.name}
                 fill
                 sizes="(max-width: 768px) 42vw, 260px"
                 className="object-contain p-2"
                 unoptimized
               />
             </div>
-            <p className="mt-3 line-clamp-2 text-[13px] font-bold leading-snug text-[#0F1111]">
-              {item.title}
+            <p className="mt-3 line-clamp-2 text-[12px] font-bold leading-snug text-[#0F1111]">
+              {item.name}
             </p>
-            <span className="mt-2 inline-flex items-center gap-1 text-[12px] font-medium text-[#007185]">
-              Ver categoria
-              <ChevronRight className="h-3.5 w-3.5" />
-            </span>
-          </button>
+            <p className="mt-1 text-[11px] text-[#565959]">{item.categoryName}</p>
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <span className="rounded-full bg-[#CC0C39] px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white">
+                -{item.discountPercent}%
+              </span>
+              <span className="text-[13px] font-bold text-[#0F1111]">
+                {formatCurrency(item.totalPrice)}
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] text-[#565959]">
+              Media 30d: {formatCurrency(item.averagePrice30d)}
+            </p>
+          </a>
         ))}
       </div>
     </section>
   );
+}
+
+function formatCurrency(value: number) {
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
 }
 
 interface CategoryCardProps {
@@ -404,7 +429,7 @@ function CategoryCard({ title, imageSrc, onClick, disabled }: CategoryCardProps)
           : "cursor-pointer border-[#d5d9d9] bg-[#F8FAFA] hover:border-[#aab7b8] hover:bg-white"
       }`}
     >
-      <div className="relative h-[116px] overflow-hidden rounded-lg bg-white">
+      <div className="relative h-[98px] overflow-hidden rounded-lg bg-white md:h-[116px]">
         <Image
           src={imageSrc}
           alt={title}
@@ -415,7 +440,7 @@ function CategoryCard({ title, imageSrc, onClick, disabled }: CategoryCardProps)
         />
       </div>
 
-      <h2 className="mt-3 min-h-[36px] text-[14px] font-bold leading-tight text-[#0F1111]">
+      <h2 className="mt-3 min-h-[34px] text-[13px] font-bold leading-tight text-[#0F1111] md:text-[14px]">
         {title}
       </h2>
 
