@@ -233,9 +233,6 @@ export default function HomePageClient({
                   <h3 className="text-[18px] font-bold text-[#0F1111]">
                     Melhores ofertas do momento
                   </h3>
-                  <p className="mt-1 text-[12px] text-[#565959]">
-                    Produtos com maior desconto versus a média de 30 dias.
-                  </p>
                 </div>
 
                 <button
