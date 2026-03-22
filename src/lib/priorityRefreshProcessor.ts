@@ -243,9 +243,6 @@ async function persistDynamicUpdate(productId: string, result: PriceResult) {
     data: {
       totalPrice: result.price,
       url: result.affiliateUrl,
-      ratingAverage: result.ratingAverage,
-      ratingCount: result.ratingCount,
-      ratingsUpdatedAt: new Date(),
       attributes,
     },
   });
