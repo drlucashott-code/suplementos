@@ -10,6 +10,9 @@ export type BestDeal = {
   totalPrice: number;
   averagePrice30d: number;
   discountPercent: number;
+  ratingAverage: number | null;
+  ratingCount: number | null;
+  attributes: Record<string, string | number | boolean | null>;
   categoryName: string;
   categoryGroup: string;
   categorySlug: string;
@@ -29,6 +32,9 @@ export async function getBestDeals(
       totalPrice: number;
       averagePrice30d: number;
       discountPercent: number;
+      ratingAverage: number | null;
+      ratingCount: number | null;
+      attributes: unknown;
       categoryName: string;
       categoryGroup: string;
       categorySlug: string;
@@ -43,6 +49,9 @@ export async function getBestDeals(
       p."totalPrice",
       p."averagePrice30d",
       ROUND((((p."averagePrice30d" - p."totalPrice") / p."averagePrice30d") * 100))::int AS "discountPercent",
+      p."ratingAverage",
+      p."ratingCount",
+      p."attributes",
       c."name" AS "categoryName",
       c."group" AS "categoryGroup",
       c."slug" AS "categorySlug"
@@ -71,6 +80,12 @@ export async function getBestDeals(
     totalPrice: row.totalPrice,
     averagePrice30d: row.averagePrice30d,
     discountPercent: row.discountPercent,
+    ratingAverage: row.ratingAverage,
+    ratingCount: row.ratingCount,
+    attributes:
+      row.attributes && typeof row.attributes === "object"
+        ? (row.attributes as Record<string, string | number | boolean | null>)
+        : {},
     categoryName: row.categoryName,
     categoryGroup: row.categoryGroup,
     categorySlug: row.categorySlug,

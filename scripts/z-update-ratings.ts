@@ -99,6 +99,8 @@ async function main() {
   const products = await prisma.dynamicProduct.findMany({
     where: {
       OR: [
+        { ratingAverage: null },
+        { ratingCount: null },
         { ratingsUpdatedAt: null },
         { ratingsUpdatedAt: { lt: trintaDiasAtras } },
       ],

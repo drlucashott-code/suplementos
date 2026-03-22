@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "./Header";
 import FeedbackModal from "./FeedbackModal";
-import TrackedDealLink from "@/components/TrackedDealLink";
+import BestDealProductCard from "@/components/BestDealProductCard";
 import type { BestDeal } from "@/lib/bestDeals";
 
 function TrackHomeView() {
@@ -237,7 +237,12 @@ export default function HomePageClient({
 
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
                 {bestDeals.map((item) => (
-                  <BestDealCard key={item.id} item={item} />
+                  <BestDealProductCard
+                    key={item.id}
+                    item={item}
+                    category="home_ofertas"
+                    compact
+                  />
                 ))}
               </div>
 
@@ -344,55 +349,6 @@ function HubPanel({
       <p className="mt-1 text-[12px] leading-snug text-[#565959]">{subtitle}</p>
     </button>
   );
-}
-
-function BestDealCard({ item }: { item: BestDeal }) {
-  return (
-    <TrackedDealLink
-      asin={item.asin}
-      href={item.url}
-      productId={item.id}
-      productName={item.name}
-      value={item.totalPrice}
-      category="home_ofertas"
-      className="group rounded-xl border border-[#d5d9d9] bg-[#F8FAFA] p-3 text-left transition hover:border-[#aab7b8] hover:bg-white"
-    >
-      <div className="relative h-[88px] overflow-hidden rounded-lg bg-white">
-        <Image
-          src={item.imageUrl}
-          alt={item.name}
-          fill
-          sizes="(max-width: 768px) 42vw, 220px"
-          className="object-contain p-2"
-          unoptimized
-        />
-      </div>
-      <p className="mt-3 line-clamp-2 text-[12px] font-bold leading-snug text-[#0F1111]">
-        {item.name}
-      </p>
-      <p className="mt-1 text-[11px] text-[#565959]">{item.categoryName}</p>
-      <div className="mt-2 flex justify-center">
-        <span className="rounded-full bg-[#CC0C39] px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white">
-          -{item.discountPercent}%
-        </span>
-      </div>
-      <div className="mt-2 text-center">
-        <div className="text-[18px] font-black leading-none text-[#0F1111]">
-          {formatCurrency(item.totalPrice)}
-        </div>
-        <p className="mt-1 text-[11px] text-[#565959]">
-          De: <span className="line-through">{formatCurrency(item.averagePrice30d)}</span>
-        </p>
-      </div>
-    </TrackedDealLink>
-  );
-}
-
-function formatCurrency(value: number) {
-  return value.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
 }
 
 interface CategoryCardProps {
