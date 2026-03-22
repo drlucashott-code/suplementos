@@ -3,10 +3,7 @@
 import Link from "next/link";
 import { Bookmark } from "lucide-react";
 import { useEffect, useState } from "react";
-import {
-  SAVED_DEALS_EVENT,
-  getSavedDeals,
-} from "@/lib/client/savedDeals";
+import { SAVED_DEALS_EVENT, getSavedDeals } from "@/lib/client/savedDeals";
 
 export default function SavedDealsLink() {
   const [count, setCount] = useState(0);
@@ -27,11 +24,12 @@ export default function SavedDealsLink() {
   return (
     <Link
       href="/salvos"
-      className="inline-flex h-11 shrink-0 items-center gap-2 rounded-md border border-white/10 bg-[#232f3e] px-3 text-sm font-medium text-white transition hover:border-white/20 hover:bg-[#2d3f58]"
+      className="relative inline-grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-md bg-[#febd69] text-[0] text-[#131921] shadow-sm transition hover:bg-[#f3a847]"
+      aria-label="Ofertas salvas"
+      title="Ofertas salvas"
     >
-      <Bookmark className="h-4 w-4" />
-      <span>Salvos</span>
-      <span className="rounded-full bg-[#febd69] px-2 py-0.5 text-[11px] font-bold text-[#131921]">
+      <Bookmark className="h-5 w-5" />
+      <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#131921] px-1 text-[10px] font-bold text-white">
         {count}
       </span>
     </Link>

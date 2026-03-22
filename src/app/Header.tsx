@@ -158,7 +158,9 @@ export default function Header({ extraCategories = [] }: HeaderProps) {
           )}
         </div>
 
-        <SavedDealsLink />
+        <div className="ml-1 flex shrink-0 items-center">
+          <SavedDealsLink />
+        </div>
       </div>
     </header>
   );

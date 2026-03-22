@@ -1,17 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { AlertTriangle, Bookmark, ThumbsDown, ThumbsUp, X } from "lucide-react";
+import { AlertTriangle, Bookmark, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import TrackedDealLink from "@/components/TrackedDealLink";
 import type { BestDeal } from "@/lib/bestDeals";
-import {
-  DEAL_REACTIONS_EVENT,
-  getAnonymousVisitorId,
-  getStoredReaction,
-  setStoredReaction,
-  type DealReaction,
-} from "@/lib/client/dealReactions";
 import { SAVED_DEALS_EVENT, isDealSaved, toggleSavedDeal } from "@/lib/client/savedDeals";
 
 const REPORT_REASONS = [
@@ -82,64 +75,22 @@ export default function BestDealProductCard({
   const [reportState, setReportState] = useState<"idle" | "submitting" | "success" | "error">(
     "idle"
   );
-  const [reaction, setReaction] = useState<DealReaction>(null);
-  const [likeCount, setLikeCount] = useState(item.likeCount);
-  const [dislikeCount, setDislikeCount] = useState(item.dislikeCount);
 
   useEffect(() => {
     setSaved(isDealSaved(item.asin));
-    setReaction(getStoredReaction(item.asin));
   }, [item.asin]);
 
   useEffect(() => {
     const syncSaved = () => setSaved(isDealSaved(item.asin));
-    const syncReaction = () => setReaction(getStoredReaction(item.asin));
 
     window.addEventListener("storage", syncSaved);
     window.addEventListener(SAVED_DEALS_EVENT, syncSaved);
-    window.addEventListener("storage", syncReaction);
-    window.addEventListener(DEAL_REACTIONS_EVENT, syncReaction);
 
     return () => {
       window.removeEventListener("storage", syncSaved);
       window.removeEventListener(SAVED_DEALS_EVENT, syncSaved);
-      window.removeEventListener("storage", syncReaction);
-      window.removeEventListener(DEAL_REACTIONS_EVENT, syncReaction);
     };
   }, [item.asin]);
-
-  async function handleReaction(next: "like" | "dislike") {
-    try {
-      const response = await fetch("/api/product-reactions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          asin: item.asin,
-          visitorId: getAnonymousVisitorId(),
-          reaction: next,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("reaction_failed");
-      }
-
-      const payload = (await response.json()) as {
-        reaction: DealReaction;
-        likeCount: number;
-        dislikeCount: number;
-      };
-
-      setStoredReaction(item.asin, payload.reaction);
-      setReaction(payload.reaction);
-      setLikeCount(payload.likeCount);
-      setDislikeCount(payload.dislikeCount);
-    } catch (error) {
-      console.error("Erro ao registrar reação:", error);
-    }
-  }
 
   async function submitReport() {
     if (reportState === "submitting") return;
@@ -237,44 +188,6 @@ export default function BestDealProductCard({
               className="object-contain p-2"
               unoptimized
             />
-          </div>
-
-          <div className="mt-2 flex items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                handleReaction("like");
-              }}
-              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
-                reaction === "like"
-                  ? "border-green-200 bg-green-50 text-green-700"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-              }`}
-              aria-label="Gostei"
-            >
-              <ThumbsUp className="h-3.5 w-3.5" />
-              {formatCount(likeCount)}
-            </button>
-
-            <button
-              type="button"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                handleReaction("dislike");
-              }}
-              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
-                reaction === "dislike"
-                  ? "border-red-200 bg-red-50 text-red-700"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-              }`}
-              aria-label="Não gostei"
-            >
-              <ThumbsDown className="h-3.5 w-3.5" />
-              {formatCount(dislikeCount)}
-            </button>
           </div>
 
           <p

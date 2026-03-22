@@ -1,16 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { AlertTriangle, Bookmark, ThumbsDown, ThumbsUp, X } from "lucide-react";
+import { AlertTriangle, Bookmark, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { trackProductClick } from "@/lib/client/productClickTracking";
-import {
-  DEAL_REACTIONS_EVENT,
-  getAnonymousVisitorId,
-  getStoredReaction,
-  setStoredReaction,
-  type DealReaction,
-} from "@/lib/client/dealReactions";
 import type { SaveableDeal } from "@/lib/client/savedDeals";
 import { SAVED_DEALS_EVENT, isDealSaved, toggleSavedDeal } from "@/lib/client/savedDeals";
 
@@ -199,9 +192,6 @@ export function MobileProductCard({
   const [reportState, setReportState] = useState<"idle" | "submitting" | "success" | "error">(
     "idle"
   );
-  const [reaction, setReaction] = useState<DealReaction>(null);
-  const [likeCount, setLikeCount] = useState(product.likeCount ?? 0);
-  const [dislikeCount, setDislikeCount] = useState(product.dislikeCount ?? 0);
 
   const hasPrice = typeof product.price === "number" && product.price > 0;
   const intCents = hasPrice ? product.price.toFixed(2).split(".") : null;
@@ -218,25 +208,19 @@ export function MobileProductCard({
   useEffect(() => {
     if (!asin) return;
     setSaved(isDealSaved(asin));
-    setReaction(getStoredReaction(asin));
   }, [asin]);
 
   useEffect(() => {
     if (!asin) return;
 
     const syncSaved = () => setSaved(isDealSaved(asin));
-    const syncReaction = () => setReaction(getStoredReaction(asin));
 
     window.addEventListener("storage", syncSaved);
     window.addEventListener(SAVED_DEALS_EVENT, syncSaved);
-    window.addEventListener("storage", syncReaction);
-    window.addEventListener(DEAL_REACTIONS_EVENT, syncReaction);
 
     return () => {
       window.removeEventListener("storage", syncSaved);
       window.removeEventListener(SAVED_DEALS_EVENT, syncSaved);
-      window.removeEventListener("storage", syncReaction);
-      window.removeEventListener(DEAL_REACTIONS_EVENT, syncReaction);
     };
   }, [asin]);
 
@@ -281,39 +265,6 @@ export function MobileProductCard({
     });
   };
 
-  async function handleReaction(next: "like" | "dislike") {
-    if (!asin) return;
-
-    try {
-      const response = await fetch("/api/product-reactions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          asin,
-          visitorId: getAnonymousVisitorId(),
-          reaction: next,
-        }),
-      });
-
-      if (!response.ok) throw new Error("reaction_failed");
-
-      const payload = (await response.json()) as {
-        reaction: DealReaction;
-        likeCount: number;
-        dislikeCount: number;
-      };
-
-      setStoredReaction(asin, payload.reaction);
-      setReaction(payload.reaction);
-      setLikeCount(payload.likeCount);
-      setDislikeCount(payload.dislikeCount);
-    } catch (error) {
-      console.error("Erro ao registrar reação:", error);
-    }
-  }
-
   function buildSaveableDeal(): SaveableDeal | null {
     if (!asin) return null;
 
@@ -328,8 +279,8 @@ export function MobileProductCard({
       discountPercent: product.discountPercent ?? 0,
       ratingAverage: product.ratingAverage ?? null,
       ratingCount: product.ratingCount ?? null,
-      likeCount,
-      dislikeCount,
+      likeCount: 0,
+      dislikeCount: 0,
       categoryName: "Categoria",
       categoryGroup: "dinamica",
       categorySlug: "",
@@ -379,37 +330,6 @@ export function MobileProductCard({
           </div>
         )}
 
-        <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setReportOpen(true);
-              setReportState("idle");
-            }}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:text-[#0F1111]"
-            aria-label="Reportar problema"
-          >
-            <AlertTriangle className="h-4 w-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              const deal = buildSaveableDeal();
-              if (!deal) return;
-              setSaved(toggleSavedDeal(deal));
-            }}
-            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border shadow-sm transition ${
-              saved
-                ? "border-[#f0c14b] bg-[#fff7d6] text-[#b77900]"
-                : "border-gray-200 bg-white text-gray-500 hover:text-[#0F1111]"
-            }`}
-            aria-label={saved ? "Remover dos salvos" : "Salvar oferta"}
-          >
-            <Bookmark className={`h-4 w-4 ${saved ? "fill-current" : ""}`} />
-          </button>
-        </div>
-
         <div className="relative flex w-[160px] flex-shrink-0 flex-col items-center justify-center bg-[#f3f3f3] p-3">
           {product.imageUrl ? (
             <div className="flex h-[220px] w-full items-center justify-center">
@@ -430,30 +350,33 @@ export function MobileProductCard({
           <div className="mt-2 flex items-center justify-center gap-2">
             <button
               type="button"
-              onClick={() => handleReaction("like")}
-              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
-                reaction === "like"
-                  ? "border-green-200 bg-green-50 text-green-700"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-              }`}
-              aria-label="Gostei"
+              onClick={() => {
+                setReportOpen(true);
+                setReportState("idle");
+              }}
+              className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-600 transition hover:border-gray-300"
+              aria-label="Reportar problema"
             >
-              <ThumbsUp className="h-3.5 w-3.5" />
-              {likeCount.toLocaleString("pt-BR")}
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Reportar
             </button>
 
             <button
               type="button"
-              onClick={() => handleReaction("dislike")}
+              onClick={() => {
+                const deal = buildSaveableDeal();
+                if (!deal) return;
+                setSaved(toggleSavedDeal(deal));
+              }}
               className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
-                reaction === "dislike"
-                  ? "border-red-200 bg-red-50 text-red-700"
+                saved
+                  ? "border-[#f0c14b] bg-[#fff7d6] text-[#b77900]"
                   : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
               }`}
-              aria-label="Não gostei"
+              aria-label={saved ? "Remover dos salvos" : "Salvar oferta"}
             >
-              <ThumbsDown className="h-3.5 w-3.5" />
-              {dislikeCount.toLocaleString("pt-BR")}
+              <Bookmark className={`h-3.5 w-3.5 ${saved ? "fill-current" : ""}`} />
+              {saved ? "Salvo" : "Salvar"}
             </button>
           </div>
         </div>
