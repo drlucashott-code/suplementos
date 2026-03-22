@@ -163,7 +163,7 @@ export default function HomePageClient({
               </div>
             </div>
 
-            <div className="hidden grid-cols-2 gap-3 md:grid">
+            <div className="grid grid-cols-2 gap-3">
               <QuickCategoryCard
                 title="Whey Protein"
                 subtitle="Proteina e custo real"
@@ -177,19 +177,16 @@ export default function HomePageClient({
                 onClick={() => router.push("/suplementos/creatina")}
               />
               <QuickCategoryCard
-                title="Casa"
-                subtitle="Higiene e limpeza"
-                imageSrc={
-                  houseCategories[0]?.imageSrc ||
-                  "https://m.media-amazon.com/images/I/618cxCZ8wHL._AC_SL1000_.jpg"
-                }
-                onClick={() => handleHubClick("casa")}
+                title="Papel higienico"
+                subtitle="Preço por metro"
+                imageSrc="https://m.media-amazon.com/images/I/71uftHmzxQL._AC_SL1500_.jpg"
+                onClick={() => router.push("/casa/papel-higienico")}
               />
               <QuickCategoryCard
-                title="Pre-treino"
-                subtitle="Cafeina e custo por dose"
-                imageSrc="https://m.media-amazon.com/images/I/61fGbsRyDWL._AC_SL1333_.jpg"
-                onClick={() => router.push("/suplementos/pre-treino")}
+                title="Sabao para roupas"
+                subtitle="Preço por lavagem"
+                imageSrc="https://m.media-amazon.com/images/I/71bXBFl912L._AC_SL1500_.jpg"
+                onClick={() => router.push("/casa/lava-roupa")}
               />
             </div>
           </div>
@@ -303,7 +300,7 @@ function QuickCategoryCard({
       onClick={onClick}
       className="group overflow-hidden rounded-2xl border border-white/10 bg-white/8 p-3 text-left transition hover:bg-white/12"
     >
-      <div className="relative h-[96px] overflow-hidden rounded-xl bg-white/95">
+      <div className="relative h-[82px] overflow-hidden rounded-xl bg-white/95 md:h-[96px]">
         <Image
           src={imageSrc}
           alt={title}
@@ -313,8 +310,10 @@ function QuickCategoryCard({
           unoptimized
         />
       </div>
-      <p className="mt-3 text-[14px] font-bold text-white">{title}</p>
-      <p className="text-[12px] text-white/76">{subtitle}</p>
+      <p className="mt-2 text-[13px] font-bold leading-tight text-white md:mt-3 md:text-[14px]">
+        {title}
+      </p>
+      <p className="text-[11px] text-white/76 md:text-[12px]">{subtitle}</p>
     </button>
   );
 }
