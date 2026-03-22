@@ -1,11 +1,16 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const CLICK_TIMEZONE = "America/Sao_Paulo";
+const SORTABLE_COLUMNS = ["clicks", "lastClick"] as const;
+
+type SortKey = (typeof SORTABLE_COLUMNS)[number];
+type SortDirection = "asc" | "desc";
 
 type ClickedProductRow = {
   id: string;
@@ -14,6 +19,7 @@ type ClickedProductRow = {
   asin: string;
   clickCount: number;
   lastClickedAt: Date | null;
+  lastClickedAtLabel: string | null;
   lastSource: string | null;
   lastMedium: string | null;
   lastCampaign: string | null;
@@ -29,24 +35,10 @@ type SourceSummaryRow = {
 
 type DailyClickRow = {
   day: string;
+  dayLabel: string;
   clickCount: number;
   uniqueProducts: number;
 };
-
-function formatClickDateTime(value: Date | string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: CLICK_TIMEZONE,
-    dateStyle: "short",
-    timeStyle: "medium",
-  }).format(new Date(value));
-}
-
-function formatClickDate(value: Date | string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: CLICK_TIMEZONE,
-    dateStyle: "short",
-  }).format(new Date(value));
-}
 
 function getSourceLabel(value: string | null) {
   if (!value) {
@@ -56,7 +48,43 @@ function getSourceLabel(value: string | null) {
   return value;
 }
 
-async function getClickedProducts(): Promise<ClickedProductRow[]> {
+function getSortConfig(
+  sort: string | undefined,
+  direction: string | undefined
+): { sortKey: SortKey; sortDirection: SortDirection } {
+  const sortKey = SORTABLE_COLUMNS.includes(sort as SortKey)
+    ? (sort as SortKey)
+    : "clicks";
+  const sortDirection = direction === "asc" ? "asc" : "desc";
+
+  return { sortKey, sortDirection };
+}
+
+function getNextDirection(
+  activeSortKey: SortKey,
+  activeDirection: SortDirection,
+  nextSortKey: SortKey
+) {
+  if (activeSortKey !== nextSortKey) {
+    return "desc";
+  }
+
+  return activeDirection === "desc" ? "asc" : "desc";
+}
+
+async function getClickedProducts(
+  sortKey: SortKey,
+  sortDirection: SortDirection
+): Promise<ClickedProductRow[]> {
+  const orderByClause =
+    sortKey === "lastClick"
+      ? sortDirection === "asc"
+        ? Prisma.sql`ORDER BY s."lastClickedAt" ASC NULLS LAST, s."clickCount" DESC`
+        : Prisma.sql`ORDER BY s."lastClickedAt" DESC NULLS LAST, s."clickCount" DESC`
+      : sortDirection === "asc"
+        ? Prisma.sql`ORDER BY s."clickCount" ASC, s."lastClickedAt" DESC NULLS LAST`
+        : Prisma.sql`ORDER BY s."clickCount" DESC, s."lastClickedAt" DESC NULLS LAST`;
+
   const rows = await prisma.$queryRaw<ClickedProductRow[]>`
     SELECT
       p."id",
@@ -65,6 +93,10 @@ async function getClickedProducts(): Promise<ClickedProductRow[]> {
       p."asin",
       s."clickCount",
       s."lastClickedAt",
+      TO_CHAR(
+        (s."lastClickedAt" AT TIME ZONE 'UTC') AT TIME ZONE ${CLICK_TIMEZONE},
+        'DD/MM/YYYY HH24:MI:SS'
+      ) AS "lastClickedAtLabel",
       (
         SELECT COALESCE(
           NULLIF(e."utmSource", ''),
@@ -133,7 +165,7 @@ async function getClickedProducts(): Promise<ClickedProductRow[]> {
       ) AS "topSourceCount"
     FROM "DynamicProductClickStats" s
     INNER JOIN "DynamicProduct" p ON p."id" = s."productId"
-    ORDER BY s."clickCount" DESC, s."lastClickedAt" DESC NULLS LAST
+    ${orderByClause}
   `;
 
   return rows.map((row) => ({
@@ -168,9 +200,19 @@ async function getDailyClickSummary(): Promise<DailyClickRow[]> {
   const rows = await prisma.$queryRaw<DailyClickRow[]>`
     SELECT
       TO_CHAR(
-        DATE_TRUNC('day', "createdAt" AT TIME ZONE ${CLICK_TIMEZONE}),
+        DATE_TRUNC(
+          'day',
+          ("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${CLICK_TIMEZONE}
+        ),
         'YYYY-MM-DD'
       ) AS "day",
+      TO_CHAR(
+        DATE_TRUNC(
+          'day',
+          ("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${CLICK_TIMEZONE}
+        ),
+        'DD/MM/YYYY'
+      ) AS "dayLabel",
       COUNT(*) AS "clickCount",
       COUNT(DISTINCT "productId") AS "uniqueProducts"
     FROM "DynamicProductClickEvent"
@@ -181,14 +223,51 @@ async function getDailyClickSummary(): Promise<DailyClickRow[]> {
 
   return rows.map((row) => ({
     day: row.day,
+    dayLabel: row.dayLabel,
     clickCount: Number(row.clickCount) || 0,
     uniqueProducts: Number(row.uniqueProducts) || 0,
   }));
 }
 
-export default async function AdminDynamicClicksPage() {
+function SortLink({
+  label,
+  sortKey,
+  activeSortKey,
+  activeDirection,
+}: {
+  label: string;
+  sortKey: SortKey;
+  activeSortKey: SortKey;
+  activeDirection: SortDirection;
+}) {
+  const nextDirection = getNextDirection(activeSortKey, activeDirection, sortKey);
+  const isActive = activeSortKey === sortKey;
+  const arrow = !isActive ? "" : activeDirection === "desc" ? " ↓" : " ↑";
+
+  return (
+    <Link
+      href={`/admin/dynamic/cliques?sort=${sortKey}&direction=${nextDirection}`}
+      className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-wide transition ${
+        isActive
+          ? "border-blue-200 bg-blue-50 text-blue-700"
+          : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:text-black"
+      }`}
+    >
+      {label}
+      {arrow}
+    </Link>
+  );
+}
+
+export default async function AdminDynamicClicksPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string; direction?: string }>;
+}) {
+  const params = await searchParams;
+  const { sortKey, sortDirection } = getSortConfig(params.sort, params.direction);
   const [clickedProducts, sourceSummary, dailySummary] = await Promise.all([
-    getClickedProducts(),
+    getClickedProducts(sortKey, sortDirection),
     getSourceSummary(),
     getDailyClickSummary(),
   ]);
@@ -260,7 +339,7 @@ export default async function AdminDynamicClicksPage() {
               Ultimo clique
             </div>
             <div className="mt-2 text-sm font-black text-gray-900">
-              {lastClick ? formatClickDateTime(lastClick) : "Sem cliques"}
+              {clickedProducts[0]?.lastClickedAtLabel || "Sem cliques"}
             </div>
           </div>
 
@@ -307,7 +386,7 @@ export default async function AdminDynamicClicksPage() {
                   {dailySummary.map((day) => (
                     <tr key={day.day}>
                       <td className="px-2 py-3 text-sm font-bold text-gray-900">
-                        {formatClickDate(day.day)}
+                        {day.dayLabel}
                       </td>
                       <td className="px-2 py-3 text-center text-sm font-black text-gray-900">
                         {day.clickCount}
@@ -321,6 +400,21 @@ export default async function AdminDynamicClicksPage() {
               </table>
             </div>
           )}
+        </div>
+
+        <div className="mb-4 flex flex-wrap gap-2">
+          <SortLink
+            label="Ordenar por cliques"
+            sortKey="clicks"
+            activeSortKey={sortKey}
+            activeDirection={sortDirection}
+          />
+          <SortLink
+            label="Ordenar por ultimo clique"
+            sortKey="lastClick"
+            activeSortKey={sortKey}
+            activeDirection={sortDirection}
+          />
         </div>
 
         <div className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-xl shadow-gray-200/50">
@@ -396,9 +490,7 @@ export default async function AdminDynamicClicksPage() {
                       </td>
 
                       <td className="p-4 text-center text-[12px] font-bold text-gray-500">
-                        {product.lastClickedAt
-                          ? formatClickDateTime(product.lastClickedAt)
-                          : "Nunca"}
+                        {product.lastClickedAtLabel || "Nunca"}
                       </td>
 
                       <td className="p-4 text-center">
