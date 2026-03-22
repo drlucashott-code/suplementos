@@ -24,10 +24,10 @@ type HeaderProps = {
 const BASE_CATEGORIES: SearchCategory[] = [
   { name: "Creatina", path: "/suplementos/creatina", keywords: ["creatina", "creatine"] },
   { name: "Whey Protein", path: "/suplementos/whey", keywords: ["whey", "protein", "proteina"] },
-  { name: "Barra de Proteina", path: "/suplementos/barra", keywords: ["barra", "barrinha"] },
-  { name: "Pre-Treino", path: "/suplementos/pre-treino", keywords: ["pre", "treino", "pretreino"] },
-  { name: "Bebida Proteica", path: "/suplementos/bebidaproteica", keywords: ["bebida", "pronta"] },
-  { name: "Cafe Funcional", path: "/suplementos/cafe-funcional", keywords: ["cafe", "funcional"] },
+  { name: "Barra de proteína", path: "/suplementos/barra", keywords: ["barra", "barrinha"] },
+  { name: "Pré-treino", path: "/suplementos/pre-treino", keywords: ["pre", "treino", "pretreino"] },
+  { name: "Bebida proteica", path: "/suplementos/bebidaproteica", keywords: ["bebida", "pronta"] },
+  { name: "Café funcional", path: "/suplementos/cafe-funcional", keywords: ["cafe", "funcional"] },
 ];
 
 export default function Header({ extraCategories = [] }: HeaderProps) {
@@ -104,7 +104,7 @@ export default function Header({ extraCategories = [] }: HeaderProps) {
     } else if (suggestions.length > 0) {
       router.push(suggestions[0].path);
     } else {
-      console.warn("Categoria nao identificada para a busca:", query);
+      console.warn("Categoria não identificada para a busca:", query);
     }
 
     setShowSuggestions(false);
@@ -126,7 +126,7 @@ export default function Header({ extraCategories = [] }: HeaderProps) {
               value={query}
               onChange={handleInputChange}
               onFocus={() => query.length > 0 && setShowSuggestions(true)}
-              placeholder="O que voce esta procurando?"
+              placeholder="O que você está procurando?"
               className="h-11 w-full rounded-l-md border-none bg-white px-4 text-[15px] text-black outline-none"
             />
             <button

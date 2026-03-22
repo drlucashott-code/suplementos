@@ -27,17 +27,17 @@ const houseCategoryFallbacks: CategoryItem[] = [
     path: "/casa/fralda",
   },
   {
-    title: "Papel higienico",
+    title: "Papel higiênico",
     imageSrc: "https://m.media-amazon.com/images/I/71uftHmzxQL._AC_SL1500_.jpg",
     path: "/casa/papel-higienico",
   },
   {
-    title: "Sabao para roupas",
+    title: "Sabão para roupas",
     imageSrc: "https://m.media-amazon.com/images/I/71bXBFl912L._AC_SL1500_.jpg",
     path: "/casa/lava-roupa",
   },
   {
-    title: "Sabao para loucas",
+    title: "Sabão para louças",
     imageSrc: "https://m.media-amazon.com/images/I/71cHvPHeE7L._AC_SL1500_.jpg",
     path: "/casa/sabao-para-loucas",
   },

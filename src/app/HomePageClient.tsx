@@ -42,7 +42,7 @@ export type FeaturedDeal = {
 
 const supplementsCategories: CategoryItem[] = [
   {
-    title: "Barra de proteina",
+    title: "Barra de proteína",
     imageSrc: "https://m.media-amazon.com/images/I/61RDMRO3uCL._AC_SL1200_.jpg",
     path: "/suplementos/barra",
   },
@@ -52,7 +52,7 @@ const supplementsCategories: CategoryItem[] = [
     path: "/suplementos/bebidaproteica",
   },
   {
-    title: "Cafe funcional",
+    title: "Café funcional",
     imageSrc: "https://m.media-amazon.com/images/I/61hwrgvkjrL._AC_SL1210_.jpg",
     path: "/suplementos/cafe-funcional",
   },
@@ -62,7 +62,7 @@ const supplementsCategories: CategoryItem[] = [
     path: "/suplementos/creatina",
   },
   {
-    title: "Pre-treino",
+    title: "Pré-treino",
     imageSrc: "https://m.media-amazon.com/images/I/61fGbsRyDWL._AC_SL1333_.jpg",
     path: "/suplementos/pre-treino",
   },
@@ -106,6 +106,7 @@ export default function HomePageClient({
   );
 
   const visibleCategories = categoryGroups[selectedHub];
+
   const handleCategoryClick = (path: string, categoryName: string) => {
     const win = window as typeof window & { dataLayer?: object[] };
     if (win.dataLayer) {
@@ -138,7 +139,7 @@ export default function HomePageClient({
       <Header extraCategories={houseCategories} />
 
       <div className="bg-[#37475A] px-4 py-2 text-center text-[11px] font-medium text-white">
-        Compare ofertas Amazon com leitura tecnica de preco.
+        Compare ofertas Amazon com leitura técnica de preço.
       </div>
 
       <div className="mx-auto max-w-[1500px] px-3 pb-8 pt-4 md:px-5">
@@ -149,24 +150,23 @@ export default function HomePageClient({
                 Amazon Picks
               </p>
               <h1 className="max-w-2xl text-[20px] font-bold leading-tight md:text-[34px]">
-                Encontre a categoria certa e compare pelo criterio que realmente importa.
+                Encontre a categoria certa e compare pelo critério que realmente importa.
               </h1>
               <p className="mt-2 max-w-xl text-[12px] leading-relaxed text-white/84 md:mt-3 md:text-[14px]">
-                Preco por dose, por unidade, por grama e historico de 30 dias para
+                Preço por dose, por unidade, por grama e histórico de 30 dias para
                 decidir melhor antes de abrir a oferta na Amazon.
               </p>
 
               <div className="mt-3 flex flex-wrap gap-2">
-                <TrustPill icon={<BarChart3 className="h-3.5 w-3.5" />} label="Analise tecnica" />
-                <TrustPill icon={<TrendingUp className="h-3.5 w-3.5" />} label="Historico de 30 dias" />
-                <TrustPill icon={<ShieldCheck className="h-3.5 w-3.5" />} label="Ofertas Amazon" />
+                <TrustPill icon={<BarChart3 className="h-3.5 w-3.5" />} label="Análise técnica" />
+                <TrustPill icon={<TrendingUp className="h-3.5 w-3.5" />} label="Histórico de 30 dias" />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <QuickCategoryCard
                 title="Whey Protein"
-                subtitle="Proteina e custo real"
+                subtitle="Proteína e custo real"
                 imageSrc="https://m.media-amazon.com/images/I/51lOuKbCawL._AC_SL1000_.jpg"
                 onClick={() => router.push("/suplementos/whey")}
               />
@@ -177,13 +177,13 @@ export default function HomePageClient({
                 onClick={() => router.push("/suplementos/creatina")}
               />
               <QuickCategoryCard
-                title="Papel higienico"
+                title="Papel higiênico"
                 subtitle="Preço por metro"
                 imageSrc="https://m.media-amazon.com/images/I/71uftHmzxQL._AC_SL1500_.jpg"
                 onClick={() => router.push("/casa/papel-higienico")}
               />
               <QuickCategoryCard
-                title="Sabao para roupas"
+                title="Sabão para roupas"
                 subtitle="Preço por lavagem"
                 imageSrc="https://m.media-amazon.com/images/I/71bXBFl912L._AC_SL1500_.jpg"
                 onClick={() => router.push("/casa/lava-roupa")}
@@ -223,7 +223,7 @@ export default function HomePageClient({
                       : "Compare por categoria em casa"}
                   </h2>
                   <p className="text-[12px] text-[#565959]">
-                    Abra uma categoria para ver os produtos com ordenacao e filtros proprios.
+                    Abra uma categoria para ver os produtos com ordenação e filtros próprios.
                   </p>
                 </div>
               </div>
@@ -244,7 +244,7 @@ export default function HomePageClient({
             <div className="grid gap-4 md:grid-cols-2">
               <DealsStrip
                 title="Suplementos em destaque"
-                subtitle="Produtos com maior desconto versus a media de 30 dias."
+                subtitle="Produtos com maior desconto versus a média de 30 dias."
                 items={supplementsDeals}
               />
               <DealsStrip
@@ -395,7 +395,7 @@ function DealsStrip({
               </span>
             </div>
             <p className="mt-1 text-[11px] text-[#565959]">
-              Media 30d: {formatCurrency(item.averagePrice30d)}
+              Média 30d: {formatCurrency(item.averagePrice30d)}
             </p>
           </a>
         ))}
