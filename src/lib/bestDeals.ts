@@ -73,7 +73,8 @@ export async function getBestDeals(
       c."slug" AS "categorySlug"
     FROM "DynamicProduct" p
     INNER JOIN "DynamicCategory" c ON c."id" = p."categoryId"
-    WHERE p."totalPrice" > 0
+    WHERE p."isVisibleOnSite" = true
+      AND p."totalPrice" > 0
       AND COALESCE(p."availabilityStatus", 'UNKNOWN') <> 'OUT_OF_STOCK'
       AND p."averagePrice30d" IS NOT NULL
       AND p."averagePrice30d" > p."totalPrice"

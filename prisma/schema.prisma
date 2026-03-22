@@ -148,6 +148,7 @@ model DynamicProduct {
   asin             String                @unique
   name             String
   totalPrice       Float
+  isVisibleOnSite  Boolean               @default(true)
   lastValidPrice   Float?
   lastValidPriceAt DateTime?
   availabilityStatus String?            @default("UNKNOWN")

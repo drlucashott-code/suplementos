@@ -1,10 +1,11 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   updateManyProducts,
+  updateManyProductsVisibility,
   updateDynamicProduct,
   deleteDynamicProduct,
   deleteManyProducts,
@@ -33,6 +34,7 @@ interface Product {
   name: string;
   imageUrl: string | null;
   totalPrice: number;
+  isVisibleOnSite?: boolean;
   url: string;
   attributes: Prisma.JsonValue;
   category: {
@@ -98,6 +100,9 @@ export function AdminProductTable({
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [showBrandFilter, setShowBrandFilter] = useState(false);
   const [brandFilterSearch, setBrandFilterSearch] = useState("");
+  const [siteVisibilityFilter, setSiteVisibilityFilter] = useState<
+    "all" | "visible" | "hidden"
+  >("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState<{
     key: string;
@@ -126,21 +131,6 @@ export function AdminProductTable({
     };
   }, [showBrandFilter]);
 
-  const dynamicColumns = useMemo(() => {
-    if (!hasCategoryFilter) return [];
-
-    const cat = initialProducts.find((p) => p.category.id === filterCategory);
-    const config = cat?.category?.displayConfig
-      ? normalizeDisplayConfig(cat.category.displayConfig)
-      : [];
-
-    return config.filter(
-      (c) =>
-        c.type !== "currency" &&
-        !["marca", "brand", "asin"].includes(c.key.toLowerCase())
-    );
-  }, [filterCategory, hasCategoryFilter, initialProducts]);
-
   const availableBrands = useMemo(() => {
     const brands = initialProducts
       .filter((p) => !hasCategoryFilter || p.category.id === filterCategory)
@@ -162,15 +152,20 @@ export function AdminProductTable({
     );
   }, [availableBrands, brandFilterSearch]);
 
-  const processedProducts = useMemo(() => {
-    if (!hasCategoryFilter && normalizedSearchTerm === "") {
+  const filteredBaseProducts = useMemo(() => {
+    if (
+      !hasCategoryFilter &&
+      normalizedSearchTerm === "" &&
+      siteVisibilityFilter === "all"
+    ) {
       return [];
     }
 
-    const filtered = initialProducts.filter((p) => {
+    return initialProducts.filter((p) => {
       const attrs = (p.attributes as DynamicAttributes) || {};
       const brandValue = String(attrs.marca || attrs.brand || "").trim();
       const matchesCat = !hasCategoryFilter || p.category.id === filterCategory;
+      const isVisibleOnSite = p.isVisibleOnSite ?? true;
 
       const matchesSearch =
         normalizedSearchTerm === "" ||
@@ -181,8 +176,55 @@ export function AdminProductTable({
       const matchesBrand =
         selectedBrands.length === 0 || selectedBrands.includes(brandValue);
 
-      return matchesCat && matchesSearch && matchesBrand;
+      const matchesVisibility =
+        siteVisibilityFilter === "all" ||
+        (siteVisibilityFilter === "visible" && isVisibleOnSite) ||
+        (siteVisibilityFilter === "hidden" && !isVisibleOnSite);
+
+      return matchesCat && matchesSearch && matchesBrand && matchesVisibility;
     });
+  }, [
+    initialProducts,
+    filterCategory,
+    hasCategoryFilter,
+    normalizedSearchTerm,
+    selectedBrands,
+    siteVisibilityFilter,
+  ]);
+
+  const dynamicColumns = useMemo(() => {
+    const configs = hasCategoryFilter
+      ? initialProducts
+          .filter((p) => p.category.id === filterCategory)
+          .flatMap((p) => normalizeDisplayConfig(p.category.displayConfig))
+      : filteredBaseProducts.flatMap((p) =>
+          normalizeDisplayConfig(p.category.displayConfig)
+        );
+
+    const filteredConfigs = configs.filter(
+      (c) =>
+        c.type !== "currency" &&
+        !["marca", "brand", "asin"].includes(c.key.toLowerCase())
+    );
+
+    const seen = new Set<string>();
+    return filteredConfigs.filter((config) => {
+      if (seen.has(config.key)) return false;
+      seen.add(config.key);
+      return true;
+    });
+  }, [filterCategory, filteredBaseProducts, hasCategoryFilter, initialProducts]);
+
+  const processedProducts = useMemo(() => {
+    if (
+      !hasCategoryFilter &&
+      normalizedSearchTerm === "" &&
+      siteVisibilityFilter === "all"
+    ) {
+      return [];
+    }
+
+    const filtered = [...filteredBaseProducts];
 
     if (sortConfig) {
       filtered.sort((a, b) => {
@@ -213,14 +255,9 @@ export function AdminProductTable({
     }
 
     return filtered;
-  }, [
-    initialProducts,
-    filterCategory,
-    hasCategoryFilter,
-    normalizedSearchTerm,
-    sortConfig,
-    selectedBrands,
-  ]);
+  }, [filteredBaseProducts, sortConfig, hasCategoryFilter, normalizedSearchTerm, siteVisibilityFilter]);
+
+  const showCategoryColumn = !hasCategoryFilter && processedProducts.length > 0;
 
   const totalPages = Math.max(1, Math.ceil(processedProducts.length / PAGE_SIZE));
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -233,6 +270,17 @@ export function AdminProductTable({
   const handleBulkDelete = async () => {
     if (!confirm(`Excluir permanentemente ${selectedIds.length} produtos?`)) return;
     const res = await deleteManyProducts(selectedIds);
+    if (res.success) {
+      setSelectedIds([]);
+      router.refresh();
+    }
+  };
+
+  const handleBulkVisibility = async (isVisibleOnSite: boolean) => {
+    const actionLabel = isVisibleOnSite ? "mostrar" : "ocultar";
+    if (!confirm(`${actionLabel} ${selectedIds.length} produtos no site?`)) return;
+
+    const res = await updateManyProductsVisibility(selectedIds, isVisibleOnSite);
     if (res.success) {
       setSelectedIds([]);
       router.refresh();
@@ -357,9 +405,32 @@ export function AdminProductTable({
               ))}
             </select>
           </div>
+
+          <div className="w-full md:w-56">
+            <label className="ml-1 mb-2 block text-[10px] font-black uppercase text-gray-400">
+              Visibilidade
+            </label>
+            <select
+              value={siteVisibilityFilter}
+              className="w-full cursor-pointer rounded-xl border-none bg-gray-50 p-3 text-sm font-bold outline-none"
+              onChange={(e) => {
+                setSiteVisibilityFilter(
+                  e.target.value as "all" | "visible" | "hidden"
+                );
+                setCurrentPage(1);
+                setSelectedIds([]);
+              }}
+            >
+              <option value="all">Todos</option>
+              <option value="visible">Somente visíveis</option>
+              <option value="hidden">Somente ocultos</option>
+            </select>
+          </div>
         </div>
 
-        {!hasCategoryFilter && normalizedSearchTerm === "" && (
+        {!hasCategoryFilter &&
+          normalizedSearchTerm === "" &&
+          siteVisibilityFilter === "all" && (
           <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-sm font-semibold text-gray-500">
             Selecione uma categoria para carregar os produtos. Isso evita renderizar os 1600 itens de uma vez e deixa o admin bem mais leve.
           </div>
@@ -397,6 +468,18 @@ export function AdminProductTable({
                 Edição em Massa ({selectedIds.length} itens)
               </h3>
               <div className="flex gap-2">
+                <button
+                  onClick={() => handleBulkVisibility(false)}
+                  className="rounded-xl bg-gray-900 px-4 py-2 text-[10px] font-black uppercase text-white shadow-md active:scale-95 hover:bg-black"
+                >
+                  Ocultar Selecionados
+                </button>
+                <button
+                  onClick={() => handleBulkVisibility(true)}
+                  className="rounded-xl bg-emerald-600 px-4 py-2 text-[10px] font-black uppercase text-white shadow-md active:scale-95 hover:bg-emerald-700"
+                >
+                  Mostrar Selecionados
+                </button>
                 <button
                   onClick={handleBulkDelete}
                   className="rounded-xl bg-red-600 px-4 py-2 text-[10px] font-black uppercase text-white shadow-md active:scale-95 hover:bg-red-700"
@@ -478,6 +561,10 @@ export function AdminProductTable({
                 >
                   Nome do Produto
                 </th>
+
+                {showCategoryColumn ? (
+                  <th className="w-36 p-4 text-center text-black">Categoria</th>
+                ) : null}
 
                 {dynamicColumns.map((col) => (
                   <th
@@ -580,7 +667,8 @@ export function AdminProductTable({
                   Preço
                 </th>
 
-                <th className="w-20 p-4 text-right text-black">Ação</th>
+
+                <th className="w-28 p-4 text-center text-black">Ação</th>
               </tr>
             </thead>
 
@@ -644,6 +732,14 @@ export function AdminProductTable({
                       />
                     </td>
 
+                    {showCategoryColumn ? (
+                      <td className="p-4 text-center">
+                        <span className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-600">
+                          {p.category.name}
+                        </span>
+                      </td>
+                    ) : null}
+
                     {dynamicColumns.map((col) => (
                       <td key={col.key} className="p-4 text-center">
                         <input
@@ -694,17 +790,42 @@ export function AdminProductTable({
                         }
                       />
                     </td>
+                    <td className="p-4 text-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/admin/dynamic/produtos/${p.id}`)}
+                          className="text-[10px] font-black uppercase text-blue-500 transition-colors hover:text-blue-700"
+                        >
+                          Editar
+                        </button>
 
-                    <td className="p-4 text-right">
-                      <button
-                        onClick={() =>
-                          confirm("Excluir?") &&
-                          deleteDynamicProduct(p.id).then(() => router.refresh())
-                        }
-                        className="text-[10px] font-black uppercase text-red-200 transition-colors hover:text-red-600"
-                      >
-                        Excluir
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateDynamicProduct(p.id, {
+                              isVisibleOnSite: !(p.isVisibleOnSite ?? true),
+                            }).then(() => router.refresh())
+                          }
+                          className={`inline-flex min-w-[88px] items-center justify-center rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-colors ${
+                            (p.isVisibleOnSite ?? true)
+                              ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                              : "bg-red-50 text-red-700 hover:bg-red-100"
+                          }`}
+                        >
+                          {(p.isVisibleOnSite ?? true) ? "Visível" : "Oculto"}
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            confirm("Excluir?") &&
+                            deleteDynamicProduct(p.id).then(() => router.refresh())
+                          }
+                          className="text-[10px] font-black uppercase text-red-300 transition-colors hover:text-red-600"
+                        >
+                          Excluir
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -755,3 +876,4 @@ export function AdminProductTable({
     </div>
   );
 }
+

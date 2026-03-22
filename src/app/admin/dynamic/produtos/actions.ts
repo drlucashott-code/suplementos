@@ -150,19 +150,26 @@ export async function updateDynamicProduct(id: string, data: {
   totalPrice?: number;
   imageUrl?: string;
   url?: string;
+  isVisibleOnSite?: boolean;
   attributes?: DynamicAttributes;
 }) {
   try {
     const current = await prisma.dynamicProduct.findUnique({ where: { id } });
     const currentAttrs = (current?.attributes as Record<string, Prisma.JsonValue>) || {};
 
-    await prisma.dynamicProduct.update({
+    await (prisma.dynamicProduct as unknown as {
+      update: (args: {
+        where: { id: string };
+        data: Record<string, unknown>;
+      }) => Promise<unknown>;
+    }).update({
       where: { id },
       data: {
         name: data.name,
         totalPrice: data.totalPrice,
         imageUrl: data.imageUrl,
         url: data.url,
+        isVisibleOnSite: data.isVisibleOnSite,
         attributes: data.attributes 
           ? { ...currentAttrs, ...data.attributes } as Prisma.InputJsonValue
           : undefined
@@ -242,6 +249,35 @@ export async function getDynamicProducts() {
   } catch (error) {
     console.error("Erro ao buscar produtos:", error);
     return [];
+  }
+}
+
+export async function updateManyProductsVisibility(
+  ids: string[],
+  isVisibleOnSite: boolean
+) {
+  try {
+    await Promise.all(
+      ids.map((id) =>
+        (prisma.dynamicProduct as unknown as {
+          update: (args: {
+            where: { id: string };
+            data: Record<string, unknown>;
+          }) => Promise<unknown>;
+        }).update({
+          where: { id },
+          data: {
+            isVisibleOnSite,
+          },
+        })
+      )
+    );
+
+    revalidatePath('/admin/dynamic/produtos');
+    return { success: true };
+  } catch (err) {
+    console.error("Erro ao atualizar visibilidade em massa:", err);
+    return { error: "Falha ao atualizar a visibilidade em massa." };
   }
 }
 

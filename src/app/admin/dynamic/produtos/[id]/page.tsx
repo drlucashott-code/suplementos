@@ -48,6 +48,7 @@ export default function EditProductPage({ params }: EditProps) {
     totalPrice: 0,
     imageUrl: '',
     url: '',
+    isVisibleOnSite: true,
   });
 
   const [attributes, setAttributes] = useState<LocalAttributes>({});
@@ -61,6 +62,7 @@ export default function EditProductPage({ params }: EditProps) {
           totalPrice: p.totalPrice,
           imageUrl: p.imageUrl || '',
           url: p.url,
+          isVisibleOnSite: (p as { isVisibleOnSite?: boolean }).isVisibleOnSite ?? true,
         });
         setAttributes((p.attributes as unknown as LocalAttributes) || {});
         setDisplayConfig(normalizeDisplayConfig(p.category.displayConfig));
@@ -157,6 +159,36 @@ export default function EditProductPage({ params }: EditProps) {
                 className="w-full truncate border-0 p-1 font-mono text-xs text-blue-500 outline-none focus:ring-0"
               />
             </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+            <label className="mb-3 block text-[10px] font-black uppercase text-gray-400">
+              Exibição no site
+            </label>
+            <button
+              type="button"
+              onClick={() =>
+                setFormData((current) => ({
+                  ...current,
+                  isVisibleOnSite: !current.isVisibleOnSite,
+                }))
+              }
+              className={`inline-flex items-center gap-3 rounded-full px-4 py-2 text-xs font-black uppercase tracking-widest transition ${
+                formData.isVisibleOnSite
+                  ? 'bg-green-50 text-green-700 ring-1 ring-green-200'
+                  : 'bg-red-50 text-red-700 ring-1 ring-red-200'
+              }`}
+            >
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  formData.isVisibleOnSite ? 'bg-green-500' : 'bg-red-500'
+                }`}
+              />
+              {formData.isVisibleOnSite ? 'Produto visível' : 'Produto oculto'}
+            </button>
+            <p className="mt-3 text-xs text-gray-500">
+              O produto continua no catálogo e no admin, mas some da vitrine pública enquanto estiver oculto.
+            </p>
           </div>
         </div>
 

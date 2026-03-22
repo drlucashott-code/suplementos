@@ -1,7 +1,8 @@
 import Link from "next/link";
-import Header from "@/app/Header";
 import BestDealProductCard from "@/components/BestDealProductCard";
+import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
 import { getBestDeals } from "@/lib/bestDeals";
+
 export const revalidate = 600;
 
 const filters = [
@@ -22,11 +23,7 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
 
   return (
     <main className="min-h-screen bg-[#E3E6E6] pb-10">
-      <Header />
-
-      <div className="bg-[#37475A] px-4 py-2 text-center text-[11px] font-medium text-white">
-        Produtos com maior desconto versus a média de 30 dias.
-      </div>
+      <AmazonHeader />
 
       <div className="mx-auto max-w-[1500px] px-3 py-4 md:px-5">
         <section className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm md:p-5">
@@ -63,11 +60,7 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
 
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
             {deals.map((item) => (
-              <BestDealProductCard
-                key={item.id}
-                item={item}
-                category="pagina_ofertas"
-              />
+              <BestDealProductCard key={item.id} item={item} category="pagina_ofertas" />
             ))}
           </div>
         </section>

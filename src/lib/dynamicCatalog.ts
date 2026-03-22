@@ -107,6 +107,13 @@ export type DynamicCatalogData = {
   hasMore: boolean;
 };
 
+type CategoryWithVisibleProducts = {
+  id: string;
+  name: string;
+  displayConfig: unknown;
+  products: DynamicProduct[];
+};
+
 const AMAZON_OFFICIAL = "Amazon.com.br";
 
 const SORT_OPTION_LABELS: Record<SortOptionValue, string> = {
@@ -297,6 +304,7 @@ export async function getDynamicCatalogData({
     },
     include: {
       products: {
+        where: { isVisibleOnSite: true },
         orderBy: { totalPrice: "asc" },
       },
     },
