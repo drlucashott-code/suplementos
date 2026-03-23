@@ -47,6 +47,9 @@ interface DiscoveryRunState {
   cancelRequested: boolean;
   logs: string[];
   items: DiscoveryItem[];
+  inputs?: {
+    priceRangesRaw?: string;
+  };
 }
 
 function parseFilterTerms(value: string) {
@@ -86,6 +89,7 @@ export default function ImportadorDynamicAPI() {
   const [enableImportValidation, setEnableImportValidation] = useState(true);
   const [discoveryKeywordsRaw, setDiscoveryKeywordsRaw] = useState('');
   const [discoveryBrandsRaw, setDiscoveryBrandsRaw] = useState('');
+  const [discoveryPriceRangesRaw, setDiscoveryPriceRangesRaw] = useState('');
   const [discovering, setDiscovering] = useState(false);
   const [discoveryLogs, setDiscoveryLogs] = useState<string[]>([]);
   const [discoveredItems, setDiscoveredItems] = useState<DiscoveryItem[]>([]);
@@ -204,6 +208,7 @@ export default function ImportadorDynamicAPI() {
     const res = await startDynamicDiscovery({
       keywordsRaw: discoveryKeywordsRaw,
       brandsRaw: discoveryBrandsRaw,
+      priceRangesRaw: discoveryPriceRangesRaw,
       maxPages: 6,
     });
 
@@ -288,7 +293,7 @@ export default function ImportadorDynamicAPI() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-[1.2fr_1fr_auto]">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <input
                   value={discoveryKeywordsRaw}
                   onChange={(e) => setDiscoveryKeywordsRaw(e.target.value)}
@@ -299,6 +304,15 @@ export default function ImportadorDynamicAPI() {
                   value={discoveryBrandsRaw}
                   onChange={(e) => setDiscoveryBrandsRaw(e.target.value)}
                   placeholder="Marcas ex: seda, pantene, elseve"
+                  className="w-full rounded-xl border border-gray-200 bg-white p-3.5 font-semibold outline-none transition-all focus:ring-2 focus:ring-yellow-400"
+                />
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-[1.4fr_auto]">
+                <input
+                  value={discoveryPriceRangesRaw}
+                  onChange={(e) => setDiscoveryPriceRangesRaw(e.target.value)}
+                  placeholder="Opcional: 1-15, 16-30, 31-50. Vazio = divisao automatica"
                   className="w-full rounded-xl border border-gray-200 bg-white p-3.5 font-semibold outline-none transition-all focus:ring-2 focus:ring-yellow-400"
                 />
                 <button

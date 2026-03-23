@@ -34,6 +34,7 @@ interface Product {
   name: string;
   imageUrl: string | null;
   totalPrice: number;
+  createdAt: string | Date;
   isVisibleOnSite?: boolean;
   url: string;
   attributes: Prisma.JsonValue;
@@ -259,6 +260,9 @@ export function AdminProductTable({
         } else if (sortConfig.key === "totalPrice") {
           aVal = a.totalPrice;
           bVal = b.totalPrice;
+        } else if (sortConfig.key === "createdAt") {
+          aVal = new Date(a.createdAt).getTime();
+          bVal = new Date(b.createdAt).getTime();
         } else if (sortConfig.key === "name") {
           aVal = a.name;
           bVal = b.name;
@@ -680,6 +684,13 @@ export function AdminProductTable({
                 </th>
 
                 <th
+                  className="w-36 cursor-pointer p-4 text-center text-black hover:text-black"
+                  onClick={() => toggleSort("createdAt")}
+                >
+                  Importado em
+                </th>
+
+                <th
                   className="w-32 cursor-pointer p-4 text-center text-black hover:text-black"
                   onClick={() => toggleSort("totalPrice")}
                 >
@@ -791,6 +802,18 @@ export function AdminProductTable({
                           handleQuickUpdate(p.id, "marca", e.target.value, true)
                         }
                       />
+                    </td>
+
+                    <td className="p-4 text-center">
+                      <div className="text-[10px] font-black uppercase text-gray-700">
+                        {new Date(p.createdAt).toLocaleDateString("pt-BR")}
+                      </div>
+                      <div className="mt-1 text-[10px] font-semibold text-gray-400">
+                        {new Date(p.createdAt).toLocaleTimeString("pt-BR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
                     </td>
 
                     <td className="p-4 text-center text-xs font-black text-green-700">

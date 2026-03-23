@@ -113,6 +113,7 @@ type DiscoveryRunState = {
     keywordsRaw?: string;
     brandsRaw?: string;
     maxPages?: number;
+    priceRangesRaw?: string;
   } | null;
   items: DiscoveryItem[];
   logs: string[];
@@ -126,6 +127,13 @@ type SearchPriceRange = {
   label: string;
 };
 
+type DiscoverySearchTask = {
+  keyword: string;
+  brandFilter: string;
+  range: SearchPriceRange | null;
+  depth: number;
+};
+
 const DISCOVERY_PRICE_RANGES: SearchPriceRange[] = [
   { min: 1, max: 15, label: "R$1-15" },
   { min: 16, max: 30, label: "R$16-30" },
@@ -135,6 +143,91 @@ const DISCOVERY_PRICE_RANGES: SearchPriceRange[] = [
   { min: 121, max: 200, label: "R$121-200" },
   { min: 201, max: 400, label: "R$201-400" },
 ];
+
+function parseDiscoveryPriceRanges(value?: string): SearchPriceRange[] {
+  const raw = (value ?? "").trim();
+  if (!raw) {
+    return DISCOVERY_PRICE_RANGES;
+  }
+
+  const parts = raw
+    .split(/[,\n;]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const parsedRanges = parts
+    .map((part) => {
+      const normalized = part
+        .toLowerCase()
+        .replace(/r\$/g, "")
+        .replace(/\s+/g, "")
+        .replace(/atÃ©/g, "-")
+        .replace(/a/g, "-");
+
+      const match = normalized.match(/^(\d+(?:[.,]\d+)?)\-(\d+(?:[.,]\d+)?)$/);
+      if (!match) return null;
+
+      const min = Number(match[1].replace(",", "."));
+      const max = Number(match[2].replace(",", "."));
+
+      if (!Number.isFinite(min) || !Number.isFinite(max) || min <= 0 || max <= min) {
+        return null;
+      }
+
+      return {
+        min: Math.round(min),
+        max: Math.round(max),
+        label: `R$${Math.round(min)}-${Math.round(max)}`,
+      } satisfies SearchPriceRange;
+    })
+    .filter((range): range is SearchPriceRange => range !== null);
+
+  return parsedRanges.length > 0 ? parsedRanges : DISCOVERY_PRICE_RANGES;
+}
+
+function formatDiscoveryRangeLabel(range: SearchPriceRange | null) {
+  return range ? range.label : "sem faixa";
+}
+
+function splitDiscoveryRange(
+  range: SearchPriceRange | null,
+  observedMin: number,
+  observedMax: number
+): SearchPriceRange[] {
+  const safeMin = Math.floor(observedMin);
+  const safeMax = Math.ceil(observedMax);
+
+  if (!Number.isFinite(safeMin) || !Number.isFinite(safeMax) || safeMax - safeMin < 10) {
+    return [];
+  }
+
+  const mid = Math.floor((safeMin + safeMax) / 2);
+  if (mid <= safeMin || mid >= safeMax) {
+    return [];
+  }
+
+  const left: SearchPriceRange = {
+    min: safeMin,
+    max: mid,
+    label: `R$${safeMin}-${mid}`,
+  };
+  const right: SearchPriceRange = {
+    min: mid + 1,
+    max: safeMax,
+    label: `R$${mid + 1}-${safeMax}`,
+  };
+
+  if (range) {
+    left.min = Math.max(left.min, range.min);
+    left.max = Math.min(left.max, range.max);
+    right.min = Math.max(right.min, range.min);
+    right.max = Math.min(right.max, range.max);
+    left.label = `R$${left.min}-${left.max}`;
+    right.label = `R$${right.min}-${right.max}`;
+  }
+
+  return [left, right].filter((item) => item.max - item.min >= 5);
+}
 
 function extractVolumeMlFromTitle(title: string): number | null {
   const normalizedTitle = title
@@ -395,6 +488,7 @@ async function createDynamicDiscoveryRun(params: {
     keywordsRaw?: string;
     brandsRaw?: string;
     maxPages?: number;
+    priceRangesRaw?: string;
   };
   logs: string[];
 }) {
@@ -453,7 +547,7 @@ function matchesImportFilters(params: {
   ) {
     return {
       ok: false,
-      reason: `Ignorado: tÃ­tulo nÃ£o contÃ©m ${requiredTitleTerms.join(", ")}`,
+      reason: `Ignorado: tÃƒÂ­tulo nÃƒÂ£o contÃƒÂ©m ${requiredTitleTerms.join(", ")}`,
     };
   }
 
@@ -463,7 +557,7 @@ function matchesImportFilters(params: {
   ) {
     return {
       ok: false,
-      reason: `Ignorado: tÃ­tulo contÃ©m termo proibido (${forbiddenTitleTerms.join(", ")})`,
+      reason: `Ignorado: tÃƒÂ­tulo contÃƒÂ©m termo proibido (${forbiddenTitleTerms.join(", ")})`,
     };
   }
 
@@ -567,6 +661,7 @@ async function updateDiscoveryRun(
   runId: string,
   data: {
     status?: string;
+    totalSearches?: number;
     processedSearches?: number;
     foundItems?: number;
     cancelRequested?: boolean;
@@ -579,6 +674,10 @@ async function updateDiscoveryRun(
 
   if (data.status !== undefined) {
     updates.push(Prisma.sql`"status" = ${data.status}`);
+  }
+
+  if (data.totalSearches !== undefined) {
+    updates.push(Prisma.sql`"totalSearches" = ${data.totalSearches}`);
   }
 
   if (data.processedSearches !== undefined) {
@@ -926,7 +1025,7 @@ async function runDynamicImportJob(
     await updateImportRun(runId, {
       status: "failed",
       finishedAt: new Date(),
-      logs: ["Categoria não encontrada."],
+      logs: ["Categoria nÃ£o encontrada."],
     });
     return;
   }
@@ -944,7 +1043,7 @@ async function runDynamicImportJob(
       const runState = await findDynamicImportRunById(runId);
 
       if (runState?.cancelRequested) {
-        logs.push("Importação interrompida pelo usuário.");
+        logs.push("ImportaÃ§Ã£o interrompida pelo usuÃ¡rio.");
         await updateImportRun(runId, {
           status: "cancelled",
           processedItems,
@@ -969,7 +1068,7 @@ async function runDynamicImportJob(
       if (existing) {
         skippedItems += 1;
         processedItems += 1;
-        logs.push(`⏭️ ${asin}: Já existe no banco de dados`);
+        logs.push(`â­ï¸ ${asin}: JÃ¡ existe no banco de dados`);
         await updateImportRun(runId, {
           processedItems,
           importedItems,
@@ -985,7 +1084,7 @@ async function runDynamicImportJob(
       if (!result) {
         errorItems += 1;
         processedItems += 1;
-        logs.push(`❌ ${asin}: Não encontrado na API`);
+        logs.push(`âŒ ${asin}: NÃ£o encontrado na API`);
         await updateImportRun(runId, {
           processedItems,
           importedItems,
@@ -1001,7 +1100,7 @@ async function runDynamicImportJob(
       if (merchantName === "Loja Suplemento") {
         skippedItems += 1;
         processedItems += 1;
-        logs.push(`🚫 ${asin}: Excluído (Loja Suplemento)`);
+        logs.push(`ðŸš« ${asin}: ExcluÃ­do (Loja Suplemento)`);
         await updateImportRun(runId, {
           processedItems,
           importedItems,
@@ -1028,7 +1127,7 @@ async function runDynamicImportJob(
         if (!filterResult.ok) {
           skippedItems += 1;
           processedItems += 1;
-          logs.push(`⏭️ ${asin}: ${filterResult.reason}`);
+          logs.push(`â­ï¸ ${asin}: ${filterResult.reason}`);
           await updateImportRun(runId, {
             processedItems,
             importedItems,
@@ -1071,9 +1170,9 @@ async function runDynamicImportJob(
       importedItems += 1;
       processedItems += 1;
       if (price === 0) {
-        logs.push(`⚠️ ${asin}: Importado sem preço`);
+        logs.push(`âš ï¸ ${asin}: Importado sem preÃ§o`);
       } else {
-        logs.push(`✅ R$ ${price.toFixed(2)} | ${asin} | 🏪 ${merchantName}`);
+        logs.push(`âœ… R$ ${price.toFixed(2)} | ${asin} | ðŸª ${merchantName}`);
       }
 
       await updateImportRun(runId, {
@@ -1087,7 +1186,7 @@ async function runDynamicImportJob(
       console.error(error);
       errorItems += 1;
       processedItems += 1;
-      logs.push(`❌ ${asin}: erro na importação`);
+      logs.push(`âŒ ${asin}: erro na importaÃ§Ã£o`);
       await updateImportRun(runId, {
         processedItems,
         importedItems,
@@ -1124,13 +1223,13 @@ export async function startDynamicImportViaAPI(input: {
     .filter(Boolean);
 
   if (asinList.length === 0) {
-    return { error: "Cole ao menos um ASIN para iniciar a importação." };
+    return { error: "Cole ao menos um ASIN para iniciar a importaÃ§Ã£o." };
   }
 
   const activeRun = await findLatestDynamicImportRunByStatuses(["running"]);
 
   if (activeRun) {
-    return { error: "Já existe uma importação em andamento." };
+    return { error: "JÃ¡ existe uma importaÃ§Ã£o em andamento." };
   }
 
   const run = await createDynamicImportRun({
@@ -1142,7 +1241,7 @@ export async function startDynamicImportViaAPI(input: {
       forbiddenTitleRaw: input.forbiddenTitleRaw ?? "",
       enableImportValidation: input.enableImportValidation !== false,
     },
-    logs: ["Fila criada. Preparando importação..."],
+    logs: ["Fila criada. Preparando importaÃ§Ã£o..."],
   });
 
   void runDynamicImportJob(run.id, input.asinsRaw, input.categoryId, {
@@ -1175,11 +1274,11 @@ export async function cancelDynamicImport(runId: string) {
   const run = await findDynamicImportRunById(runId);
 
   if (!run) {
-    return { error: "Importação não encontrada." };
+    return { error: "ImportaÃ§Ã£o nÃ£o encontrada." };
   }
 
   if (run.status !== "running") {
-    return { error: "Essa importação não está mais em andamento." };
+    return { error: "Essa importaÃ§Ã£o nÃ£o estÃ¡ mais em andamento." };
   }
 
   await updateImportRun(runId, {
@@ -1193,113 +1292,167 @@ async function runDynamicDiscoveryJob(input: {
   keywordsRaw: string;
   brandsRaw?: string;
   maxPages?: number;
+  priceRangesRaw?: string;
   runId: string;
 }) {
   const keywords = parseFilterList(input.keywordsRaw);
   const brands = parseFilterList(input.brandsRaw);
   const maxPages = Math.min(Math.max(input.maxPages ?? 6, 1), 10);
+  const hasManualRanges = (input.priceRangesRaw ?? "").trim().length > 0;
+  const initialPriceRanges = hasManualRanges
+    ? parseDiscoveryPriceRanges(input.priceRangesRaw)
+    : [null];
   const foundMap = new Map<string, DiscoveryItem>();
   const brandMatrix = brands.length > 0 ? brands : [""];
-  const totalSearches =
-    keywords.length * brandMatrix.length * DISCOVERY_PRICE_RANGES.length * maxPages;
-  const logs: string[] = [
-    `Iniciando descoberta com ${keywords.length} palavra(s)-chave e ${brandMatrix.length} marca(s).`,
-    `${totalSearches} buscas previstas no total.`,
-  ];
-  let processedSearches = 0;
-
-  await updateDiscoveryRun(input.runId, { logs });
+  const tasks: DiscoverySearchTask[] = [];
 
   for (const keyword of keywords) {
     for (const brandFilter of brandMatrix) {
-      const searchTerm = [keyword, brandFilter].filter(Boolean).join(" ");
-      for (const range of DISCOVERY_PRICE_RANGES) {
-        for (let page = 1; page <= maxPages; page++) {
-          processedSearches += 1;
-
-          if (processedSearches > 1 && (processedSearches - 1) % 5 === 0) {
-            const runState = await findDynamicDiscoveryRunById(input.runId);
-
-            if (runState?.cancelRequested) {
-              logs.push("Descoberta interrompida pelo usuario.");
-              await updateDiscoveryRun(input.runId, {
-                status: "cancelled",
-                processedSearches,
-                foundItems: foundMap.size,
-                items: [...foundMap.values()],
-                finishedAt: new Date(),
-                logs,
-              });
-              return;
-            }
-          }
-
-          logs.push(
-            `Buscando: ${searchTerm || keyword} | ${range.label} | pagina ${page}/${maxPages}`
-          );
-          await updateDiscoveryRun(input.runId, {
-            processedSearches,
-            foundItems: foundMap.size,
-            items: [...foundMap.values()],
-            logs,
-          });
-
-          const items = await searchAmazonItems(searchTerm, page, range);
-          if (items.length === 0) {
-            logs.push("Sem resultados nessa combinacao.");
-            await updateDiscoveryRun(input.runId, {
-              processedSearches,
-              foundItems: foundMap.size,
-              items: [...foundMap.values()],
-              logs,
-            });
-            break;
-          }
-
-          let newItemsInStep = 0;
-          for (const item of items) {
-            if (!item.ASIN) continue;
-
-            const asin = item.ASIN;
-            const title = getItemTitle(item);
-            const brand = getItemBrand(item);
-
-            if (brandFilter && !brand.toLowerCase().includes(brandFilter)) {
-              continue;
-            }
-
-            if (foundMap.has(asin)) {
-              continue;
-            }
-
-            const { price, displayPrice } = getItemDisplayPrice(item);
-            const imageUrl = item.Images?.Primary?.Large?.URL ?? "";
-
-            foundMap.set(asin, {
-              asin,
-              title,
-              brand,
-              imageUrl,
-              price,
-              displayPrice,
-            });
-            newItemsInStep += 1;
-          }
-
-          logs.push(
-            `Busca concluida: +${newItemsInStep} novo(s) | ${foundMap.size} ASINs unicos acumulados`
-          );
-          await updateDiscoveryRun(input.runId, {
-            processedSearches,
-            foundItems: foundMap.size,
-            items: [...foundMap.values()],
-            logs,
-          });
-
-          await delay(1200);
-        }
+      for (const range of initialPriceRanges) {
+        tasks.push({
+          keyword,
+          brandFilter,
+          range,
+          depth: 0,
+        });
       }
     }
+  }
+
+  let totalSearches = tasks.length;
+  const logs: string[] = [
+    `Iniciando descoberta com ${keywords.length} palavra(s)-chave e ${brandMatrix.length} marca(s).`,
+    hasManualRanges
+      ? `${totalSearches} buscas-base previstas com faixas manuais.`
+      : `${totalSearches} buscas-base previstas com divisao automatica de faixas.`,
+  ];
+  let processedSearches = 0;
+
+  await updateDiscoveryRun(input.runId, { logs, totalSearches });
+
+  while (tasks.length > 0) {
+    const task = tasks.shift()!;
+    processedSearches += 1;
+
+    if (processedSearches > 1 && (processedSearches - 1) % 5 === 0) {
+      const runState = await findDynamicDiscoveryRunById(input.runId);
+
+      if (runState?.cancelRequested) {
+        logs.push("Descoberta interrompida pelo usuario.");
+        await updateDiscoveryRun(input.runId, {
+          status: "cancelled",
+          totalSearches,
+          processedSearches,
+          foundItems: foundMap.size,
+          items: [...foundMap.values()],
+          finishedAt: new Date(),
+          logs,
+        });
+        return;
+      }
+    }
+
+    const searchTerm = [task.keyword, task.brandFilter].filter(Boolean).join(" ");
+    const rangeLabel = formatDiscoveryRangeLabel(task.range);
+
+    logs.push(`Buscando: ${searchTerm || task.keyword} | ${rangeLabel} | lote ${processedSearches}/${totalSearches}`);
+    await updateDiscoveryRun(input.runId, {
+      totalSearches,
+      processedSearches,
+      foundItems: foundMap.size,
+      items: [...foundMap.values()],
+      logs,
+    });
+
+    let saturated = true;
+    let observedMin = Number.POSITIVE_INFINITY;
+    let observedMax = 0;
+    let newItemsInTask = 0;
+
+    for (let page = 1; page <= maxPages; page++) {
+      const items = await searchAmazonItems(searchTerm, page, task.range ?? undefined);
+
+      if (items.length < 10) {
+        saturated = false;
+      }
+
+      if (items.length === 0) {
+        logs.push("Sem resultados nessa combinacao.");
+        break;
+      }
+
+      for (const item of items) {
+        if (!item.ASIN) continue;
+
+        const asin = item.ASIN;
+        const title = getItemTitle(item);
+        const brand = getItemBrand(item);
+
+        if (task.brandFilter && !brand.toLowerCase().includes(task.brandFilter)) {
+          continue;
+        }
+
+        const { price, displayPrice } = getItemDisplayPrice(item);
+        if (typeof price === "number" && Number.isFinite(price) && price > 0) {
+          observedMin = Math.min(observedMin, price);
+          observedMax = Math.max(observedMax, price);
+        }
+
+        if (foundMap.has(asin)) {
+          continue;
+        }
+
+        const imageUrl = item.Images?.Primary?.Large?.URL ?? "";
+
+        foundMap.set(asin, {
+          asin,
+          title,
+          brand,
+          imageUrl,
+          price,
+          displayPrice,
+        });
+        newItemsInTask += 1;
+      }
+
+      await delay(1200);
+    }
+
+    logs.push(`Busca concluida: +${newItemsInTask} novo(s) | ${foundMap.size} ASINs unicos acumulados`);
+
+    const canAutoSplit =
+      saturated &&
+      task.depth < 5 &&
+      Number.isFinite(observedMin) &&
+      observedMax > observedMin;
+
+    if (canAutoSplit) {
+      const splitRanges = splitDiscoveryRange(task.range, observedMin, observedMax);
+      if (splitRanges.length > 1) {
+        for (const splitRange of splitRanges) {
+          tasks.push({
+            keyword: task.keyword,
+            brandFilter: task.brandFilter,
+            range: splitRange,
+            depth: task.depth + 1,
+          });
+        }
+        totalSearches += splitRanges.length;
+        logs.push(
+          `Faixa saturada detectada. Dividindo em ${splitRanges
+            .map((item) => item.label)
+            .join(" e ")}`
+        );
+      }
+    }
+
+    await updateDiscoveryRun(input.runId, {
+      totalSearches,
+      processedSearches,
+      foundItems: foundMap.size,
+      items: [...foundMap.values()],
+      logs,
+    });
   }
 
   const items = [...foundMap.values()].sort((a, b) => {
@@ -1312,22 +1465,27 @@ async function runDynamicDiscoveryJob(input: {
   logs.push(`Descoberta concluida com ${items.length} ASINs unicos.`);
   await updateDiscoveryRun(input.runId, {
     status: "completed",
-    processedSearches: totalSearches,
+    totalSearches,
+    processedSearches,
     foundItems: items.length,
     items,
     finishedAt: new Date(),
     logs,
   });
 }
-
 export async function startDynamicDiscovery(input: {
   keywordsRaw: string;
   brandsRaw?: string;
   maxPages?: number;
+  priceRangesRaw?: string;
 }) {
   const keywords = parseFilterList(input.keywordsRaw);
   const brands = parseFilterList(input.brandsRaw);
   const maxPages = Math.min(Math.max(input.maxPages ?? 6, 1), 10);
+  const hasManualRanges = (input.priceRangesRaw ?? "").trim().length > 0;
+  const initialPriceRanges = hasManualRanges
+    ? parseDiscoveryPriceRanges(input.priceRangesRaw)
+    : [null];
 
   if (keywords.length === 0) {
     return { error: "Informe ao menos uma palavra-chave para buscar." };
@@ -1340,7 +1498,7 @@ export async function startDynamicDiscovery(input: {
 
   const brandMatrix = brands.length > 0 ? brands : [""];
   const totalSearches =
-    keywords.length * brandMatrix.length * DISCOVERY_PRICE_RANGES.length * maxPages;
+    keywords.length * brandMatrix.length * initialPriceRanges.length;
 
   const run = await createDynamicDiscoveryRun({
     status: "running",
@@ -1349,6 +1507,7 @@ export async function startDynamicDiscovery(input: {
       keywordsRaw: input.keywordsRaw,
       brandsRaw: input.brandsRaw ?? "",
       maxPages,
+      priceRangesRaw: input.priceRangesRaw ?? "",
     },
     logs: ["Fila criada. Preparando descoberta de ASINs..."],
   });
@@ -1357,6 +1516,7 @@ export async function startDynamicDiscovery(input: {
     keywordsRaw: input.keywordsRaw,
     brandsRaw: input.brandsRaw,
     maxPages,
+    priceRangesRaw: input.priceRangesRaw,
     runId: run.id,
   });
 
