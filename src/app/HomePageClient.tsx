@@ -219,8 +219,12 @@ export default function HomePageClient({
               </div>
             </div>
 
-            <div className="-mx-1 overflow-x-auto pb-2">
-              <div className="flex min-w-max gap-3 px-1">
+            <div className="mt-2 text-[11px] font-semibold text-white/70 md:hidden">
+              Deslize para ver mais categorias
+            </div>
+
+            <div className="-mx-4 overflow-x-auto px-4 pb-2 pt-2 md:-mx-1 md:px-1">
+              <div className="flex min-w-max snap-x snap-mandatory gap-3 px-0.5 md:px-0">
                 {quickHeroCategories.map((category) => (
                   <QuickCategoryCard
                     key={category.path}
@@ -355,19 +359,19 @@ function QuickCategoryCard({
   return (
     <button
       onClick={onClick}
-      className="group w-[190px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/8 p-3.5 text-center transition hover:bg-white/12 md:w-[210px]"
+      className="group w-[78vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/10 bg-white/8 p-3.5 text-center transition hover:bg-white/12 md:w-[210px]"
     >
-      <div className="relative h-[98px] overflow-hidden rounded-xl bg-white/95 md:h-[118px]">
+      <div className="relative h-[128px] overflow-hidden rounded-xl bg-white/95 md:h-[118px]">
         <Image
           src={imageSrc}
           alt={title}
           fill
-          sizes="(max-width: 768px) 56vw, 210px"
-          className="object-contain p-2 transition-transform duration-300 group-hover:scale-[1.04]"
+          sizes="(max-width: 768px) 78vw, 210px"
+          className="object-contain p-1.5 transition-transform duration-300 group-hover:scale-[1.04]"
           unoptimized
         />
       </div>
-      <p className="mt-2.5 text-[13px] font-bold leading-tight text-white md:mt-3 md:text-[14px]">
+      <p className="mt-3 text-[14px] font-bold leading-tight text-white md:mt-3 md:text-[14px]">
         {title}
       </p>
       <p className="text-[11px] text-white/76 md:text-[12px]">{subtitle}</p>
