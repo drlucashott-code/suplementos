@@ -229,9 +229,9 @@ export default function HomePageClient({
 
       <Header extraCategories={houseCategories} />
 
-      <div className="bg-[#37475A] px-4 py-2 text-center text-[11px] font-medium text-white">
-        Compare ofertas Amazon com leitura técnica de preço.
-      </div>
+        <div className="bg-[#37475A] px-4 py-2 text-center text-[11px] font-medium text-white">
+          Compare ofertas de produtos vendidos pela Amazon.
+        </div>
 
       <div className="mx-auto max-w-[1560px] px-3 pb-8 pt-4 md:px-5">
         <section className="relative overflow-hidden rounded-2xl border border-[#d5d9d9] bg-[linear-gradient(90deg,#131921_0%,#1f2f46_52%,#23415d_100%)] text-white shadow-sm">
@@ -242,10 +242,10 @@ export default function HomePageClient({
               </h1>
               <p className="mt-2 max-w-xl text-[12px] leading-relaxed text-white/84 md:mt-3 md:text-[14px]">
                 Preço por dose, por unidade, por grama e histórico de 30 dias para
-                decidir melhor antes de abrir a oferta na Amazon.
+                encontrar o melhor produto para você.
               </p>
 
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap justify-center gap-2 md:justify-start">
                 <TrustPill icon={<BarChart3 className="h-3.5 w-3.5" />} label="Análise técnica" />
                 <TrustPill icon={<TrendingUp className="h-3.5 w-3.5" />} label="Histórico de 30 dias" />
               </div>
@@ -490,7 +490,7 @@ function HubToggleChip({
           : "border-[#d5d9d9] bg-[#F8FAFA] text-[#0F1111] hover:border-[#b8c3c4] hover:bg-white"
       }`}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col items-center gap-2">
         <span
           className={`inline-flex h-8 w-8 items-center justify-center rounded-xl ${
             active ? "bg-white text-[#007185]" : "bg-white text-[#5f6b6b]"
@@ -498,9 +498,9 @@ function HubToggleChip({
         >
           {icon}
         </span>
-        <span className="text-[14px] font-bold">{title}</span>
+        <span className="text-center text-[14px] font-bold leading-tight">{title}</span>
       </div>
-      <p className="mt-2 text-[11px] leading-snug text-[#565959]">{subtitle}</p>
+      <p className="mt-2 text-center text-[11px] leading-snug text-[#565959]">{subtitle}</p>
     </button>
   );
 }
