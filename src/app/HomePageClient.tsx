@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, Dumbbell, Home, TrendingUp } from "lucide-react";
@@ -29,6 +29,10 @@ export type CategoryItem = {
   imageSrc: string;
   path: string;
   disabled?: boolean;
+};
+
+type QuickCategoryItem = CategoryItem & {
+  subtitle: string;
 };
 
 const supplementsCategories: CategoryItem[] = [
@@ -64,6 +68,41 @@ const supplementsCategories: CategoryItem[] = [
   },
 ];
 
+const supplementQuickSubtitles: Record<string, string> = {
+  "/suplementos/barra": "Preço por proteína",
+  "/suplementos/bebidaproteica": "Preço por proteína",
+  "/suplementos/cafe-funcional": "Preço por dose",
+  "/suplementos/creatina": "Dose e pureza",
+  "/suplementos/pre-treino": "Cafeína e custo por dose",
+  "/suplementos/whey": "Proteína e custo real",
+};
+
+const houseQuickSubtitles: Record<string, string> = {
+  "/casa/amaciante": "Preço por lavagem",
+  "/casa/creme-dental": "Preço por unidade",
+  "/casa/condicionador": "Preço por volume",
+  "/casa/fralda": "Preço por unidade",
+  "/casa/lava-roupa": "Preço por lavagem",
+  "/casa/lenco-umedecido": "Preço por unidade",
+  "/casa/papel-higienico": "Preço por metro",
+  "/casa/sabao-para-louca": "Preço por lavagem",
+  "/casa/saco-de-lixo": "Preço por unidade",
+};
+
+const quickHeroPriorityPaths = [
+  "/suplementos/whey",
+  "/casa/papel-higienico",
+  "/suplementos/creatina",
+  "/casa/lava-roupa",
+  "/suplementos/barra",
+  "/casa/amaciante",
+  "/suplementos/bebidaproteica",
+  "/casa/creme-dental",
+  "/suplementos/cafe-funcional",
+  "/casa/condicionador",
+  "/suplementos/pre-treino",
+];
+
 function sortCategories(items: CategoryItem[]) {
   const active = items
     .filter((item) => !item.disabled)
@@ -74,6 +113,29 @@ function sortCategories(items: CategoryItem[]) {
     .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
 
   return [...active, ...disabled];
+}
+
+function buildQuickHeroCategories(houseCategories: CategoryItem[]): QuickCategoryItem[] {
+  const supplements = sortCategories(supplementsCategories).map((item) => ({
+    ...item,
+    subtitle: supplementQuickSubtitles[item.path] ?? "Preço por unidade",
+  }));
+
+  const house = sortCategories(houseCategories).map((item) => ({
+    ...item,
+    subtitle: houseQuickSubtitles[item.path] ?? "Preço por unidade",
+  }));
+
+  const allItems = [...supplements, ...house];
+  const byPath = new Map(allItems.map((item) => [item.path, item]));
+  const prioritized = quickHeroPriorityPaths
+    .map((path) => byPath.get(path))
+    .filter((item): item is QuickCategoryItem => Boolean(item));
+
+  const usedPaths = new Set(prioritized.map((item) => item.path));
+  const remaining = allItems.filter((item) => !usedPaths.has(item.path));
+
+  return [...prioritized, ...remaining];
 }
 
 export default function HomePageClient({
@@ -91,6 +153,11 @@ export default function HomePageClient({
       suplementos: sortCategories(supplementsCategories),
       casa: sortCategories(houseCategories),
     }),
+    [houseCategories]
+  );
+
+  const quickHeroCategories = useMemo(
+    () => buildQuickHeroCategories(houseCategories),
     [houseCategories]
   );
 
@@ -133,7 +200,7 @@ export default function HomePageClient({
 
       <div className="mx-auto max-w-[1560px] px-3 pb-8 pt-4 md:px-5">
         <section className="relative overflow-hidden rounded-2xl border border-[#d5d9d9] bg-[linear-gradient(90deg,#131921_0%,#1f2f46_52%,#23415d_100%)] text-white shadow-sm">
-          <div className="grid gap-4 px-4 py-4 md:grid-cols-[1.15fr_0.85fr] md:px-8 md:py-8">
+          <div className="grid gap-4 px-4 py-4 md:grid-cols-[1.05fr_0.95fr] md:px-8 md:py-8">
             <div>
               <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#FFB84D]">
                 Amazon Picks
@@ -152,31 +219,18 @@ export default function HomePageClient({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <QuickCategoryCard
-                title="Whey Protein"
-                subtitle="Proteína e custo real"
-                imageSrc="https://m.media-amazon.com/images/I/51lOuKbCawL._AC_SL1000_.jpg"
-                onClick={() => router.push("/suplementos/whey")}
-              />
-              <QuickCategoryCard
-                title="Creatina"
-                subtitle="Dose e pureza"
-                imageSrc="https://m.media-amazon.com/images/I/81UashXoAxL._AC_SL1500_.jpg"
-                onClick={() => router.push("/suplementos/creatina")}
-              />
-              <QuickCategoryCard
-                title="Papel higiênico"
-                subtitle="Preço por metro"
-                imageSrc="https://m.media-amazon.com/images/I/71uftHmzxQL._AC_SL1500_.jpg"
-                onClick={() => router.push("/casa/papel-higienico")}
-              />
-              <QuickCategoryCard
-                title="Sabão para roupas"
-                subtitle="Preço por lavagem"
-                imageSrc="https://m.media-amazon.com/images/I/71bXBFl912L._AC_SL1500_.jpg"
-                onClick={() => router.push("/casa/lava-roupa")}
-              />
+            <div className="-mx-1 overflow-x-auto pb-2">
+              <div className="flex min-w-max gap-3 px-1">
+                {quickHeroCategories.map((category) => (
+                  <QuickCategoryCard
+                    key={category.path}
+                    title={category.title}
+                    subtitle={category.subtitle}
+                    imageSrc={category.imageSrc}
+                    onClick={() => router.push(category.path)}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </section>
@@ -301,14 +355,14 @@ function QuickCategoryCard({
   return (
     <button
       onClick={onClick}
-      className="group overflow-hidden rounded-2xl border border-white/10 bg-white/8 p-3.5 text-center transition hover:bg-white/12"
+      className="group w-[190px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/8 p-3.5 text-center transition hover:bg-white/12 md:w-[210px]"
     >
       <div className="relative h-[98px] overflow-hidden rounded-xl bg-white/95 md:h-[118px]">
         <Image
           src={imageSrc}
           alt={title}
           fill
-          sizes="(max-width: 768px) 42vw, 240px"
+          sizes="(max-width: 768px) 56vw, 210px"
           className="object-contain p-2 transition-transform duration-300 group-hover:scale-[1.04]"
           unoptimized
         />
@@ -379,16 +433,7 @@ function CategoryCard({ title, imageSrc, onClick, disabled }: CategoryCardProps)
           unoptimized
         />
       </div>
-
-      <h2 className="mt-3.5 min-h-[36px] text-[13px] font-bold leading-tight text-[#0F1111] md:text-[14px]">
-        {title}
-      </h2>
-
-      {disabled ? (
-        <span className="mt-2 inline-flex rounded border border-gray-200 bg-gray-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-gray-400">
-          Em breve
-        </span>
-      ) : null}
+      <p className="mt-3 text-[15px] font-bold leading-tight text-[#0F1111]">{title}</p>
     </div>
   );
 }
