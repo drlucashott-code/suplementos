@@ -89,19 +89,27 @@ const houseQuickSubtitles: Record<string, string> = {
   "/casa/saco-de-lixo": "Preço por unidade",
 };
 
-const quickHeroPriorityPaths = [
-  "/suplementos/whey",
-  "/casa/papel-higienico",
-  "/suplementos/creatina",
-  "/casa/lava-roupa",
-  "/suplementos/barra",
-  "/casa/amaciante",
-  "/suplementos/bebidaproteica",
-  "/casa/creme-dental",
-  "/suplementos/cafe-funcional",
-  "/casa/condicionador",
-  "/suplementos/pre-treino",
+const quickHeroPriorityMatchers = [
+  ["/suplementos/whey", "whey protein"],
+  ["/casa/papel-higienico", "papel higienico"],
+  ["/suplementos/creatina", "creatina"],
+  ["/casa/lava-roupa", "/casa/sabao-roupa", "sabao para roupas", "sabao para roupa"],
+  ["/suplementos/barra", "barra de proteina"],
+  ["/casa/amaciante", "amaciante"],
+  ["/suplementos/bebidaproteica", "bebida proteica"],
+  ["/casa/creme-dental", "creme dental"],
+  ["/suplementos/cafe-funcional", "cafe funcional"],
+  ["/casa/condicionador", "condicionador"],
+  ["/suplementos/pre-treino", "pre treino"],
 ];
+
+function normalizeQuickCategoryValue(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
 
 function sortCategories(items: CategoryItem[]) {
   const active = items
@@ -127,13 +135,25 @@ function buildQuickHeroCategories(houseCategories: CategoryItem[]): QuickCategor
   }));
 
   const allItems = [...supplements, ...house];
-  const byPath = new Map(allItems.map((item) => [item.path, item]));
-  const prioritized = quickHeroPriorityPaths
-    .map((path) => byPath.get(path))
-    .filter((item): item is QuickCategoryItem => Boolean(item));
+  const prioritized: QuickCategoryItem[] = [];
+  const remaining = [...allItems];
 
-  const usedPaths = new Set(prioritized.map((item) => item.path));
-  const remaining = allItems.filter((item) => !usedPaths.has(item.path));
+  quickHeroPriorityMatchers.forEach((matcherGroup) => {
+    const matchIndex = remaining.findIndex((item) => {
+      const normalizedPath = normalizeQuickCategoryValue(item.path);
+      const normalizedTitle = normalizeQuickCategoryValue(item.title);
+
+      return matcherGroup.some((matcher) => {
+        const normalizedMatcher = normalizeQuickCategoryValue(matcher);
+        return normalizedPath === normalizedMatcher || normalizedTitle === normalizedMatcher;
+      });
+    });
+
+    if (matchIndex >= 0) {
+      prioritized.push(remaining[matchIndex]);
+      remaining.splice(matchIndex, 1);
+    }
+  });
 
   return [...prioritized, ...remaining];
 }
@@ -234,16 +254,12 @@ export default function HomePageClient({
               </div>
             </div>
 
-            <div className="mt-2 text-[11px] font-semibold text-white/70 md:hidden">
-              Deslize para ver mais categorias
-            </div>
-
             <div className="-mx-4 overflow-x-auto px-4 pb-2 pt-2 md:hidden">
-              <div className="flex min-w-max snap-x snap-mandatory gap-3 pr-8">
+              <div className="flex min-w-max snap-x snap-mandatory gap-3 pr-12">
                 {quickHeroPages.map((page, pageIndex) => (
                   <div
                     key={`quick-hero-page-${pageIndex}`}
-                    className="grid w-[88vw] shrink-0 snap-start grid-cols-2 gap-3"
+                    className="grid w-[82vw] shrink-0 snap-start grid-cols-2 gap-3"
                   >
                     {page.map((category) => (
                       <QuickCategoryCard
