@@ -83,10 +83,13 @@ const houseQuickSubtitles: Record<string, string> = {
   "/casa/condicionador": "Preço por volume",
   "/casa/fralda": "Preço por unidade",
   "/casa/lava-roupa": "Preço por lavagem",
+  "/casa/sabao-roupa": "Preço por lavagem",
   "/casa/lenco-umedecido": "Preço por unidade",
   "/casa/papel-higienico": "Preço por metro",
   "/casa/sabao-para-louca": "Preço por lavagem",
+  "/casa/sabao-para-loucas": "Preço por lavagem",
   "/casa/saco-de-lixo": "Preço por unidade",
+  "/casa/shampoo": "Preço por volume",
 };
 
 const quickHeroPriorityMatchers = [
@@ -162,7 +165,16 @@ function chunkQuickHeroCategories(items: QuickCategoryItem[], size: number) {
   const chunks: QuickCategoryItem[][] = [];
 
   for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
+    const chunk = items.slice(index, index + size);
+
+    if (chunk.length > 0 && chunk.length < size) {
+      const usedPaths = new Set(chunk.map((item) => item.path));
+      const fillers = items.filter((item) => !usedPaths.has(item.path)).slice(0, size - chunk.length);
+      chunks.push([...chunk, ...fillers]);
+      continue;
+    }
+
+    chunks.push(chunk);
   }
 
   return chunks;
@@ -241,7 +253,7 @@ export default function HomePageClient({
           <div className="grid gap-4 px-4 py-4 md:grid-cols-[1.05fr_0.95fr] md:px-8 md:py-8">
             <div>
               <h1 className="max-w-2xl text-[20px] font-bold leading-tight md:text-[34px]">
-                Encontre a categoria certa e compare pelo critério que realmente importa.
+                Escolha a categoria e compare pelo critério que realmente importa.
               </h1>
               <p className="mt-2 max-w-xl text-[12px] leading-relaxed text-white/84 md:mt-3 md:text-[14px]">
                 Preço por dose, por unidade, por grama e histórico de 30 dias para
