@@ -68,7 +68,7 @@ function matchesTitleFilters(
 
   const matchesRequired =
     requiredTerms.length === 0 ||
-    requiredTerms.every((term) => normalizedTitle.includes(term));
+    requiredTerms.some((term) => normalizedTitle.includes(term));
 
   const matchesForbidden =
     forbiddenTerms.length === 0 ||
@@ -209,7 +209,7 @@ export default function ImportadorDynamicAPI() {
       keywordsRaw: discoveryKeywordsRaw,
       brandsRaw: discoveryBrandsRaw,
       priceRangesRaw: discoveryPriceRangesRaw,
-      maxPages: 6,
+      maxPages: 10,
     });
 
     if (res.error) {

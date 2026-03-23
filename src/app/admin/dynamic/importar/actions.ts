@@ -543,7 +543,7 @@ function matchesImportFilters(params: {
 
   if (
     requiredTitleTerms.length > 0 &&
-    !requiredTitleTerms.every((term) => normalizedTitle.includes(term))
+    !requiredTitleTerms.some((term) => normalizedTitle.includes(term))
   ) {
     return {
       ok: false,
@@ -1297,7 +1297,7 @@ async function runDynamicDiscoveryJob(input: {
 }) {
   const keywords = parseFilterList(input.keywordsRaw);
   const brands = parseFilterList(input.brandsRaw);
-  const maxPages = Math.min(Math.max(input.maxPages ?? 6, 1), 10);
+  const maxPages = Math.min(Math.max(input.maxPages ?? 10, 1), 10);
   const hasManualRanges = (input.priceRangesRaw ?? "").trim().length > 0;
   const initialPriceRanges = hasManualRanges
     ? parseDiscoveryPriceRanges(input.priceRangesRaw)
@@ -1368,8 +1368,10 @@ async function runDynamicDiscoveryJob(input: {
     let observedMin = Number.POSITIVE_INFINITY;
     let observedMax = 0;
     let newItemsInTask = 0;
+    let consultedPages = 0;
 
     for (let page = 1; page <= maxPages; page++) {
+      consultedPages += 1;
       const items = await searchAmazonItems(searchTerm, page, task.range ?? undefined);
 
       if (items.length < 10) {
@@ -1418,7 +1420,9 @@ async function runDynamicDiscoveryJob(input: {
       await delay(1200);
     }
 
-    logs.push(`Busca concluida: +${newItemsInTask} novo(s) | ${foundMap.size} ASINs unicos acumulados`);
+    logs.push(
+      `Busca concluida: +${newItemsInTask} novo(s) | ${foundMap.size} ASINs unicos acumulados | ${consultedPages}/${maxPages} paginas consultadas`
+    );
 
     const canAutoSplit =
       saturated &&
@@ -1481,7 +1485,7 @@ export async function startDynamicDiscovery(input: {
 }) {
   const keywords = parseFilterList(input.keywordsRaw);
   const brands = parseFilterList(input.brandsRaw);
-  const maxPages = Math.min(Math.max(input.maxPages ?? 6, 1), 10);
+  const maxPages = Math.min(Math.max(input.maxPages ?? 10, 1), 10);
   const hasManualRanges = (input.priceRangesRaw ?? "").trim().length > 0;
   const initialPriceRanges = hasManualRanges
     ? parseDiscoveryPriceRanges(input.priceRangesRaw)
