@@ -138,6 +138,16 @@ function buildQuickHeroCategories(houseCategories: CategoryItem[]): QuickCategor
   return [...prioritized, ...remaining];
 }
 
+function chunkQuickHeroCategories(items: QuickCategoryItem[], size: number) {
+  const chunks: QuickCategoryItem[][] = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
 export default function HomePageClient({
   houseCategories,
   bestDeals,
@@ -159,6 +169,11 @@ export default function HomePageClient({
   const quickHeroCategories = useMemo(
     () => buildQuickHeroCategories(houseCategories),
     [houseCategories]
+  );
+
+  const quickHeroPages = useMemo(
+    () => chunkQuickHeroCategories(quickHeroCategories, 4),
+    [quickHeroCategories]
   );
 
   const visibleCategories = categoryGroups[selectedHub];
@@ -223,8 +238,30 @@ export default function HomePageClient({
               Deslize para ver mais categorias
             </div>
 
-            <div className="-mx-4 overflow-x-auto px-4 pb-2 pt-2 md:-mx-1 md:px-1">
-              <div className="flex min-w-max snap-x snap-mandatory gap-3 px-0.5 md:px-0">
+            <div className="-mx-4 overflow-x-auto px-4 pb-2 pt-2 md:hidden">
+              <div className="flex min-w-max snap-x snap-mandatory gap-3 pr-8">
+                {quickHeroPages.map((page, pageIndex) => (
+                  <div
+                    key={`quick-hero-page-${pageIndex}`}
+                    className="grid w-[88vw] shrink-0 snap-start grid-cols-2 gap-3"
+                  >
+                    {page.map((category) => (
+                      <QuickCategoryCard
+                        key={category.path}
+                        title={category.title}
+                        subtitle={category.subtitle}
+                        imageSrc={category.imageSrc}
+                        onClick={() => router.push(category.path)}
+                        compact
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="hidden overflow-x-auto px-1 pb-2 pt-2 md:block">
+              <div className="flex min-w-max snap-x snap-mandatory gap-3 px-0">
                 {quickHeroCategories.map((category) => (
                   <QuickCategoryCard
                     key={category.path}
@@ -242,7 +279,20 @@ export default function HomePageClient({
         <section className="mt-4 grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
           <aside className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm">
             <p className="text-[18px] font-bold text-[#0F1111]">Departamentos</p>
-            <div className="mt-4 grid gap-3">
+            <div className="mt-4 flex gap-3 overflow-x-auto pb-1 lg:hidden">
+              <MobileHubChip
+                title="Suplementos"
+                active={selectedHub === "suplementos"}
+                onClick={() => handleHubClick("suplementos")}
+              />
+              <MobileHubChip
+                title="Casa & Bem-estar"
+                active={selectedHub === "casa"}
+                onClick={() => handleHubClick("casa")}
+              />
+            </div>
+
+            <div className="mt-4 hidden gap-3 lg:grid">
               <HubPanel
                 title="Suplementos"
                 subtitle="Creatina, whey, barras e mais"
@@ -350,31 +400,47 @@ function QuickCategoryCard({
   subtitle,
   imageSrc,
   onClick,
+  compact = false,
 }: {
   title: string;
   subtitle: string;
   imageSrc: string;
   onClick: () => void;
+  compact?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      className="group w-[78vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/10 bg-white/8 p-3.5 text-center transition hover:bg-white/12 md:w-[210px]"
+      className={`group shrink-0 snap-start overflow-hidden rounded-2xl border border-white/10 bg-white/8 text-center transition hover:bg-white/12 ${
+        compact ? "w-full p-3" : "w-[78vw] p-3.5 md:w-[210px]"
+      }`}
     >
-      <div className="relative h-[128px] overflow-hidden rounded-xl bg-white/95 md:h-[118px]">
+      <div
+        className={`relative overflow-hidden rounded-xl bg-white/95 ${
+          compact ? "h-[106px]" : "h-[128px] md:h-[118px]"
+        }`}
+      >
         <Image
           src={imageSrc}
           alt={title}
           fill
-          sizes="(max-width: 768px) 78vw, 210px"
-          className="object-contain p-1.5 transition-transform duration-300 group-hover:scale-[1.04]"
+          sizes={compact ? "(max-width: 768px) 42vw, 210px" : "(max-width: 768px) 78vw, 210px"}
+          className={`object-contain transition-transform duration-300 group-hover:scale-[1.04] ${
+            compact ? "p-1" : "p-1.5"
+          }`}
           unoptimized
         />
       </div>
-      <p className="mt-3 text-[14px] font-bold leading-tight text-white md:mt-3 md:text-[14px]">
+      <p
+        className={`font-bold leading-tight text-white ${
+          compact ? "mt-2 text-[12px]" : "mt-3 text-[14px] md:mt-3 md:text-[14px]"
+        }`}
+      >
         {title}
       </p>
-      <p className="text-[11px] text-white/76 md:text-[12px]">{subtitle}</p>
+      <p className={compact ? "text-[10px] text-white/76" : "text-[11px] text-white/76 md:text-[12px]"}>
+        {subtitle}
+      </p>
     </button>
   );
 }
@@ -406,6 +472,29 @@ function HubPanel({
       </div>
       <p className="text-[14px] font-bold text-[#0F1111]">{title}</p>
       <p className="mt-1 text-[12px] leading-snug text-[#565959]">{subtitle}</p>
+    </button>
+  );
+}
+
+function MobileHubChip({
+  title,
+  active,
+  onClick,
+}: {
+  title: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`shrink-0 rounded-full border px-4 py-2.5 text-[13px] font-bold transition ${
+        active
+          ? "border-[#007185] bg-[#E6F4F1] text-[#0F1111]"
+          : "border-[#d5d9d9] bg-[#F8FAFA] text-[#0F1111]"
+      }`}
+    >
+      {title}
     </button>
   );
 }
