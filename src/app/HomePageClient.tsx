@@ -237,9 +237,6 @@ export default function HomePageClient({
         <section className="relative overflow-hidden rounded-2xl border border-[#d5d9d9] bg-[linear-gradient(90deg,#131921_0%,#1f2f46_52%,#23415d_100%)] text-white shadow-sm">
           <div className="grid gap-4 px-4 py-4 md:grid-cols-[1.05fr_0.95fr] md:px-8 md:py-8">
             <div>
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#FFB84D]">
-                Amazon Picks
-              </p>
               <h1 className="max-w-2xl text-[20px] font-bold leading-tight md:text-[34px]">
                 Encontre a categoria certa e compare pelo critério que realmente importa.
               </h1>
@@ -292,49 +289,28 @@ export default function HomePageClient({
           </div>
         </section>
 
-        <section className="mt-4 grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
-          <aside className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm">
-            <p className="text-[18px] font-bold text-[#0F1111]">Departamentos</p>
-            <div className="mt-4 flex gap-3 overflow-x-auto pb-1 lg:hidden">
-              <MobileHubChip
-                title="Suplementos"
-                active={selectedHub === "suplementos"}
-                onClick={() => handleHubClick("suplementos")}
-              />
-              <MobileHubChip
-                title="Casa & Bem-estar"
-                active={selectedHub === "casa"}
-                onClick={() => handleHubClick("casa")}
-              />
-            </div>
-
-            <div className="mt-4 hidden gap-3 lg:grid">
-              <HubPanel
-                title="Suplementos"
-                subtitle="Creatina, whey, barras e mais"
-                icon={<Dumbbell className="h-5 w-5" />}
-                active={selectedHub === "suplementos"}
-                onClick={() => handleHubClick("suplementos")}
-              />
-              <HubPanel
-                title="Casa & Bem-estar"
-                subtitle="Higiene, limpeza e cuidados"
-                icon={<Home className="h-5 w-5" />}
-                active={selectedHub === "casa"}
-                onClick={() => handleHubClick("casa")}
-              />
-            </div>
-          </aside>
-
+        <section className="mt-4 grid gap-4">
           <div className="grid gap-4">
             <section className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm md:p-5">
               <div className="mb-4">
-                <h2 className="text-[20px] font-bold text-[#0F1111]">
-                  {selectedHub === "suplementos"
-                    ? "Compare por categoria em suplementos"
-                    : "Compare por categoria em casa"}
-                </h2>
-                <p className="text-[12px] text-[#565959]">
+                <p className="text-[20px] font-bold text-[#0F1111]">Comprar por categoria</p>
+                <div className="mt-4 flex flex-wrap gap-2.5">
+                  <HubToggleChip
+                    title="Suplementos"
+                    subtitle="Creatina, whey, barras e mais"
+                    icon={<Dumbbell className="h-4 w-4" />}
+                    active={selectedHub === "suplementos"}
+                    onClick={() => handleHubClick("suplementos")}
+                  />
+                  <HubToggleChip
+                    title="Casa & Bem-estar"
+                    subtitle="Higiene, limpeza e cuidados"
+                    icon={<Home className="h-4 w-4" />}
+                    active={selectedHub === "casa"}
+                    onClick={() => handleHubClick("casa")}
+                  />
+                </div>
+                <p className="mt-5 text-[12px] text-[#565959]">
                   Abra uma categoria para ver os produtos com ordenação e filtros próprios.
                 </p>
               </div>
@@ -492,25 +468,39 @@ function HubPanel({
   );
 }
 
-function MobileHubChip({
+function HubToggleChip({
   title,
+  subtitle,
+  icon,
   active,
   onClick,
 }: {
   title: string;
+  subtitle: string;
+  icon: React.ReactNode;
   active?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`shrink-0 rounded-full border px-4 py-2.5 text-[13px] font-bold transition ${
+      className={`min-w-[170px] flex-1 rounded-2xl border px-4 py-3 text-left transition sm:flex-none ${
         active
-          ? "border-[#007185] bg-[#E6F4F1] text-[#0F1111]"
-          : "border-[#d5d9d9] bg-[#F8FAFA] text-[#0F1111]"
+          ? "border-[#007185] bg-[linear-gradient(180deg,#eefaf7_0%,#e2f3ef_100%)] text-[#0F1111] shadow-[inset_0_0_0_1px_rgba(0,113,133,0.06)]"
+          : "border-[#d5d9d9] bg-[#F8FAFA] text-[#0F1111] hover:border-[#b8c3c4] hover:bg-white"
       }`}
     >
-      {title}
+      <div className="flex items-center gap-2">
+        <span
+          className={`inline-flex h-8 w-8 items-center justify-center rounded-xl ${
+            active ? "bg-white text-[#007185]" : "bg-white text-[#5f6b6b]"
+          }`}
+        >
+          {icon}
+        </span>
+        <span className="text-[14px] font-bold">{title}</span>
+      </div>
+      <p className="mt-2 text-[11px] leading-snug text-[#565959]">{subtitle}</p>
     </button>
   );
 }

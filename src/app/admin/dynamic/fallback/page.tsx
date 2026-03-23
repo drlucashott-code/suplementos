@@ -1,38 +1,73 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getDynamicFallbackConfig } from "@/lib/dynamicFallback";
+import {
+  getDynamicFallbackConfig,
+  type DynamicFallbackConfig,
+} from "@/lib/dynamicFallback";
 import { saveDynamicFallbackConfig } from "./actions";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type FallbackEligibleRow = {
   count: bigint;
 };
 
+const defaultFallbackConfig: DynamicFallbackConfig = {
+  fallbackEnabled: false,
+  fallbackManualEnabled: false,
+  fallbackAutoEnabled: true,
+  fallbackAutoFailedProductsThreshold: 20,
+  fallbackSource: null,
+  fallbackMaxAgeHours: 24,
+  fallbackReason: null,
+  fallbackActivatedAt: null,
+};
+
 export default async function AdminDynamicFallbackPage() {
-  const config = await getDynamicFallbackConfig();
+  let config: DynamicFallbackConfig = defaultFallbackConfig;
+  let metricsUnavailable = false;
+
+  try {
+    config = await getDynamicFallbackConfig();
+  } catch (error) {
+    metricsUnavailable = true;
+    console.error("Falha ao carregar configuracao de fallback:", error);
+  }
+
   const cutoffDate = new Date(
     Date.now() - config.fallbackMaxAgeHours * 60 * 60 * 1000
   );
 
-  const [zeroPriceCount, eligibleRows] = await Promise.all([
-    prisma.dynamicProduct.count({
-      where: {
-        totalPrice: {
-          lte: 0,
-        },
-      },
-    }),
-    prisma.$queryRaw<FallbackEligibleRow[]>(Prisma.sql`
-      SELECT COUNT(*)::bigint AS "count"
-      FROM "DynamicProduct"
-      WHERE
-        "totalPrice" <= 0
-        AND COALESCE("availabilityStatus", 'UNKNOWN') <> 'OUT_OF_STOCK'
-        AND "lastValidPrice" > 0
-        AND "lastValidPriceAt" >= ${cutoffDate}
-    `),
-  ]);
+  let zeroPriceCount = 0;
+  let eligibleCount = 0;
 
-  const eligibleCount = Number(eligibleRows[0]?.count ?? 0);
+  try {
+    const [zeroPriceResult, eligibleRows] = await Promise.all([
+      prisma.dynamicProduct.count({
+        where: {
+          totalPrice: {
+            lte: 0,
+          },
+        },
+      }),
+      prisma.$queryRaw<FallbackEligibleRow[]>(Prisma.sql`
+        SELECT COUNT(*)::bigint AS "count"
+        FROM "DynamicProduct"
+        WHERE
+          "totalPrice" <= 0
+          AND COALESCE("availabilityStatus", 'UNKNOWN') <> 'OUT_OF_STOCK'
+          AND "lastValidPrice" > 0
+          AND "lastValidPriceAt" >= ${cutoffDate}
+      `),
+    ]);
+
+    zeroPriceCount = zeroPriceResult;
+    eligibleCount = Number(eligibleRows[0]?.count ?? 0);
+  } catch (error) {
+    metricsUnavailable = true;
+    console.error("Falha ao carregar metricas de fallback:", error);
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 text-black">
@@ -44,6 +79,13 @@ export default async function AdminDynamicFallbackPage() {
             valido recente e nunca reativa produto marcado como fora de estoque.
           </p>
         </div>
+
+        {metricsUnavailable ? (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Algumas metricas nao puderam ser carregadas agora. A pagina continua
+            acessivel e voce pode tentar atualizar em instantes.
+          </div>
+        ) : null}
 
         <div className="mb-8 grid gap-4 md:grid-cols-3">
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
