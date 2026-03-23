@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, Dumbbell, Home, TrendingUp } from "lucide-react";
+import { BarChart3, Dumbbell, Home, ShieldCheck, TrendingUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "./Header";
@@ -230,7 +230,10 @@ export default function HomePageClient({
       <Header extraCategories={houseCategories} />
 
         <div className="bg-[#37475A] px-4 py-2 text-center text-[11px] font-medium text-white">
-          Compare ofertas de produtos vendidos pela Amazon.
+          <div className="flex items-center justify-center gap-2">
+            <ShieldCheck className="h-3.5 w-3.5 text-[#FFB84D]" />
+            <span>Comparador verificado de ofertas Amazon</span>
+          </div>
         </div>
 
       <div className="mx-auto max-w-[1560px] px-3 pb-8 pt-4 md:px-5">
@@ -306,6 +309,7 @@ export default function HomePageClient({
                     title="Casa & Bem-estar"
                     subtitle="Higiene, limpeza e cuidados"
                     icon={<Home className="h-4 w-4" />}
+                    badge="Novo"
                     active={selectedHub === "casa"}
                     onClick={() => handleHubClick("casa")}
                   />
@@ -472,12 +476,14 @@ function HubToggleChip({
   title,
   subtitle,
   icon,
+  badge,
   active,
   onClick,
 }: {
   title: string;
   subtitle: string;
   icon: React.ReactNode;
+  badge?: string;
   active?: boolean;
   onClick: () => void;
 }) {
@@ -490,7 +496,12 @@ function HubToggleChip({
           : "border-[#d5d9d9] bg-[#F8FAFA] text-[#0F1111] hover:border-[#b8c3c4] hover:bg-white"
       }`}
     >
-      <div className="flex flex-col items-center gap-2">
+      <div className="relative flex flex-col items-center gap-2">
+        {badge ? (
+          <span className="absolute right-0 top-0 rounded-full bg-[#CC0C39] px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-sm">
+            {badge}
+          </span>
+        ) : null}
         <span
           className={`inline-flex h-8 w-8 items-center justify-center rounded-xl ${
             active ? "bg-white text-[#007185]" : "bg-white text-[#5f6b6b]"
