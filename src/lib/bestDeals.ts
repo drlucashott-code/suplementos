@@ -20,9 +20,22 @@ export type BestDeal = {
   categorySlug: string;
 };
 
+type BestDealsGroup = string | undefined;
+
+const buildBestDealsWhereClause = (group?: BestDealsGroup) => Prisma.sql`
+  WHERE p."isVisibleOnSite" = true
+    AND p."totalPrice" > 0
+    AND COALESCE(p."availabilityStatus", 'UNKNOWN') <> 'OUT_OF_STOCK'
+    AND p."averagePrice30d" IS NOT NULL
+    AND p."averagePrice30d" > p."totalPrice"
+    AND (((p."averagePrice30d" - p."totalPrice") / p."averagePrice30d") * 100) >= 5
+    ${group ? Prisma.sql`AND c."group" = ${group}` : Prisma.empty}
+`;
+
 export async function getBestDeals(
   limit: number,
-  group?: string
+  group?: string,
+  offset = 0
 ): Promise<BestDeal[]> {
   const rows = await prisma.$queryRaw<
     Array<{
@@ -73,18 +86,13 @@ export async function getBestDeals(
       c."slug" AS "categorySlug"
     FROM "DynamicProduct" p
     INNER JOIN "DynamicCategory" c ON c."id" = p."categoryId"
-    WHERE p."isVisibleOnSite" = true
-      AND p."totalPrice" > 0
-      AND COALESCE(p."availabilityStatus", 'UNKNOWN') <> 'OUT_OF_STOCK'
-      AND p."averagePrice30d" IS NOT NULL
-      AND p."averagePrice30d" > p."totalPrice"
-      AND (((p."averagePrice30d" - p."totalPrice") / p."averagePrice30d") * 100) >= 5
-      ${group ? Prisma.sql`AND c."group" = ${group}` : Prisma.empty}
+    ${buildBestDealsWhereClause(group)}
     ORDER BY
       (((p."averagePrice30d" - p."totalPrice") / p."averagePrice30d") * 100) DESC,
       p."averagePrice30d" DESC,
       p."ratingCount" DESC NULLS LAST
     LIMIT ${limit}
+    OFFSET ${offset}
   `);
 
   return rows.map((row) => ({
@@ -109,4 +117,49 @@ export async function getBestDeals(
     categoryGroup: row.categoryGroup,
     categorySlug: row.categorySlug,
   }));
+}
+
+export async function getBestDealsCount(group?: string): Promise<number> {
+  const rows = await prisma.dynamicProduct.findMany({
+    where: {
+      isVisibleOnSite: true,
+      totalPrice: {
+        gt: 0,
+      },
+      OR: [
+        {
+          availabilityStatus: null,
+        },
+        {
+          availabilityStatus: {
+            not: "OUT_OF_STOCK",
+          },
+        },
+      ],
+      averagePrice30d: {
+        not: null,
+        gt: 0,
+      },
+      category: group
+        ? {
+            group,
+          }
+        : undefined,
+    },
+    select: {
+      totalPrice: true,
+      averagePrice30d: true,
+    },
+  });
+
+  return rows.filter((row) => {
+    if (!row.averagePrice30d || row.averagePrice30d <= row.totalPrice) {
+      return false;
+    }
+
+    const discountPercent =
+      ((row.averagePrice30d - row.totalPrice) / row.averagePrice30d) * 100;
+
+    return discountPercent >= 5;
+  }).length;
 }

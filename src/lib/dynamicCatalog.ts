@@ -159,6 +159,163 @@ const formatPublicFilterValue = (value: string, type: DisplayConfigField["type"]
   return value;
 };
 
+type NumericBucketConfig = {
+  step: number;
+  openEndedFrom?: number;
+};
+
+const parseRangeFilterToken = (value: string) => {
+  if (!value.startsWith("range:")) return null;
+
+  const [, minRaw, maxRaw] = value.split(":");
+  const min = Number(minRaw);
+  const max = maxRaw ? Number(maxRaw) : null;
+
+  if (Number.isNaN(min)) return null;
+  if (max !== null && Number.isNaN(max)) return null;
+
+  return { min, max };
+};
+
+const formatRangeNumber = (value: number) => {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+};
+
+const guessNiceStep = (values: number[]) => {
+  const minValue = values[0];
+  const maxValue = values[values.length - 1];
+  const spread = Math.max(maxValue - minValue, 1);
+  const targetBucketCount = 5;
+  const roughStep = spread / targetBucketCount;
+  const candidates = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
+
+  return (
+    candidates.find((candidate) => candidate >= roughStep) ??
+    candidates[candidates.length - 1]
+  );
+};
+
+const getNumericBucketConfig = ({
+  config,
+  values,
+}: {
+  config: DisplayConfigField;
+  values: number[];
+}): NumericBucketConfig | null => {
+  if (config.type !== "number" || values.length === 0) {
+    return null;
+  }
+
+  const normalized = removeAccents(`${config.key} ${config.label}`.toLowerCase());
+
+  if (
+    normalized.includes("conc") ||
+    normalized.includes("concentration") ||
+    normalized.includes("percentage") ||
+    normalized.includes("percentual")
+  ) {
+    return { step: 10, openEndedFrom: 90 };
+  }
+
+  if (
+    normalized.includes("protein") ||
+    normalized.includes("proteina") ||
+    normalized.includes("grama") ||
+    normalized.includes("grams") ||
+    (normalized.includes("dose") && normalized.includes("g"))
+  ) {
+    return { step: 5 };
+  }
+
+  if (
+    normalized.includes("dose") ||
+    normalized.includes("lavagen") ||
+    normalized.includes("metro") ||
+    normalized.includes("unidade") ||
+    normalized.includes("units") ||
+    normalized.includes("caps")
+  ) {
+    return { step: 10 };
+  }
+
+  if (
+    normalized.includes("ml") ||
+    normalized.includes("volume") ||
+    normalized.includes("litro") ||
+    normalized.includes("gramas por") ||
+    normalized.includes("gramas total")
+  ) {
+    return { step: 100 };
+  }
+
+  return { step: guessNiceStep(values) };
+};
+
+const buildBucketedFilterOptions = ({
+  values,
+  config,
+}: {
+  values: string[];
+  config: DisplayConfigField;
+}) => {
+  const numericValues = Array.from(
+    new Set(
+      values
+        .map((value) => Number(value))
+        .filter((value) => !Number.isNaN(value) && value > 0)
+    )
+  ).sort((a, b) => a - b);
+
+  const bucketConfig = getNumericBucketConfig({
+    config,
+    values: numericValues,
+  });
+
+  if (config.type !== "number" || !bucketConfig || numericValues.length <= 6) {
+    return sortFilterValues(values, config.type).map((value) => ({
+      value,
+      label: formatPublicFilterValue(value, config.type),
+    }));
+  }
+
+  const step = bucketConfig.step;
+  const minValue = numericValues[0];
+  const maxValue = numericValues[numericValues.length - 1];
+  const bucketStart = Math.floor(minValue / step) * step;
+  const bucketEnd = Math.ceil(maxValue / step) * step;
+  const options: Array<{ value: string; label: string }> = [];
+
+  for (let current = bucketStart; current < bucketEnd; current += step) {
+    const next = current + step;
+
+    if (bucketConfig.openEndedFrom !== undefined && current >= bucketConfig.openEndedFrom) {
+      const hasValues = numericValues.some((value) => value >= current);
+      if (hasValues) {
+        options.push({
+          value: `range:${current}:`,
+          label: `${formatRangeNumber(current)}+`,
+        });
+      }
+      break;
+    }
+
+    const hasValues = numericValues.some((value) => value >= current && value < next);
+    if (!hasValues) continue;
+
+    options.push({
+      value: `range:${current}:${next}`,
+      label: `${formatRangeNumber(current)}-${formatRangeNumber(next)}`,
+    });
+  }
+
+  return options.length > 0
+    ? options
+    : sortFilterValues(values, config.type).map((value) => ({
+        value,
+        label: formatPublicFilterValue(value, config.type),
+      }));
+};
+
 const getNumericAttribute = (attrs: DynamicAttributes, key: string) => {
   const value = Number(attrs[key]);
   return Number.isNaN(value) ? 0 : value;
@@ -527,9 +684,23 @@ export async function getDynamicCatalogData({
         typeof paramValue === "string" ? paramValue.split(",") : paramValue
       ).map((s) => String(s).trim().toLowerCase());
 
-      const pVal = String(attrs[config.key] || "").trim().toLowerCase();
+      const rawValue = String(attrs[config.key] || "").trim();
+      const normalizedValue = rawValue.toLowerCase();
 
-      if (selectedDynamic.length > 0 && !selectedDynamic.includes(pVal)) {
+      const matchesAnySelected = selectedDynamic.some((selectedValue) => {
+        const parsedRange = parseRangeFilterToken(selectedValue);
+
+        if (parsedRange) {
+          const numericValue = Number(rawValue);
+          if (Number.isNaN(numericValue)) return false;
+          if (parsedRange.max === null) return numericValue >= parsedRange.min;
+          return numericValue >= parsedRange.min && numericValue < parsedRange.max;
+        }
+
+        return selectedValue === normalizedValue;
+      });
+
+      if (selectedDynamic.length > 0 && !matchesAnySelected) {
         return false;
       }
     }
@@ -760,12 +931,10 @@ export async function getDynamicCatalogData({
   const sortedDynamicOptions = Object.fromEntries(
     filterableConfigs.map((config) => [
       config.key,
-      sortFilterValues(Array.from(dynamicFilterOptions[config.key]), config.type).map(
-        (value) => ({
-          value,
-          label: formatPublicFilterValue(value, config.type),
-        })
-      ),
+      buildBucketedFilterOptions({
+        values: Array.from(dynamicFilterOptions[config.key]),
+        config,
+      }),
     ])
   );
 
