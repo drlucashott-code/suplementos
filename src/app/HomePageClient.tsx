@@ -453,37 +453,6 @@ function QuickCategoryCard({
   );
 }
 
-function HubPanel({
-  title,
-  subtitle,
-  icon,
-  active,
-  onClick,
-}: {
-  title: string;
-  subtitle: string;
-  icon: React.ReactNode;
-  active?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-xl border p-3.5 text-left transition ${
-        active
-          ? "border-[#007185] bg-[#E6F4F1]"
-          : "border-[#d5d9d9] bg-[#F8FAFA] hover:border-[#aab7b8]"
-      }`}
-    >
-      <div className="mb-2 inline-flex rounded-lg bg-white p-2 text-[#007185] shadow-sm">
-        {icon}
-      </div>
-      <p className="text-[14px] font-bold text-[#0F1111]">{title}</p>
-      <p className="mt-1 text-[12px] leading-snug text-[#565959]">{subtitle}</p>
-    </button>
-  );
-}
-
 function HubToggleChip({
   title,
   subtitle,

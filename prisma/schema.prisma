@@ -215,6 +215,8 @@ model DynamicSiteConfig {
   fallbackMaxAgeHours      Int      @default(24)
   fallbackReason           String?
   fallbackActivatedAt      DateTime?
+  clickEmailAlertsEnabled  Boolean  @default(false)
+  clickAlertEmailTo        String?
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 }

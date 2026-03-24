@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { enqueuePriorityRefresh } from "@/lib/priorityRefreshQueue";
+import { sendDynamicClickAlertEmail } from "@/lib/dynamicClickAlerts";
 
 const ASIN_PATTERN = /^[A-Z0-9]{10}$/;
 
@@ -84,6 +85,36 @@ export async function POST(request: NextRequest) {
           NOW()
         )
       `;
+
+      const productInfo = await prisma.dynamicProduct.findUnique({
+        where: { id: product.id },
+        select: {
+          asin: true,
+          name: true,
+          url: true,
+          category: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      });
+
+      if (productInfo) {
+        const source =
+          utmSource ||
+          inferredSource ||
+          "direto";
+
+        await sendDynamicClickAlertEmail({
+          asin: productInfo.asin,
+          productName: productInfo.name,
+          categoryName: productInfo.category?.name ?? null,
+          pagePath,
+          source,
+          productUrl: productInfo.url,
+        });
+      }
     }
 
     return NextResponse.json({ ok: true, ...result });
