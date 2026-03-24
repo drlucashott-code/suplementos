@@ -309,7 +309,7 @@ export default function HomePageClient({
             <section className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm md:p-5">
               <div className="mb-4">
                 <p className="text-[20px] font-bold text-[#0F1111]">Comprar por categoria</p>
-                <div className="mt-4 flex flex-wrap gap-2.5">
+                <div className="mt-4 grid grid-cols-2 gap-3">
                   <HubToggleChip
                     title="Suplementos"
                     subtitle="Creatina, whey, barras e mais"
@@ -502,7 +502,7 @@ function HubToggleChip({
   return (
     <button
       onClick={onClick}
-      className={`min-w-[170px] flex-1 rounded-2xl border px-4 py-3 text-left transition sm:flex-none ${
+      className={`min-w-0 rounded-2xl border px-4 py-3 text-left transition ${
         active
           ? "border-[#007185] bg-[linear-gradient(180deg,#eefaf7_0%,#e2f3ef_100%)] text-[#0F1111] shadow-[inset_0_0_0_1px_rgba(0,113,133,0.06)]"
           : "border-[#d5d9d9] bg-[#F8FAFA] text-[#0F1111] hover:border-[#b8c3c4] hover:bg-white"
