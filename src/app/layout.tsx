@@ -23,7 +23,7 @@ const geistMono = Geist_Mono({
    METADATA (SEO & Indexação)
    ========================= */
 export const metadata: Metadata = {
-  metadataBase: new URL("https://amazonpicks.vercel.app"),
+  metadataBase: new URL("https://amazonpicks.com.br"),
   title: "Amazonpicks.com.br | Filtros inteligentes",
   description:
     "Utilizamos filtros inteligentes para encontrar o melhor produto para você.",
@@ -43,13 +43,13 @@ export const metadata: Metadata = {
   ],
   manifest: "/site.webmanifest",
   alternates: {
-    canonical: "https://amazonpicks.vercel.app",
+    canonical: "https://amazonpicks.com.br",
   },
   openGraph: {
     title: "Amazon Picks | Filtros inteligentes",
     description:
       "Utilizamos filtros inteligentes para encontrar o melhor produto para você",
-    url: "https://amazonpicks.vercel.app",
+    url: "https://amazonpicks.com.br",
     siteName: "amazonpicks",
     locale: "pt_BR",
     type: "website",
