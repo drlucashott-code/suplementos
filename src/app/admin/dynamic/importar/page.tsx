@@ -1,10 +1,11 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { getHomeCategories } from '../nova-categoria/actions';
 import {
   cancelDynamicDiscovery,
   cancelDynamicImport,
+  forceStopDynamicDiscovery,
   getDynamicDiscoveryRun,
   getLatestDynamicDiscoveryRun,
   getDynamicImportRun,
@@ -94,6 +95,7 @@ export default function ImportadorDynamicAPI() {
   const [discoveryLogs, setDiscoveryLogs] = useState<string[]>([]);
   const [discoveredItems, setDiscoveredItems] = useState<DiscoveryItem[]>([]);
   const [discoveryPage, setDiscoveryPage] = useState(1);
+  const [discoveryView, setDiscoveryView] = useState<'passed' | 'failed'>('failed');
   const [activeDiscoveryRunId, setActiveDiscoveryRunId] = useState<string | null>(null);
   const [activeDiscoveryRun, setActiveDiscoveryRun] = useState<DiscoveryRunState | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
@@ -161,7 +163,7 @@ export default function ImportadorDynamicAPI() {
     }
 
     setLoading(true);
-    setLogs(['Preparando importaÃ§Ã£o...']);
+    setLogs(['Preparando importaÃƒÂ§ÃƒÂ£o...']);
 
     const res = await startDynamicImportViaAPI({
       asinsRaw: asins,
@@ -204,6 +206,7 @@ export default function ImportadorDynamicAPI() {
     setDiscoveryLogs(['Preparando descoberta de ASINs...']);
     setDiscoveredItems([]);
     setDiscoveryPage(1);
+    setDiscoveryView('failed');
 
     const res = await startDynamicDiscovery({
       keywordsRaw: discoveryKeywordsRaw,
@@ -229,6 +232,23 @@ export default function ImportadorDynamicAPI() {
     const res = await cancelDynamicDiscovery(activeDiscoveryRunId);
     if (res.error) {
       alert(res.error);
+    }
+  };
+
+  const handleForceStopDiscovery = async () => {
+    if (!activeDiscoveryRunId) return;
+    const res = await forceStopDynamicDiscovery(activeDiscoveryRunId);
+    if (res.error) {
+      alert(res.error);
+      return;
+    }
+
+    setDiscovering(false);
+    const run = await getDynamicDiscoveryRun(activeDiscoveryRunId);
+    if (run) {
+      setActiveDiscoveryRun(run as DiscoveryRunState);
+      setDiscoveryLogs(run.logs);
+      setDiscoveredItems(run.items ?? []);
     }
   };
 
@@ -258,12 +278,14 @@ export default function ImportadorDynamicAPI() {
   const remainingDiscoveredItems = discoveredItems.filter(
     (item) => !matchesTitleFilters(item.title, requiredTerms, forbiddenTerms)
   );
+  const activeDiscoveredItems =
+    discoveryView === 'passed' ? filteredDiscoveredItems : remainingDiscoveredItems;
   const totalDiscoveryPages = Math.max(
     1,
-    Math.ceil(remainingDiscoveredItems.length / DISCOVERY_PAGE_SIZE)
+    Math.ceil(activeDiscoveredItems.length / DISCOVERY_PAGE_SIZE)
   );
   const safeDiscoveryPage = Math.min(discoveryPage, totalDiscoveryPages);
-  const paginatedDiscoveredItems = remainingDiscoveredItems.slice(
+  const paginatedDiscoveredItems = activeDiscoveredItems.slice(
     (safeDiscoveryPage - 1) * DISCOVERY_PAGE_SIZE,
     safeDiscoveryPage * DISCOVERY_PAGE_SIZE
   );
@@ -330,12 +352,20 @@ export default function ImportadorDynamicAPI() {
                     {activeDiscoveryRun?.processedSearches ?? 0}/{activeDiscoveryRun?.totalSearches ?? 0} buscas processadas
                     {' '}| {activeDiscoveryRun?.foundItems ?? 0} ASINs unicos encontrados
                   </div>
-                  <button
-                    onClick={handleCancelDiscovery}
-                    className="rounded-lg bg-red-600 px-3 py-2 text-[11px] font-black text-white transition-all hover:bg-red-700"
-                  >
-                    Cancelar descoberta
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleCancelDiscovery}
+                      className="rounded-lg bg-red-600 px-3 py-2 text-[11px] font-black text-white transition-all hover:bg-red-700"
+                    >
+                      Cancelar descoberta
+                    </button>
+                    <button
+                      onClick={handleForceStopDiscovery}
+                      className="rounded-lg border border-red-200 bg-white px-3 py-2 text-[11px] font-black text-red-700 transition-all hover:bg-red-50"
+                    >
+                      Forcar encerramento
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -361,7 +391,38 @@ export default function ImportadorDynamicAPI() {
                     </button>
                   </div>
 
-                  {remainingDiscoveredItems.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDiscoveryView('passed');
+                        setDiscoveryPage(1);
+                      }}
+                      className={`rounded-full border px-3 py-1.5 text-[11px] font-black transition-all ${
+                        discoveryView === 'passed'
+                          ? 'border-green-200 bg-green-50 text-green-700'
+                          : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      Passaram no filtro ({filteredDiscoveredItems.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDiscoveryView('failed');
+                        setDiscoveryPage(1);
+                      }}
+                      className={`rounded-full border px-3 py-1.5 text-[11px] font-black transition-all ${
+                        discoveryView === 'failed'
+                          ? 'border-amber-200 bg-amber-50 text-amber-700'
+                          : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      Nao passaram ({remainingDiscoveredItems.length})
+                    </button>
+                  </div>
+
+                  {activeDiscoveredItems.length > 0 ? (
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       {paginatedDiscoveredItems.map((item) => (
                         <div
@@ -377,16 +438,24 @@ export default function ImportadorDynamicAPI() {
                       ))}
                     </div>
                   ) : (
-                    <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-semibold text-green-700">
-                      Todos os ASINs encontrados estao passando pelos filtros da etapa 2.
+                    <div
+                      className={`rounded-xl p-4 text-sm font-semibold ${
+                        discoveryView === 'passed'
+                          ? 'border border-gray-200 bg-gray-50 text-gray-600'
+                          : 'border border-green-200 bg-green-50 text-green-700'
+                      }`}
+                    >
+                      {discoveryView === 'passed'
+                        ? 'Nenhum ASIN encontrado passou pelos filtros da etapa 2.'
+                        : 'Todos os ASINs encontrados estao passando pelos filtros da etapa 2.'}
                     </div>
                   )}
 
-                  {remainingDiscoveredItems.length > DISCOVERY_PAGE_SIZE && (
+                  {activeDiscoveredItems.length > DISCOVERY_PAGE_SIZE && (
                     <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
                       <div className="text-[11px] font-semibold text-gray-500">
-                        Pagina {safeDiscoveryPage} de {totalDiscoveryPages} • exibindo{' '}
-                        {paginatedDiscoveredItems.length} de {remainingDiscoveredItems.length}
+                        Pagina {safeDiscoveryPage} de {totalDiscoveryPages} â€¢ exibindo{' '}
+                        {paginatedDiscoveredItems.length} de {activeDiscoveredItems.length}
                       </div>
                       <div className="flex gap-2">
                         <button
@@ -583,9 +652,9 @@ export default function ImportadorDynamicAPI() {
                   <div
                     key={`import-${i}-${log}`}
                     className={`flex gap-3 leading-relaxed ${
-                      log.includes('âœ…')
+                      log.includes('Ã¢Å“â€¦')
                         ? 'text-green-400'
-                        : log.includes('âŒ') || log.includes('ðŸš«')
+                        : log.includes('Ã¢ÂÅ’') || log.includes('Ã°Å¸Å¡Â«')
                           ? 'text-red-400'
                           : 'text-yellow-400'
                     }`}
@@ -608,3 +677,4 @@ export default function ImportadorDynamicAPI() {
     </div>
   );
 }
+

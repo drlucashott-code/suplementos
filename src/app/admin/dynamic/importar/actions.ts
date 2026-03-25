@@ -189,32 +189,45 @@ function formatDiscoveryRangeLabel(range: SearchPriceRange | null) {
   return range ? range.label : "sem faixa";
 }
 
-function splitDiscoveryRange(
+function splitDiscoveryRangeByMedian(
   range: SearchPriceRange | null,
-  observedMin: number,
-  observedMax: number
+  observedPrices: number[]
 ): SearchPriceRange[] {
-  const safeMin = Math.floor(observedMin);
-  const safeMax = Math.ceil(observedMax);
+  const validPrices = observedPrices
+    .filter((price) => Number.isFinite(price) && price > 0)
+    .sort((a, b) => a - b);
+
+  if (validPrices.length < 2) {
+    return [];
+  }
+
+  const safeMin = Math.floor(validPrices[0]);
+  const safeMax = Math.ceil(validPrices[validPrices.length - 1]);
+
+  const midIndex = Math.floor(validPrices.length / 2);
+  const medianSource =
+    validPrices.length % 2 === 0
+      ? (validPrices[midIndex - 1] + validPrices[midIndex]) / 2
+      : validPrices[midIndex];
+  const median = Math.floor(medianSource);
 
   if (!Number.isFinite(safeMin) || !Number.isFinite(safeMax) || safeMax - safeMin < 10) {
     return [];
   }
 
-  const mid = Math.floor((safeMin + safeMax) / 2);
-  if (mid <= safeMin || mid >= safeMax) {
+  if (!Number.isFinite(median) || median <= safeMin || median >= safeMax) {
     return [];
   }
 
   const left: SearchPriceRange = {
     min: safeMin,
-    max: mid,
-    label: `R$${safeMin}-${mid}`,
+    max: median,
+    label: `R$${safeMin}-${median}`,
   };
   const right: SearchPriceRange = {
-    min: mid + 1,
+    min: median + 1,
     max: safeMax,
-    label: `R$${mid + 1}-${safeMax}`,
+    label: `R$${median + 1}-${safeMax}`,
   };
 
   if (range) {
@@ -227,6 +240,204 @@ function splitDiscoveryRange(
   }
 
   return [left, right].filter((item) => item.max - item.min >= 5);
+}
+
+function splitDiscoveryRangeByQuantilesCore(
+  range: SearchPriceRange | null,
+  observedPrices: number[]
+): { ranges: SearchPriceRange[]; bucketSummary: string[] } {
+  const validPrices = observedPrices
+    .filter((price) => Number.isFinite(price) && price > 0)
+    .sort((a, b) => a - b);
+
+  if (validPrices.length < 2) {
+    return { ranges: [], bucketSummary: [] };
+  }
+
+  const safeMin = Math.max(1, Math.floor(range?.min ?? validPrices[0]));
+  const safeMax = Math.ceil(range?.max ?? validPrices[validPrices.length - 1]);
+  const span = safeMax - safeMin;
+
+  if (!Number.isFinite(safeMin) || !Number.isFinite(safeMax) || span < 10) {
+    return { ranges: [], bucketSummary: [] };
+  }
+
+  const targetItemsPerRange = 25;
+  const desiredRangeCount = Math.max(
+    2,
+    Math.min(5, Math.ceil(validPrices.length / targetItemsPerRange))
+  );
+
+  const boundaries = new Set<number>();
+  boundaries.add(safeMin);
+
+  for (let i = 1; i < desiredRangeCount; i++) {
+    const rawIndex = Math.floor((validPrices.length * i) / desiredRangeCount);
+    const clampedIndex = Math.min(validPrices.length - 1, Math.max(0, rawIndex));
+    const boundary = Math.floor(validPrices[clampedIndex]);
+
+    if (boundary > safeMin && boundary < safeMax) {
+      boundaries.add(boundary);
+    }
+  }
+
+  const sortedBoundaries = [...boundaries].sort((a, b) => a - b);
+  const ranges: SearchPriceRange[] = [];
+  let currentMin = safeMin;
+
+  for (let index = 1; index < sortedBoundaries.length; index++) {
+    const currentBoundary = sortedBoundaries[index];
+    const currentMax = currentBoundary - 1;
+
+    if (currentMax - currentMin >= 5) {
+      ranges.push({
+        min: currentMin,
+        max: currentMax,
+        label: `R$${currentMin}-${currentMax}`,
+      });
+    }
+
+    currentMin = currentBoundary;
+  }
+
+  if (safeMax - currentMin >= 5) {
+    ranges.push({
+      min: currentMin,
+      max: safeMax,
+      label: `R$${currentMin}-${safeMax}`,
+    });
+  }
+
+  const bucketSummary = ranges.map((bucket) => {
+    const count = validPrices.filter(
+      (price) => price >= bucket.min && price <= bucket.max
+    ).length;
+    return `${bucket.label} (${count})`;
+  });
+
+  if (ranges.length > 1) {
+    return { ranges, bucketSummary };
+  }
+
+  return {
+    ranges: splitDiscoveryRangeByMedian(range, validPrices),
+    bucketSummary,
+  };
+}
+
+function getPercentileValue(sortedValues: number[], percentile: number) {
+  if (sortedValues.length === 0) return null;
+  const index = Math.min(
+    sortedValues.length - 1,
+    Math.max(0, Math.floor((sortedValues.length - 1) * percentile))
+  );
+  return sortedValues[index] ?? null;
+}
+
+function chooseNicePriceStep(rawStep: number) {
+  if (rawStep <= 25) return 25;
+  if (rawStep <= 50) return 50;
+  if (rawStep <= 150) return 100;
+  if (rawStep <= 225) return 200;
+  if (rawStep <= 300) return 250;
+  if (rawStep <= 500) return 500;
+  return Math.ceil(rawStep / 500) * 500;
+}
+
+function splitDiscoveryRangeByAdaptiveBands(
+  range: SearchPriceRange | null,
+  observedPrices: number[]
+): { ranges: SearchPriceRange[]; bucketSummary: string[] } {
+  const validPrices = observedPrices
+    .filter((price) => Number.isFinite(price) && price > 0)
+    .sort((a, b) => a - b);
+
+  if (validPrices.length < 2) {
+    return { ranges: [], bucketSummary: [] };
+  }
+
+  const safeMin = Math.max(1, Math.floor(range?.min ?? validPrices[0]));
+  const safeMax = Math.ceil(range?.max ?? validPrices[validPrices.length - 1]);
+  const span = safeMax - safeMin;
+
+  if (!Number.isFinite(safeMin) || !Number.isFinite(safeMax) || span < 10) {
+    return { ranges: [], bucketSummary: [] };
+  }
+
+  const q1 = getPercentileValue(validPrices, 0.25);
+  const q3 = getPercentileValue(validPrices, 0.75);
+  const p85 = getPercentileValue(validPrices, 0.85);
+
+  if (!q1 || !q3 || !p85) {
+    return splitDiscoveryRangeByQuantilesCore(range, validPrices);
+  }
+
+  const iqr = Math.max(1, q3 - q1);
+  const denseUpperBase = Math.min(
+    safeMax,
+    Math.ceil(Math.max(p85, q3 + iqr * 0.5))
+  );
+
+  const hasHeavyTail = safeMax > denseUpperBase + Math.max(100, iqr * 0.8);
+  if (!hasHeavyTail) {
+    return splitDiscoveryRangeByQuantilesCore(range, validPrices);
+  }
+
+  const denseZoneSpan = Math.max(1, denseUpperBase - safeMin);
+  const denseStep =
+    validPrices.length >= 80 && denseZoneSpan <= 700
+      ? 100
+      : chooseNicePriceStep(
+          Math.max(
+            50,
+            denseZoneSpan /
+              Math.max(4, Math.min(6, Math.ceil(validPrices.length / 20)))
+          )
+        );
+
+  const alignedDenseUpper = range
+    ? Math.min(safeMax, Math.ceil(denseUpperBase / denseStep) * denseStep)
+    : Math.min(safeMax, Math.ceil(denseUpperBase / denseStep) * denseStep);
+
+  const startMin = range
+    ? safeMin
+    : Math.max(1, Math.floor((safeMin - 1) / denseStep) * denseStep + 1);
+
+  const ranges: SearchPriceRange[] = [];
+  let currentMin = startMin;
+
+  while (currentMin <= alignedDenseUpper) {
+    const currentMax = Math.min(alignedDenseUpper, currentMin + denseStep - 1);
+    if (currentMax - currentMin >= 5) {
+      ranges.push({
+        min: currentMin,
+        max: currentMax,
+        label: `R$${currentMin}-${currentMax}`,
+      });
+    }
+    currentMin = currentMax + 1;
+  }
+
+  if (safeMax > alignedDenseUpper && safeMax - (alignedDenseUpper + 1) >= 5) {
+    ranges.push({
+      min: alignedDenseUpper + 1,
+      max: safeMax,
+      label: `R$${alignedDenseUpper + 1}-${safeMax}`,
+    });
+  }
+
+  const bucketSummary = ranges.map((bucket) => {
+    const count = validPrices.filter(
+      (price) => price >= bucket.min && price <= bucket.max
+    ).length;
+    return `${bucket.label} (${count})`;
+  });
+
+  if (ranges.length > 1) {
+    return { ranges, bucketSummary };
+  }
+
+  return splitDiscoveryRangeByQuantilesCore(range, validPrices);
 }
 
 function extractVolumeMlFromTitle(title: string): number | null {
@@ -890,10 +1101,12 @@ ${sha256(canonicalRequest)}`;
 async function searchAmazonItems(
   keyword: string,
   page: number,
+  brand?: string,
   range?: SearchPriceRange
 ): Promise<AmazonItem[]> {
   const payload = JSON.stringify({
     Keywords: keyword,
+    ...(brand ? { Brand: brand } : {}),
     SearchIndex: "All",
     ItemCount: 10,
     ItemPage: page,
@@ -1295,187 +1508,250 @@ async function runDynamicDiscoveryJob(input: {
   priceRangesRaw?: string;
   runId: string;
 }) {
-  const keywords = parseFilterList(input.keywordsRaw);
-  const brands = parseFilterList(input.brandsRaw);
-  const maxPages = Math.min(Math.max(input.maxPages ?? 10, 1), 10);
-  const hasManualRanges = (input.priceRangesRaw ?? "").trim().length > 0;
-  const initialPriceRanges = hasManualRanges
-    ? parseDiscoveryPriceRanges(input.priceRangesRaw)
-    : [null];
-  const foundMap = new Map<string, DiscoveryItem>();
-  const brandMatrix = brands.length > 0 ? brands : [""];
-  const tasks: DiscoverySearchTask[] = [];
+  const logs: string[] = [];
 
-  for (const keyword of keywords) {
-    for (const brandFilter of brandMatrix) {
-      for (const range of initialPriceRanges) {
-        tasks.push({
-          keyword,
-          brandFilter,
-          range,
-          depth: 0,
-        });
-      }
-    }
-  }
+  try {
+    const keywords = parseFilterList(input.keywordsRaw);
+    const brands = parseFilterList(input.brandsRaw);
+    const maxPages = Math.min(Math.max(input.maxPages ?? 10, 1), 10);
+    const hasManualRanges = (input.priceRangesRaw ?? "").trim().length > 0;
+    const initialPriceRanges = hasManualRanges
+      ? parseDiscoveryPriceRanges(input.priceRangesRaw)
+      : [null];
+    const foundMap = new Map<string, DiscoveryItem>();
+    const brandMatrix = brands.length > 0 ? brands : [""];
+    const tasks: DiscoverySearchTask[] = [];
 
-  let totalSearches = tasks.length;
-  const logs: string[] = [
-    `Iniciando descoberta com ${keywords.length} palavra(s)-chave e ${brandMatrix.length} marca(s).`,
-    hasManualRanges
-      ? `${totalSearches} buscas-base previstas com faixas manuais.`
-      : `${totalSearches} buscas-base previstas com divisao automatica de faixas.`,
-  ];
-  let processedSearches = 0;
-
-  await updateDiscoveryRun(input.runId, { logs, totalSearches });
-
-  while (tasks.length > 0) {
-    const task = tasks.shift()!;
-    processedSearches += 1;
-
-    if (processedSearches > 1 && (processedSearches - 1) % 5 === 0) {
-      const runState = await findDynamicDiscoveryRunById(input.runId);
-
-      if (runState?.cancelRequested) {
-        logs.push("Descoberta interrompida pelo usuario.");
-        await updateDiscoveryRun(input.runId, {
-          status: "cancelled",
-          totalSearches,
-          processedSearches,
-          foundItems: foundMap.size,
-          items: [...foundMap.values()],
-          finishedAt: new Date(),
-          logs,
-        });
-        return;
-      }
-    }
-
-    const searchTerm = [task.keyword, task.brandFilter].filter(Boolean).join(" ");
-    const rangeLabel = formatDiscoveryRangeLabel(task.range);
-
-    logs.push(`Buscando: ${searchTerm || task.keyword} | ${rangeLabel} | lote ${processedSearches}/${totalSearches}`);
-    await updateDiscoveryRun(input.runId, {
-      totalSearches,
-      processedSearches,
-      foundItems: foundMap.size,
-      items: [...foundMap.values()],
-      logs,
-    });
-
-    let saturated = true;
-    let observedMin = Number.POSITIVE_INFINITY;
-    let observedMax = 0;
-    let newItemsInTask = 0;
-    let consultedPages = 0;
-
-    for (let page = 1; page <= maxPages; page++) {
-      consultedPages += 1;
-      const items = await searchAmazonItems(searchTerm, page, task.range ?? undefined);
-
-      if (items.length < 10) {
-        saturated = false;
-      }
-
-      if (items.length === 0) {
-        logs.push("Sem resultados nessa combinacao.");
-        break;
-      }
-
-      for (const item of items) {
-        if (!item.ASIN) continue;
-
-        const asin = item.ASIN;
-        const title = getItemTitle(item);
-        const brand = getItemBrand(item);
-
-        if (task.brandFilter && !brand.toLowerCase().includes(task.brandFilter)) {
-          continue;
-        }
-
-        const { price, displayPrice } = getItemDisplayPrice(item);
-        if (typeof price === "number" && Number.isFinite(price) && price > 0) {
-          observedMin = Math.min(observedMin, price);
-          observedMax = Math.max(observedMax, price);
-        }
-
-        if (foundMap.has(asin)) {
-          continue;
-        }
-
-        const imageUrl = item.Images?.Primary?.Large?.URL ?? "";
-
-        foundMap.set(asin, {
-          asin,
-          title,
-          brand,
-          imageUrl,
-          price,
-          displayPrice,
-        });
-        newItemsInTask += 1;
-      }
-
-      await delay(1200);
-    }
-
-    logs.push(
-      `Busca concluida: +${newItemsInTask} novo(s) | ${foundMap.size} ASINs unicos acumulados | ${consultedPages}/${maxPages} paginas consultadas`
-    );
-
-    const canAutoSplit =
-      saturated &&
-      task.depth < 5 &&
-      Number.isFinite(observedMin) &&
-      observedMax > observedMin;
-
-    if (canAutoSplit) {
-      const splitRanges = splitDiscoveryRange(task.range, observedMin, observedMax);
-      if (splitRanges.length > 1) {
-        for (const splitRange of splitRanges) {
+    for (const keyword of keywords) {
+      for (const brandFilter of brandMatrix) {
+        for (const range of initialPriceRanges) {
           tasks.push({
-            keyword: task.keyword,
-            brandFilter: task.brandFilter,
-            range: splitRange,
-            depth: task.depth + 1,
+            keyword,
+            brandFilter,
+            range,
+            depth: 0,
           });
         }
-        totalSearches += splitRanges.length;
-        logs.push(
-          `Faixa saturada detectada. Dividindo em ${splitRanges
-            .map((item) => item.label)
-            .join(" e ")}`
-        );
       }
     }
 
+    let totalSearches = tasks.length;
+    logs.push(
+      `Iniciando descoberta com ${keywords.length} palavra(s)-chave e ${brandMatrix.length} marca(s).`,
+      hasManualRanges
+        ? `${totalSearches} buscas-base previstas com faixas manuais.`
+        : `${totalSearches} buscas-base previstas com divisao automatica de faixas.`
+    );
+    let processedSearches = 0;
+
+    await updateDiscoveryRun(input.runId, { logs, totalSearches });
+
+    while (tasks.length > 0) {
+      const task = tasks.shift()!;
+      const currentSearchNumber = processedSearches + 1;
+
+      if (processedSearches > 0 && processedSearches % 5 === 0) {
+        const runState = await findDynamicDiscoveryRunById(input.runId);
+
+        if (runState?.cancelRequested) {
+          logs.push("Descoberta interrompida pelo usuario.");
+          await updateDiscoveryRun(input.runId, {
+            status: "cancelled",
+            totalSearches,
+            processedSearches,
+            foundItems: foundMap.size,
+            items: [...foundMap.values()],
+            finishedAt: new Date(),
+            logs,
+          });
+          return;
+        }
+      }
+
+      const searchTerm = task.keyword.trim();
+      const rangeLabel = formatDiscoveryRangeLabel(task.range);
+
+      logs.push(
+        `Buscando: ${searchTerm}${task.brandFilter ? ` | marca: ${task.brandFilter}` : ""} | ${rangeLabel} | lote ${currentSearchNumber}/${totalSearches}`
+      );
+      await updateDiscoveryRun(input.runId, {
+        totalSearches,
+        processedSearches,
+        foundItems: foundMap.size,
+        items: [...foundMap.values()],
+        logs,
+      });
+
+      let saturated = true;
+      let observedMin = Number.POSITIVE_INFINITY;
+      let observedMax = 0;
+      const observedPrices: number[] = [];
+      let newItemsInTask = 0;
+      let consultedPages = 0;
+      const taskReturnedAsins = new Set<string>();
+
+      for (let page = 1; page <= maxPages; page++) {
+        const runState = await findDynamicDiscoveryRunById(input.runId);
+        if (runState?.cancelRequested) {
+          logs.push(
+            `Descoberta interrompida pelo usuario durante ${rangeLabel}, antes da pagina ${page}.`
+          );
+          await updateDiscoveryRun(input.runId, {
+            status: "cancelled",
+            totalSearches,
+            processedSearches,
+            foundItems: foundMap.size,
+            items: [...foundMap.values()],
+            finishedAt: new Date(),
+            logs,
+          });
+          return;
+        }
+
+        consultedPages += 1;
+        const items = await searchAmazonItems(
+          searchTerm,
+          page,
+          task.brandFilter || undefined,
+          task.range ?? undefined
+        );
+
+        if (items.length < 10) {
+          saturated = false;
+        }
+
+        if (items.length === 0) {
+          logs.push(
+            consultedPages === 1
+              ? "Sem resultados nessa combinacao."
+              : "Sem mais resultados nesta faixa."
+          );
+          break;
+        }
+
+        for (const item of items) {
+          if (!item.ASIN) continue;
+
+          const asin = item.ASIN;
+          const title = getItemTitle(item);
+          const brand = getItemBrand(item);
+
+          if (task.brandFilter && !brand.toLowerCase().includes(task.brandFilter)) {
+            continue;
+          }
+
+          taskReturnedAsins.add(asin);
+
+          const { price, displayPrice } = getItemDisplayPrice(item);
+          if (typeof price === "number" && Number.isFinite(price) && price > 0) {
+            observedMin = Math.min(observedMin, price);
+            observedMax = Math.max(observedMax, price);
+            observedPrices.push(price);
+          }
+
+          if (foundMap.has(asin)) {
+            continue;
+          }
+
+          const imageUrl = item.Images?.Primary?.Large?.URL ?? "";
+
+          foundMap.set(asin, {
+            asin,
+            title,
+            brand,
+            imageUrl,
+            price,
+            displayPrice,
+          });
+          newItemsInTask += 1;
+        }
+
+        if (page === 1 || page === maxPages || page % 2 === 0) {
+          logs.push(
+            `Progresso da faixa: pagina ${page}/${maxPages} | ${taskReturnedAsins.size} ASINs na busca | ${newItemsInTask} novo(s) nesta faixa`
+          );
+          await updateDiscoveryRun(input.runId, {
+            totalSearches,
+            processedSearches,
+            foundItems: foundMap.size,
+            items: [...foundMap.values()],
+            logs,
+          });
+        }
+
+        await delay(1200);
+      }
+
+      logs.push(
+        `Busca concluida: +${newItemsInTask} novo(s) | ${foundMap.size} ASINs unicos acumulados | ${taskReturnedAsins.size} ASINs na busca | ${consultedPages}/${maxPages} paginas consultadas`
+      );
+      processedSearches += 1;
+
+      const canAutoSplit =
+        saturated &&
+        taskReturnedAsins.size >= maxPages * 10 &&
+        task.depth < 5 &&
+        Number.isFinite(observedMin) &&
+        observedMax > observedMin;
+
+      if (canAutoSplit) {
+        const { ranges: splitRanges, bucketSummary } = splitDiscoveryRangeByAdaptiveBands(
+          task.range,
+          observedPrices
+        );
+        if (splitRanges.length > 1) {
+          for (const splitRange of splitRanges) {
+            tasks.push({
+              keyword: task.keyword,
+              brandFilter: task.brandFilter,
+              range: splitRange,
+              depth: task.depth + 1,
+            });
+          }
+          totalSearches += splitRanges.length;
+          logs.push(
+            `Faixa saturada detectada com ${taskReturnedAsins.size} ASINs na busca. Bandas observadas: ${bucketSummary.join(", ")}. Dividindo em ${splitRanges
+              .map((item) => item.label)
+              .join(" | ")}`
+          );
+        }
+      }
+
+      await updateDiscoveryRun(input.runId, {
+        totalSearches,
+        processedSearches,
+        foundItems: foundMap.size,
+        items: [...foundMap.values()],
+        logs,
+      });
+    }
+
+    const items = [...foundMap.values()].sort((a, b) => {
+      const priceA = a.price ?? Number.MAX_SAFE_INTEGER;
+      const priceB = b.price ?? Number.MAX_SAFE_INTEGER;
+      if (priceA !== priceB) return priceA - priceB;
+      return a.title.localeCompare(b.title, "pt-BR");
+    });
+
+    logs.push(`Descoberta concluida com ${items.length} ASINs unicos.`);
     await updateDiscoveryRun(input.runId, {
+      status: "completed",
       totalSearches,
       processedSearches,
-      foundItems: foundMap.size,
-      items: [...foundMap.values()],
+      foundItems: items.length,
+      items,
+      finishedAt: new Date(),
+      logs,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erro desconhecido na descoberta.";
+    logs.push(`Falha na descoberta: ${message}`);
+    await updateDiscoveryRun(input.runId, {
+      status: "failed",
+      finishedAt: new Date(),
       logs,
     });
   }
-
-  const items = [...foundMap.values()].sort((a, b) => {
-    const priceA = a.price ?? Number.MAX_SAFE_INTEGER;
-    const priceB = b.price ?? Number.MAX_SAFE_INTEGER;
-    if (priceA !== priceB) return priceA - priceB;
-    return a.title.localeCompare(b.title, "pt-BR");
-  });
-
-  logs.push(`Descoberta concluida com ${items.length} ASINs unicos.`);
-  await updateDiscoveryRun(input.runId, {
-    status: "completed",
-    totalSearches,
-    processedSearches,
-    foundItems: items.length,
-    items,
-    finishedAt: new Date(),
-    logs,
-  });
 }
 export async function startDynamicDiscovery(input: {
   keywordsRaw: string;
@@ -1556,6 +1832,33 @@ export async function cancelDynamicDiscovery(runId: string) {
 
   await updateDiscoveryRun(runId, {
     cancelRequested: true,
+  });
+
+  return { success: true };
+}
+
+export async function forceStopDynamicDiscovery(runId: string) {
+  const run = await findDynamicDiscoveryRunById(runId);
+
+  if (!run) {
+    return { error: "Descoberta nao encontrada." };
+  }
+
+  if (run.status !== "running") {
+    return { error: "Essa descoberta ja nao esta em andamento." };
+  }
+
+  const normalizedRun = normalizeDiscoveryRun(run);
+  const logs = [
+    ...normalizedRun.logs,
+    "Descoberta encerrada manualmente para destravar a fila.",
+  ];
+
+  await updateDiscoveryRun(runId, {
+    status: "failed",
+    cancelRequested: false,
+    finishedAt: new Date(),
+    logs,
   });
 
   return { success: true };

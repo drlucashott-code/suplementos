@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   updateManyProducts,
   updateManyProductsVisibility,
@@ -49,6 +49,23 @@ interface CategoryOption {
   id: string;
   name: string;
 }
+
+interface TableInitialState {
+  searchTerm?: string;
+  filterCategory?: string;
+  selectedBrands?: string[];
+  siteVisibilityFilter?: "all" | "visible" | "hidden";
+  currentPage?: number;
+  sortConfig?: {
+    key: string;
+    direction: "asc" | "desc";
+  } | null;
+}
+
+const NAME_COLUMN_MIN_WIDTH = 180;
+const NAME_COLUMN_MAX_WIDTH = 640;
+const NAME_COLUMN_DEFAULT_WIDTH = 260;
+const NAME_COLUMN_STORAGE_KEY = "admin-product-name-column-width";
 
 function solveMath(input: string): string {
   const cleanInput = input.replace(/\s+/g, "").replace(",", ".");
@@ -104,33 +121,98 @@ function getAttributeValue(
 export function AdminProductTable({
   initialProducts,
   categories,
+  initialState,
 }: {
   initialProducts: Product[];
   categories: CategoryOption[];
+  initialState?: TableInitialState;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const brandFilterRef = useRef<HTMLDivElement>(null);
   const PAGE_SIZE = 300;
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterCategory, setFilterCategory] = useState("");
+  const [searchTerm, setSearchTerm] = useState(initialState?.searchTerm ?? "");
+  const [filterCategory, setFilterCategory] = useState(
+    initialState?.filterCategory ?? ""
+  );
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [bulkData, setBulkData] = useState<Record<string, string>>({});
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [selectedBrands, setSelectedBrands] = useState<string[]>(
+    initialState?.selectedBrands ?? []
+  );
   const [showBrandFilter, setShowBrandFilter] = useState(false);
   const [brandFilterSearch, setBrandFilterSearch] = useState("");
   const [siteVisibilityFilter, setSiteVisibilityFilter] = useState<
     "all" | "visible" | "hidden"
-  >("all");
-  const [currentPage, setCurrentPage] = useState(1);
+  >(initialState?.siteVisibilityFilter ?? "all");
+  const [currentPage, setCurrentPage] = useState(initialState?.currentPage ?? 1);
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: "asc" | "desc";
-  } | null>({ key: "name", direction: "asc" });
+  } | null>(initialState?.sortConfig ?? { key: "name", direction: "asc" });
+  const [nameColumnWidth, setNameColumnWidth] = useState(NAME_COLUMN_DEFAULT_WIDTH);
+  const nameColumnResizeRef = useRef<{
+    startX: number;
+    startWidth: number;
+  } | null>(null);
 
   const hasCategoryFilter = filterCategory !== "";
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const storedWidth = window.localStorage.getItem(NAME_COLUMN_STORAGE_KEY);
+    if (!storedWidth) return;
+
+    const parsedWidth = Number(storedWidth);
+    if (!Number.isFinite(parsedWidth)) return;
+
+    setNameColumnWidth(
+      Math.max(NAME_COLUMN_MIN_WIDTH, Math.min(NAME_COLUMN_MAX_WIDTH, parsedWidth))
+    );
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(NAME_COLUMN_STORAGE_KEY, String(nameColumnWidth));
+  }, [nameColumnWidth]);
+
+  useEffect(() => {
+    function handleMouseMove(event: MouseEvent) {
+      const resizeState = nameColumnResizeRef.current;
+      if (!resizeState) return;
+
+      const nextWidth = Math.max(
+        NAME_COLUMN_MIN_WIDTH,
+        Math.min(
+          NAME_COLUMN_MAX_WIDTH,
+          resizeState.startWidth + (event.clientX - resizeState.startX)
+        )
+      );
+
+      setNameColumnWidth(nextWidth);
+    }
+
+    function handleMouseUp() {
+      if (!nameColumnResizeRef.current) return;
+      nameColumnResizeRef.current = null;
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
+    }
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
+    };
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -285,6 +367,68 @@ export function AdminProductTable({
   const totalPages = Math.max(1, Math.ceil(processedProducts.length / PAGE_SIZE));
   const safeCurrentPage = Math.min(currentPage, totalPages);
 
+  useEffect(() => {
+    if (currentPage !== safeCurrentPage) {
+      setCurrentPage(safeCurrentPage);
+    }
+  }, [currentPage, safeCurrentPage]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+
+    const normalizedSearch = searchTerm.trim();
+    if (normalizedSearch) {
+      params.set("q", normalizedSearch);
+    } else {
+      params.delete("q");
+    }
+
+    if (filterCategory) {
+      params.set("category", filterCategory);
+    } else {
+      params.delete("category");
+    }
+
+    if (selectedBrands.length > 0) {
+      params.set("brands", selectedBrands.join(","));
+    } else {
+      params.delete("brands");
+    }
+
+    if (siteVisibilityFilter !== "all") {
+      params.set("visibility", siteVisibilityFilter);
+    } else {
+      params.delete("visibility");
+    }
+
+    if (safeCurrentPage > 1) {
+      params.set("page", String(safeCurrentPage));
+    } else {
+      params.delete("page");
+    }
+
+    if (sortConfig && !(sortConfig.key === "name" && sortConfig.direction === "asc")) {
+      params.set("sort", sortConfig.key);
+      params.set("dir", sortConfig.direction);
+    } else {
+      params.delete("sort");
+      params.delete("dir");
+    }
+
+    const nextUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+    window.history.replaceState(null, "", nextUrl);
+  }, [
+    pathname,
+    searchTerm,
+    filterCategory,
+    selectedBrands,
+    siteVisibilityFilter,
+    safeCurrentPage,
+    sortConfig,
+  ]);
+
   const paginatedProducts = useMemo(() => {
     const start = (safeCurrentPage - 1) * PAGE_SIZE;
     return processedProducts.slice(start, start + PAGE_SIZE);
@@ -297,6 +441,19 @@ export function AdminProductTable({
       setSelectedIds([]);
       router.refresh();
     }
+  };
+
+  const handleNameColumnResizeStart = (
+    event: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    nameColumnResizeRef.current = {
+      startX: event.clientX,
+      startWidth: nameColumnWidth,
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
   };
 
   const handleBulkVisibility = async (isVisibleOnSite: boolean) => {
@@ -579,10 +736,30 @@ export function AdminProductTable({
                 <th className="w-28 p-4 text-center text-black">Foto / ASIN</th>
 
                 <th
-                  className="cursor-pointer p-4 text-black hover:text-black"
-                  onClick={() => toggleSort("name")}
+                  className="relative text-black"
+                  style={{
+                    width: `${nameColumnWidth}px`,
+                    minWidth: `${nameColumnWidth}px`,
+                    maxWidth: `${nameColumnWidth}px`,
+                  }}
                 >
-                  Nome do Produto
+                  <button
+                    type="button"
+                    className="flex w-full cursor-pointer items-center px-4 py-4 text-left font-black uppercase hover:text-black"
+                    onClick={() => toggleSort("name")}
+                  >
+                    Nome do Produto
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Redimensionar coluna do nome do produto"
+                    title="Arraste para aumentar ou diminuir a coluna"
+                    onMouseDown={handleNameColumnResizeStart}
+                    onDoubleClick={() => setNameColumnWidth(NAME_COLUMN_DEFAULT_WIDTH)}
+                    className="absolute right-0 top-0 h-full w-3 cursor-col-resize border-l border-transparent transition hover:border-gray-300 hover:bg-blue-50/70"
+                  >
+                    <span className="mx-auto block h-6 w-1 rounded-full bg-gray-300" />
+                  </button>
                 </th>
 
                 {showCategoryColumn ? (
@@ -753,7 +930,14 @@ export function AdminProductTable({
                       </a>
                     </td>
 
-                    <td className="p-4">
+                    <td
+                      className="p-4 align-top"
+                      style={{
+                        width: `${nameColumnWidth}px`,
+                        minWidth: `${nameColumnWidth}px`,
+                        maxWidth: `${nameColumnWidth}px`,
+                      }}
+                    >
                       <textarea
                         className="min-h-[50px] w-full resize-none border-none bg-transparent p-0 text-[13px] font-bold leading-tight text-gray-900 focus:ring-0"
                         defaultValue={p.name}

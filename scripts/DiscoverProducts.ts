@@ -1,5 +1,5 @@
 /**
- * DiscoverProducts v4.3 - Delay ajustado para reduzir burst sem ficar lento
+ * DiscoverProducts - busca direta sem fatiamento por preco
  */
 
 import "dotenv/config";
@@ -22,16 +22,8 @@ interface AmazonItem {
   };
 }
 
-const priceRanges = [
-  { min: 1, max: 15, label: "Super Econômico" },
-  { min: 16, max: 40, label: "Econômico" },
-  { min: 41, max: 80, label: "Intermediário" },
-  { min: 81, max: 200, label: "Premium" },
-  { min: 201, max: 2000, label: "Fardos/Kits" },
-];
-
 const PAGE_DELAY_MS = 1500;
-const EMPTY_RANGE_DELAY_MS = 1200;
+const EMPTY_SEARCH_DELAY_MS = 1200;
 const BAD_REQUEST_DELAY_MS = 1500;
 const RATE_LIMIT_DELAY_MS = 10000;
 
@@ -41,94 +33,87 @@ async function run() {
   const rawBrands = process.argv[2];
   const rawKeywords = process.argv[3] || "creme dental";
 
-  const keywordsList = rawKeywords.split(",").map((k) => k.trim());
-  const brandsList = rawBrands ? rawBrands.split(",").map((b) => b.trim()) : [];
+  const keywordsList = rawKeywords.split(",").map((keyword) => keyword.trim()).filter(Boolean);
+  const brandsList = rawBrands ? rawBrands.split(",").map((brand) => brand.trim()).filter(Boolean) : [];
 
   const maxPages = 10;
 
   if (!rawBrands) {
     console.log(
-      '❌ Uso: npx ts-node scripts/DiscoverProducts.ts "Colgate" "creme dental, escova"'
+      'Uso: npx ts-node scripts/DiscoverProducts.ts "Colgate" "creme dental, escova"'
     );
     process.exit(1);
   }
 
   const globalAsins = new Set<string>();
 
-  console.log(`🚀 Iniciando Escavação Profunda para [${brandsList.join(" | ")}]`);
-  console.log(`📋 Termos: ${keywordsList.join(" | ")}`);
-  console.log(`💰 Fatiamento: ${priceRanges.length} faixas de preço\n`);
+  console.log(`Iniciando Escavacao Profunda para [${brandsList.join(" | ")}]`);
+  console.log(`Termos: ${keywordsList.join(" | ")}\n`);
 
   for (const brand of brandsList) {
     for (const currentKeyword of keywordsList) {
-      console.log(`\n🔍 --- Buscando: "${currentKeyword}" de "${brand}" ---`);
+      console.log(`\n--- Buscando: "${currentKeyword}" de "${brand}" ---`);
 
-      for (const range of priceRanges) {
-        console.log(`  💸 Faixa: R$${range.min} - R$${range.max} (${range.label})`);
+      let foundInThisSearch = 0;
 
-        let foundInThisRange = 0;
+      for (let page = 1; page <= maxPages; page++) {
+        console.log(`  Pag ${page}...`);
 
-        for (let page = 1; page <= maxPages; page++) {
-          console.log(`    📄 Pág ${page}...`);
+        try {
+          const response = await paapi.SearchItems(commonParameters, {
+            Keywords: currentKeyword,
+            Brand: brand,
+            SearchIndex: "All",
+            ItemCount: 10,
+            ItemPage: page,
+            Resources: ["ItemInfo.Title", "ItemInfo.ByLineInfo"],
+          });
 
-          try {
-            const res = await paapi.SearchItems(commonParameters, {
-              Keywords: currentKeyword,
-              Brand: brand,
-              MinPrice: range.min * 100,
-              MaxPrice: range.max * 100,
-              SearchIndex: "All",
-              ItemCount: 10,
-              ItemPage: page,
-              Resources: ["ItemInfo.Title", "ItemInfo.ByLineInfo"],
-            });
+          const items = (response?.SearchResult?.Items || []) as AmazonItem[];
 
-            const items = res?.SearchResult?.Items || [];
+          if (items.length === 0) {
+            console.log(
+              `    Nenhum item na busca. Pausando ${EMPTY_SEARCH_DELAY_MS / 1000}s...`
+            );
+            await sleep(EMPTY_SEARCH_DELAY_MS);
+            break;
+          }
 
-            if (items.length === 0) {
+          items.forEach((item) => {
+            if (!globalAsins.has(item.ASIN)) {
               console.log(
-                `      🏁 Nenhum item na faixa. Pausando ${EMPTY_RANGE_DELAY_MS / 1000}s...`
+                `    [NEW] [${item.ASIN}] ${item.ItemInfo.Title.DisplayValue.substring(0, 35)}...`
               );
-              await sleep(EMPTY_RANGE_DELAY_MS);
-              break;
+              globalAsins.add(item.ASIN);
+              foundInThisSearch++;
             }
+          });
 
-            items.forEach((item: AmazonItem) => {
-              if (!globalAsins.has(item.ASIN)) {
-                console.log(
-                  `      [NEW] [${item.ASIN}] ${item.ItemInfo.Title.DisplayValue.substring(0, 35)}...`
-                );
-                globalAsins.add(item.ASIN);
-                foundInThisRange++;
-              }
-            });
+          await sleep(PAGE_DELAY_MS);
+        } catch (err: unknown) {
+          const error = err as { message?: string };
+          const msg = error.message || "Erro desconhecido";
 
-            await sleep(PAGE_DELAY_MS);
-          } catch (err: unknown) {
-            const error = err as { message?: string; ErrorData?: unknown };
-            const msg = error.message || "Erro desconhecido";
-
-            if (msg.includes("429")) {
-              console.log(
-                `⚠️ 429 - Limite de requisições. Pausando ${RATE_LIMIT_DELAY_MS / 1000}s...`
-              );
-              await sleep(RATE_LIMIT_DELAY_MS);
-              page--;
-            } else if (msg.includes("400") || msg.includes("Bad Request")) {
-              console.log(
-                `      🏁 Limite de páginas ou erro de parâmetro. Pausando ${BAD_REQUEST_DELAY_MS / 1000}s...`
-              );
-              await sleep(BAD_REQUEST_DELAY_MS);
-              break;
-            } else {
-              console.error("❌ Erro:", msg);
-              break;
-            }
+          if (msg.includes("429")) {
+            console.log(
+              `429 - Limite de requisicoes. Pausando ${RATE_LIMIT_DELAY_MS / 1000}s...`
+            );
+            await sleep(RATE_LIMIT_DELAY_MS);
+            page--;
+          } else if (msg.includes("400") || msg.includes("Bad Request")) {
+            console.log(
+              `    Limite de paginas ou erro de parametro. Pausando ${BAD_REQUEST_DELAY_MS / 1000}s...`
+            );
+            await sleep(BAD_REQUEST_DELAY_MS);
+            break;
+          } else {
+            console.error("Erro:", msg);
+            break;
           }
         }
-
-        console.log(`    ✅ +${foundInThisRange} novos itens.`);
       }
+
+      console.log(`  +${foundInThisSearch} novos itens.`);
     }
   }
 
@@ -136,11 +121,11 @@ async function run() {
 
   if (uniqueAsins.length > 0) {
     console.log("\n===========================================");
-    console.log("🏁 LISTA CONSOLIDADA");
+    console.log("LISTA CONSOLIDADA");
     console.log(uniqueAsins.join(", "));
-    console.log(`\n📦 Total de ASINs únicos: ${uniqueAsins.length}`);
+    console.log(`\nTotal de ASINs unicos: ${uniqueAsins.length}`);
   } else {
-    console.log("\n❌ Nenhum produto encontrado.");
+    console.log("\nNenhum produto encontrado.");
   }
 }
 

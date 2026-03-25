@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Image from "next/image";
 import { AlertTriangle, Bookmark, X } from "lucide-react";
@@ -473,7 +473,7 @@ export function MobileProductCard({
           <div className="mt-auto flex flex-col">
             {hasPrice && intCents ? (
               <>
-                <div className="flex items-baseline gap-2">
+                <div className="flex items-start">
                   <div className="flex items-start">
                     <span
                       className={`mt-1 text-[13px] font-medium ${
@@ -497,6 +497,7 @@ export function MobileProductCard({
                       {intCents[1]}
                     </span>
                   </div>
+
                 </div>
 
                 {typeof product.avgPrice === "number" &&
@@ -654,3 +655,4 @@ export function MobileProductCard({
     </>
   );
 }
+
