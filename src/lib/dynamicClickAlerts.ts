@@ -13,6 +13,20 @@ export type DynamicClickAlertConfig = {
   clickAlertEmailTo: string | null;
 };
 
+const CLICK_ALERT_TIME_ZONE = "America/Sao_Paulo";
+
+function formatClickAlertTimestamp(date: Date) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: CLICK_ALERT_TIME_ZONE,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date);
+}
+
 function getDefaultClickAlertConfig(): DynamicClickAlertConfig {
   return {
     clickEmailAlertsEnabled: false,
@@ -124,7 +138,7 @@ export async function sendDynamicClickAlertEmail(params: {
     `Categoria: ${params.categoryName ?? "nao informada"}`,
     `Origem: ${params.source ?? "direto"}`,
     `Pagina: ${params.pagePath ?? "-"}`,
-    `Horario: ${new Date().toLocaleString("pt-BR")}`,
+    `Horario: ${formatClickAlertTimestamp(new Date())} (${CLICK_ALERT_TIME_ZONE})`,
     `Link: ${params.productUrl ?? "-"}`,
   ];
 
