@@ -48,12 +48,46 @@ export function AmazonHeader() {
     router.push(`${pathname}?${params.toString()}`);
   }
 
+  function handleBack() {
+    if (typeof window === "undefined") {
+      router.replace("/");
+      return;
+    }
+
+    const historyState = window.history.state as { idx?: number } | null;
+
+    if (typeof historyState?.idx === "number") {
+      if (historyState.idx > 0) {
+        router.back();
+        return;
+      }
+
+      router.replace("/");
+      return;
+    }
+
+    try {
+      if (document.referrer) {
+        const referrerUrl = new URL(document.referrer);
+
+        if (referrerUrl.origin === window.location.origin) {
+          router.back();
+          return;
+        }
+      }
+    } catch {
+      // Ignore invalid referrer URLs and fall back to the home page.
+    }
+
+    router.replace("/");
+  }
+
   return (
     <>
       <header className="sticky top-0 z-40 w-full bg-[#232f3e] text-white shadow-md">
         <div className="mx-auto flex h-14 max-w-[1200px] items-center gap-2 px-3">
           <button
-            onClick={() => router.back()}
+            onClick={handleBack}
             className="flex-shrink-0 rounded-full p-1 transition-colors active:bg-white/10"
             aria-label="Voltar"
           >

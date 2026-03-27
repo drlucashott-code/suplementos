@@ -7,11 +7,33 @@ const prisma = new PrismaClient({
   log: ["error"],
 });
 
+const REQUEST_DELAY_MIN_MS = 4500;
+const REQUEST_DELAY_MAX_MS = 9000;
+const RETRY_DELAY_MIN_MS = 20000;
+const RETRY_DELAY_MAX_MS = 45000;
+const MAX_CONSECUTIVE_ERRORS = 3;
+
 const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
+function randomBetween(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+async function sleepWithJitter(min: number, max: number) {
+  await sleep(randomBetween(min, max));
+}
+
 type RatingResult =
-  | { rating: number | null; count: number | null; status: "success" | "not_found" }
-  | { rating: null; count: null; status: "error" };
+  | {
+      rating: number | null;
+      count: number | null;
+      status: "success" | "not_found";
+    }
+  | {
+      rating: null;
+      count: null;
+      status: "no_rating" | "error" | "blocked";
+    };
 
 function getFirstText($: cheerio.CheerioAPI, selectors: string[]) {
   for (const selector of selectors) {
@@ -38,11 +60,39 @@ function getFirstAttr(
   return "";
 }
 
+function isBlockedResponse(html: string) {
+  const normalized = html.toLowerCase();
+
+  return [
+    "validatecaptcha",
+    "not a robot",
+    "digite os caracteres que voce ve abaixo",
+    "digite os caracteres que você vê abaixo",
+    "insira os caracteres que voce ve abaixo",
+    "insira os caracteres que você vê abaixo",
+    "sorry, we just need to make sure you're not a robot",
+    "enter the characters you see below",
+    "automated access to amazon data",
+  ].some((signal) => normalized.includes(signal));
+}
+
+function hasProductPageSignals($: cheerio.CheerioAPI) {
+  return Boolean(
+    getFirstText($, [
+      "#productTitle",
+      "[data-feature-name='title'] h1",
+      "#title",
+    ]) ||
+      getFirstAttr($, [{ selector: "#dp", attr: "data-asin" }]) ||
+      getFirstText($, ["#centerCol", "#ppd"])
+  );
+}
+
 async function fetchAmazonRatings(asin: string): Promise<RatingResult> {
   const url = `https://www.amazon.com.br/dp/${asin}`;
 
   try {
-    const { data } = await axios.get(url, {
+    const { data } = await axios.get<string>(url, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -52,6 +102,14 @@ async function fetchAmazonRatings(asin: string): Promise<RatingResult> {
       },
       timeout: 15000,
     });
+
+    if (typeof data !== "string" || data.trim() === "") {
+      return { rating: null, count: null, status: "error" };
+    }
+
+    if (isBlockedResponse(data)) {
+      return { rating: null, count: null, status: "blocked" };
+    }
 
     const $ = cheerio.load(data);
 
@@ -76,8 +134,13 @@ async function fetchAmazonRatings(asin: string): Promise<RatingResult> {
     const count = countRaw ? parseInt(countRaw.replace(/[^0-9]/g, ""), 10) : null;
 
     if (rating === null && count === null) {
-      console.warn(`  ⚠️ Nenhuma avaliação encontrada no HTML do ASIN ${asin}.`);
-      return { rating: null, count: null, status: "error" };
+      if (!hasProductPageSignals($)) {
+        console.warn(`  [warn] HTML suspeito para ${asin}. Tratando como possivel bloqueio.`);
+        return { rating: null, count: null, status: "blocked" };
+      }
+
+      console.warn(`  [warn] Nenhuma avaliacao encontrada no HTML do ASIN ${asin}.`);
+      return { rating: null, count: null, status: "no_rating" };
     }
 
     return { rating, count, status: "success" };
@@ -88,14 +151,14 @@ async function fetchAmazonRatings(asin: string): Promise<RatingResult> {
       return { rating: null, count: null, status: "not_found" };
     }
 
-    console.error(`  ❌ Erro no ASIN ${asin}: ${msg}`);
+    console.error(`  [error] Erro no ASIN ${asin}: ${msg}`);
     return { rating: null, count: null, status: "error" };
   }
 }
 
 async function processProduct(product: { id: string; asin: string; name: string }) {
   console.log(
-    `🔍 [${product.asin}] - Processando: ${product.name.substring(0, 45)}...`
+    `[check] [${product.asin}] - Processando: ${product.name.substring(0, 45)}...`
   );
 
   const result = await fetchAmazonRatings(product.asin);
@@ -110,8 +173,8 @@ async function processProduct(product: { id: string; asin: string; name: string 
       },
     });
 
-    console.log(`  ✅ Sucesso: ${result.rating}⭐ | ${result.count} reviews`);
-    return "success";
+    console.log(`  [ok] Sucesso: ${result.rating} estrela(s) | ${result.count} reviews`);
+    return "success" as const;
   }
 
   if (result.status === "not_found") {
@@ -124,12 +187,31 @@ async function processProduct(product: { id: string; asin: string; name: string 
       },
     });
 
-    console.log("  ⚠️ Produto não encontrado (404). Marcado como checado.");
-    return "not_found";
+    console.log("  [warn] Produto nao encontrado (404). Marcado como checado.");
+    return "not_found" as const;
   }
 
-  console.log("  ⚠️ Erro temporário. Vai para fila de nova tentativa.");
-  return "error";
+  if (result.status === "no_rating") {
+    await prisma.dynamicProduct.update({
+      where: { id: product.id },
+      data: {
+        ratingAverage: null,
+        ratingCount: null,
+        ratingsUpdatedAt: new Date(),
+      },
+    });
+
+    console.log("  [warn] Produto sem avaliacoes. Marcado como checado.");
+    return "no_rating" as const;
+  }
+
+  if (result.status === "blocked") {
+    console.log("  [warn] Sinal forte de bloqueio detectado. Encerrando a rodada.");
+    return "blocked" as const;
+  }
+
+  console.log("  [warn] Erro temporario. Vai para fila de nova tentativa.");
+  return "error" as const;
 }
 
 async function main() {
@@ -145,11 +227,11 @@ async function main() {
     });
 
     if (!product) {
-      console.log(`❌ ASIN ${singleAsin} não encontrado em DynamicProduct.`);
+      console.log(`[error] ASIN ${singleAsin} nao encontrado em DynamicProduct.`);
       return;
     }
 
-    console.log(`🎯 Modo teste por ASIN: ${singleAsin}`);
+    console.log(`[target] Modo teste por ASIN: ${singleAsin}`);
     await processProduct(product);
     return;
   }
@@ -160,10 +242,17 @@ async function main() {
   const products = await prisma.dynamicProduct.findMany({
     where: {
       OR: [
-        { ratingAverage: null },
-        { ratingCount: null },
         { ratingsUpdatedAt: null },
-        { ratingsUpdatedAt: { lt: trintaDiasAtras } },
+        {
+          AND: [
+            { ratingsUpdatedAt: { lt: trintaDiasAtras } },
+            {
+              NOT: {
+                AND: [{ ratingAverage: null }, { ratingCount: null }],
+              },
+            },
+          ],
+        },
       ],
     },
     select: { id: true, asin: true, name: true },
@@ -171,47 +260,89 @@ async function main() {
   });
 
   if (products.length === 0) {
-    console.log("✅ Tudo em dia! Nenhum produto precisa de atualização de rating no momento.");
+    console.log(
+      "[ok] Tudo em dia. Nenhum produto precisa de atualizacao de rating no momento."
+    );
     return;
   }
 
-  console.log(`\n🚀 Iniciando atualização de fila para ${products.length} produtos...`);
+  console.log(`\n[start] Iniciando atualizacao de fila para ${products.length} produtos...`);
 
   let atualizados = 0;
+  let consecutiveErrors = 0;
   const retryQueue: { id: string; asin: string; name: string }[] = [];
 
   for (const product of products) {
     const status = await processProduct(product);
 
-    if (status === "success") {
-      atualizados++;
-    } else if (status === "error") {
-      retryQueue.push(product);
+    if (status === "blocked") {
+      console.log(
+        "\n[stop] Rodada interrompida por suspeita de bloqueio. O script foi encerrado para proteger o IP."
+      );
+      return;
     }
 
-    await sleep(5000);
+    if (status === "success") {
+      atualizados++;
+      consecutiveErrors = 0;
+    } else if (status === "error") {
+      retryQueue.push(product);
+      consecutiveErrors += 1;
+    } else {
+      consecutiveErrors = 0;
+    }
+
+    if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+      console.log(
+        `\n[stop] ${consecutiveErrors} erros consecutivos detectados. Encerrando a rodada para evitar bloqueio.`
+      );
+      return;
+    }
+
+    await sleepWithJitter(REQUEST_DELAY_MIN_MS, REQUEST_DELAY_MAX_MS);
   }
 
   if (retryQueue.length > 0) {
-    console.log(`\n🔁 Nova tentativa para ${retryQueue.length} produtos com erro...`);
-    await sleep(10000);
+    console.log(`\n[retry] Nova tentativa para ${retryQueue.length} produtos com erro...`);
+    await sleepWithJitter(RETRY_DELAY_MIN_MS, RETRY_DELAY_MAX_MS);
+
+    let retryConsecutiveErrors = 0;
 
     for (const product of retryQueue) {
       const status = await processProduct(product);
 
-      if (status === "success") {
-        atualizados++;
+      if (status === "blocked") {
+        console.log(
+          "\n[stop] Bloqueio detectado durante a fila de retry. Encerrando a rodada."
+        );
+        return;
       }
 
-      await sleep(5000);
+      if (status === "success") {
+        atualizados++;
+        retryConsecutiveErrors = 0;
+      } else if (status === "error") {
+        retryConsecutiveErrors += 1;
+      } else {
+        retryConsecutiveErrors = 0;
+      }
+
+      if (retryConsecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+        console.log(
+          `\n[stop] ${retryConsecutiveErrors} erros consecutivos detectados no retry. Encerrando para evitar bloqueio.`
+        );
+        return;
+      }
+
+      await sleepWithJitter(REQUEST_DELAY_MIN_MS, REQUEST_DELAY_MAX_MS);
     }
   }
 
   console.log(
-    `\n🏁 Sincronização concluída! Total de produtos atualizados nesta rodada: ${atualizados}`
+    `\n[done] Sincronizacao concluida. Total de produtos atualizados nesta rodada: ${atualizados}`
   );
 }
 
 main()
-  .catch((e) => console.error("❌ Erro fatal:", e))
+  .catch((e) => console.error("[fatal] Erro fatal:", e))
   .finally(async () => await prisma.$disconnect());
