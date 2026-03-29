@@ -159,24 +159,21 @@ function getPriceDecisionStyles(decision: PriceDecision["level"]) {
       };
     case "good":
       return {
-        badge:
-          "border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]",
+        badge: "border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]",
         badgeDot: "bg-[#2563EB]",
         insight: "text-[#1D4ED8]",
         insightBox: "border-[#DBEAFE] bg-[#F8FBFF]",
       };
     case "expensive":
       return {
-        badge:
-          "border-[#FECDD3] bg-[#FFF1F2] text-[#BE123C]",
+        badge: "border-[#FECDD3] bg-[#FFF1F2] text-[#BE123C]",
         badgeDot: "bg-[#E11D48]",
         insight: "text-[#BE123C]",
         insightBox: "border-[#FFE4E6] bg-[#FFF7F8]",
       };
     default:
       return {
-        badge:
-          "border-[#E4E4E7] bg-[#F4F4F5] text-[#52525B]",
+        badge: "border-[#E4E4E7] bg-[#F4F4F5] text-[#52525B]",
         badgeDot: "bg-[#71717A]",
         insight: "text-[#52525B]",
         insightBox: "border-[#E4E4E7] bg-[#FAFAFA]",
@@ -377,7 +374,7 @@ export function MobileProductCard({
     <>
       <div className="relative flex min-h-[250px] items-stretch gap-3 border-b border-gray-100 bg-white font-sans">
         {(product.discountPercent ?? 0) > 0 && (
-          <div className="absolute left-0 top-4 z-10 rounded-r-sm bg-[#CC0C39] px-2 py-0.5 text-[11px] font-bold text-white shadow-[0_6px_14px_rgba(204,12,57,0.28)]">
+          <div className="absolute left-0 top-4 z-10 bg-[#CC0C39] px-2 py-0.5 text-[11px] font-bold text-white">
             {product.discountPercent}% OFF
           </div>
         )}
@@ -465,7 +462,7 @@ export function MobileProductCard({
           )}
 
           <div
-            className={`mb-3 grid gap-2 divide-x divide-zinc-100 rounded border border-zinc-100 bg-[#FCFCFC] p-2 ${
+            className={`mb-3 grid gap-2 divide-x divide-zinc-200 rounded border border-zinc-200 bg-white p-2 ${
               rating === 0 && visibleHighlights.length === 0 ? "mt-2" : ""
             }`}
             style={{
@@ -524,52 +521,11 @@ export function MobileProductCard({
           <div className="mt-auto flex flex-col">
             {hasPrice && intCents ? (
               <>
-                {showReferencePrice ? (
-                  <div className="relative mb-0.5 flex items-center gap-1 text-[11px] text-zinc-500">
-                    <span className="font-medium">De:</span>
-                    <span className="line-through">
-                      R$ {product.avgPrice!.toFixed(2).replace(".", ",")}
-                    </span>
-                    <PriceHistoryButton
-                      productId={product.id}
-                      productName={product.name}
-                    />
-                  </div>
-                ) : null}
-
-                <div className="flex items-start">
-                  <span
-                    className={`mt-1 text-[13px] font-medium ${
-                      (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
-                    }`}
-                  >
-                    R$
-                  </span>
-                  <span
-                    className={`text-3xl font-medium leading-none tracking-tight ${
-                      (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
-                    }`}
-                  >
-                    {intCents[0]}
-                  </span>
-                  <span
-                    className={`mt-[3px] text-[14px] font-medium leading-none ${
-                      (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
-                    }`}
-                  >
-                    {intCents[1]}
-                  </span>
-                </div>
-
                 {priceDecision && priceDecisionStyles ? (
-                  <div className="mt-1.5 flex flex-col items-start gap-0.5">
+                  <div className="mb-1.5 flex flex-col items-start gap-0.5">
                     <span
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold leading-none ${priceDecisionStyles.badge}`}
+                      className={`inline-flex items-center border px-2.5 py-1 text-[11px] font-semibold leading-none ${priceDecisionStyles.badge}`}
                     >
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${priceDecisionStyles.badgeDot}`}
-                        aria-hidden="true"
-                      />
                       {priceDecision.label}
                     </span>
                     {shouldShowDecisionMessage ? (
@@ -579,6 +535,54 @@ export function MobileProductCard({
                         {priceDecision.message}
                       </p>
                     ) : null}
+                  </div>
+                ) : null}
+
+                <div className="flex items-start">
+                  <div className="flex items-start">
+                    <span
+                      className={`mt-1 text-[13px] font-medium ${
+                        (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
+                      }`}
+                    >
+                      R$
+                    </span>
+                    <span
+                      className={`text-3xl font-medium leading-none tracking-tight ${
+                        (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
+                      }`}
+                    >
+                      {intCents[0]}
+                    </span>
+                    <span
+                      className={`mt-[3px] text-[14px] font-medium leading-none ${
+                        (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
+                      }`}
+                    >
+                      {intCents[1]}
+                    </span>
+                  </div>
+
+                  {!showReferencePrice ? (
+                    <div className="ml-2 mt-1 shrink-0">
+                      <PriceHistoryButton
+                        productId={product.id}
+                        productName={product.name}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+
+                {showReferencePrice ? (
+                  <div className="relative mt-0.5 flex items-center gap-1 text-[11px] text-zinc-500">
+                    <span className="font-medium">De:</span>
+                    <span className="line-through">
+                      R$ {product.avgPrice!.toFixed(2).replace(".", ",")}
+                    </span>
+                    <PriceHistoryButton
+                      productId={product.id}
+                      productName={product.name}
+                    />
                   </div>
                 ) : null}
 
@@ -593,15 +597,6 @@ export function MobileProductCard({
                     <span className="text-[#00A8E1]">prime</span>
                   </span>
                 </div>
-
-                {!showReferencePrice ? (
-                  <div className="mt-1">
-                    <PriceHistoryButton
-                      productId={product.id}
-                      productName={product.name}
-                    />
-                  </div>
-                ) : null}
               </>
             ) : (
               <p className="text-[13px] italic text-zinc-800">Preço indisponível</p>
