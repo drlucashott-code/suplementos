@@ -6,21 +6,25 @@ type PriceStatsRow = {
   averagePrice30d: number | null;
   lowestPrice30d: number | null;
   highestPrice30d: number | null;
+  lowestPrice365d: number | null;
 };
 
 export async function refreshDynamicProductPriceStats(productId: string) {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const threeHundredSixtyFiveDaysAgo = new Date();
+  threeHundredSixtyFiveDaysAgo.setDate(threeHundredSixtyFiveDaysAgo.getDate() - 365);
 
   const rows = await prisma.$queryRaw<PriceStatsRow[]>(Prisma.sql`
     SELECT
-      AVG("price")::float AS "averagePrice30d",
-      MIN("price")::float AS "lowestPrice30d",
-      MAX("price")::float AS "highestPrice30d"
+      AVG("price") FILTER (WHERE "date" >= ${thirtyDaysAgo})::float AS "averagePrice30d",
+      MIN("price") FILTER (WHERE "date" >= ${thirtyDaysAgo})::float AS "lowestPrice30d",
+      MAX("price") FILTER (WHERE "date" >= ${thirtyDaysAgo})::float AS "highestPrice30d",
+      MIN("price")::float AS "lowestPrice365d"
     FROM "DynamicPriceHistory"
     WHERE
       "productId" = ${productId}
-      AND "createdAt" >= ${thirtyDaysAgo}
+      AND "date" >= ${threeHundredSixtyFiveDaysAgo}
       AND "price" > 0
   `);
 
@@ -32,6 +36,7 @@ export async function refreshDynamicProductPriceStats(productId: string) {
       averagePrice30d: row?.averagePrice30d ?? null,
       lowestPrice30d: row?.lowestPrice30d ?? null,
       highestPrice30d: row?.highestPrice30d ?? null,
+      lowestPrice365d: row?.lowestPrice365d ?? null,
       priceStatsUpdatedAt: new Date(),
     },
   });
@@ -43,17 +48,20 @@ export async function refreshDynamicProductPriceStatsBulk(productIds: string[]) 
 
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const threeHundredSixtyFiveDaysAgo = new Date();
+  threeHundredSixtyFiveDaysAgo.setDate(threeHundredSixtyFiveDaysAgo.getDate() - 365);
 
   const rows = await prisma.$queryRaw<PriceStatsRow[]>(Prisma.sql`
     SELECT
       "productId",
-      AVG("price")::float AS "averagePrice30d",
-      MIN("price")::float AS "lowestPrice30d",
-      MAX("price")::float AS "highestPrice30d"
+      AVG("price") FILTER (WHERE "date" >= ${thirtyDaysAgo})::float AS "averagePrice30d",
+      MIN("price") FILTER (WHERE "date" >= ${thirtyDaysAgo})::float AS "lowestPrice30d",
+      MAX("price") FILTER (WHERE "date" >= ${thirtyDaysAgo})::float AS "highestPrice30d",
+      MIN("price")::float AS "lowestPrice365d"
     FROM "DynamicPriceHistory"
     WHERE
       "productId" IN (${Prisma.join(uniqueProductIds)})
-      AND "createdAt" >= ${thirtyDaysAgo}
+      AND "date" >= ${threeHundredSixtyFiveDaysAgo}
       AND "price" > 0
     GROUP BY "productId"
   `);
@@ -75,6 +83,7 @@ export async function refreshDynamicProductPriceStatsBulk(productIds: string[]) 
           averagePrice30d: row?.averagePrice30d ?? null,
           lowestPrice30d: row?.lowestPrice30d ?? null,
           highestPrice30d: row?.highestPrice30d ?? null,
+          lowestPrice365d: row?.lowestPrice365d ?? null,
           priceStatsUpdatedAt: now,
         },
       });

@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { trackProductClick } from "@/lib/client/productClickTracking";
 import type { SaveableDeal } from "@/lib/client/savedDeals";
 import { SAVED_DEALS_EVENT, isDealSaved, toggleSavedDeal } from "@/lib/client/savedDeals";
+import { PriceHistoryButton } from "@/components/dynamic/PriceHistoryButton";
+import type { PriceDecision } from "@/lib/priceDecision";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 export type DynamicProductType = {
@@ -20,7 +22,11 @@ export type DynamicProductType = {
   likeCount?: number;
   dislikeCount?: number;
   avgPrice?: number | null;
+  lowestPrice30d?: number | null;
+  highestPrice30d?: number | null;
+  lowestPrice365d?: number | null;
   discountPercent?: number | null;
+  priceDecision?: PriceDecision | null;
   attributes: Record<string, string | number | undefined>;
 };
 
@@ -141,6 +147,43 @@ function resolveTemplate(
   });
 }
 
+function getPriceDecisionStyles(decision: PriceDecision["level"]) {
+  switch (decision) {
+    case "excellent":
+      return {
+        badge:
+          "border-[#9DD8AF] bg-[linear-gradient(180deg,#F3FBF5_0%,#DFF5E6_100%)] text-[#166534] shadow-[inset_0_0_0_1px_rgba(22,101,52,0.04)]",
+        badgeDot: "bg-[#16A34A]",
+        insight: "text-[#166534]",
+        insightBox: "border-[#D3ECDC] bg-[#F6FCF7]",
+      };
+    case "good":
+      return {
+        badge:
+          "border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]",
+        badgeDot: "bg-[#2563EB]",
+        insight: "text-[#1D4ED8]",
+        insightBox: "border-[#DBEAFE] bg-[#F8FBFF]",
+      };
+    case "expensive":
+      return {
+        badge:
+          "border-[#FECDD3] bg-[#FFF1F2] text-[#BE123C]",
+        badgeDot: "bg-[#E11D48]",
+        insight: "text-[#BE123C]",
+        insightBox: "border-[#FFE4E6] bg-[#FFF7F8]",
+      };
+    default:
+      return {
+        badge:
+          "border-[#E4E4E7] bg-[#F4F4F5] text-[#52525B]",
+        badgeDot: "bg-[#71717A]",
+        insight: "text-[#52525B]",
+        insightBox: "border-[#E4E4E7] bg-[#FAFAFA]",
+      };
+  }
+}
+
 function Star({ fillPercent }: { fillPercent: number }) {
   return (
     <span className="relative inline-flex h-[11px] w-[11px] shrink-0">
@@ -183,7 +226,6 @@ export function MobileProductCard({
   highlightConfig?: DisplayConfigField[];
   analysisTitleTemplate?: string;
 }) {
-  const [showTooltip, setShowTooltip] = useState(false);
   const [saved, setSaved] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState<(typeof REPORT_REASONS)[number]>(
@@ -205,6 +247,15 @@ export function MobileProductCard({
     reviewsCount >= 1000
       ? `${(reviewsCount / 1000).toFixed(1).replace(".", ",")} mil`
       : reviewsCount.toString();
+  const priceDecision = product.priceDecision ?? null;
+  const priceDecisionStyles = priceDecision
+    ? getPriceDecisionStyles(priceDecision.level)
+    : null;
+  const shouldShowDecisionMessage =
+    priceDecision && priceDecision.message !== priceDecision.label;
+  const showReferencePrice =
+    typeof product.avgPrice === "number" &&
+    Math.round(product.avgPrice * 100) > Math.round(product.price * 100);
 
   useEffect(() => {
     if (!asin) return;
@@ -326,7 +377,7 @@ export function MobileProductCard({
     <>
       <div className="relative flex min-h-[250px] items-stretch gap-3 border-b border-gray-100 bg-white font-sans">
         {(product.discountPercent ?? 0) > 0 && (
-          <div className="absolute left-0 top-4 z-10 rounded-r-sm bg-[#CC0C39] px-2 py-0.5 text-[11px] font-bold text-white shadow-sm">
+          <div className="absolute left-0 top-4 z-10 rounded-r-sm bg-[#CC0C39] px-2 py-0.5 text-[11px] font-bold text-white shadow-[0_6px_14px_rgba(204,12,57,0.28)]">
             {product.discountPercent}% OFF
           </div>
         )}
@@ -397,15 +448,15 @@ export function MobileProductCard({
           )}
 
           {visibleHighlights.length > 0 && (
-            <div className="mb-2 flex flex-wrap items-center gap-x-1.5 text-[12px] text-zinc-600">
+            <div className="mb-2 flex flex-wrap items-center gap-x-1.5 text-[11px] text-zinc-500">
               {visibleHighlights.map((item, index) => (
                 <span key={item.key}>
                   {index > 0 && <span className="mr-1">•</span>}
                   {item.hideLabel ? (
-                    <b className="font-medium text-[#0F1111]">{item.value}</b>
+                    <b className="font-medium text-zinc-700">{item.value}</b>
                   ) : (
                     <>
-                      {item.label}: <b className="font-medium text-[#0F1111]">{item.value}</b>
+                      {item.label}: <b className="font-medium text-zinc-700">{item.value}</b>
                     </>
                   )}
                 </span>
@@ -414,7 +465,7 @@ export function MobileProductCard({
           )}
 
           <div
-            className={`mb-3 grid gap-2 divide-x divide-zinc-200 rounded border border-zinc-200 bg-white p-2 ${
+            className={`mb-3 grid gap-2 divide-x divide-zinc-100 rounded border border-zinc-100 bg-[#FCFCFC] p-2 ${
               rating === 0 && visibleHighlights.length === 0 ? "mt-2" : ""
             }`}
             style={{
@@ -455,12 +506,12 @@ export function MobileProductCard({
 
               return (
                 <div key={config.key} className="flex flex-col overflow-hidden px-1 text-center">
-                  <span className={`mb-1 truncate text-[13px] font-bold leading-none ${valueClass}`}>
+                  <span className={`mb-1 truncate text-[12px] font-semibold leading-none ${valueClass}`}>
                     {displayValue}
                   </span>
                   <span
                     className={`truncate text-[9px] font-bold uppercase tracking-wide ${
-                      config.type === "currency" ? "text-green-700" : "text-zinc-500"
+                      config.type === "currency" ? "text-green-600" : "text-zinc-400"
                     }`}
                   >
                     {config.label}
@@ -473,58 +524,60 @@ export function MobileProductCard({
           <div className="mt-auto flex flex-col">
             {hasPrice && intCents ? (
               <>
-                <div className="flex items-start">
-                  <div className="flex items-start">
-                    <span
-                      className={`mt-1 text-[13px] font-medium ${
-                        (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
-                      }`}
-                    >
-                      R$
+                {showReferencePrice ? (
+                  <div className="relative mb-0.5 flex items-center gap-1 text-[11px] text-zinc-500">
+                    <span className="font-medium">De:</span>
+                    <span className="line-through">
+                      R$ {product.avgPrice!.toFixed(2).replace(".", ",")}
                     </span>
-                    <span
-                      className={`text-3xl font-medium leading-none tracking-tight ${
-                        (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
-                      }`}
-                    >
-                      {intCents[0]}
-                    </span>
-                    <span
-                      className={`mt-[3px] text-[14px] font-medium leading-none ${
-                        (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
-                      }`}
-                    >
-                      {intCents[1]}
-                    </span>
+                    <PriceHistoryButton
+                      productId={product.id}
+                      productName={product.name}
+                    />
                   </div>
+                ) : null}
 
+                <div className="flex items-start">
+                  <span
+                    className={`mt-1 text-[13px] font-medium ${
+                      (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
+                    }`}
+                  >
+                    R$
+                  </span>
+                  <span
+                    className={`text-3xl font-medium leading-none tracking-tight ${
+                      (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
+                    }`}
+                  >
+                    {intCents[0]}
+                  </span>
+                  <span
+                    className={`mt-[3px] text-[14px] font-medium leading-none ${
+                      (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
+                    }`}
+                  >
+                    {intCents[1]}
+                  </span>
                 </div>
 
-                {typeof product.avgPrice === "number" &&
-                Math.round(product.avgPrice * 100) > Math.round(product.price * 100) ? (
-                  <div className="relative mt-1 flex items-center gap-1">
-                    <span className="text-[12px] text-zinc-500">
-                      De:{" "}
-                      <span className="line-through">
-                        R$ {product.avgPrice.toFixed(2).replace(".", ",")}
-                      </span>
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={() => setShowTooltip((prev) => !prev)}
-                      className="p-0.5 text-zinc-400"
-                      aria-label="Informações sobre o preço médio"
+                {priceDecision && priceDecisionStyles ? (
+                  <div className="mt-1.5 flex flex-col items-start gap-0.5">
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold leading-none ${priceDecisionStyles.badge}`}
                     >
-                      <svg viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
-                      </svg>
-                    </button>
-
-                    {showTooltip ? (
-                      <div className="absolute bottom-6 left-0 z-50 w-56 rounded border border-gray-200 bg-white p-2 text-[10px] text-zinc-600 shadow-xl">
-                        Preço médio dos últimos 30 dias na Amazon.
-                      </div>
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${priceDecisionStyles.badgeDot}`}
+                        aria-hidden="true"
+                      />
+                      {priceDecision.label}
+                    </span>
+                    {shouldShowDecisionMessage ? (
+                      <p
+                        className={`text-[10px] font-medium leading-snug ${priceDecisionStyles.insight} opacity-80`}
+                      >
+                        {priceDecision.message}
+                      </p>
                     ) : null}
                   </div>
                 ) : null}
@@ -540,12 +593,21 @@ export function MobileProductCard({
                     <span className="text-[#00A8E1]">prime</span>
                   </span>
                 </div>
+
+                {!showReferencePrice ? (
+                  <div className="mt-1">
+                    <PriceHistoryButton
+                      productId={product.id}
+                      productName={product.name}
+                    />
+                  </div>
+                ) : null}
               </>
             ) : (
               <p className="text-[13px] italic text-zinc-800">Preço indisponível</p>
             )}
 
-            <div className="mt-3">
+            <div className="mt-2">
               <a
                 href={product.affiliateUrl}
                 target="_blank"

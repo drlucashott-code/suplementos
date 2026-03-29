@@ -6,6 +6,7 @@ import {
   getDynamicFallbackConfig,
   type DynamicProductFallbackState,
 } from "@/lib/dynamicFallback";
+import { buildPriceDecision, type PriceDecision } from "@/lib/priceDecision";
 
 export type FieldVisibility = "internal" | "public_table" | "public_highlight";
 
@@ -56,6 +57,7 @@ type ProductWithStats = DynamicProduct & {
   averagePrice30d: number | null;
   lowestPrice30d: number | null;
   highestPrice30d: number | null;
+  lowestPrice365d: number | null;
   likeCount: number;
   dislikeCount: number;
 };
@@ -77,10 +79,14 @@ export type CatalogProduct = {
   likeCount?: number;
   dislikeCount?: number;
   avgPrice?: number | null;
+  lowestPrice30d?: number | null;
+  highestPrice30d?: number | null;
+  lowestPrice365d?: number | null;
   discountPercent?: number | null;
   pricePerDose?: number;
   proteinConcentration?: number;
   isFallbackPrice?: boolean;
+  priceDecision?: PriceDecision | null;
   attributes: Record<string, string | number | undefined>;
 };
 
@@ -485,6 +491,7 @@ async function fetchDynamicCatalogBaseData(
                   averagePrice30d: number | null;
                   lowestPrice30d: number | null;
                   highestPrice30d: number | null;
+                  lowestPrice365d: number | null;
                 }
               >
             >(Prisma.sql`
@@ -495,7 +502,8 @@ async function fetchDynamicCatalogBaseData(
                 "availabilityStatus",
                 "averagePrice30d",
                 "lowestPrice30d",
-                "highestPrice30d"
+                "highestPrice30d",
+                "lowestPrice365d"
               FROM "DynamicProduct"
               WHERE "id" IN (${Prisma.join(productIds)})
             `)
@@ -534,6 +542,7 @@ async function fetchDynamicCatalogBaseData(
             averagePrice30d: row.averagePrice30d,
             lowestPrice30d: row.lowestPrice30d,
             highestPrice30d: row.highestPrice30d,
+            lowestPrice365d: row.lowestPrice365d,
             likeCount: reactionMap.get(row.id)?.likeCount ?? 0,
             dislikeCount: reactionMap.get(row.id)?.dislikeCount ?? 0,
           },
@@ -561,6 +570,7 @@ async function fetchDynamicCatalogBaseData(
             averagePrice30d: productState?.averagePrice30d ?? null,
             lowestPrice30d: productState?.lowestPrice30d ?? null,
             highestPrice30d: productState?.highestPrice30d ?? null,
+            lowestPrice365d: productState?.lowestPrice365d ?? null,
             likeCount: productState?.likeCount ?? 0,
             dislikeCount: productState?.dislikeCount ?? 0,
             displayPrice,
@@ -819,6 +829,9 @@ export async function getDynamicCatalogData({
     );
 
     const avgMonthly = p.averagePrice30d ?? null;
+    const lowestPrice30d = p.lowestPrice30d ?? null;
+    const highestPrice30d = p.highestPrice30d ?? null;
+    const lowestPrice365d = p.lowestPrice365d ?? null;
     let discountPercent: number | null = null;
 
     if (avgMonthly && avgMonthly > p.displayPrice) {
@@ -827,6 +840,13 @@ export async function getDynamicCatalogData({
         discountPercent = Math.round(raw);
       }
     }
+
+    const priceDecision = buildPriceDecision({
+      currentPrice: p.displayPrice,
+      averagePrice30d: avgMonthly,
+      lowestPrice30d,
+      lowestPrice365d,
+    });
 
     return {
       id: p.id,
@@ -840,10 +860,14 @@ export async function getDynamicCatalogData({
       likeCount: p.likeCount,
       dislikeCount: p.dislikeCount,
       avgPrice: avgMonthly,
+      lowestPrice30d,
+      highestPrice30d,
+      lowestPrice365d,
       discountPercent,
       pricePerDose,
       proteinConcentration,
       isFallbackPrice: p.isFallbackPrice,
+      priceDecision,
       attributes: attrs as Record<string, string | number | undefined>,
     } satisfies CatalogProduct;
   });

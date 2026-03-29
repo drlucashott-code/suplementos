@@ -156,6 +156,7 @@ model DynamicProduct {
   averagePrice30d  Float?
   lowestPrice30d   Float?
   highestPrice30d  Float?
+  lowestPrice365d  Float?
   priceStatsUpdatedAt DateTime?
   url              String
   imageUrl         String?
