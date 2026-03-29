@@ -189,6 +189,8 @@ const AMAZON_CREATORS_PRICE_MULTIPLIER = (() => {
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 })();
+const AMAZON_CREATORS_ALLOW_RANGE_SEARCH =
+  process.env.AMAZON_CREATORS_ALLOW_RANGE_SEARCH?.trim().toLowerCase() === "true";
 
 function assertPaapiEnv() {
   if (!AMAZON_ACCESS_KEY || !AMAZON_SECRET_KEY || !AMAZON_PARTNER_TAG) {
@@ -765,6 +767,14 @@ export async function searchAmazonItems(
   input: SearchAmazonItemsInput
 ): Promise<AmazonItem[]> {
   const provider = getConfiguredProvider();
+
+  if (
+    provider === "creators" &&
+    input.range &&
+    !AMAZON_CREATORS_ALLOW_RANGE_SEARCH
+  ) {
+    return searchItemsViaPaapi(input);
+  }
 
   if (provider === "creators") {
     try {
