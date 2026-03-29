@@ -1,69 +1,23 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import {
+  getAmazonItemAffiliateUrl,
+  getAmazonItemMerchantName,
+  getAmazonItemPrice,
+  getAmazonItems,
+  searchAmazonItems as searchAmazonCatalogItems,
+  type AmazonItem,
+  type AmazonSearchPriceRange,
+} from '@/lib/amazonApiClient';
 import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import https from 'https';
-import crypto from 'node:crypto';
 
 /* ======================
 ENV
 ====================== */
 
-const AMAZON_ACCESS_KEY = process.env.AMAZON_ACCESS_KEY!;
-const AMAZON_SECRET_KEY = process.env.AMAZON_SECRET_KEY!;
 const AMAZON_PARTNER_TAG = process.env.AMAZON_PARTNER_TAG!;
-
-const AMAZON_HOST = "webservices.amazon.com.br";
-const AMAZON_REGION = "us-east-1";
-const AMAZON_SERVICE = "ProductAdvertisingAPI";
-
-/* ======================
-TYPES
-====================== */
-
-interface AmazonListing {
-  IsBuyBoxWinner?: boolean;
-  Price?: {
-    Amount?: number;
-    Money?: {
-      Amount: number;
-    };
-  };
-  MerchantInfo?: {
-    Name?: string;
-  };
-}
-
-interface AmazonItem {
-  ASIN?: string;
-  ItemInfo?: {
-    Title?: {
-      DisplayValue?: string;
-    };
-    ByLineInfo?: {
-      Brand?: {
-        DisplayValue?: string;
-      };
-      Manufacturer?: {
-        DisplayValue?: string;
-      };
-    };
-  };
-  Images?: {
-    Primary?: {
-      Large?: {
-        URL?: string;
-      };
-    };
-  };
-  OffersV2?: {
-    Listings?: AmazonListing[];
-  };
-  Offers?: {
-    Listings?: AmazonListing[];
-  };
-}
 
 type PriceResult = {
   price: number;
@@ -121,11 +75,7 @@ type DiscoveryRunState = {
   finishedAt: Date | null;
 };
 
-type SearchPriceRange = {
-  min: number;
-  max: number;
-  label: string;
-};
+type SearchPriceRange = AmazonSearchPriceRange;
 
 type DiscoverySearchTask = {
   keyword: string;
@@ -926,30 +876,6 @@ async function updateDiscoveryRun(
   );
 }
 
-/* ======================
-HELPERS
-====================== */
-
-function hmac(key: string | Buffer, data: string): Buffer {
-  return crypto.createHmac("sha256", key).update(data).digest();
-}
-
-function sha256(data: string): string {
-  return crypto.createHash("sha256").update(data).digest("hex");
-}
-
-function getSignatureKey(
-  key: string,
-  dateStamp: string,
-  region: string,
-  service: string
-): Buffer {
-  const kDate = hmac(`AWS4${key}`, dateStamp);
-  const kRegion = hmac(kDate, region);
-  const kService = hmac(kRegion, service);
-  return hmac(kService, "aws4_request");
-}
-
 const delay = (ms: number) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -960,142 +886,29 @@ FETCH AMAZON
 async function fetchAmazonPrice(
   asin: string
 ): Promise<PriceResult | null> {
-  const payload = JSON.stringify({
-    ItemIds: [asin],
-    Resources: [
+  const items = await getAmazonItems({
+    itemIds: [asin],
+    resources: [
       "ItemInfo.Title",
       "ItemInfo.ByLineInfo",
       "Images.Primary.Large",
       "Offers.Listings.Price",
       "OffersV2.Listings.Price",
       "Offers.Listings.MerchantInfo",
-      "OffersV2.Listings.MerchantInfo"
+      "OffersV2.Listings.MerchantInfo",
     ],
-    PartnerTag: AMAZON_PARTNER_TAG,
-    PartnerType: "Associates",
-    Marketplace: "www.amazon.com.br"
   });
 
-  const now = new Date();
-  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
-  const dateStamp = amzDate.substring(0, 8);
+  const item = items[0];
+  if (!item) {
+    return null;
+  }
 
-  const canonicalHeaders =
-`content-encoding:amz-1.0
-content-type:application/json; charset=utf-8
-host:${AMAZON_HOST}
-x-amz-date:${amzDate}
-`;
-
-  const signedHeaders =
-    "content-encoding;content-type;host;x-amz-date";
-
-  const canonicalRequest =
-`POST
-/paapi5/getitems
-
-${canonicalHeaders}
-${signedHeaders}
-${sha256(payload)}`;
-
-  const credentialScope =
-    `${dateStamp}/${AMAZON_REGION}/${AMAZON_SERVICE}/aws4_request`;
-
-  const stringToSign =
-`AWS4-HMAC-SHA256
-${amzDate}
-${credentialScope}
-${sha256(canonicalRequest)}`;
-
-  const signingKey = getSignatureKey(
-    AMAZON_SECRET_KEY,
-    dateStamp,
-    AMAZON_REGION,
-    AMAZON_SERVICE
-  );
-
-  const signature = crypto
-    .createHmac("sha256", signingKey)
-    .update(stringToSign)
-    .digest("hex");
-
-  const options = {
-    hostname: AMAZON_HOST,
-    path: "/paapi5/getitems",
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Content-Encoding": "amz-1.0",
-      "X-Amz-Date": amzDate,
-      "X-Amz-Target":
-        "com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems",
-      Authorization:
-        `AWS4-HMAC-SHA256 Credential=${AMAZON_ACCESS_KEY}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
-      "Content-Length": Buffer.byteLength(payload),
-    },
+  return {
+    price: getAmazonItemPrice(item),
+    merchantName: getAmazonItemMerchantName(item) ?? "Desconhecido",
+    item,
   };
-
-  return new Promise((resolve) => {
-    const req = https.request(options, (res) => {
-      let data = "";
-      res.on("data", (chunk) => (data += chunk));
-      res.on("end", () => {
-        try {
-          const json = JSON.parse(data);
-          const item = json?.ItemsResult?.Items?.[0] as AmazonItem | undefined;
-
-          if (!item) {
-            resolve(null);
-            return;
-          }
-
-          let price = 0;
-          let merchantName = "Desconhecido";
-
-          const listingsV2 = item?.OffersV2?.Listings;
-
-          if (Array.isArray(listingsV2)) {
-            const buyBox =
-              listingsV2.find((l: AmazonListing) => l?.IsBuyBoxWinner) ??
-              listingsV2[0];
-
-            const p =
-              buyBox?.Price?.Money?.Amount ??
-              buyBox?.Price?.Amount;
-
-            if (typeof p === "number") {
-              price = p;
-              merchantName =
-                buyBox?.MerchantInfo?.Name ?? "Desconhecido";
-            }
-          }
-
-          if (price === 0) {
-            const listing1 = item?.Offers?.Listings?.[0];
-            const p1 = listing1?.Price?.Amount;
-
-            if (typeof p1 === "number") {
-              price = p1 > 1000 ? p1 / 100 : p1;
-              merchantName =
-                listing1?.MerchantInfo?.Name ?? "Desconhecido";
-            }
-          }
-
-          resolve({
-            price,
-            merchantName,
-            item
-          });
-        } catch {
-          resolve(null);
-        }
-      });
-    });
-
-    req.on("error", () => resolve(null));
-    req.write(payload);
-    req.end();
-  });
 }
 
 async function searchAmazonItems(
@@ -1104,106 +917,19 @@ async function searchAmazonItems(
   brand?: string,
   range?: SearchPriceRange
 ): Promise<AmazonItem[]> {
-  const payload = JSON.stringify({
-    Keywords: keyword,
-    ...(brand ? { Brand: brand } : {}),
-    SearchIndex: "All",
-    ItemCount: 10,
-    ItemPage: page,
-    ...(range
-      ? {
-          MinPrice: range.min * 100,
-          MaxPrice: range.max * 100,
-        }
-      : {}),
-    Resources: [
+  return searchAmazonCatalogItems({
+    keywords: keyword,
+    page,
+    brand,
+    range,
+    itemCount: 10,
+    resources: [
       "ItemInfo.Title",
       "ItemInfo.ByLineInfo",
       "Images.Primary.Large",
       "Offers.Listings.Price",
-      "OffersV2.Listings.Price"
+      "OffersV2.Listings.Price",
     ],
-    PartnerTag: AMAZON_PARTNER_TAG,
-    PartnerType: "Associates",
-    Marketplace: "www.amazon.com.br"
-  });
-
-  const now = new Date();
-  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
-  const dateStamp = amzDate.substring(0, 8);
-
-  const canonicalHeaders =
-`content-encoding:amz-1.0
-content-type:application/json; charset=utf-8
-host:${AMAZON_HOST}
-x-amz-date:${amzDate}
-`;
-
-  const signedHeaders =
-    "content-encoding;content-type;host;x-amz-date";
-
-  const canonicalRequest =
-`POST
-/paapi5/searchitems
-
-${canonicalHeaders}
-${signedHeaders}
-${sha256(payload)}`;
-
-  const credentialScope =
-    `${dateStamp}/${AMAZON_REGION}/${AMAZON_SERVICE}/aws4_request`;
-
-  const stringToSign =
-`AWS4-HMAC-SHA256
-${amzDate}
-${credentialScope}
-${sha256(canonicalRequest)}`;
-
-  const signingKey = getSignatureKey(
-    AMAZON_SECRET_KEY,
-    dateStamp,
-    AMAZON_REGION,
-    AMAZON_SERVICE
-  );
-
-  const signature = crypto
-    .createHmac("sha256", signingKey)
-    .update(stringToSign)
-    .digest("hex");
-
-  const options = {
-    hostname: AMAZON_HOST,
-    path: "/paapi5/searchitems",
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Content-Encoding": "amz-1.0",
-      "X-Amz-Date": amzDate,
-      "X-Amz-Target":
-        "com.amazon.paapi5.v1.ProductAdvertisingAPIv1.SearchItems",
-      Authorization:
-        `AWS4-HMAC-SHA256 Credential=${AMAZON_ACCESS_KEY}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
-      "Content-Length": Buffer.byteLength(payload),
-    },
-  };
-
-  return new Promise((resolve) => {
-    const req = https.request(options, (res) => {
-      let data = "";
-      res.on("data", (chunk) => (data += chunk));
-      res.on("end", () => {
-        try {
-          const json = JSON.parse(data);
-          resolve((json?.SearchResult?.Items || []) as AmazonItem[]);
-        } catch {
-          resolve([]);
-        }
-      });
-    });
-
-    req.on("error", () => resolve([]));
-    req.write(payload);
-    req.end();
   });
 }
 
@@ -1353,7 +1079,9 @@ async function runDynamicImportJob(
       }
 
       const imageUrl = item?.Images?.Primary?.Large?.URL ?? "";
-      const url = `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG}`;
+      const url =
+        (item ? getAmazonItemAffiliateUrl(item) : "") ||
+        `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG}`;
 
       const attributes: Record<string, string | number> = {
         brand,
