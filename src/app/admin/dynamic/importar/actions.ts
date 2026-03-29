@@ -969,7 +969,9 @@ async function runDynamicImportJob(
     return;
   }
 
-  const logs: string[] = ["Conectando com Amazon PA-API..."];
+  const logs: string[] = [
+    "Conectando com Amazon em modo hibrido: Creators para itens e PA-API para buscas com faixa...",
+  ];
   let processedItems = 0;
   let importedItems = 0;
   let skippedItems = 0;
