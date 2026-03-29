@@ -6,7 +6,12 @@ import {
   getDynamicFallbackConfig,
   type DynamicProductFallbackState,
 } from "@/lib/dynamicFallback";
-import { buildPriceDecision, type PriceDecision } from "@/lib/priceDecision";
+import {
+  buildPriceDecision,
+  PRICE_HISTORY_BADGE_WINDOWS,
+  type PriceDecision,
+  type PriceHistoryBadgeWindow,
+} from "@/lib/priceDecision";
 
 export type FieldVisibility = "internal" | "public_table" | "public_highlight";
 
@@ -58,6 +63,7 @@ type ProductWithStats = DynamicProduct & {
   lowestPrice30d: number | null;
   highestPrice30d: number | null;
   lowestPrice365d: number | null;
+  priceHistoryBadgeWindows: PriceHistoryBadgeWindow[];
   likeCount: number;
   dislikeCount: number;
 };
@@ -126,6 +132,11 @@ type ReactionCountRow = {
   likeCount: number;
   dislikeCount: number;
 };
+
+type HistoryBadgeRow = {
+  productId: string;
+} & Record<`collectedDays${(typeof PRICE_HISTORY_BADGE_WINDOWS)[number]}`, number> &
+  Record<`lowestPrice${(typeof PRICE_HISTORY_BADGE_WINDOWS)[number]}`, number | null>;
 
 const AMAZON_OFFICIAL = "Amazon.com.br";
 
@@ -522,6 +533,89 @@ async function fetchDynamicCatalogBaseData(
             `)
           : [];
 
+      const historyBadgeRows =
+        productIds.length > 0
+          ? await prisma.$queryRaw<HistoryBadgeRow[]>(Prisma.sql`
+              SELECT
+                "productId",
+                COUNT(DISTINCT "date"::date) FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '29 days'
+                )::int AS "collectedDays30",
+                MIN("price") FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '29 days'
+                )::float AS "lowestPrice30",
+                COUNT(DISTINCT "date"::date) FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '59 days'
+                )::int AS "collectedDays60",
+                MIN("price") FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '59 days'
+                )::float AS "lowestPrice60",
+                COUNT(DISTINCT "date"::date) FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '89 days'
+                )::int AS "collectedDays90",
+                MIN("price") FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '89 days'
+                )::float AS "lowestPrice90",
+                COUNT(DISTINCT "date"::date) FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '119 days'
+                )::int AS "collectedDays120",
+                MIN("price") FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '119 days'
+                )::float AS "lowestPrice120",
+                COUNT(DISTINCT "date"::date) FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '149 days'
+                )::int AS "collectedDays150",
+                MIN("price") FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '149 days'
+                )::float AS "lowestPrice150",
+                COUNT(DISTINCT "date"::date) FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '179 days'
+                )::int AS "collectedDays180",
+                MIN("price") FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '179 days'
+                )::float AS "lowestPrice180",
+                COUNT(DISTINCT "date"::date) FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '209 days'
+                )::int AS "collectedDays210",
+                MIN("price") FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '209 days'
+                )::float AS "lowestPrice210",
+                COUNT(DISTINCT "date"::date) FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '239 days'
+                )::int AS "collectedDays240",
+                MIN("price") FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '239 days'
+                )::float AS "lowestPrice240",
+                COUNT(DISTINCT "date"::date) FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '269 days'
+                )::int AS "collectedDays270",
+                MIN("price") FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '269 days'
+                )::float AS "lowestPrice270",
+                COUNT(DISTINCT "date"::date) FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '299 days'
+                )::int AS "collectedDays300",
+                MIN("price") FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '299 days'
+                )::float AS "lowestPrice300",
+                COUNT(DISTINCT "date"::date) FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '329 days'
+                )::int AS "collectedDays330",
+                MIN("price") FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '329 days'
+                )::float AS "lowestPrice330",
+                COUNT(DISTINCT "date"::date) FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '364 days'
+                )::int AS "collectedDays365",
+                MIN("price") FILTER (
+                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '364 days'
+                )::float AS "lowestPrice365"
+              FROM "DynamicPriceHistory"
+              WHERE "productId" IN (${Prisma.join(productIds)})
+              GROUP BY "productId"
+            `)
+          : [];
+
       const reactionMap = new Map(
         reactionRows.map((row) => [
           row.productId,
@@ -529,6 +623,17 @@ async function fetchDynamicCatalogBaseData(
             likeCount: row.likeCount,
             dislikeCount: row.dislikeCount,
           },
+        ])
+      );
+
+      const historyBadgeMap = new Map(
+        historyBadgeRows.map((row) => [
+          row.productId,
+          PRICE_HISTORY_BADGE_WINDOWS.map((days) => ({
+            days,
+            collectedDays: row[`collectedDays${days}`] ?? 0,
+            lowestPrice: row[`lowestPrice${days}`] ?? null,
+          })),
         ])
       );
 
@@ -543,6 +648,7 @@ async function fetchDynamicCatalogBaseData(
             lowestPrice30d: row.lowestPrice30d,
             highestPrice30d: row.highestPrice30d,
             lowestPrice365d: row.lowestPrice365d,
+            priceHistoryBadgeWindows: historyBadgeMap.get(row.id) ?? [],
             likeCount: reactionMap.get(row.id)?.likeCount ?? 0,
             dislikeCount: reactionMap.get(row.id)?.dislikeCount ?? 0,
           },
@@ -571,6 +677,7 @@ async function fetchDynamicCatalogBaseData(
             lowestPrice30d: productState?.lowestPrice30d ?? null,
             highestPrice30d: productState?.highestPrice30d ?? null,
             lowestPrice365d: productState?.lowestPrice365d ?? null,
+            priceHistoryBadgeWindows: productState?.priceHistoryBadgeWindows ?? [],
             likeCount: productState?.likeCount ?? 0,
             dislikeCount: productState?.dislikeCount ?? 0,
             displayPrice,
@@ -844,8 +951,7 @@ export async function getDynamicCatalogData({
     const priceDecision = buildPriceDecision({
       currentPrice: p.displayPrice,
       averagePrice30d: avgMonthly,
-      lowestPrice30d,
-      lowestPrice365d,
+      historyWindows: p.priceHistoryBadgeWindows,
     });
 
     return {

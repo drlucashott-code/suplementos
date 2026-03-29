@@ -152,10 +152,10 @@ function getPriceDecisionStyles(decision: PriceDecision["level"]) {
     case "excellent":
       return {
         badge:
-          "border-[#9DD8AF] bg-[linear-gradient(180deg,#F3FBF5_0%,#DFF5E6_100%)] text-[#166534] shadow-[inset_0_0_0_1px_rgba(22,101,52,0.04)]",
+          "border-[#CC0C39] bg-[#CC0C39] text-white shadow-none",
         badgeDot: "bg-[#16A34A]",
-        insight: "text-[#166534]",
-        insightBox: "border-[#D3ECDC] bg-[#F6FCF7]",
+        insight: "text-[#CC0C39]",
+        insightBox: "border-[#F5C8D4] bg-[#FFF5F8]",
       };
     case "good":
       return {

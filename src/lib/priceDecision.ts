@@ -1,4 +1,14 @@
+export const PRICE_HISTORY_BADGE_WINDOWS = [
+  30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 365,
+] as const;
+
 export type PriceDecisionLevel = "excellent" | "good" | "normal" | "expensive";
+
+export type PriceHistoryBadgeWindow = {
+  days: (typeof PRICE_HISTORY_BADGE_WINDOWS)[number];
+  collectedDays: number;
+  lowestPrice: number | null;
+};
 
 export type PriceDecision = {
   level: PriceDecisionLevel;
@@ -11,8 +21,7 @@ export type PriceDecision = {
 type PriceDecisionInput = {
   currentPrice: number | null | undefined;
   averagePrice30d: number | null | undefined;
-  lowestPrice30d: number | null | undefined;
-  lowestPrice365d: number | null | undefined;
+  historyWindows?: PriceHistoryBadgeWindow[] | null | undefined;
 };
 
 function toCents(value: number | null | undefined) {
@@ -25,53 +34,56 @@ function getDeltaPercent(currentPrice: number, basePrice: number | null | undefi
   return ((currentPrice - basePrice) / basePrice) * 100;
 }
 
-export function getPriceMessage({
-  currentPrice,
-  averagePrice30d,
-  lowestPrice30d,
-  lowestPrice365d,
-}: PriceDecisionInput): string | null {
-  if (!currentPrice || currentPrice <= 0) {
+function getQualifiedWindow(
+  currentPrice: number,
+  historyWindows: PriceHistoryBadgeWindow[] | null | undefined
+) {
+  if (!historyWindows || historyWindows.length === 0) {
     return null;
   }
 
   const currentCents = toCents(currentPrice);
-  const min30Cents = toCents(lowestPrice30d);
-  const min365Cents = toCents(lowestPrice365d);
-  const avg30 = averagePrice30d && averagePrice30d > 0 ? averagePrice30d : null;
-
-  if (currentCents !== null && min365Cents !== null && currentCents <= min365Cents) {
-    return "Menor preço dos últimos 12 meses";
+  if (currentCents === null) {
+    return null;
   }
 
-  if (currentCents !== null && min30Cents !== null && currentCents <= min30Cents) {
-    return "Menor preço dos últimos 30 dias";
-  }
+  const sortedWindows = [...historyWindows].sort((a, b) => b.days - a.days);
 
-  if (lowestPrice30d && currentPrice <= lowestPrice30d * 1.05) {
-    return "Um dos menores preços do mês";
-  }
+  for (const window of sortedWindows) {
+    const lowestPriceCents = toCents(window.lowestPrice);
 
-  if (avg30 && currentPrice <= avg30 * 0.95) {
-    return "Abaixo do preço normal";
-  }
-
-  if (avg30 && currentPrice >= avg30 * 1.05) {
-    return "Acima do preço normal";
-  }
-
-  if (avg30) {
-    return "Preço dentro do normal";
+    if (
+      lowestPriceCents !== null &&
+      window.collectedDays >= window.days &&
+      currentCents <= lowestPriceCents
+    ) {
+      return window;
+    }
   }
 
   return null;
 }
 
+export function getPriceMessage({
+  currentPrice,
+  historyWindows,
+}: Pick<PriceDecisionInput, "currentPrice" | "historyWindows">): string | null {
+  if (!currentPrice || currentPrice <= 0) {
+    return null;
+  }
+
+  const qualifiedWindow = getQualifiedWindow(currentPrice, historyWindows);
+  if (!qualifiedWindow) {
+    return null;
+  }
+
+  return `Menor pre\u00e7o em ${qualifiedWindow.days} dias`;
+}
+
 export function buildPriceDecision({
   currentPrice,
   averagePrice30d,
-  lowestPrice30d,
-  lowestPrice365d,
+  historyWindows,
 }: PriceDecisionInput): PriceDecision | null {
   if (!currentPrice || currentPrice <= 0) {
     return null;
@@ -79,38 +91,20 @@ export function buildPriceDecision({
 
   const message = getPriceMessage({
     currentPrice,
-    averagePrice30d,
-    lowestPrice30d,
-    lowestPrice365d,
+    historyWindows,
   });
 
   if (!message) {
     return null;
   }
 
-  const deltaFromAveragePercent = getDeltaPercent(currentPrice, averagePrice30d);
-  const deltaFromLowest30dPercent = getDeltaPercent(currentPrice, lowestPrice30d);
-
-  let level: PriceDecisionLevel = "normal";
-  let label = message;
-
-  if (
-    message === "Menor preço dos últimos 12 meses" ||
-    message === "Menor preço dos últimos 30 dias" ||
-    message === "Um dos menores preços do mês"
-  ) {
-    level = "excellent";
-  } else if (message === "Abaixo do preço normal") {
-    level = "good";
-  } else if (message === "Acima do preço normal") {
-    level = "expensive";
-  }
+  const window30 = historyWindows?.find((window) => window.days === 30) ?? null;
 
   return {
-    level,
-    label,
+    level: "excellent",
+    label: message,
     message,
-    deltaFromAveragePercent,
-    deltaFromLowest30dPercent,
+    deltaFromAveragePercent: getDeltaPercent(currentPrice, averagePrice30d),
+    deltaFromLowest30dPercent: getDeltaPercent(currentPrice, window30?.lowestPrice ?? null),
   };
 }
