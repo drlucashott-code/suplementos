@@ -3,8 +3,6 @@ import crypto from "node:crypto";
 import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
 import path from "node:path";
-// @ts-ignore SDK vendorizado sem typings oficiais
-import * as vendoredCreatorsSdkImport from "../../vendor/creatorsapi-nodejs-sdk/dist/index.js";
 
 export type AmazonListing = {
   IsBuyBoxWinner?: boolean;
@@ -140,7 +138,6 @@ const DEFAULT_CREATORS_SDK_DOWNLOAD_PATH =
 const require = createRequire(import.meta.url);
 
 let creatorsSdkCache: CreatorsSdkModule | null = null;
-const vendoredCreatorsSdk = vendoredCreatorsSdkImport as unknown as Partial<CreatorsSdkModule>;
 
 function getFirstEnvValue(...keys: string[]) {
   for (const key of keys) {
@@ -246,9 +243,12 @@ function toCreatorsResourceName(resource: string) {
     return normalized;
   }
 
-  return normalized
-    .split(".")
-    .filter(Boolean)
+  const segments = normalized.split(".").filter(Boolean);
+  if (segments[0] === "Offers") {
+    segments[0] = "OffersV2";
+  }
+
+  return segments
     .map((segment) => segment.charAt(0).toLowerCase() + segment.slice(1))
     .join(".");
 }
@@ -271,15 +271,11 @@ function loadCreatorsSdk(): CreatorsSdkModule {
     return creatorsSdkCache;
   }
 
-  if (isCreatorsSdkModule(vendoredCreatorsSdk)) {
-    creatorsSdkCache = vendoredCreatorsSdk;
-    return creatorsSdkCache;
-  }
-
   const candidates = [
     "@amzn/creatorsapi-nodejs-sdk",
-    AMAZON_CREATORS_SDK_PATH,
+    "../../vendor/creatorsapi-nodejs-sdk/dist/index.js",
     REPO_CREATORS_SDK_PATH,
+    AMAZON_CREATORS_SDK_PATH,
     DEFAULT_CREATORS_SDK_DOWNLOAD_PATH,
   ].filter(Boolean);
 
@@ -361,6 +357,26 @@ function extractCreatorsErrorMessage(errors: unknown[] | undefined) {
     .filter(Boolean);
 
   return parts.join(" | ");
+}
+
+function getUnknownErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (error && typeof error === "object") {
+    const maybeMessage =
+      "message" in error && typeof error.message === "string" ? error.message : "";
+    const maybeBody = "body" in error ? JSON.stringify(error.body) : "";
+    const maybeStatus =
+      "status" in error && typeof error.status !== "undefined"
+        ? String(error.status)
+        : "";
+
+    return [maybeStatus, maybeMessage, maybeBody].filter(Boolean).join(" | ");
+  }
+
+  return "erro desconhecido";
 }
 
 function normalizeCreatorsListing(listing: any): AmazonListing {
@@ -736,7 +752,7 @@ export async function getAmazonItems(input: GetAmazonItemsInput): Promise<Amazon
     } catch (error) {
       console.warn(
         `[amazon] Creators API indisponivel para GetItems, fallback para PA-API: ${
-          error instanceof Error ? error.message : "erro desconhecido"
+          getUnknownErrorMessage(error)
         }`
       );
     }
@@ -756,7 +772,7 @@ export async function searchAmazonItems(
     } catch (error) {
       console.warn(
         `[amazon] Creators API indisponivel para SearchItems, fallback para PA-API: ${
-          error instanceof Error ? error.message : "erro desconhecido"
+          getUnknownErrorMessage(error)
         }`
       );
     }
