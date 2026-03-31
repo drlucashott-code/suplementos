@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
+  formatPriceHistoryRangeLabel,
   getVisiblePriceHistoryChartRanges,
   type PriceHistoryChartRange,
 } from "@/lib/dynamicPriceHistory";
@@ -31,22 +32,6 @@ type PriceHistoryResponse = {
     max: number | null;
   };
 };
-
-const RANGE_OPTIONS: Array<{ value: SupportedRange; label: string }> = [
-  { value: 7, label: "7d" },
-  { value: 30, label: "30d" },
-  { value: 60, label: "60d" },
-  { value: 90, label: "90d" },
-  { value: 120, label: "120d" },
-  { value: 150, label: "150d" },
-  { value: 180, label: "180d" },
-  { value: 210, label: "210d" },
-  { value: 240, label: "240d" },
-  { value: 270, label: "270d" },
-  { value: 300, label: "300d" },
-  { value: 330, label: "330d" },
-  { value: 365, label: "1 ano" },
-];
 
 type RangeHorizon = "short" | "medium" | "long";
 
@@ -392,25 +377,20 @@ export function PriceHistoryButton({
 
                         <div className="flex flex-wrap items-center gap-2">
                           {section.ranges.map((sectionRange) => {
-                            const option = RANGE_OPTIONS.find(
-                              (item) => item.value === sectionRange
-                            );
-                            if (!option) return null;
-
-                            const isActive = range === option.value;
+                            const isActive = range === sectionRange;
 
                             return (
                               <button
-                                key={option.value}
+                                key={sectionRange}
                                 type="button"
-                                onClick={() => setRange(option.value)}
+                                onClick={() => setRange(sectionRange)}
                                 className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold transition ${
                                   isActive
                                     ? sectionMeta.activeClassName
                                     : sectionMeta.inactiveClassName
                                 }`}
                               >
-                                {option.label}
+                                {formatPriceHistoryRangeLabel(sectionRange)}
                               </button>
                             );
                           })}
@@ -422,7 +402,7 @@ export function PriceHistoryButton({
               ) : visibleRanges.length === 1 ? (
                 <div className="flex items-center">
                   <span className="inline-flex rounded-full border border-[#E5E7EB] bg-white px-3 py-1 text-[11px] font-medium text-[#6B7280]">
-                    Histórico de {RANGE_OPTIONS.find((option) => option.value === visibleRanges[0])?.label}
+                    Histórico de {formatPriceHistoryRangeLabel(visibleRanges[0])}
                   </span>
                 </div>
               ) : null}

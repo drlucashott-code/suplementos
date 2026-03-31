@@ -7,14 +7,10 @@ import {
 } from "@/lib/dynamicFallback";
 import {
   getAvailablePriceHistoryChartRangesFromDateKeys,
-  PRICE_HISTORY_CHART_RANGES,
   type PriceHistoryChartRange,
   getPriceHistoryBusinessDateKey,
   shiftPriceHistoryDateKey,
 } from "@/lib/dynamicPriceHistory";
-
-const RANGE_OPTIONS = PRICE_HISTORY_CHART_RANGES;
-const VALID_RANGES = new Set<number>(RANGE_OPTIONS);
 
 function formatDateKey(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -32,7 +28,11 @@ export async function GET(
   try {
     const { id } = await context.params;
     const { searchParams } = new URL(request.url);
-    const requestedRange = Number(searchParams.get("range") || "30");
+    const rawRequestedRange = Number(searchParams.get("range") || "30");
+    const requestedRange =
+      Number.isInteger(rawRequestedRange) && rawRequestedRange >= 7 && rawRequestedRange <= 365
+        ? rawRequestedRange
+        : 30;
 
     const product = await prisma.dynamicProduct.findUnique({
       where: { id },
@@ -108,10 +108,9 @@ export async function GET(
     );
 
     const range =
-      VALID_RANGES.has(requestedRange) &&
       availableRanges.includes(requestedRange as PriceHistoryChartRange)
         ? requestedRange
-        : availableRanges[0] ?? (VALID_RANGES.has(requestedRange) ? requestedRange : 7);
+        : availableRanges[0] ?? requestedRange;
 
     const history =
       availableRanges.length > 0
@@ -146,7 +145,7 @@ export async function GET(
     const max = prices.length > 0 ? roundPrice(Math.max(...prices)) : null;
 
     const stats =
-      range === 30 && availableRanges.includes(30)
+      range <= 30
         ? {
             avg: roundPrice(product.averagePrice30d) ?? avg,
             min,

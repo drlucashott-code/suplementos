@@ -4,7 +4,7 @@ export const PRICE_HISTORY_CHART_RANGES = [
   7, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 365,
 ] as const;
 
-export type PriceHistoryChartRange = (typeof PRICE_HISTORY_CHART_RANGES)[number];
+export type PriceHistoryChartRange = number;
 
 type ChartWindowSummary = {
   days: number;
@@ -55,7 +55,8 @@ export function getAvailablePriceHistoryChartRangesFromWindows(
   const collectedDays30 = getCollectedDays(30);
 
   if (collectedDays30 >= 7 && collectedDays30 < 30) {
-    availableRanges.push(7);
+    availableRanges.push(collectedDays30);
+    return availableRanges;
   }
 
   for (const range of PRICE_HISTORY_CHART_RANGES) {
@@ -113,6 +114,10 @@ export function getVisiblePriceHistoryChartRanges(
   return availableRanges.filter((range) => visible.has(range));
 }
 
+export function formatPriceHistoryRangeLabel(range: PriceHistoryChartRange) {
+  return range === 365 ? "1 ano" : `${range}d`;
+}
+
 export function getAvailablePriceHistoryChartRangesFromDateKeys(
   dateKeys: string[],
   referenceDate = new Date()
@@ -135,7 +140,8 @@ export function getAvailablePriceHistoryChartRangesFromDateKeys(
   const collectedDays30 = countDaysInWindow(30);
 
   if (collectedDays30 >= 7 && collectedDays30 < 30) {
-    availableRanges.push(7);
+    availableRanges.push(collectedDays30);
+    return availableRanges;
   }
 
   for (const range of PRICE_HISTORY_CHART_RANGES) {
