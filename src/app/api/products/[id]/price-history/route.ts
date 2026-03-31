@@ -30,7 +30,7 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const rawRequestedRange = Number(searchParams.get("range") || "30");
     const requestedRange =
-      Number.isInteger(rawRequestedRange) && rawRequestedRange >= 7 && rawRequestedRange <= 365
+      Number.isInteger(rawRequestedRange) && rawRequestedRange >= 1 && rawRequestedRange <= 365
         ? rawRequestedRange
         : 30;
 

@@ -54,7 +54,7 @@ export function getAvailablePriceHistoryChartRangesFromWindows(
   const availableRanges: PriceHistoryChartRange[] = [];
   const collectedDays30 = getCollectedDays(30);
 
-  if (collectedDays30 >= 7 && collectedDays30 < 30) {
+  if (collectedDays30 >= 1 && collectedDays30 < 30) {
     availableRanges.push(collectedDays30);
     return availableRanges;
   }
@@ -139,7 +139,7 @@ export function getAvailablePriceHistoryChartRangesFromDateKeys(
   const availableRanges: PriceHistoryChartRange[] = [];
   const collectedDays30 = countDaysInWindow(30);
 
-  if (collectedDays30 >= 7 && collectedDays30 < 30) {
+  if (collectedDays30 >= 1 && collectedDays30 < 30) {
     availableRanges.push(collectedDays30);
     return availableRanges;
   }
