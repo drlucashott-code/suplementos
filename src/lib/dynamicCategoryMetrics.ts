@@ -106,7 +106,7 @@ const SUPPLEMENT_DERIVED_ATTRIBUTES_BY_SLUG: Record<string, string[]> = {
   bebidaproteica: ["precoPorUnidade", "precoPorGramaProteina"],
   "cafe-funcional": ["precoPorDose", "precoPor100MgCafeina"],
   "pre-treino": ["precoPorDose"],
-  whey: ["precoPorDose", "precoPorGramaProteina"],
+  whey: ["precoPorDose", "precoPorGramaProteina", "proteinPercentage"],
   creatina: ["gramasCreatinaPuraNoPote", "precoPorDose", "precoPorGramaCreatina"],
 };
 
@@ -126,7 +126,7 @@ function applySupplementDerivedMetrics(
   enriched: DynamicAttributesMap,
   totalPrice: number
 ) {
-  if (!slug || !Number.isFinite(totalPrice) || totalPrice <= 0) {
+  if (!slug) {
     return;
   }
 
@@ -136,6 +136,18 @@ function applySupplementDerivedMetrics(
   const creatinaPorDose = getNumericValue(enriched.creatinaPorDose);
   const unitsPerBox = getNumericValue(enriched.unitsPerBox);
   const unitsPerPack = getNumericValue(enriched.unitsPerPack);
+  const proteinPerDoseInGrams = getNumericValue(enriched.proteinPerDoseInGrams);
+  const doseInGrams = getNumericValue(enriched.doseInGrams);
+
+  if (slug === "whey" && proteinPerDoseInGrams > 0 && doseInGrams > 0) {
+    enriched.proteinPercentage = toRoundedMetricValue(
+      (proteinPerDoseInGrams / doseInGrams) * 100
+    );
+  }
+
+  if (!Number.isFinite(totalPrice) || totalPrice <= 0) {
+    return;
+  }
 
   switch (slug) {
     case "barra":
@@ -787,6 +799,7 @@ export function enrichDynamicAttributesForCategory(params: {
 
   const totalPrice = Number(params.totalPrice);
   if (!Number.isFinite(totalPrice) || totalPrice <= 0) {
+    applySupplementDerivedMetrics(params.category?.slug, enriched, totalPrice);
     return enriched;
   }
 

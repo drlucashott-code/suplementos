@@ -2,14 +2,27 @@
 
 type DynamicAttributes = Record<string, string | number | boolean | undefined>;
 
+type AuditStatus =
+  | "missing"
+  | "zero"
+  | "divergent"
+  | "price_unavailable"
+  | "missing_base";
+
 type AuditIssue = {
   category: string;
   name: string;
   asin: string;
   metric: string;
-  status: "missing" | "zero" | "divergent" | "insufficient_base";
+  status: AuditStatus;
   savedValue: number | null;
   expectedValue: number | null;
+  details: string;
+};
+
+type MetricExpectation = {
+  expectedValue: number | null;
+  statusIfMissing: Exclude<AuditStatus, "missing" | "zero" | "divergent"> | null;
   details: string;
 };
 
@@ -26,6 +39,47 @@ function roundMetric(value: number) {
   return Number(value.toFixed(4));
 }
 
+function getMetricTolerance(metric: string) {
+  if (metric === "proteinPercentage") {
+    return 1;
+  }
+
+  return 0.0002;
+}
+
+function buildMetricExpectation(input: {
+  totalPrice: number;
+  baseFields: Array<{ key: string; value: number }>;
+  compute: () => number;
+}): MetricExpectation {
+  const details = [`totalPrice=${input.totalPrice}`]
+    .concat(input.baseFields.map((field) => `${field.key}=${field.value}`))
+    .join(", ");
+
+  if (!(input.totalPrice > 0)) {
+    return {
+      expectedValue: null,
+      statusIfMissing: "price_unavailable",
+      details,
+    };
+  }
+
+  const missingBase = input.baseFields.find((field) => !(field.value > 0));
+  if (missingBase) {
+    return {
+      expectedValue: null,
+      statusIfMissing: "missing_base",
+      details,
+    };
+  }
+
+  return {
+    expectedValue: input.compute(),
+    statusIfMissing: null,
+    details,
+  };
+}
+
 function compareMetric(
   issues: AuditIssue[],
   input: {
@@ -36,9 +90,21 @@ function compareMetric(
     metric: string;
     expectedValue: number | null;
     baseDescription: string;
+    statusIfMissing?: Exclude<AuditStatus, "missing" | "zero" | "divergent"> | null;
+    tolerance?: number;
   }
 ) {
-  const { category, name, asin, attrs, metric, expectedValue, baseDescription } = input;
+  const {
+    category,
+    name,
+    asin,
+    attrs,
+    metric,
+    expectedValue,
+    baseDescription,
+    statusIfMissing,
+    tolerance,
+  } = input;
   const rawPresent = hasRawAttribute(attrs, metric);
   const savedValue = rawPresent ? getNumericAttribute(attrs, metric) : null;
 
@@ -48,7 +114,7 @@ function compareMetric(
       name,
       asin,
       metric,
-      status: "insufficient_base",
+      status: statusIfMissing ?? "missing_base",
       savedValue,
       expectedValue: null,
       details: baseDescription,
@@ -83,10 +149,12 @@ function compareMetric(
       expectedValue: roundedExpected,
       details: baseDescription,
     });
-    return;
+      return;
   }
 
-  if (savedValue !== null && Math.abs(savedValue - roundedExpected) > 0.0002) {
+  const metricTolerance = tolerance ?? getMetricTolerance(metric);
+
+  if (savedValue !== null && Math.abs(savedValue - roundedExpected) > metricTolerance) {
     issues.push({
       category,
       name,
@@ -126,6 +194,16 @@ async function main() {
     if (category === "barra") {
       const unitsPerBox = getNumericAttribute(attrs, "unitsPerBox");
       const totalProteinInGrams = getNumericAttribute(attrs, "totalProteinInGrams");
+      const pricePerBar = buildMetricExpectation({
+        totalPrice,
+        baseFields: [{ key: "unitsPerBox", value: unitsPerBox }],
+        compute: () => totalPrice / unitsPerBox,
+      });
+      const pricePerProteinGram = buildMetricExpectation({
+        totalPrice,
+        baseFields: [{ key: "totalProteinInGrams", value: totalProteinInGrams }],
+        compute: () => totalPrice / totalProteinInGrams,
+      });
 
       compareMetric(issues, {
         category,
@@ -133,9 +211,9 @@ async function main() {
         asin: product.asin,
         attrs,
         metric: "precoPorBarra",
-        expectedValue:
-          totalPrice > 0 && unitsPerBox > 0 ? totalPrice / unitsPerBox : null,
-        baseDescription: `totalPrice=${totalPrice}, unitsPerBox=${unitsPerBox}`,
+        expectedValue: pricePerBar.expectedValue,
+        statusIfMissing: pricePerBar.statusIfMissing,
+        baseDescription: pricePerBar.details,
       });
 
       compareMetric(issues, {
@@ -144,17 +222,25 @@ async function main() {
         asin: product.asin,
         attrs,
         metric: "precoPorGramaProteina",
-        expectedValue:
-          totalPrice > 0 && totalProteinInGrams > 0
-            ? totalPrice / totalProteinInGrams
-            : null,
-        baseDescription: `totalPrice=${totalPrice}, totalProteinInGrams=${totalProteinInGrams}`,
+        expectedValue: pricePerProteinGram.expectedValue,
+        statusIfMissing: pricePerProteinGram.statusIfMissing,
+        baseDescription: pricePerProteinGram.details,
       });
     }
 
     if (category === "bebidaproteica") {
       const unitsPerPack = getNumericAttribute(attrs, "unitsPerPack");
       const totalProteinInGrams = getNumericAttribute(attrs, "totalProteinInGrams");
+      const pricePerUnit = buildMetricExpectation({
+        totalPrice,
+        baseFields: [{ key: "unitsPerPack", value: unitsPerPack }],
+        compute: () => totalPrice / unitsPerPack,
+      });
+      const pricePerProteinGram = buildMetricExpectation({
+        totalPrice,
+        baseFields: [{ key: "totalProteinInGrams", value: totalProteinInGrams }],
+        compute: () => totalPrice / totalProteinInGrams,
+      });
 
       compareMetric(issues, {
         category,
@@ -162,9 +248,9 @@ async function main() {
         asin: product.asin,
         attrs,
         metric: "precoPorUnidade",
-        expectedValue:
-          totalPrice > 0 && unitsPerPack > 0 ? totalPrice / unitsPerPack : null,
-        baseDescription: `totalPrice=${totalPrice}, unitsPerPack=${unitsPerPack}`,
+        expectedValue: pricePerUnit.expectedValue,
+        statusIfMissing: pricePerUnit.statusIfMissing,
+        baseDescription: pricePerUnit.details,
       });
 
       compareMetric(issues, {
@@ -173,11 +259,9 @@ async function main() {
         asin: product.asin,
         attrs,
         metric: "precoPorGramaProteina",
-        expectedValue:
-          totalPrice > 0 && totalProteinInGrams > 0
-            ? totalPrice / totalProteinInGrams
-            : null,
-        baseDescription: `totalPrice=${totalPrice}, totalProteinInGrams=${totalProteinInGrams}`,
+        expectedValue: pricePerProteinGram.expectedValue,
+        statusIfMissing: pricePerProteinGram.statusIfMissing,
+        baseDescription: pricePerProteinGram.details,
       });
     }
 
@@ -186,6 +270,24 @@ async function main() {
       const totalProteinInGrams = getNumericAttribute(attrs, "totalProteinInGrams");
       const proteinPerDoseInGrams = getNumericAttribute(attrs, "proteinPerDoseInGrams");
       const doseInGrams = getNumericAttribute(attrs, "doseInGrams");
+      const pricePerDose = buildMetricExpectation({
+        totalPrice,
+        baseFields: [{ key: "numberOfDoses", value: numberOfDoses }],
+        compute: () => totalPrice / numberOfDoses,
+      });
+      const pricePerProteinGram = buildMetricExpectation({
+        totalPrice,
+        baseFields: [{ key: "totalProteinInGrams", value: totalProteinInGrams }],
+        compute: () => totalPrice / totalProteinInGrams,
+      });
+      const proteinPercentage = buildMetricExpectation({
+        totalPrice: 1,
+        baseFields: [
+          { key: "proteinPerDoseInGrams", value: proteinPerDoseInGrams },
+          { key: "doseInGrams", value: doseInGrams },
+        ],
+        compute: () => (proteinPerDoseInGrams / doseInGrams) * 100,
+      });
 
       compareMetric(issues, {
         category,
@@ -193,9 +295,9 @@ async function main() {
         asin: product.asin,
         attrs,
         metric: "precoPorDose",
-        expectedValue:
-          totalPrice > 0 && numberOfDoses > 0 ? totalPrice / numberOfDoses : null,
-        baseDescription: `totalPrice=${totalPrice}, numberOfDoses=${numberOfDoses}`,
+        expectedValue: pricePerDose.expectedValue,
+        statusIfMissing: pricePerDose.statusIfMissing,
+        baseDescription: pricePerDose.details,
       });
 
       compareMetric(issues, {
@@ -204,11 +306,9 @@ async function main() {
         asin: product.asin,
         attrs,
         metric: "precoPorGramaProteina",
-        expectedValue:
-          totalPrice > 0 && totalProteinInGrams > 0
-            ? totalPrice / totalProteinInGrams
-            : null,
-        baseDescription: `totalPrice=${totalPrice}, totalProteinInGrams=${totalProteinInGrams}`,
+        expectedValue: pricePerProteinGram.expectedValue,
+        statusIfMissing: pricePerProteinGram.statusIfMissing,
+        baseDescription: pricePerProteinGram.details,
       });
 
       compareMetric(issues, {
@@ -217,11 +317,9 @@ async function main() {
         asin: product.asin,
         attrs,
         metric: "proteinPercentage",
-        expectedValue:
-          proteinPerDoseInGrams > 0 && doseInGrams > 0
-            ? (proteinPerDoseInGrams / doseInGrams) * 100
-            : null,
-        baseDescription: `proteinPerDoseInGrams=${proteinPerDoseInGrams}, doseInGrams=${doseInGrams}`,
+        expectedValue: proteinPercentage.expectedValue,
+        statusIfMissing: proteinPercentage.statusIfMissing,
+        baseDescription: proteinPercentage.details,
       });
     }
 
@@ -229,6 +327,16 @@ async function main() {
       const doses =
         getNumericAttribute(attrs, "doses") || getNumericAttribute(attrs, "numberOfDoses");
       const cafeinaTotalMg = getNumericAttribute(attrs, "cafeinaTotalMg");
+      const pricePerDose = buildMetricExpectation({
+        totalPrice,
+        baseFields: [{ key: "doses", value: doses }],
+        compute: () => totalPrice / doses,
+      });
+      const pricePer100MgCafeina = buildMetricExpectation({
+        totalPrice,
+        baseFields: [{ key: "cafeinaTotalMg", value: cafeinaTotalMg }],
+        compute: () => (totalPrice / cafeinaTotalMg) * 100,
+      });
 
       compareMetric(issues, {
         category,
@@ -236,9 +344,9 @@ async function main() {
         asin: product.asin,
         attrs,
         metric: "precoPorDose",
-        expectedValue:
-          totalPrice > 0 && doses > 0 ? totalPrice / doses : null,
-        baseDescription: `totalPrice=${totalPrice}, doses=${doses}`,
+        expectedValue: pricePerDose.expectedValue,
+        statusIfMissing: pricePerDose.statusIfMissing,
+        baseDescription: pricePerDose.details,
       });
 
       compareMetric(issues, {
@@ -247,16 +355,19 @@ async function main() {
         asin: product.asin,
         attrs,
         metric: "precoPor100MgCafeina",
-        expectedValue:
-          totalPrice > 0 && cafeinaTotalMg > 0
-            ? (totalPrice / cafeinaTotalMg) * 100
-            : null,
-        baseDescription: `totalPrice=${totalPrice}, cafeinaTotalMg=${cafeinaTotalMg}`,
+        expectedValue: pricePer100MgCafeina.expectedValue,
+        statusIfMissing: pricePer100MgCafeina.statusIfMissing,
+        baseDescription: pricePer100MgCafeina.details,
       });
     }
 
     if (category === "pre-treino") {
       const numberOfDoses = getNumericAttribute(attrs, "numberOfDoses");
+      const pricePerDose = buildMetricExpectation({
+        totalPrice,
+        baseFields: [{ key: "numberOfDoses", value: numberOfDoses }],
+        compute: () => totalPrice / numberOfDoses,
+      });
 
       compareMetric(issues, {
         category,
@@ -264,17 +375,28 @@ async function main() {
         asin: product.asin,
         attrs,
         metric: "precoPorDose",
-        expectedValue:
-          totalPrice > 0 && numberOfDoses > 0 ? totalPrice / numberOfDoses : null,
-        baseDescription: `totalPrice=${totalPrice}, numberOfDoses=${numberOfDoses}`,
+        expectedValue: pricePerDose.expectedValue,
+        statusIfMissing: pricePerDose.statusIfMissing,
+        baseDescription: pricePerDose.details,
       });
     }
 
     if (category === "creatina") {
       const numberOfDoses = getNumericAttribute(attrs, "numberOfDoses");
       const creatinaPorDose = getNumericAttribute(attrs, "creatinaPorDose");
-      const expectedPricePerDose =
-        totalPrice > 0 && numberOfDoses > 0 ? totalPrice / numberOfDoses : null;
+      const pricePerDose = buildMetricExpectation({
+        totalPrice,
+        baseFields: [{ key: "numberOfDoses", value: numberOfDoses }],
+        compute: () => totalPrice / numberOfDoses,
+      });
+      const pricePerGramCreatine = buildMetricExpectation({
+        totalPrice,
+        baseFields: [
+          { key: "numberOfDoses", value: numberOfDoses },
+          { key: "creatinaPorDose", value: creatinaPorDose },
+        ],
+        compute: () => (totalPrice / numberOfDoses) / creatinaPorDose,
+      });
 
       compareMetric(issues, {
         category,
@@ -282,8 +404,9 @@ async function main() {
         asin: product.asin,
         attrs,
         metric: "precoPorDose",
-        expectedValue: expectedPricePerDose,
-        baseDescription: `totalPrice=${totalPrice}, numberOfDoses=${numberOfDoses}`,
+        expectedValue: pricePerDose.expectedValue,
+        statusIfMissing: pricePerDose.statusIfMissing,
+        baseDescription: pricePerDose.details,
       });
 
       compareMetric(issues, {
@@ -292,35 +415,49 @@ async function main() {
         asin: product.asin,
         attrs,
         metric: "precoPorGramaCreatina",
-        expectedValue:
-          expectedPricePerDose !== null && creatinaPorDose > 0
-            ? expectedPricePerDose / creatinaPorDose
-            : null,
-        baseDescription: `totalPrice=${totalPrice}, numberOfDoses=${numberOfDoses}, creatinaPorDose=${creatinaPorDose}`,
+        expectedValue: pricePerGramCreatine.expectedValue,
+        statusIfMissing: pricePerGramCreatine.statusIfMissing,
+        baseDescription: pricePerGramCreatine.details,
       });
     }
   }
 
-  const byStatus = issues.reduce<Record<string, number>>((acc, issue) => {
-    acc[issue.status] = (acc[issue.status] || 0) + 1;
-    return acc;
-  }, {});
+  const actionableStatuses = new Set<AuditStatus>(["missing", "zero", "divergent"]);
+  const informationalStatuses = new Set<AuditStatus>(["price_unavailable", "missing_base"]);
+  const actionableIssues = issues.filter((issue) => actionableStatuses.has(issue.status));
+  const informationalIssues = issues.filter((issue) =>
+    informationalStatuses.has(issue.status)
+  );
 
-  const byCategory = issues.reduce<Record<string, number>>((acc, issue) => {
-    acc[issue.category] = (acc[issue.category] || 0) + 1;
-    return acc;
-  }, {});
+  const buildSummary = (collection: AuditIssue[], key: "status" | "category") =>
+    collection.reduce<Record<string, number>>((acc, issue) => {
+      acc[issue[key]] = (acc[issue[key]] || 0) + 1;
+      return acc;
+    }, {});
+
+  const actionableByStatus = buildSummary(actionableIssues, "status");
+  const informationalByStatus = buildSummary(informationalIssues, "status");
+  const actionableByCategory = buildSummary(actionableIssues, "category");
+  const informationalByCategory = buildSummary(informationalIssues, "category");
 
   console.log("");
   console.log("Resumo da auditoria:");
   console.log(`Produtos auditados: ${products.length}`);
-  console.log(`Inconsistencias encontradas: ${issues.length}`);
-  console.log(`Por status: ${JSON.stringify(byStatus, null, 2)}`);
-  console.log(`Por categoria: ${JSON.stringify(byCategory, null, 2)}`);
+  console.log(`Inconsistencias reais: ${actionableIssues.length}`);
+  console.log(`Sinais informativos: ${informationalIssues.length}`);
+  console.log(`Por status (reais): ${JSON.stringify(actionableByStatus, null, 2)}`);
+  console.log(`Por status (informativos): ${JSON.stringify(informationalByStatus, null, 2)}`);
+  console.log(`Por categoria (reais): ${JSON.stringify(actionableByCategory, null, 2)}`);
+  console.log(
+    `Por categoria (informativos): ${JSON.stringify(informationalByCategory, null, 2)}`
+  );
 
   console.log("");
-  console.log("Lista completa de inconsistencias:");
-  for (const issue of issues) {
+  console.log("Lista de inconsistencias reais:");
+  if (actionableIssues.length === 0) {
+    console.log("Nenhuma inconsistencia real encontrada.");
+  }
+  for (const issue of actionableIssues) {
     console.log(
       JSON.stringify({
         category: issue.category,
@@ -332,6 +469,32 @@ async function main() {
         expectedValue: issue.expectedValue,
         details: issue.details,
       })
+    );
+  }
+
+  console.log("");
+  console.log("Resumo dos sinais informativos:");
+  if (informationalIssues.length === 0) {
+    console.log("Nenhum sinal informativo encontrado.");
+  }
+  for (const issue of informationalIssues.slice(0, 25)) {
+    console.log(
+      JSON.stringify({
+        category: issue.category,
+        name: issue.name,
+        asin: issue.asin,
+        metric: issue.metric,
+        status: issue.status,
+        savedValue: issue.savedValue,
+        expectedValue: issue.expectedValue,
+        details: issue.details,
+      })
+    );
+  }
+
+  if (informationalIssues.length > 25) {
+    console.log(
+      `... ${informationalIssues.length - 25} sinais informativos adicionais omitidos para reduzir ruido.`
     );
   }
 

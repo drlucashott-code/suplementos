@@ -1,6 +1,7 @@
 import "dotenv/config";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, type Prisma } from "@prisma/client";
 import { reconcileDynamicFallbackState } from "../src/lib/dynamicFallback";
+import { enrichDynamicAttributesForCategory } from "../src/lib/dynamicCategoryMetrics";
 import { refreshDynamicProductPriceStatsBulk } from "../src/lib/dynamicPriceStats";
 import { getPriceHistoryCanonicalDate } from "../src/lib/dynamicPriceHistory";
 import {
@@ -44,6 +45,13 @@ type DynamicProductLite = {
   totalPrice: number;
   name: string;
   attributes: unknown;
+  category:
+    | {
+        name: string;
+        slug: string;
+        displayConfig: Prisma.JsonValue;
+      }
+    | null;
 };
 
 async function fetchAmazonPricesBatch(
@@ -87,6 +95,19 @@ async function persistDynamicUpdate(
   result?: PriceResult
 ) {
   const currentAttrs = (product.attributes as Record<string, unknown>) || {};
+  const nextAttributesBase = {
+    ...currentAttrs,
+    vendedor: result?.merchantName || "Indisponivel",
+  };
+  const nextAttributes = product.category
+    ? enrichDynamicAttributesForCategory({
+        category: product.category,
+        rawDisplayConfig: product.category.displayConfig,
+        productName: product.name,
+        totalPrice: result?.status === "OK" ? result.price : 0,
+        attributes: nextAttributesBase,
+      })
+    : nextAttributesBase;
   const today = getPriceHistoryCanonicalDate();
 
   if (result && result.status === "OK") {
@@ -94,10 +115,7 @@ async function persistDynamicUpdate(
       where: { id: product.id },
       data: {
         totalPrice: result.price,
-        attributes: {
-          ...currentAttrs,
-          vendedor: result.merchantName,
-        },
+        attributes: nextAttributes as Prisma.InputJsonValue,
       },
     });
 
@@ -138,10 +156,7 @@ async function persistDynamicUpdate(
     where: { id: product.id },
     data: {
       totalPrice: 0,
-      attributes: {
-        ...currentAttrs,
-        vendedor: result?.merchantName || "Indisponivel",
-      },
+      attributes: nextAttributes as Prisma.InputJsonValue,
     },
   });
 
@@ -230,6 +245,13 @@ async function updateAmazonPrices() {
         totalPrice: true,
         name: true,
         attributes: true,
+        category: {
+          select: {
+            name: true,
+            slug: true,
+            displayConfig: true,
+          },
+        },
       },
       orderBy: { name: "asc" },
     });

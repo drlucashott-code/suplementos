@@ -11,6 +11,7 @@ import {
   getAmazonItems,
   type AmazonItem,
 } from "@/lib/amazonApiClient";
+import { enrichDynamicAttributesForCategory } from "@/lib/dynamicCategoryMetrics";
 import { prisma } from "@/lib/prisma";
 import { refreshDynamicProductPriceStats } from "@/lib/dynamicPriceStats";
 import { getPriceHistoryCanonicalDate } from "@/lib/dynamicPriceHistory";
@@ -105,7 +106,15 @@ async function persistDynamicUpdate(productId: string, result: PriceResult) {
   const current = await prisma.dynamicProduct.findUnique({
     where: { id: productId },
     select: {
+      name: true,
       attributes: true,
+      category: {
+        select: {
+          name: true,
+          slug: true,
+          displayConfig: true,
+        },
+      },
     },
   });
 
@@ -113,7 +122,7 @@ async function persistDynamicUpdate(productId: string, result: PriceResult) {
     return false;
   }
 
-  const attributes = {
+  const nextAttributesBase = {
     ...(current.attributes as Record<string, string | number | boolean | undefined>),
     seller:
       result.status === "OUT_OF_STOCK"
@@ -121,6 +130,15 @@ async function persistDynamicUpdate(productId: string, result: PriceResult) {
         : (result.merchantName ?? undefined),
     asin: result.asin,
   };
+  const attributes = current.category
+    ? (enrichDynamicAttributesForCategory({
+        category: current.category,
+        rawDisplayConfig: current.category.displayConfig,
+        productName: current.name,
+        totalPrice: result.price,
+        attributes: nextAttributesBase,
+      }) as Record<string, string | number | boolean | undefined>)
+    : nextAttributesBase;
 
   await prisma.dynamicProduct.update({
     where: { id: productId },
