@@ -1,5 +1,7 @@
 'use server';
 
+import { createHash } from 'crypto';
+import { enrichDynamicAttributesForCategory } from '@/lib/dynamicCategoryMetrics';
 import { prisma } from '@/lib/prisma';
 import {
   getAmazonItemAffiliateUrl,
@@ -30,6 +32,27 @@ type ImportFilters = {
   forbiddenTitleRaw?: string;
   enableImportValidation?: boolean;
 };
+
+type ImportFilterMatchResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: string;
+      reasonCode?:
+        | 'TITLE_REQUIRED_MISMATCH'
+        | 'TITLE_FORBIDDEN_MATCH';
+    };
+
+type ImportDiscoveryContextItem = {
+  asin: string;
+  title: string;
+  brand: string;
+  imageUrl?: string;
+  price?: number | null;
+  displayPrice?: string;
+};
+
+type AsinDecisionStatus = 'imported' | 'rejected_soft' | 'rejected_hard';
 
 type ImportRunState = {
   id: string;
@@ -390,54 +413,76 @@ function splitDiscoveryRangeByAdaptiveBands(
   return splitDiscoveryRangeByQuantilesCore(range, validPrices);
 }
 
-function extractVolumeMlFromTitle(title: string): number | null {
-  const normalizedTitle = title
-    .toLowerCase()
-    .replace(/,/g, '.')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  const packMatch = normalizedTitle.match(
-    /(\d+)\s*(?:x|un(?:id(?:ades?)?)?|frascos?|embalagens?)\s*(?:de\s*)?(\d+(?:\.\d+)?)\s*(ml|l)\b/
-  );
-
-  if (packMatch) {
-    const units = Number(packMatch[1]);
-    const amount = Number(packMatch[2]);
-    const unit = packMatch[3];
-
-    if (!Number.isNaN(units) && !Number.isNaN(amount)) {
-      const totalMl = unit === "l" ? units * amount * 1000 : units * amount;
-      return Math.round(totalMl);
-    }
-  }
-
-  const singleMatch = normalizedTitle.match(/(\d+(?:\.\d+)?)\s*(ml|l)\b/);
-  if (!singleMatch) return null;
-
-  const amount = Number(singleMatch[1]);
-  if (Number.isNaN(amount)) return null;
-
-  return Math.round(singleMatch[2] === "l" ? amount * 1000 : amount);
-}
-
-function isHairVolumeCategory(category: { name?: string | null; slug?: string | null }) {
-  const normalizedName = category.name?.toLowerCase() ?? "";
-  const normalizedSlug = category.slug?.toLowerCase() ?? "";
-
-  return (
-    normalizedName.includes("condicionador") ||
-    normalizedSlug.includes("condicionador") ||
-    normalizedName.includes("shampoo") ||
-    normalizedSlug.includes("shampoo")
-  );
-}
-
 function parseFilterList(value?: string): string[] {
   return (value ?? "")
     .split(/[,\n;]+/)
     .map((item) => item.trim().toLowerCase())
     .filter(Boolean);
+}
+
+function buildImportPolicyHash(filters: ImportFilters) {
+  const payload = {
+    requiredTitleRaw: filters.requiredTitleRaw?.trim().toLowerCase() ?? "",
+    forbiddenTitleRaw: filters.forbiddenTitleRaw?.trim().toLowerCase() ?? "",
+    enableImportValidation: filters.enableImportValidation !== false,
+    version: 1,
+  };
+
+  return createHash("sha1").update(JSON.stringify(payload)).digest("hex");
+}
+
+async function upsertCategoryAsinDecision(params: {
+  categoryId: string;
+  asin: string;
+  status: AsinDecisionStatus;
+  reasonCode?: string | null;
+  reasonText?: string | null;
+  policyHash?: string | null;
+  title?: string | null;
+  brand?: string | null;
+  imageUrl?: string | null;
+  observedPrice?: number | null;
+  productId?: string | null;
+}) {
+  await prisma.dynamicCategoryAsinDecision.upsert({
+    where: {
+      categoryId_asin: {
+        categoryId: params.categoryId,
+        asin: params.asin,
+      },
+    },
+    update: {
+      status: params.status,
+      reasonCode: params.reasonCode ?? null,
+      reasonText: params.reasonText ?? null,
+      policyHash: params.policyHash ?? null,
+      title: params.title ?? null,
+      brand: params.brand ?? null,
+      imageUrl: params.imageUrl ?? null,
+      observedPrice:
+        typeof params.observedPrice === "number" ? params.observedPrice : null,
+      productId: params.productId ?? null,
+      lastSeenAt: new Date(),
+      reviewedAt: new Date(),
+    },
+    create: {
+      categoryId: params.categoryId,
+      asin: params.asin,
+      status: params.status,
+      reasonCode: params.reasonCode ?? null,
+      reasonText: params.reasonText ?? null,
+      policyHash: params.policyHash ?? null,
+      title: params.title ?? null,
+      brand: params.brand ?? null,
+      imageUrl: params.imageUrl ?? null,
+      observedPrice:
+        typeof params.observedPrice === "number" ? params.observedPrice : null,
+      productId: params.productId ?? null,
+      firstSeenAt: new Date(),
+      lastSeenAt: new Date(),
+      reviewedAt: new Date(),
+    },
+  });
 }
 
 function normalizeImportRun(run: {
@@ -697,7 +742,7 @@ function matchesImportFilters(params: {
   name: string;
   brand: string;
   filters: ImportFilters;
-}) {
+}): ImportFilterMatchResult {
   const normalizedTitle = params.name.toLowerCase();
   const requiredTitleTerms = parseFilterList(params.filters.requiredTitleRaw);
   const forbiddenTitleTerms = parseFilterList(params.filters.forbiddenTitleRaw);
@@ -723,6 +768,31 @@ function matchesImportFilters(params: {
   }
 
   return { ok: true as const };
+}
+
+function getImportFilterReasonCode(params: {
+  name: string;
+  filters: ImportFilters;
+}): 'TITLE_REQUIRED_MISMATCH' | 'TITLE_FORBIDDEN_MATCH' | null {
+  const normalizedTitle = params.name.toLowerCase();
+  const requiredTitleTerms = parseFilterList(params.filters.requiredTitleRaw);
+  const forbiddenTitleTerms = parseFilterList(params.filters.forbiddenTitleRaw);
+
+  if (
+    requiredTitleTerms.length > 0 &&
+    !requiredTitleTerms.some((term) => normalizedTitle.includes(term))
+  ) {
+    return 'TITLE_REQUIRED_MISMATCH';
+  }
+
+  if (
+    forbiddenTitleTerms.length > 0 &&
+    forbiddenTitleTerms.some((term) => normalizedTitle.includes(term))
+  ) {
+    return 'TITLE_FORBIDDEN_MATCH';
+  }
+
+  return null;
 }
 
 function getItemTitle(item: AmazonItem) {
@@ -948,7 +1018,8 @@ async function runDynamicImportJob(
   runId: string,
   asinsRaw: string,
   categoryId: string,
-  filters: ImportFilters
+  filters: ImportFilters,
+  discoveredItems: ImportDiscoveryContextItem[] = []
 ) {
   const asinList = asinsRaw
     .split(/[\s,]+/)
@@ -957,7 +1028,7 @@ async function runDynamicImportJob(
 
   const category = await prisma.dynamicCategory.findUnique({
     where: { id: categoryId },
-    select: { id: true, name: true, slug: true },
+    select: { id: true, name: true, slug: true, displayConfig: true },
   });
 
   if (!category) {
@@ -972,12 +1043,54 @@ async function runDynamicImportJob(
   const logs: string[] = [
     "Conectando com Amazon em modo hibrido: Creators para itens e PA-API para buscas com faixa...",
   ];
+  const importPolicyHash = buildImportPolicyHash(filters);
   let processedItems = 0;
   let importedItems = 0;
   let skippedItems = 0;
   let errorItems = 0;
 
   await updateImportRun(runId, { logs });
+
+  const selectedAsins = new Set(asinList);
+
+  if (discoveredItems.length > 0) {
+    for (const item of discoveredItems) {
+      if (selectedAsins.has(item.asin)) {
+        continue;
+      }
+
+      const filterResult = matchesImportFilters({
+        name: item.title,
+        brand: item.brand,
+        filters,
+      });
+
+      if (!filterResult.ok) {
+        await upsertCategoryAsinDecision({
+          categoryId,
+          asin: item.asin,
+          status: 'rejected_soft',
+          reasonCode:
+            filterResult.reasonCode ??
+            getImportFilterReasonCode({ name: item.title, filters }),
+          reasonText: filterResult.reason,
+          policyHash: importPolicyHash,
+          title: item.title,
+          brand: item.brand,
+          imageUrl: item.imageUrl ?? null,
+          observedPrice: item.price ?? null,
+        });
+      }
+    }
+  }
+
+  const existingDecisions = await prisma.dynamicCategoryAsinDecision.findMany({
+    where: {
+      categoryId,
+      asin: { in: asinList },
+    },
+  });
+  const decisionMap = new Map(existingDecisions.map((decision) => [decision.asin, decision]));
 
   for (const asin of asinList) {
     if (processedItems > 0 && processedItems % 50 === 0) {
@@ -995,6 +1108,7 @@ async function runDynamicImportJob(
           logs,
         });
         revalidatePath("/admin/dynamic/produtos");
+        revalidatePath("/admin/dynamic/rejeitados");
         return;
       }
     }
@@ -1002,11 +1116,49 @@ async function runDynamicImportJob(
     try {
       await delay(2000);
 
+      const previousDecision = decisionMap.get(asin);
+
+      if (
+        previousDecision?.status === 'rejected_hard' ||
+        (previousDecision?.status === 'rejected_soft' &&
+          previousDecision.policyHash &&
+          previousDecision.policyHash === importPolicyHash)
+      ) {
+        skippedItems += 1;
+        processedItems += 1;
+        logs.push(
+          previousDecision.status === 'rejected_hard'
+            ? `⏭️ ${asin}: Ja rejeitado de forma definitiva nesta categoria`
+            : `⏭️ ${asin}: Ja rejeitado nesta categoria pelos filtros atuais`
+        );
+        await updateImportRun(runId, {
+          processedItems,
+          importedItems,
+          skippedItems,
+          errorItems,
+          logs,
+        });
+        continue;
+      }
+
       const existing = await prisma.dynamicProduct.findUnique({
         where: { asin },
+        select: {
+          id: true,
+          categoryId: true,
+        },
       });
 
       if (existing) {
+        if (existing.categoryId === categoryId) {
+          await upsertCategoryAsinDecision({
+            categoryId,
+            asin,
+            status: 'imported',
+            policyHash: importPolicyHash,
+            productId: existing.id,
+          });
+        }
         skippedItems += 1;
         processedItems += 1;
         logs.push(`â­ï¸ ${asin}: JÃ¡ existe no banco de dados`);
@@ -1039,6 +1191,21 @@ async function runDynamicImportJob(
       const { price, merchantName, item } = result;
 
       if (merchantName === "Loja Suplemento") {
+        await upsertCategoryAsinDecision({
+          categoryId,
+          asin,
+          status: 'rejected_soft',
+          reasonCode: 'MERCHANT_EXCLUDED',
+          reasonText: 'Oferta atual excluida pelo seller Loja Suplemento',
+          policyHash: importPolicyHash,
+          title: item?.ItemInfo?.Title?.DisplayValue ?? null,
+          brand:
+            item?.ItemInfo?.ByLineInfo?.Brand?.DisplayValue ??
+            item?.ItemInfo?.ByLineInfo?.Manufacturer?.DisplayValue ??
+            null,
+          imageUrl: item?.Images?.Primary?.Large?.URL ?? null,
+          observedPrice: price,
+        });
         skippedItems += 1;
         processedItems += 1;
         logs.push(`ðŸš« ${asin}: ExcluÃ­do (Loja Suplemento)`);
@@ -1066,6 +1233,20 @@ async function runDynamicImportJob(
         });
 
         if (!filterResult.ok) {
+          await upsertCategoryAsinDecision({
+            categoryId,
+            asin,
+            status: 'rejected_soft',
+            reasonCode:
+              filterResult.reasonCode ??
+              getImportFilterReasonCode({ name, filters }),
+            reasonText: filterResult.reason,
+            policyHash: importPolicyHash,
+            title: name,
+            brand,
+            imageUrl: item?.Images?.Primary?.Large?.URL ?? null,
+            observedPrice: price,
+          });
           skippedItems += 1;
           processedItems += 1;
           logs.push(`â­ï¸ ${asin}: ${filterResult.reason}`);
@@ -1085,20 +1266,20 @@ async function runDynamicImportJob(
         (item ? getAmazonItemAffiliateUrl(item) : "") ||
         `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG}`;
 
-      const attributes: Record<string, string | number> = {
+      const baseAttributes: Record<string, string | number> = {
         brand,
         seller: merchantName,
         asin,
       };
+      const attributes = enrichDynamicAttributesForCategory({
+        category,
+        rawDisplayConfig: category.displayConfig,
+        productName: name,
+        totalPrice: price,
+        attributes: baseAttributes,
+      }) as Record<string, string | number>;
 
-      if (isHairVolumeCategory(category)) {
-        const extractedVolumeMl = extractVolumeMlFromTitle(name);
-        if (extractedVolumeMl) {
-          attributes.volumeMl = extractedVolumeMl;
-        }
-      }
-
-      await prisma.dynamicProduct.create({
+      const createdProduct = await prisma.dynamicProduct.create({
         data: {
           asin,
           name,
@@ -1108,6 +1289,18 @@ async function runDynamicImportJob(
           categoryId,
           attributes,
         },
+      });
+
+      await upsertCategoryAsinDecision({
+        categoryId,
+        asin,
+        status: 'imported',
+        policyHash: importPolicyHash,
+        title: name,
+        brand,
+        imageUrl,
+        observedPrice: price,
+        productId: createdProduct.id,
       });
 
       importedItems += 1;
@@ -1151,6 +1344,7 @@ async function runDynamicImportJob(
   });
 
   revalidatePath("/admin/dynamic/produtos");
+  revalidatePath("/admin/dynamic/rejeitados");
 }
 
 export async function startDynamicImportViaAPI(input: {
@@ -1159,6 +1353,7 @@ export async function startDynamicImportViaAPI(input: {
   requiredTitleRaw?: string;
   forbiddenTitleRaw?: string;
   enableImportValidation?: boolean;
+  discoveredItems?: ImportDiscoveryContextItem[];
 }) {
   const asinList = input.asinsRaw
     .split(/[\s,]+/)
@@ -1191,7 +1386,7 @@ export async function startDynamicImportViaAPI(input: {
     requiredTitleRaw: input.requiredTitleRaw ?? "",
     forbiddenTitleRaw: input.forbiddenTitleRaw ?? "",
     enableImportValidation: input.enableImportValidation !== false,
-  });
+  }, input.discoveredItems ?? []);
 
   return { success: true, runId: run.id };
 }

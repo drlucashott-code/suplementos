@@ -13,6 +13,7 @@ import {
 } from "@/lib/amazonApiClient";
 import { prisma } from "@/lib/prisma";
 import { refreshDynamicProductPriceStats } from "@/lib/dynamicPriceStats";
+import { getPriceHistoryCanonicalDate } from "@/lib/dynamicPriceHistory";
 
 const sqsClient = new SQSClient({ region: process.env.AWS_REGION || "us-east-2" });
 const queueUrl =
@@ -100,6 +101,7 @@ function extractAsinFromMessage(message: Message) {
 
 async function persistDynamicUpdate(productId: string, result: PriceResult) {
   const now = new Date();
+  const historyDate = getPriceHistoryCanonicalDate(now);
   const current = await prisma.dynamicProduct.findUnique({
     where: { id: productId },
     select: {
@@ -151,25 +153,23 @@ async function persistDynamicUpdate(productId: string, result: PriceResult) {
     `;
   }
 
-  const lastHistory = await prisma.dynamicPriceHistory.findFirst({
-    where: { productId },
-    orderBy: { createdAt: "desc" },
-  });
-
-  const shouldCreateHistory =
-    !lastHistory ||
-    lastHistory.price !== result.price ||
-    lastHistory.createdAt.toDateString() !== new Date().toDateString();
-
-  if (shouldCreateHistory) {
-    await prisma.dynamicPriceHistory.create({
-      data: {
+  await prisma.dynamicPriceHistory.upsert({
+    where: {
+      productId_date: {
         productId,
-        price: result.price,
-        date: now,
+        date: historyDate,
       },
-    });
-  }
+    },
+    update: {
+      price: result.price,
+      updateCount: { increment: 1 },
+    },
+    create: {
+      productId,
+      price: result.price,
+      date: historyDate,
+    },
+  });
 
   await refreshDynamicProductPriceStats(productId);
 

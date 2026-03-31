@@ -2,6 +2,7 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { reconcileDynamicFallbackState } from "../src/lib/dynamicFallback";
 import { refreshDynamicProductPriceStatsBulk } from "../src/lib/dynamicPriceStats";
+import { getPriceHistoryCanonicalDate } from "../src/lib/dynamicPriceHistory";
 import {
   getAmazonItemMerchantName,
   getAmazonItemPrice,
@@ -86,8 +87,7 @@ async function persistDynamicUpdate(
   result?: PriceResult
 ) {
   const currentAttrs = (product.attributes as Record<string, unknown>) || {};
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = getPriceHistoryCanonicalDate();
 
   if (result && result.status === "OK") {
     await prisma.dynamicProduct.update({

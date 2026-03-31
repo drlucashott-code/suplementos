@@ -7,6 +7,7 @@ import { trackProductClick } from "@/lib/client/productClickTracking";
 import type { SaveableDeal } from "@/lib/client/savedDeals";
 import { SAVED_DEALS_EVENT, isDealSaved, toggleSavedDeal } from "@/lib/client/savedDeals";
 import { PriceHistoryButton } from "@/components/dynamic/PriceHistoryButton";
+import type { PriceHistoryChartRange } from "@/lib/dynamicPriceHistory";
 import type { PriceDecision } from "@/lib/priceDecision";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ export type DynamicProductType = {
   lowestPrice365d?: number | null;
   discountPercent?: number | null;
   priceDecision?: PriceDecision | null;
+  historyAvailableRanges?: PriceHistoryChartRange[];
   attributes: Record<string, string | number | undefined>;
 };
 
@@ -83,6 +85,26 @@ function getDerivedMetricValue(
       return unitsPerPack > 0 ? totalPrice / unitsPerPack : 0;
     case "precoPorDose":
       return numberOfDoses > 0 ? totalPrice / numberOfDoses : 0;
+    case "precoPorMl":
+      return getNumericAttribute(attributes, "volumeMl") > 0
+        ? totalPrice / getNumericAttribute(attributes, "volumeMl")
+        : 0;
+    case "precoPorGrama":
+      return getNumericAttribute(attributes, "weightGrams") > 0
+        ? totalPrice / getNumericAttribute(attributes, "weightGrams")
+        : 0;
+    case "precoPorMetro":
+      return getNumericAttribute(attributes, "meters") > 0
+        ? totalPrice / getNumericAttribute(attributes, "meters")
+        : 0;
+    case "precoPorLavagem":
+      return getNumericAttribute(attributes, "washes") > 0
+        ? totalPrice / getNumericAttribute(attributes, "washes")
+        : 0;
+    case "precoPorCapsula":
+      return getNumericAttribute(attributes, "capsules") > 0
+        ? totalPrice / getNumericAttribute(attributes, "capsules")
+        : 0;
     case "precoPorGramaProteina":
       return totalProteinInGrams > 0 ? totalPrice / totalProteinInGrams : 0;
     case "precoPor100MgCafeina":
@@ -250,7 +272,11 @@ export function MobileProductCard({
     : null;
   const shouldShowDecisionMessage =
     priceDecision && priceDecision.message !== priceDecision.label;
+  const canShowPriceHistory =
+    Array.isArray(product.historyAvailableRanges) &&
+    product.historyAvailableRanges.length > 0;
   const showReferencePrice =
+    canShowPriceHistory &&
     typeof product.avgPrice === "number" &&
     Math.round(product.avgPrice * 100) > Math.round(product.price * 100);
 
@@ -563,7 +589,7 @@ export function MobileProductCard({
                     </span>
                   </div>
 
-                  {!showReferencePrice ? (
+                  {!showReferencePrice && canShowPriceHistory ? (
                     <div className="ml-2 mt-1 shrink-0">
                       <PriceHistoryButton
                         productId={product.id}
@@ -579,10 +605,12 @@ export function MobileProductCard({
                     <span className="line-through">
                       R$ {product.avgPrice!.toFixed(2).replace(".", ",")}
                     </span>
-                    <PriceHistoryButton
-                      productId={product.id}
-                      productName={product.name}
-                    />
+                    {canShowPriceHistory ? (
+                      <PriceHistoryButton
+                        productId={product.id}
+                        productName={product.name}
+                      />
+                    ) : null}
                   </div>
                 ) : null}
 

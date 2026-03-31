@@ -50,6 +50,13 @@ export default async function AdminProdutosDynamic({
 
           <div className="flex gap-3">
             <Link
+              href="/admin/dynamic/rejeitados"
+              className="flex items-center rounded-2xl border border-gray-200 bg-white px-6 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500 shadow-sm transition-all hover:border-gray-300 hover:text-black"
+            >
+              Rejeitados
+            </Link>
+
+            <Link
               href="/admin/dynamic/categorias"
               className="flex items-center rounded-2xl border border-gray-200 bg-white px-6 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500 shadow-sm transition-all hover:border-gray-300 hover:text-black"
             >

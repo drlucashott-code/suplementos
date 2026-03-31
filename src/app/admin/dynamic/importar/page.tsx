@@ -171,6 +171,7 @@ export default function ImportadorDynamicAPI() {
       requiredTitleRaw,
       forbiddenTitleRaw,
       enableImportValidation,
+      discoveredItems,
     });
 
     if (res.error) {

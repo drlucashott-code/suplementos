@@ -137,6 +137,7 @@ model DynamicCategory {
   imageUrl      String?
   displayConfig Json
   products      DynamicProduct[]
+  asinDecisions DynamicCategoryAsinDecision[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
@@ -173,6 +174,32 @@ model DynamicProduct {
   reactions        DynamicProductReaction[]
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
+}
+
+model DynamicCategoryAsinDecision {
+  id            String          @id @default(cuid())
+  categoryId    String
+  category      DynamicCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  asin          String
+  status        String
+  reasonCode    String?
+  reasonText    String?
+  policyHash    String?
+  title         String?
+  brand         String?
+  imageUrl      String?
+  observedPrice Float?
+  productId     String?
+  firstSeenAt   DateTime        @default(now())
+  lastSeenAt    DateTime        @default(now())
+  reviewedAt    DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([categoryId, asin])
+  @@index([categoryId, status, lastSeenAt(sort: Desc)])
+  @@index([asin])
+  @@index([status, lastSeenAt(sort: Desc)])
 }
 
 model DynamicProductIssueReport {

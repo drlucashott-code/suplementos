@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { normalizeDynamicDisplayConfig } from '@/lib/dynamicCategoryMetrics';
 import { getHomeCategories, createDynamicProduct, fetchAmazonProductData, type AmazonImportResult } from './actions';
 
 interface Category {
   id: string;
   name: string;
-  displayConfig: { key: string; label: string; type: string }[];
+  displayConfig: unknown;
 }
 
 export default function NovoProdutoDynamic() {
@@ -133,11 +134,12 @@ export default function NovoProdutoDynamic() {
         </div>
 
         {/* Campos Dinâmicos (Atributos) */}
-        {selectedCat && selectedCat.displayConfig && selectedCat.displayConfig.length > 0 && (
+        {selectedCat &&
+          normalizeDynamicDisplayConfig(selectedCat.displayConfig).fields.length > 0 && (
           <div className="bg-yellow-50 p-6 rounded-2xl border border-yellow-100 shadow-sm">
             <h3 className="font-black mb-4 text-xs uppercase text-yellow-700 tracking-widest">3. Atributos de {selectedCat.name}</h3>
             <div className="grid grid-cols-1 gap-4">
-              {selectedCat.displayConfig.map((field) => (
+              {normalizeDynamicDisplayConfig(selectedCat.displayConfig).fields.map((field) => (
                 <div key={field.key}>
                   <label className="text-[10px] font-black text-yellow-600 uppercase mb-1 ml-1 block">{field.label}</label>
                   <input 

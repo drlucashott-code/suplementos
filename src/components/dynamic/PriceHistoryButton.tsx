@@ -9,8 +9,12 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import {
+  getVisiblePriceHistoryChartRanges,
+  type PriceHistoryChartRange,
+} from "@/lib/dynamicPriceHistory";
 
-type SupportedRange = 7 | 30 | 90 | 180 | 365;
+type SupportedRange = PriceHistoryChartRange;
 
 type PriceHistoryResponse = {
   ok: boolean;
@@ -31,10 +35,61 @@ type PriceHistoryResponse = {
 const RANGE_OPTIONS: Array<{ value: SupportedRange; label: string }> = [
   { value: 7, label: "7d" },
   { value: 30, label: "30d" },
+  { value: 60, label: "60d" },
   { value: 90, label: "90d" },
+  { value: 120, label: "120d" },
+  { value: 150, label: "150d" },
   { value: 180, label: "180d" },
+  { value: 210, label: "210d" },
+  { value: 240, label: "240d" },
+  { value: 270, label: "270d" },
+  { value: 300, label: "300d" },
+  { value: 330, label: "330d" },
   { value: 365, label: "1 ano" },
 ];
+
+type RangeHorizon = "short" | "medium" | "long";
+
+const RANGE_HORIZON_META: Record<
+  RangeHorizon,
+  {
+    label: string;
+    sectionText: string;
+    inactiveClassName: string;
+    activeClassName: string;
+  }
+> = {
+  short: {
+    label: "Curto prazo",
+    sectionText: "text-[#315A9A]",
+    inactiveClassName:
+      "border-[#D8E6FF] bg-[#F6FAFF] text-[#315A9A] hover:border-[#C3D8FF] hover:bg-[#EEF5FF]",
+    activeClassName:
+      "border-[#214E93] bg-[#214E93] text-white shadow-sm ring-2 ring-[#D8E6FF]",
+  },
+  medium: {
+    label: "Médio prazo",
+    sectionText: "text-[#0F766E]",
+    inactiveClassName:
+      "border-[#CFEDE7] bg-[#F3FBF9] text-[#0F766E] hover:border-[#B9E3DA] hover:bg-[#ECF8F5]",
+    activeClassName:
+      "border-[#0F766E] bg-[#0F766E] text-white shadow-sm ring-2 ring-[#CFEDE7]",
+  },
+  long: {
+    label: "Longo prazo",
+    sectionText: "text-[#A16207]",
+    inactiveClassName:
+      "border-[#F5DFC0] bg-[#FFF8EE] text-[#A16207] hover:border-[#EFD3A6] hover:bg-[#FFF3E2]",
+    activeClassName:
+      "border-[#A16207] bg-[#A16207] text-white shadow-sm ring-2 ring-[#F5DFC0]",
+  },
+};
+
+function getRangeHorizon(range: SupportedRange): RangeHorizon {
+  if (range <= 60) return "short";
+  if (range <= 180) return "medium";
+  return "long";
+}
 
 function formatCurrency(value: number | null) {
   if (value === null || Number.isNaN(value)) return "--";
@@ -85,6 +140,27 @@ export function PriceHistoryButton({
     return cachedResponses.find((response) => response.availableRanges.length > 0)
       ?.availableRanges ?? [];
   }, [cache]);
+  const visibleRanges = useMemo(
+    () => getVisiblePriceHistoryChartRanges(availableRanges),
+    [availableRanges]
+  );
+  const visibleRangeSections = useMemo(() => {
+    const sections: Array<{ horizon: RangeHorizon; ranges: SupportedRange[] }> = [];
+
+    for (const currentRange of visibleRanges) {
+      const horizon = getRangeHorizon(currentRange);
+      const lastSection = sections[sections.length - 1];
+
+      if (lastSection && lastSection.horizon === horizon) {
+        lastSection.ranges.push(currentRange);
+        continue;
+      }
+
+      sections.push({ horizon, ranges: [currentRange] });
+    }
+
+    return sections;
+  }, [visibleRanges]);
 
   useEffect(() => {
     if (!open) return;
@@ -299,29 +375,54 @@ export function PriceHistoryButton({
             </div>
 
             <div className="space-y-4 overflow-y-auto bg-[#FCFDFD] px-4 py-4 sm:px-6 sm:py-5">
-              {availableRanges.length > 1 ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  {RANGE_OPTIONS.filter((option) => availableRanges.includes(option.value)).map(
-                    (option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setRange(option.value)}
-                        className={`rounded-full px-3 py-1.5 text-[12px] font-semibold transition ${
-                          range === option.value
-                            ? "bg-[#0F1111] text-white shadow-sm"
-                            : "border border-[#E5E7EB] bg-white text-gray-600 hover:border-[#D1D5DB] hover:bg-[#FAFAFA]"
-                        }`}
-                      >
-                        {option.label}
-                      </button>
-                    )
-                  )}
+              {visibleRanges.length > 1 ? (
+                <div className="flex flex-wrap items-start gap-3">
+                  {visibleRangeSections.map((section) => {
+                    const sectionMeta = RANGE_HORIZON_META[section.horizon];
+
+                    return (
+                      <div key={section.horizon} className="flex min-w-[92px] flex-col gap-1.5">
+                        {visibleRangeSections.length > 1 ? (
+                          <span
+                            className={`px-1 text-[10px] font-black uppercase tracking-[0.18em] ${sectionMeta.sectionText}`}
+                          >
+                            {sectionMeta.label}
+                          </span>
+                        ) : null}
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          {section.ranges.map((sectionRange) => {
+                            const option = RANGE_OPTIONS.find(
+                              (item) => item.value === sectionRange
+                            );
+                            if (!option) return null;
+
+                            const isActive = range === option.value;
+
+                            return (
+                              <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => setRange(option.value)}
+                                className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold transition ${
+                                  isActive
+                                    ? sectionMeta.activeClassName
+                                    : sectionMeta.inactiveClassName
+                                }`}
+                              >
+                                {option.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              ) : availableRanges.length === 1 ? (
+              ) : visibleRanges.length === 1 ? (
                 <div className="flex items-center">
                   <span className="inline-flex rounded-full border border-[#E5E7EB] bg-white px-3 py-1 text-[11px] font-medium text-[#6B7280]">
-                    Histórico de {RANGE_OPTIONS.find((option) => option.value === availableRanges[0])?.label}
+                    Histórico de {RANGE_OPTIONS.find((option) => option.value === visibleRanges[0])?.label}
                   </span>
                 </div>
               ) : null}

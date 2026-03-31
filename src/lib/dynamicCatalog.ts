@@ -7,11 +7,21 @@ import {
   type DynamicProductFallbackState,
 } from "@/lib/dynamicFallback";
 import {
+  normalizeDynamicDisplayConfig,
+  type DynamicCategoryMetricSettings,
+} from "@/lib/dynamicCategoryMetrics";
+import {
   buildPriceDecision,
   PRICE_HISTORY_BADGE_WINDOWS,
   type PriceDecision,
   type PriceHistoryBadgeWindow,
 } from "@/lib/priceDecision";
+import {
+  getAvailablePriceHistoryChartRangesFromWindows,
+  type PriceHistoryChartRange,
+  shiftPriceHistoryDateKey,
+  getPriceHistoryBusinessDateKey,
+} from "@/lib/dynamicPriceHistory";
 
 export type FieldVisibility = "internal" | "public_table" | "public_highlight";
 
@@ -33,7 +43,7 @@ export type SortOptionValue =
   | "dose_price_asc"
   | "protein_pct_desc";
 
-export interface CategorySettings {
+export interface CategorySettings extends DynamicCategoryMetricSettings {
   analysisTitleTemplate?: string;
   enabledSorts?: SortOptionValue[];
   defaultSort?: SortOptionValue;
@@ -92,6 +102,7 @@ export type CatalogProduct = {
   pricePerDose?: number;
   proteinConcentration?: number;
   isFallbackPrice?: boolean;
+  historyAvailableRanges?: PriceHistoryChartRange[];
   priceDecision?: PriceDecision | null;
   attributes: Record<string, string | number | undefined>;
 };
@@ -215,15 +226,20 @@ const guessNiceStep = (values: number[]) => {
 const getNumericBucketConfig = ({
   config,
   values,
+  group,
+  slug,
 }: {
   config: DisplayConfigField;
   values: number[];
+  group?: string;
+  slug?: string;
 }): NumericBucketConfig | null => {
   if (config.type !== "number" || values.length === 0) {
     return null;
   }
 
   const normalized = removeAccents(`${config.key} ${config.label}`.toLowerCase());
+  const normalizedCategory = removeAccents(`${group || ""} ${slug || ""}`.toLowerCase());
 
   if (
     normalized.includes("conc") ||
@@ -262,6 +278,14 @@ const getNumericBucketConfig = ({
     normalized.includes("gramas por") ||
     normalized.includes("gramas total")
   ) {
+    if (
+      normalizedCategory.includes("saco") &&
+      normalizedCategory.includes("lixo") &&
+      normalized.includes("litro")
+    ) {
+      return { step: 20 };
+    }
+
     return { step: 100 };
   }
 
@@ -271,9 +295,13 @@ const getNumericBucketConfig = ({
 const buildBucketedFilterOptions = ({
   values,
   config,
+  group,
+  slug,
 }: {
   values: string[];
   config: DisplayConfigField;
+  group?: string;
+  slug?: string;
 }) => {
   const numericValues = Array.from(
     new Set(
@@ -286,6 +314,8 @@ const buildBucketedFilterOptions = ({
   const bucketConfig = getNumericBucketConfig({
     config,
     values: numericValues,
+    group,
+    slug,
   });
 
   if (config.type !== "number" || !bucketConfig || numericValues.length <= 6) {
@@ -370,6 +400,26 @@ const getDerivedAttributeMetric = (
       return unitsPerPack > 0 ? totalPrice / unitsPerPack : 0;
     case "precoPorDose":
       return numberOfDoses > 0 ? totalPrice / numberOfDoses : 0;
+    case "precoPorMl":
+      return getNumericAttribute(attrs, "volumeMl") > 0
+        ? totalPrice / getNumericAttribute(attrs, "volumeMl")
+        : 0;
+    case "precoPorGrama":
+      return getNumericAttribute(attrs, "weightGrams") > 0
+        ? totalPrice / getNumericAttribute(attrs, "weightGrams")
+        : 0;
+    case "precoPorMetro":
+      return getNumericAttribute(attrs, "meters") > 0
+        ? totalPrice / getNumericAttribute(attrs, "meters")
+        : 0;
+    case "precoPorLavagem":
+      return getNumericAttribute(attrs, "washes") > 0
+        ? totalPrice / getNumericAttribute(attrs, "washes")
+        : 0;
+    case "precoPorCapsula":
+      return getNumericAttribute(attrs, "capsules") > 0
+        ? totalPrice / getNumericAttribute(attrs, "capsules")
+        : 0;
     case "precoPorGramaProteina":
       return totalProteinInGrams > 0 ? totalPrice / totalProteinInGrams : 0;
     case "precoPor100MgCafeina":
@@ -425,25 +475,7 @@ const getConfiguredCurrencyMetric = (
 };
 
 const normalizeDisplayConfig = (rawConfig: unknown): DisplayConfigPayload => {
-  if (Array.isArray(rawConfig)) {
-    return {
-      fields: rawConfig as DisplayConfigField[],
-      settings: {},
-    };
-  }
-
-  if (
-    rawConfig &&
-    typeof rawConfig === "object" &&
-    Array.isArray((rawConfig as DisplayConfigPayload).fields)
-  ) {
-    return rawConfig as DisplayConfigPayload;
-  }
-
-  return {
-    fields: [],
-    settings: {},
-  };
+  return normalizeDynamicDisplayConfig(rawConfig) as DisplayConfigPayload;
 };
 
 const getBestValueHelperText = (attributeKey?: string) => {
@@ -456,6 +488,16 @@ const getBestValueHelperText = (attributeKey?: string) => {
       return "Baseado em R$/g de creatina";
     case "precoPorDose":
       return "Baseado em R$/dose";
+    case "precoPorMl":
+      return "Baseado em R$/ml";
+    case "precoPorGrama":
+      return "Baseado em R$/g";
+    case "precoPorMetro":
+      return "Baseado em R$/metro";
+    case "precoPorLavagem":
+      return "Baseado em R$/lavagem";
+    case "precoPorCapsula":
+      return "Baseado em R$/capsula";
     case "precoPorBarra":
       return "Baseado em R$/barra";
     case "precoPorUnidade":
@@ -533,85 +575,110 @@ async function fetchDynamicCatalogBaseData(
             `)
           : [];
 
+      const todayKey = getPriceHistoryBusinessDateKey();
+      const historySince30 = shiftPriceHistoryDateKey(todayKey, -29);
+      const historySince60 = shiftPriceHistoryDateKey(todayKey, -59);
+      const historySince90 = shiftPriceHistoryDateKey(todayKey, -89);
+      const historySince120 = shiftPriceHistoryDateKey(todayKey, -119);
+      const historySince150 = shiftPriceHistoryDateKey(todayKey, -149);
+      const historySince180 = shiftPriceHistoryDateKey(todayKey, -179);
+      const historySince210 = shiftPriceHistoryDateKey(todayKey, -209);
+      const historySince240 = shiftPriceHistoryDateKey(todayKey, -239);
+      const historySince270 = shiftPriceHistoryDateKey(todayKey, -269);
+      const historySince300 = shiftPriceHistoryDateKey(todayKey, -299);
+      const historySince330 = shiftPriceHistoryDateKey(todayKey, -329);
+      const historySince365 = shiftPriceHistoryDateKey(todayKey, -364);
+
       const historyBadgeRows =
         productIds.length > 0
           ? await prisma.$queryRaw<HistoryBadgeRow[]>(Prisma.sql`
+              WITH "dailyHistory" AS (
+                SELECT DISTINCT ON ("productId", DATE("date"))
+                  "productId",
+                  DATE("date") AS "historyDate",
+                  "price"
+                FROM "DynamicPriceHistory"
+                WHERE
+                  "productId" IN (${Prisma.join(productIds)})
+                  AND DATE("date") >= ${historySince365}::date
+                  AND "price" > 0
+                ORDER BY "productId", DATE("date"), "date" DESC, "updatedAt" DESC, "createdAt" DESC
+              )
               SELECT
                 "productId",
-                COUNT(DISTINCT "date"::date) FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '29 days'
+                COUNT(*) FILTER (
+                  WHERE "historyDate" >= ${historySince30}::date
                 )::int AS "collectedDays30",
                 MIN("price") FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '29 days'
+                  WHERE "historyDate" >= ${historySince30}::date
                 )::float AS "lowestPrice30",
-                COUNT(DISTINCT "date"::date) FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '59 days'
+                COUNT(*) FILTER (
+                  WHERE "historyDate" >= ${historySince60}::date
                 )::int AS "collectedDays60",
                 MIN("price") FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '59 days'
+                  WHERE "historyDate" >= ${historySince60}::date
                 )::float AS "lowestPrice60",
-                COUNT(DISTINCT "date"::date) FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '89 days'
+                COUNT(*) FILTER (
+                  WHERE "historyDate" >= ${historySince90}::date
                 )::int AS "collectedDays90",
                 MIN("price") FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '89 days'
+                  WHERE "historyDate" >= ${historySince90}::date
                 )::float AS "lowestPrice90",
-                COUNT(DISTINCT "date"::date) FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '119 days'
+                COUNT(*) FILTER (
+                  WHERE "historyDate" >= ${historySince120}::date
                 )::int AS "collectedDays120",
                 MIN("price") FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '119 days'
+                  WHERE "historyDate" >= ${historySince120}::date
                 )::float AS "lowestPrice120",
-                COUNT(DISTINCT "date"::date) FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '149 days'
+                COUNT(*) FILTER (
+                  WHERE "historyDate" >= ${historySince150}::date
                 )::int AS "collectedDays150",
                 MIN("price") FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '149 days'
+                  WHERE "historyDate" >= ${historySince150}::date
                 )::float AS "lowestPrice150",
-                COUNT(DISTINCT "date"::date) FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '179 days'
+                COUNT(*) FILTER (
+                  WHERE "historyDate" >= ${historySince180}::date
                 )::int AS "collectedDays180",
                 MIN("price") FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '179 days'
+                  WHERE "historyDate" >= ${historySince180}::date
                 )::float AS "lowestPrice180",
-                COUNT(DISTINCT "date"::date) FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '209 days'
+                COUNT(*) FILTER (
+                  WHERE "historyDate" >= ${historySince210}::date
                 )::int AS "collectedDays210",
                 MIN("price") FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '209 days'
+                  WHERE "historyDate" >= ${historySince210}::date
                 )::float AS "lowestPrice210",
-                COUNT(DISTINCT "date"::date) FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '239 days'
+                COUNT(*) FILTER (
+                  WHERE "historyDate" >= ${historySince240}::date
                 )::int AS "collectedDays240",
                 MIN("price") FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '239 days'
+                  WHERE "historyDate" >= ${historySince240}::date
                 )::float AS "lowestPrice240",
-                COUNT(DISTINCT "date"::date) FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '269 days'
+                COUNT(*) FILTER (
+                  WHERE "historyDate" >= ${historySince270}::date
                 )::int AS "collectedDays270",
                 MIN("price") FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '269 days'
+                  WHERE "historyDate" >= ${historySince270}::date
                 )::float AS "lowestPrice270",
-                COUNT(DISTINCT "date"::date) FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '299 days'
+                COUNT(*) FILTER (
+                  WHERE "historyDate" >= ${historySince300}::date
                 )::int AS "collectedDays300",
                 MIN("price") FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '299 days'
+                  WHERE "historyDate" >= ${historySince300}::date
                 )::float AS "lowestPrice300",
-                COUNT(DISTINCT "date"::date) FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '329 days'
+                COUNT(*) FILTER (
+                  WHERE "historyDate" >= ${historySince330}::date
                 )::int AS "collectedDays330",
                 MIN("price") FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '329 days'
+                  WHERE "historyDate" >= ${historySince330}::date
                 )::float AS "lowestPrice330",
-                COUNT(DISTINCT "date"::date) FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '364 days'
+                COUNT(*) FILTER (
+                  WHERE "historyDate" >= ${historySince365}::date
                 )::int AS "collectedDays365",
                 MIN("price") FILTER (
-                  WHERE "date"::date >= CURRENT_DATE - INTERVAL '364 days'
+                  WHERE "historyDate" >= ${historySince365}::date
                 )::float AS "lowestPrice365"
-              FROM "DynamicPriceHistory"
-              WHERE "productId" IN (${Prisma.join(productIds)})
+              FROM "dailyHistory"
               GROUP BY "productId"
             `)
           : [];
@@ -736,7 +803,11 @@ export async function getDynamicCatalogData({
 
   const filterableConfigs = fullDisplayConfig.filter(
     (c) => c.type === "text" || c.type === "number"
-  );
+  ).sort((a, b) => {
+    const aLabel = removeAccents(a.label.toLowerCase());
+    const bLabel = removeAccents(b.label.toLowerCase());
+    return aLabel.localeCompare(bLabel, "pt-BR");
+  });
 
   const availableBrands = new Set<string>();
   const availableSellers = new Set<string>();
@@ -939,9 +1010,16 @@ export async function getDynamicCatalogData({
     const lowestPrice30d = p.lowestPrice30d ?? null;
     const highestPrice30d = p.highestPrice30d ?? null;
     const lowestPrice365d = p.lowestPrice365d ?? null;
+    const historyAvailableRanges = getAvailablePriceHistoryChartRangesFromWindows(
+      p.priceHistoryBadgeWindows
+    );
     let discountPercent: number | null = null;
 
-    if (avgMonthly && avgMonthly > p.displayPrice) {
+    if (
+      historyAvailableRanges.length > 0 &&
+      avgMonthly &&
+      avgMonthly > p.displayPrice
+    ) {
       const raw = ((avgMonthly - p.displayPrice) / avgMonthly) * 100;
       if (raw >= 5) {
         discountPercent = Math.round(raw);
@@ -953,7 +1031,6 @@ export async function getDynamicCatalogData({
       averagePrice30d: avgMonthly,
       historyWindows: p.priceHistoryBadgeWindows,
     });
-
     return {
       id: p.id,
       name: p.name,
@@ -973,6 +1050,7 @@ export async function getDynamicCatalogData({
       pricePerDose,
       proteinConcentration,
       isFallbackPrice: p.isFallbackPrice,
+      historyAvailableRanges,
       priceDecision,
       attributes: attrs as Record<string, string | number | undefined>,
     } satisfies CatalogProduct;
@@ -1064,6 +1142,8 @@ export async function getDynamicCatalogData({
       buildBucketedFilterOptions({
         values: Array.from(dynamicFilterOptions[config.key]),
         config,
+        group,
+        slug,
       }),
     ])
   );

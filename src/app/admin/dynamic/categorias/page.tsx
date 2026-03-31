@@ -1,4 +1,5 @@
 import { getHomeCategories, deleteDynamicCategory, type ConfigField } from '../nova-categoria/actions';
+import { normalizeDynamicDisplayConfig } from '@/lib/dynamicCategoryMetrics';
 import Link from 'next/link';
 
 export default async function AdminCategoriasDynamic() {
@@ -36,7 +37,8 @@ export default async function AdminCategoriasDynamic() {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {categories.map((cat) => {
-              const displayConfig = (cat.displayConfig as unknown as ConfigField[]) || [];
+              const displayConfig = normalizeDynamicDisplayConfig(cat.displayConfig)
+                .fields as unknown as ConfigField[];
               const fieldsCount = displayConfig.length;
 
               return (

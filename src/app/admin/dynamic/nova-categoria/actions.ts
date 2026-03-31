@@ -1,5 +1,9 @@
 "use server";
 
+import type {
+  DynamicCategoryMetricSettings,
+  PrimaryMetricPresetId,
+} from "@/lib/dynamicCategoryMetrics";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -23,7 +27,7 @@ export type ConfigField = {
   hideLabel?: boolean;
 };
 
-export type CategorySettings = {
+export type CategorySettings = DynamicCategoryMetricSettings & {
   analysisTitleTemplate?: string;
   enabledSorts?: SortOptionValue[];
   defaultSort?: SortOptionValue;
@@ -36,6 +40,8 @@ export type CategorySettings = {
     direction: "asc" | "desc";
   }>;
 };
+
+export type { PrimaryMetricPresetId };
 
 export type DisplayConfigPayload = {
   fields: ConfigField[];
