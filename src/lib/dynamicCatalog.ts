@@ -373,8 +373,9 @@ const getDerivedAttributeMetric = (
   key: string,
   totalPrice: number
 ) => {
+  const shouldBypassExplicitMetric = key === "precoPorGramaCreatina";
   const explicitValue = getNumericAttribute(attrs, key);
-  if (explicitValue > 0) {
+  if (!shouldBypassExplicitMetric && explicitValue > 0) {
     return explicitValue;
   }
 
@@ -388,10 +389,7 @@ const getDerivedAttributeMetric = (
     getNumericAttribute(attrs, "numberOfDoses") || getNumericAttribute(attrs, "doses");
   const totalProteinInGrams = getNumericAttribute(attrs, "totalProteinInGrams");
   const cafeinaTotalMg = getNumericAttribute(attrs, "cafeinaTotalMg");
-  const gramasCreatinaPuraNoPote = getNumericAttribute(
-    attrs,
-    "gramasCreatinaPuraNoPote"
-  );
+  const creatinaPorDose = getNumericAttribute(attrs, "creatinaPorDose");
 
   switch (key) {
     case "precoPorBarra":
@@ -424,8 +422,19 @@ const getDerivedAttributeMetric = (
       return totalProteinInGrams > 0 ? totalPrice / totalProteinInGrams : 0;
     case "precoPor100MgCafeina":
       return cafeinaTotalMg > 0 ? (totalPrice / cafeinaTotalMg) * 100 : 0;
-    case "precoPorGramaCreatina":
-      return gramasCreatinaPuraNoPote > 0 ? totalPrice / gramasCreatinaPuraNoPote : 0;
+    case "precoPorGramaCreatina": {
+      const explicitPricePerDose = getNumericAttribute(attrs, "precoPorDose");
+      const derivedPricePerDose =
+        explicitPricePerDose > 0
+          ? explicitPricePerDose
+          : numberOfDoses > 0
+            ? totalPrice / numberOfDoses
+            : 0;
+
+      return creatinaPorDose > 0 && derivedPricePerDose > 0
+        ? derivedPricePerDose / creatinaPorDose
+        : 0;
+    }
     case "proteinConcentration":
       return (
         getNumericAttribute(attrs, "proteinConcentration") ||
@@ -524,7 +533,7 @@ async function fetchDynamicCatalogBaseData(
         },
         include: {
           products: {
-            where: { isVisibleOnSite: true },
+            where: { visibilityStatus: "visible" },
             orderBy: { totalPrice: "asc" },
           },
         },

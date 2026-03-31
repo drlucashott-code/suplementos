@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import {
+  insertRejectedDecisionIntoCatalog,
   releaseRejectedSoftDecision,
   releaseRejectedSoftDecisions,
 } from "./actions";
@@ -13,6 +14,7 @@ type RejectedPageProps = {
   searchParams: Promise<{
     category?: string;
     status?: string;
+    notice?: string;
   }>;
 };
 
@@ -53,6 +55,7 @@ export default async function AdminDynamicRejectedPage({
 
   const selectedCategory = params.category ?? "";
   const selectedStatus = params.status ?? "all";
+  const notice = typeof params.notice === "string" ? params.notice.trim() : "";
   const redirectTo = `/admin/dynamic/rejeitados${
     selectedCategory || selectedStatus !== "all"
       ? `?${[
@@ -180,6 +183,12 @@ export default async function AdminDynamicRejectedPage({
             </Link>
           ))}
         </div>
+
+        {notice ? (
+          <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-800">
+            {notice}
+          </div>
+        ) : null}
 
         {softRejectCount > 0 ? (
           <div className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
@@ -317,7 +326,7 @@ export default async function AdminDynamicRejectedPage({
                       </td>
 
                       <td className="p-4 text-center">
-                        {decision.status === "rejected_soft" ? (
+                        <div className="flex flex-col items-center gap-2">
                           <form action={releaseRejectedSoftDecision}>
                             <input type="hidden" name="decisionId" value={decision.id} />
                             <input type="hidden" name="redirectTo" value={redirectTo} />
@@ -328,11 +337,29 @@ export default async function AdminDynamicRejectedPage({
                               Reavaliar
                             </button>
                           </form>
-                        ) : (
-                          <span className="text-[10px] font-black uppercase tracking-widest text-gray-300">
-                            Bloqueio fixo
-                          </span>
-                        )}
+
+                          <form action={insertRejectedDecisionIntoCatalog} className="flex flex-col items-center gap-2">
+                            <input type="hidden" name="decisionId" value={decision.id} />
+                            <input type="hidden" name="redirectTo" value={redirectTo} />
+                            <select
+                              name="targetCategoryId"
+                              defaultValue={decision.category.id}
+                              className="w-full min-w-[170px] rounded-xl border border-gray-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-700 outline-none transition-all hover:border-gray-300"
+                            >
+                              {categories.map((category) => (
+                                <option key={category.id} value={category.id}>
+                                  {category.name}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="submit"
+                              className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition-all hover:bg-emerald-100"
+                            >
+                              Inserir no banco
+                            </button>
+                          </form>
+                        </div>
                       </td>
                     </tr>
                   ))

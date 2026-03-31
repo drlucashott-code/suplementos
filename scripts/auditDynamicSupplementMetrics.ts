@@ -1,4 +1,4 @@
-import { prisma } from "../src/lib/prisma";
+﻿import { prisma } from "../src/lib/prisma";
 
 type DynamicAttributes = Record<string, string | number | boolean | undefined>;
 
@@ -271,10 +271,20 @@ async function main() {
     }
 
     if (category === "creatina") {
-      const gramasCreatinaPuraNoPote = getNumericAttribute(
+      const numberOfDoses = getNumericAttribute(attrs, "numberOfDoses");
+      const creatinaPorDose = getNumericAttribute(attrs, "creatinaPorDose");
+      const expectedPricePerDose =
+        totalPrice > 0 && numberOfDoses > 0 ? totalPrice / numberOfDoses : null;
+
+      compareMetric(issues, {
+        category,
+        name: product.name,
+        asin: product.asin,
         attrs,
-        "gramasCreatinaPuraNoPote"
-      );
+        metric: "precoPorDose",
+        expectedValue: expectedPricePerDose,
+        baseDescription: `totalPrice=${totalPrice}, numberOfDoses=${numberOfDoses}`,
+      });
 
       compareMetric(issues, {
         category,
@@ -283,10 +293,10 @@ async function main() {
         attrs,
         metric: "precoPorGramaCreatina",
         expectedValue:
-          totalPrice > 0 && gramasCreatinaPuraNoPote > 0
-            ? totalPrice / gramasCreatinaPuraNoPote
+          expectedPricePerDose !== null && creatinaPorDose > 0
+            ? expectedPricePerDose / creatinaPorDose
             : null,
-        baseDescription: `totalPrice=${totalPrice}, gramasCreatinaPuraNoPote=${gramasCreatinaPuraNoPote}`,
+        baseDescription: `totalPrice=${totalPrice}, numberOfDoses=${numberOfDoses}, creatinaPorDose=${creatinaPorDose}`,
       });
     }
   }
@@ -333,3 +343,4 @@ main().catch(async (error) => {
   await prisma.$disconnect();
   process.exit(1);
 });
+

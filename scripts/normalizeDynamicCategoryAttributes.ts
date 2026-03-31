@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+﻿import { Prisma } from '@prisma/client';
 import {
   buildPrimaryMetricFields,
   createPrimaryMetricDraftFromSettings,
@@ -82,6 +82,33 @@ function buildNormalizedCategoryConfig(category: CategoryRow) {
         key: 'weightGrams',
         label: 'Peso (g)',
         type: 'number',
+        visibility: 'public_highlight',
+      },
+    });
+  }
+
+  if (category.group === 'suplementos' && category.slug === 'creatina') {
+    nextSettings.bestValueAttributeKey = 'precoPorGramaCreatina';
+    nextSettings.dosePriceAttributeKey = 'precoPorDose';
+    nextFields = nextFields.filter((field) => field.key !== 'precoPorGramaCreatina');
+    nextFields = insertOrReplaceField({
+      fields: nextFields,
+      afterKey: 'creatinaPorDose',
+      field: {
+        key: 'precoPorDose',
+        label: 'Preço',
+        type: 'currency',
+        visibility: 'public_table',
+        prefix: 'R$ ',
+      },
+    });
+    nextFields = insertOrReplaceField({
+      fields: nextFields,
+      afterKey: 'formLabel',
+      field: {
+        key: 'sabor',
+        label: 'Sabor',
+        type: 'text',
         visibility: 'public_highlight',
       },
     });
@@ -186,3 +213,5 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+

@@ -109,8 +109,20 @@ function getDerivedMetricValue(
       return totalProteinInGrams > 0 ? totalPrice / totalProteinInGrams : 0;
     case "precoPor100MgCafeina":
       return cafeinaTotalMg > 0 ? (totalPrice / cafeinaTotalMg) * 100 : 0;
-    case "precoPorGramaCreatina":
-      return gramasCreatinaPuraNoPote > 0 ? totalPrice / gramasCreatinaPuraNoPote : 0;
+    case "precoPorGramaCreatina": {
+      const creatinaPorDose = getNumericAttribute(attributes, "creatinaPorDose");
+      const explicitPricePerDose = getNumericAttribute(attributes, "precoPorDose");
+      const derivedPricePerDose =
+        explicitPricePerDose > 0
+          ? explicitPricePerDose
+          : numberOfDoses > 0
+            ? totalPrice / numberOfDoses
+            : 0;
+
+      return creatinaPorDose > 0 && derivedPricePerDose > 0
+        ? derivedPricePerDose / creatinaPorDose
+        : 0;
+    }
     default:
       return 0;
   }
@@ -740,4 +752,5 @@ export function MobileProductCard({
     </>
   );
 }
+
 

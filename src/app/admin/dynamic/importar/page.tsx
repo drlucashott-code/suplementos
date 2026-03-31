@@ -87,7 +87,7 @@ export default function ImportadorDynamicAPI() {
   const [logs, setLogs] = useState<string[]>([]);
   const [requiredTitleRaw, setRequiredTitleRaw] = useState('');
   const [forbiddenTitleRaw, setForbiddenTitleRaw] = useState('');
-  const [enableImportValidation, setEnableImportValidation] = useState(true);
+  const [enableImportValidation, setEnableImportValidation] = useState(false);
   const [discoveryKeywordsRaw, setDiscoveryKeywordsRaw] = useState('');
   const [discoveryBrandsRaw, setDiscoveryBrandsRaw] = useState('');
   const [discoveryPriceRangesRaw, setDiscoveryPriceRangesRaw] = useState('');

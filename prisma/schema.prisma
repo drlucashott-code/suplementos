@@ -150,6 +150,7 @@ model DynamicProduct {
   name             String
   totalPrice       Float
   isVisibleOnSite  Boolean               @default(true)
+  visibilityStatus String                @default("visible")
   lastValidPrice   Float?
   lastValidPriceAt DateTime?
   availabilityStatus String?            @default("UNKNOWN")

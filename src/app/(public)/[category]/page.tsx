@@ -37,14 +37,14 @@ export default async function CategoryGroupPage({ params }: PageProps) {
         select: {
           products: {
             where: {
-              isVisibleOnSite: true,
+              visibilityStatus: "visible",
             },
           },
         },
       },
       products: {
         where: {
-          isVisibleOnSite: true,
+          visibilityStatus: "visible",
         },
         take: 4,
         orderBy: { createdAt: "desc" },

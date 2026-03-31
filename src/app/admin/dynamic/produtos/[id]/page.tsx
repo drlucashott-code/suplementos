@@ -1,9 +1,14 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
-import { getProductById, updateDynamicProduct, type DynamicAttributes } from '../actions';
-import { useRouter } from 'next/navigation';
+import { use, useEffect, useState } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { getProductById, updateDynamicProduct, type DynamicAttributes } from '../actions';
+import {
+  getDynamicVisibilityLabel,
+  normalizeDynamicVisibilityStatus,
+  type DynamicVisibilityStatus,
+} from '@/lib/dynamicVisibility';
 
 interface DisplayConfigField {
   key: string;
@@ -48,49 +53,54 @@ export default function EditProductPage({ params }: EditProps) {
     totalPrice: 0,
     imageUrl: '',
     url: '',
-    isVisibleOnSite: true,
+    visibilityStatus: 'visible' as DynamicVisibilityStatus,
   });
 
   const [attributes, setAttributes] = useState<LocalAttributes>({});
   const [displayConfig, setDisplayConfig] = useState<DisplayConfigField[]>([]);
 
   useEffect(() => {
-    getProductById(id).then((p) => {
-      if (p) {
+    getProductById(id).then((product) => {
+      if (product) {
         setFormData({
-          name: p.name,
-          totalPrice: p.totalPrice,
-          imageUrl: p.imageUrl || '',
-          url: p.url,
-          isVisibleOnSite: (p as { isVisibleOnSite?: boolean }).isVisibleOnSite ?? true,
+          name: product.name,
+          totalPrice: product.totalPrice,
+          imageUrl: product.imageUrl || '',
+          url: product.url,
+          visibilityStatus: normalizeDynamicVisibilityStatus(
+            (product as { visibilityStatus?: string | null }).visibilityStatus,
+            (product as { isVisibleOnSite?: boolean }).isVisibleOnSite
+          ),
         });
-        setAttributes((p.attributes as unknown as LocalAttributes) || {});
-        setDisplayConfig(normalizeDisplayConfig(p.category.displayConfig));
+        setAttributes((product.attributes as unknown as LocalAttributes) || {});
+        setDisplayConfig(normalizeDisplayConfig(product.category.displayConfig));
       }
       setLoading(false);
     });
   }, [id]);
 
   const handleSave = async () => {
-    const res = await updateDynamicProduct(id, {
+    const result = await updateDynamicProduct(id, {
       ...formData,
       attributes: attributes as DynamicAttributes,
     });
 
-    if (res.success) {
+    if (result.success) {
       alert('Produto atualizado com sucesso!');
       router.push('/admin/dynamic/produtos');
-    } else {
-      alert(res.error || 'Erro ao atualizar produto.');
+      return;
     }
+
+    alert(result.error || 'Erro ao atualizar produto.');
   };
 
-  if (loading)
+  if (loading) {
     return (
       <div className="animate-pulse p-10 text-center font-mono text-gray-400">
         Carregando dados do produto...
       </div>
     );
+  }
 
   return (
     <div className="min-h-screen max-w-5xl bg-white p-8 font-sans text-black">
@@ -99,7 +109,7 @@ export default function EditProductPage({ params }: EditProps) {
           onClick={() => router.back()}
           className="text-gray-400 transition-colors hover:text-black"
         >
-          ← Voltar
+          {'<-'} Voltar
         </button>
         <h1 className="text-3xl font-black uppercase italic tracking-tight text-gray-900">
           Editar Produto
@@ -124,12 +134,14 @@ export default function EditProductPage({ params }: EditProps) {
               )}
             </div>
 
-            <label className="ml-1 mb-2 block text-[10px] font-black uppercase text-gray-400">
-              Título Amazon
+            <label className="mb-2 ml-1 block text-[10px] font-black uppercase text-gray-400">
+              Titulo Amazon
             </label>
             <textarea
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(event) =>
+                setFormData((current) => ({ ...current, name: event.target.value }))
+              }
               className="h-32 w-full rounded-xl border border-gray-200 bg-white p-4 text-sm font-medium outline-none focus:ring-2 focus:ring-yellow-400"
             />
           </div>
@@ -137,25 +149,34 @@ export default function EditProductPage({ params }: EditProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               <label className="mb-2 block text-[10px] font-black uppercase text-gray-400">
-                Preço Total (R$)
+                Preco Total (R$)
               </label>
               <input
                 type="number"
                 step="0.01"
                 value={formData.totalPrice}
-                onChange={(e) =>
-                  setFormData({ ...formData, totalPrice: Number(e.target.value) })
+                onChange={(event) =>
+                  setFormData((current) => ({
+                    ...current,
+                    totalPrice: Number(event.target.value),
+                  }))
                 }
                 className="w-full border-0 p-1 text-2xl font-black text-green-700 outline-none focus:ring-0"
               />
             </div>
+
             <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               <label className="mb-2 block text-[10px] font-black uppercase text-gray-400">
                 URL Imagem
               </label>
               <input
                 value={formData.imageUrl}
-                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                onChange={(event) =>
+                  setFormData((current) => ({
+                    ...current,
+                    imageUrl: event.target.value,
+                  }))
+                }
                 className="w-full truncate border-0 p-1 font-mono text-xs text-blue-500 outline-none focus:ring-0"
               />
             </div>
@@ -163,31 +184,25 @@ export default function EditProductPage({ params }: EditProps) {
 
           <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
             <label className="mb-3 block text-[10px] font-black uppercase text-gray-400">
-              Exibição no site
+              Exibicao no site
             </label>
-            <button
-              type="button"
-              onClick={() =>
+            <select
+              value={formData.visibilityStatus}
+              onChange={(event) =>
                 setFormData((current) => ({
                   ...current,
-                  isVisibleOnSite: !current.isVisibleOnSite,
+                  visibilityStatus: event.target.value as DynamicVisibilityStatus,
                 }))
               }
-              className={`inline-flex items-center gap-3 rounded-full px-4 py-2 text-xs font-black uppercase tracking-widest transition ${
-                formData.isVisibleOnSite
-                  ? 'bg-green-50 text-green-700 ring-1 ring-green-200'
-                  : 'bg-red-50 text-red-700 ring-1 ring-red-200'
-              }`}
+              className="rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-black uppercase tracking-widest text-gray-700 outline-none transition hover:border-gray-300"
             >
-              <span
-                className={`h-2.5 w-2.5 rounded-full ${
-                  formData.isVisibleOnSite ? 'bg-green-500' : 'bg-red-500'
-                }`}
-              />
-              {formData.isVisibleOnSite ? 'Produto visível' : 'Produto oculto'}
-            </button>
+              <option value="visible">Visivel</option>
+              <option value="pending">Pendente</option>
+              <option value="hidden">Oculto</option>
+            </select>
             <p className="mt-3 text-xs text-gray-500">
-              O produto continua no catálogo e no admin, mas some da vitrine pública enquanto estiver oculto.
+              Status atual: {getDynamicVisibilityLabel(formData.visibilityStatus)}. So
+              produtos visiveis aparecem na vitrine publica; pendentes aguardam revisao.
             </p>
           </div>
         </div>
@@ -198,15 +213,17 @@ export default function EditProductPage({ params }: EditProps) {
               DYNAMIC ATTRS
             </span>
             <h2 className="text-xs font-bold uppercase tracking-widest text-gray-800">
-              Regras de cálculo
+              Regras de calculo
             </h2>
           </div>
 
           <div className="space-y-6">
             {displayConfig.map((field) => (
               <div key={field.key}>
-                <label className="ml-1 mb-2 flex items-center gap-1 text-xs font-black uppercase text-gray-500">
-                  {field.public === false && <span className="text-red-400">👁️‍🗨️</span>}
+                <label className="mb-2 ml-1 flex items-center gap-1 text-xs font-black uppercase text-gray-500">
+                  {field.public === false ? (
+                    <span className="text-red-400">Interno</span>
+                  ) : null}
                   {field.label}
                 </label>
                 <input
@@ -221,16 +238,16 @@ export default function EditProductPage({ params }: EditProps) {
                       ? String(attributes[field.key])
                       : ''
                   }
-                  onChange={(e) =>
-                    setAttributes({
-                      ...attributes,
+                  onChange={(event) =>
+                    setAttributes((current) => ({
+                      ...current,
                       [field.key]:
                         field.type === 'number'
-                          ? e.target.value === ''
+                          ? event.target.value === ''
                             ? ''
-                            : Number(e.target.value)
-                          : e.target.value,
-                    })
+                            : Number(event.target.value)
+                          : event.target.value,
+                    }))
                   }
                   placeholder={`Valor de ${field.label.toLowerCase()}...`}
                 />
@@ -242,7 +259,7 @@ export default function EditProductPage({ params }: EditProps) {
             onClick={handleSave}
             className="mt-12 w-full rounded-2xl bg-[#131921] py-5 text-sm font-black uppercase tracking-widest text-white shadow-2xl transition-all hover:bg-black active:scale-[0.97]"
           >
-            Sincronizar Alterações
+            Sincronizar Alteracoes
           </button>
         </div>
       </div>

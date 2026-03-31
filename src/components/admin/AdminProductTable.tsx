@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
@@ -11,6 +11,12 @@ import {
   deleteManyProducts,
 } from "@/app/admin/dynamic/produtos/actions";
 import { Prisma } from "@prisma/client";
+import {
+  getDynamicVisibilityBoolean,
+  getDynamicVisibilityLabel,
+  normalizeDynamicVisibilityStatus,
+  type DynamicVisibilityStatus,
+} from "@/lib/dynamicVisibility";
 
 type DynamicAttributes = Record<
   string,
@@ -35,6 +41,7 @@ interface Product {
   imageUrl: string | null;
   totalPrice: number;
   createdAt: string | Date;
+  visibilityStatus?: string | null;
   isVisibleOnSite?: boolean;
   url: string;
   attributes: Prisma.JsonValue;
@@ -54,7 +61,7 @@ interface TableInitialState {
   searchTerm?: string;
   filterCategory?: string;
   selectedBrands?: string[];
-  siteVisibilityFilter?: "all" | "visible" | "hidden";
+  siteVisibilityFilter?: "all" | DynamicVisibilityStatus;
   currentPage?: number;
   sortConfig?: {
     key: string;
@@ -66,6 +73,10 @@ const NAME_COLUMN_MIN_WIDTH = 180;
 const NAME_COLUMN_MAX_WIDTH = 640;
 const NAME_COLUMN_DEFAULT_WIDTH = 260;
 const NAME_COLUMN_STORAGE_KEY = "admin-product-name-column-width";
+const STICKY_HEADER_CLASSNAME =
+  "bg-gray-50 shadow-[inset_0_-1px_0_0_rgba(243,244,246,1)]";
+const FLOATING_HEADER_TOP_OFFSET = 0;
+const FLOATING_HEADER_MIN_BOTTOM_GAP = 96;
 
 function solveMath(input: string): string {
   const cleanInput = input.replace(/\s+/g, "").replace(",", ".");
@@ -118,6 +129,10 @@ function getAttributeValue(
   return attrs[key];
 }
 
+function isMissingEditableValue(value: string | number | boolean | null | undefined) {
+  return value === undefined || value === null || (typeof value === "string" && value.trim() === "");
+}
+
 export function AdminProductTable({
   initialProducts,
   categories,
@@ -132,6 +147,7 @@ export function AdminProductTable({
   const brandFilterRef = useRef<HTMLDivElement>(null);
   const PAGE_SIZE = 300;
 
+  const [products, setProducts] = useState<Product[]>(initialProducts);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState(initialState?.searchTerm ?? "");
   const [filterCategory, setFilterCategory] = useState(
@@ -145,7 +161,7 @@ export function AdminProductTable({
   const [showBrandFilter, setShowBrandFilter] = useState(false);
   const [brandFilterSearch, setBrandFilterSearch] = useState("");
   const [siteVisibilityFilter, setSiteVisibilityFilter] = useState<
-    "all" | "visible" | "hidden"
+    "all" | DynamicVisibilityStatus
   >(initialState?.siteVisibilityFilter ?? "all");
   const [currentPage, setCurrentPage] = useState(initialState?.currentPage ?? 1);
   const [sortConfig, setSortConfig] = useState<{
@@ -153,13 +169,24 @@ export function AdminProductTable({
     direction: "asc" | "desc";
   } | null>(initialState?.sortConfig ?? { key: "name", direction: "asc" });
   const [nameColumnWidth, setNameColumnWidth] = useState(NAME_COLUMN_DEFAULT_WIDTH);
+  const tableWrapperRef = useRef<HTMLDivElement>(null);
   const nameColumnResizeRef = useRef<{
     startX: number;
     startWidth: number;
   } | null>(null);
+  const mutationQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const [floatingHeader, setFloatingHeader] = useState({
+    visible: false,
+    left: 0,
+    width: 0,
+  });
 
   const hasCategoryFilter = filterCategory !== "";
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+
+  useEffect(() => {
+    setProducts(initialProducts);
+  }, [initialProducts]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -234,7 +261,7 @@ export function AdminProductTable({
   }, [showBrandFilter]);
 
   const availableBrands = useMemo(() => {
-    const brands = initialProducts
+    const brands = products
       .filter((p) => !hasCategoryFilter || p.category.id === filterCategory)
       .map((p) => {
         const attrs = (p.attributes as DynamicAttributes) || {};
@@ -243,7 +270,7 @@ export function AdminProductTable({
       .filter((brand) => brand !== "");
 
     return Array.from(new Set(brands)).sort((a, b) => a.localeCompare(b));
-  }, [initialProducts, filterCategory, hasCategoryFilter]);
+  }, [products, filterCategory, hasCategoryFilter]);
 
   const filteredBrandOptions = useMemo(() => {
     const term = brandFilterSearch.trim().toLowerCase();
@@ -263,11 +290,14 @@ export function AdminProductTable({
       return [];
     }
 
-    return initialProducts.filter((p) => {
+    return products.filter((p) => {
       const attrs = (p.attributes as DynamicAttributes) || {};
       const brandValue = String(attrs.marca || attrs.brand || "").trim();
       const matchesCat = !hasCategoryFilter || p.category.id === filterCategory;
-      const isVisibleOnSite = p.isVisibleOnSite ?? true;
+      const visibilityStatus = normalizeDynamicVisibilityStatus(
+        p.visibilityStatus,
+        p.isVisibleOnSite
+      );
 
       const matchesSearch =
         normalizedSearchTerm === "" ||
@@ -280,13 +310,12 @@ export function AdminProductTable({
 
       const matchesVisibility =
         siteVisibilityFilter === "all" ||
-        (siteVisibilityFilter === "visible" && isVisibleOnSite) ||
-        (siteVisibilityFilter === "hidden" && !isVisibleOnSite);
+        siteVisibilityFilter === visibilityStatus;
 
       return matchesCat && matchesSearch && matchesBrand && matchesVisibility;
     });
   }, [
-    initialProducts,
+    products,
     filterCategory,
     hasCategoryFilter,
     normalizedSearchTerm,
@@ -296,7 +325,7 @@ export function AdminProductTable({
 
   const dynamicColumns = useMemo(() => {
     const configs = hasCategoryFilter
-      ? initialProducts
+      ? products
           .filter((p) => p.category.id === filterCategory)
           .flatMap((p) => normalizeDisplayConfig(p.category.displayConfig))
       : filteredBaseProducts.flatMap((p) =>
@@ -315,7 +344,7 @@ export function AdminProductTable({
       seen.add(config.key);
       return true;
     });
-  }, [filterCategory, filteredBaseProducts, hasCategoryFilter, initialProducts]);
+  }, [filterCategory, filteredBaseProducts, hasCategoryFilter, products]);
 
   const processedProducts = useMemo(() => {
     if (
@@ -363,6 +392,44 @@ export function AdminProductTable({
   }, [filteredBaseProducts, sortConfig, hasCategoryFilter, normalizedSearchTerm, siteVisibilityFilter]);
 
   const showCategoryColumn = !hasCategoryFilter && processedProducts.length > 0;
+
+  useEffect(() => {
+    function updateFloatingHeader() {
+      const wrapper = tableWrapperRef.current;
+      if (!wrapper) return;
+
+      const rect = wrapper.getBoundingClientRect();
+      const nextState = {
+        visible:
+          rect.top <= FLOATING_HEADER_TOP_OFFSET &&
+          rect.bottom >= FLOATING_HEADER_TOP_OFFSET + FLOATING_HEADER_MIN_BOTTOM_GAP,
+        left: rect.left,
+        width: rect.width,
+      };
+
+      setFloatingHeader((current) => {
+        if (
+          current.visible === nextState.visible &&
+          current.left === nextState.left &&
+          current.width === nextState.width
+        ) {
+          return current;
+        }
+
+        return nextState;
+      });
+    }
+
+    updateFloatingHeader();
+    window.addEventListener("scroll", updateFloatingHeader, { passive: true });
+    window.addEventListener("resize", updateFloatingHeader);
+
+    return () => {
+      window.removeEventListener("scroll", updateFloatingHeader);
+      window.removeEventListener("resize", updateFloatingHeader);
+    };
+  }, [dynamicColumns.length, nameColumnWidth, processedProducts.length, showCategoryColumn]);
+
 
   const totalPages = Math.max(1, Math.ceil(processedProducts.length / PAGE_SIZE));
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -434,6 +501,25 @@ export function AdminProductTable({
     return processedProducts.slice(start, start + PAGE_SIZE);
   }, [processedProducts, safeCurrentPage]);
 
+  const applyBulkAttributePatch = (
+    attrs: DynamicAttributes,
+    key: string,
+    value: string | number
+  ): DynamicAttributes => {
+    const next: DynamicAttributes = { ...attrs, [key]: value };
+
+    if (key === "marca") next.brand = value;
+    if (key === "brand") next.marca = value;
+    if (key === "sabor") next.flavor = value;
+    if (key === "flavor") next.sabor = value;
+    if (key === "seller") next.vendedor = value;
+    if (key === "vendedor") next.seller = value;
+    if (key === "volume") next.volumeMl = value;
+    if (key === "volumeMl") next.volume = value;
+
+    return next;
+  };
+
   const handleBulkDelete = async () => {
     if (!confirm(`Excluir permanentemente ${selectedIds.length} produtos?`)) return;
     const res = await deleteManyProducts(selectedIds);
@@ -456,55 +542,110 @@ export function AdminProductTable({
     document.body.style.userSelect = "none";
   };
 
-  const handleBulkVisibility = async (isVisibleOnSite: boolean) => {
-    const actionLabel = isVisibleOnSite ? "mostrar" : "ocultar";
-    if (!confirm(`${actionLabel} ${selectedIds.length} produtos no site?`)) return;
+  const handleBulkVisibility = async (visibilityStatus: DynamicVisibilityStatus) => {
+    const actionLabel = getDynamicVisibilityLabel(visibilityStatus).toLowerCase();
+    if (!confirm(`Definir ${selectedIds.length} produtos como ${actionLabel}?`)) return;
 
-    const res = await updateManyProductsVisibility(selectedIds, isVisibleOnSite);
+    const res = await updateManyProductsVisibility(selectedIds, visibilityStatus);
     if (res.success) {
+      setProducts((prev) =>
+        prev.map((product) =>
+          selectedIds.includes(product.id)
+            ? {
+                ...product,
+                visibilityStatus,
+                isVisibleOnSite: getDynamicVisibilityBoolean(visibilityStatus),
+              }
+            : product
+        )
+      );
       setSelectedIds([]);
       router.refresh();
     }
   };
 
   const handleBulkSave = async () => {
-    if (Object.keys(bulkData).length === 0) {
+    const entries = Object.entries(bulkData).filter(([, currentValue]) => currentValue !== "");
+
+    if (entries.length === 0) {
       alert("Preencha ao menos um campo.");
       return;
     }
 
-    if (!confirm(`Aplicar alterações em ${selectedIds.length} produtos?`)) return;
+    if (!confirm(`Aplicar alteracoes em ${selectedIds.length} produtos?`)) return;
 
-    for (const key in bulkData) {
-      if (bulkData[key]) {
-        await updateManyProducts(selectedIds, key, bulkData[key]);
-      }
+    for (const [key, currentValue] of entries) {
+      await updateManyProducts(selectedIds, key, currentValue);
     }
+
+    setProducts((prev) =>
+      prev.map((product) => {
+        if (!selectedIds.includes(product.id)) return product;
+
+        const currentAttrs = (product.attributes as DynamicAttributes) || {};
+        const nextAttrs = entries.reduce<DynamicAttributes>(
+          (acc, [key, currentValue]) => applyBulkAttributePatch(acc, key, currentValue),
+          currentAttrs
+        );
+
+        return {
+          ...product,
+          attributes: nextAttrs as Prisma.JsonValue,
+        };
+      })
+    );
 
     setSelectedIds([]);
     setBulkData({});
     router.refresh();
   };
-
   const handleQuickUpdate = async (
     id: string,
     field: string,
     value: string | number,
     isAttribute = false
   ) => {
-    const product = initialProducts.find((p) => p.id === id);
+    const product = products.find((p) => p.id === id);
     if (!product) return;
 
     const currentAttrs = (product.attributes as DynamicAttributes) || {};
+    const nextAttributes = isAttribute
+      ? applyBulkAttributePatch(currentAttrs, field, value)
+      : currentAttrs;
 
     const updatedData = {
       name: field === "name" ? String(value) : product.name,
       totalPrice: field === "totalPrice" ? Number(value) : product.totalPrice,
-      attributes: isAttribute ? { ...currentAttrs, [field]: value } : currentAttrs,
+      attributes: nextAttributes,
     };
 
-    await updateDynamicProduct(id, updatedData);
-    router.refresh();
+    mutationQueueRef.current = mutationQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const result = await updateDynamicProduct(id, updatedData);
+        if (result && "error" in result && result.error) {
+          throw new Error(result.error);
+        }
+      });
+
+    try {
+      await mutationQueueRef.current;
+      setProducts((prev) =>
+        prev.map((currentProduct) =>
+          currentProduct.id === id
+            ? {
+                ...currentProduct,
+                name: field === "name" ? String(value) : currentProduct.name,
+                totalPrice:
+                  field === "totalPrice" ? Number(value) : currentProduct.totalPrice,
+                attributes: nextAttributes as Prisma.JsonValue,
+              }
+            : currentProduct
+        )
+      );
+    } catch (error) {
+      console.error("Erro ao salvar alteracao rapida:", error);
+    }
   };
 
   const toggleSort = (key: string) => {
@@ -532,10 +673,10 @@ export function AdminProductTable({
             onClick={() => router.push("/admin/dynamic")}
             className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest shadow-sm transition-all active:scale-95 hover:bg-gray-50"
           >
-            ← Painel Inicial
+            &larr; Painel Inicial
           </button>
           <h1 className="text-xl font-black uppercase tracking-tighter text-gray-800">
-            Produtos Dinâmicos
+            Produtos Dinamicos
           </h1>
         </div>
 
@@ -595,14 +736,15 @@ export function AdminProductTable({
               className="w-full cursor-pointer rounded-xl border-none bg-gray-50 p-3 text-sm font-bold outline-none"
               onChange={(e) => {
                 setSiteVisibilityFilter(
-                  e.target.value as "all" | "visible" | "hidden"
+                  e.target.value as "all" | DynamicVisibilityStatus
                 );
                 setCurrentPage(1);
                 setSelectedIds([]);
               }}
             >
               <option value="all">Todos</option>
-              <option value="visible">Somente visíveis</option>
+              <option value="visible">Somente visiveis</option>
+              <option value="pending">Somente pendentes</option>
               <option value="hidden">Somente ocultos</option>
             </select>
           </div>
@@ -624,7 +766,7 @@ export function AdminProductTable({
                 onClick={() => toggleBrandSelection(brand)}
                 className="rounded-full bg-blue-100 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-blue-700"
               >
-                {brand} ×
+                {brand} x
               </button>
             ))}
 
@@ -645,20 +787,26 @@ export function AdminProductTable({
           <div className="animate-in slide-in-from-top-4 rounded-3xl bg-yellow-400 p-6 shadow-lg">
             <div className="mb-4 flex items-center justify-between text-black">
               <h3 className="text-[10px] font-black uppercase tracking-widest">
-                Edição em Massa ({selectedIds.length} itens)
+                Edicao em Massa ({selectedIds.length} itens)
               </h3>
               <div className="flex gap-2">
                 <button
-                  onClick={() => handleBulkVisibility(false)}
-                  className="rounded-xl bg-gray-900 px-4 py-2 text-[10px] font-black uppercase text-white shadow-md active:scale-95 hover:bg-black"
+                  onClick={() => handleBulkVisibility("pending")}
+                  className="rounded-xl bg-amber-500 px-4 py-2 text-[10px] font-black uppercase text-white shadow-md active:scale-95 hover:bg-amber-600"
                 >
-                  Ocultar Selecionados
+                  Marcar Pendentes
                 </button>
                 <button
-                  onClick={() => handleBulkVisibility(true)}
+                  onClick={() => handleBulkVisibility("visible")}
                   className="rounded-xl bg-emerald-600 px-4 py-2 text-[10px] font-black uppercase text-white shadow-md active:scale-95 hover:bg-emerald-700"
                 >
-                  Mostrar Selecionados
+                  Marcar Visiveis
+                </button>
+                <button
+                  onClick={() => handleBulkVisibility("hidden")}
+                  className="rounded-xl bg-gray-900 px-4 py-2 text-[10px] font-black uppercase text-white shadow-md active:scale-95 hover:bg-black"
+                >
+                  Marcar Ocultos
                 </button>
                 <button
                   onClick={handleBulkDelete}
@@ -670,7 +818,7 @@ export function AdminProductTable({
                   onClick={handleBulkSave}
                   className="rounded-xl bg-white px-4 py-2 text-[10px] font-black uppercase text-black shadow-md hover:bg-gray-50"
                 >
-                  Salvar Alterações
+                  Salvar Alteracoes
                 </button>
                 <button
                   onClick={() => setSelectedIds([])}
@@ -685,14 +833,13 @@ export function AdminProductTable({
               {dynamicColumns.map((field) => (
                 <div key={field.key}>
                   <label className="ml-1 mb-1 block text-[9px] font-black uppercase text-black/50">
-                    {field.public ? "" : "👁️‍🗨️ "}
                     {field.label}
                   </label>
                   <input
                     placeholder={`Definir ${field.label}...`}
                     className="w-full rounded-lg border-none p-2.5 text-xs shadow-inner outline-none focus:ring-2 focus:ring-black"
                     onChange={(e) =>
-                      setBulkData({ ...bulkData, [field.key]: e.target.value })
+                      setBulkData((prev) => ({ ...prev, [field.key]: e.target.value }))
                     }
                   />
                 </div>
@@ -706,7 +853,7 @@ export function AdminProductTable({
                   placeholder="Definir Marca..."
                   className="w-full rounded-lg border-none p-2.5 text-xs shadow-inner outline-none focus:ring-2 focus:ring-black"
                   onChange={(e) =>
-                    setBulkData({ ...bulkData, marca: e.target.value })
+                    setBulkData((prev) => ({ ...prev, marca: e.target.value }))
                   }
                 />
               </div>
@@ -715,12 +862,76 @@ export function AdminProductTable({
         )}
       </div>
 
-      <div className="overflow-hidden rounded-[2rem] border border-gray-200 bg-white shadow-sm">
-        <div className="overflow-x-auto">
+      {floatingHeader.visible ? (
+        <div
+          className="pointer-events-none fixed z-50 overflow-hidden rounded-t-[1.25rem] border border-gray-200 bg-gray-50/95 shadow-lg backdrop-blur-sm"
+          style={{
+            top: FLOATING_HEADER_TOP_OFFSET,
+            left: floatingHeader.left,
+            width: floatingHeader.width,
+          }}
+        >
           <table className="min-w-[1000px] w-full border-collapse text-left">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                <th className="w-12 p-4 text-center">
+              <tr className="border-b border-gray-100 bg-gray-50 text-[9px] font-black uppercase tracking-[0.18em] text-gray-400">
+                <th className={`w-12 px-3 py-3 text-center ${STICKY_HEADER_CLASSNAME}`}><input type="checkbox" checked={false} readOnly /></th>
+                <th className={`w-28 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}>
+                  Foto / ASIN
+                </th>
+                <th
+                  className={`relative px-3 py-3 text-black ${STICKY_HEADER_CLASSNAME}`}
+                  style={{
+                    width: `${nameColumnWidth}px`,
+                    minWidth: `${nameColumnWidth}px`,
+                    maxWidth: `${nameColumnWidth}px`,
+                  }}
+                >
+                  <div className="flex w-full items-center px-0 py-0 text-left text-[9px] font-black uppercase tracking-[0.18em]">
+                    Nome do Produto
+                  </div>
+                  <div className="absolute right-0 top-0 h-full w-3 border-l border-transparent">
+                    <span className="mx-auto block h-6 w-1 rounded-full bg-gray-300" />
+                  </div>
+                </th>
+                {showCategoryColumn ? (
+                  <th className={`w-36 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}>Categoria</th>
+                ) : null}
+                {dynamicColumns.map((col) => (
+                  <th
+                    key={`floating-${col.key}`}
+                    className={`min-w-[110px] px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}
+                  >
+                    {""}
+                    {col.label}
+                  </th>
+                ))}
+                <th className={`w-32 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}>
+                  <div className="relative inline-flex items-center justify-center gap-2">
+                    <span className="font-black uppercase">Marca</span>
+                    <span className={`rounded-md border px-1.5 py-0.5 text-[11px] ${
+                      selectedBrands.length > 0
+                        ? "border-blue-500 bg-blue-50 text-blue-600"
+                        : "border-gray-300 text-gray-500"
+                    }`}>
+                      {selectedBrands.length > 0 ? `${selectedBrands.length}` : "v"}
+                    </span>
+                  </div>
+                </th>
+                <th className={`w-36 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}>Importado em</th>
+                <th className={`w-32 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}>Preco</th>
+                <th className={`w-28 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}>Acao</th>
+              </tr>
+            </thead>
+          </table>
+        </div>
+      ) : null}
+
+      <div ref={tableWrapperRef} className="rounded-[2rem] border border-gray-200 bg-white shadow-sm">
+        <div className="rounded-[2rem]">
+          <table className="min-w-[1000px] w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50 text-[9px] font-black uppercase tracking-[0.18em] text-gray-400">
+                <th className={`w-12 px-3 py-3 text-center ${STICKY_HEADER_CLASSNAME}`}>
                   <input
                     type="checkbox"
                     onChange={(e) => {
@@ -733,10 +944,14 @@ export function AdminProductTable({
                   />
                 </th>
 
-                <th className="w-28 p-4 text-center text-black">Foto / ASIN</th>
+                <th
+                  className={`w-28 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}
+                >
+                  Foto / ASIN
+                </th>
 
                 <th
-                  className="relative text-black"
+                    className={`relative px-3 py-3 text-black ${STICKY_HEADER_CLASSNAME}`}
                   style={{
                     width: `${nameColumnWidth}px`,
                     minWidth: `${nameColumnWidth}px`,
@@ -745,7 +960,7 @@ export function AdminProductTable({
                 >
                   <button
                     type="button"
-                    className="flex w-full cursor-pointer items-center px-4 py-4 text-left font-black uppercase hover:text-black"
+                    className="flex w-full cursor-pointer items-center px-0 py-0 text-left text-[9px] font-black uppercase tracking-[0.18em] hover:text-black"
                     onClick={() => toggleSort("name")}
                   >
                     Nome do Produto
@@ -763,21 +978,26 @@ export function AdminProductTable({
                 </th>
 
                 {showCategoryColumn ? (
-                  <th className="w-36 p-4 text-center text-black">Categoria</th>
-                ) : null}
+                    <th
+                      className={`w-36 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}
+                    >
+                      Categoria
+                    </th>
+                  ) : null}
 
                 {dynamicColumns.map((col) => (
                   <th
                     key={col.key}
-                    className="min-w-[110px] cursor-pointer p-4 text-center text-black hover:text-black"
+                    className={`min-w-[110px] cursor-pointer px-3 py-3 text-center text-black hover:text-black ${STICKY_HEADER_CLASSNAME}`}
                     onClick={() => toggleSort(col.key)}
                   >
-                    {col.public ? "" : "👁️‍🗨️ "}
                     {col.label}
                   </th>
                 ))}
 
-                <th className="w-32 p-4 text-center text-black">
+                <th
+                  className={`w-32 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}
+                >
                   <div
                     ref={brandFilterRef}
                     className="relative inline-flex items-center justify-center gap-2"
@@ -801,7 +1021,7 @@ export function AdminProductTable({
                       aria-label="Filtrar marcas"
                       title="Filtrar marcas"
                     >
-                      {selectedBrands.length > 0 ? `${selectedBrands.length}` : "▾"}
+                      {selectedBrands.length > 0 ? `${selectedBrands.length}` : "v"}
                     </button>
 
                     {showBrandFilter && (
@@ -861,21 +1081,25 @@ export function AdminProductTable({
                 </th>
 
                 <th
-                  className="w-36 cursor-pointer p-4 text-center text-black hover:text-black"
+                  className={`w-36 cursor-pointer px-3 py-3 text-center text-black hover:text-black ${STICKY_HEADER_CLASSNAME}`}
                   onClick={() => toggleSort("createdAt")}
                 >
                   Importado em
                 </th>
 
                 <th
-                  className="w-32 cursor-pointer p-4 text-center text-black hover:text-black"
+                  className={`w-32 cursor-pointer px-3 py-3 text-center text-black hover:text-black ${STICKY_HEADER_CLASSNAME}`}
                   onClick={() => toggleSort("totalPrice")}
                 >
-                  Preço
+                  Preco
                 </th>
 
 
-                <th className="w-28 p-4 text-center text-black">Ação</th>
+                <th
+                  className={`w-28 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}
+                >
+                  Acao
+                </th>
               </tr>
             </thead>
 
@@ -890,7 +1114,7 @@ export function AdminProductTable({
                       selectedIds.includes(p.id) ? "bg-yellow-50/40" : ""
                     }`}
                   >
-                    <td className="p-4 text-center">
+                    <td className="px-3 py-3 text-center">
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(p.id)}
@@ -904,9 +1128,9 @@ export function AdminProductTable({
                       />
                     </td>
 
-                    <td className="p-4 text-center">
+                    <td className="px-3 py-3 text-center">
                       <div
-                        className="group relative mx-auto mb-2 h-12 w-12 cursor-zoom-in overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
+                        className="group relative mx-auto mb-1.5 h-10 w-10 cursor-zoom-in overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
                         onClick={() => setZoomImage(p.imageUrl)}
                       >
                         {p.imageUrl && (
@@ -926,12 +1150,12 @@ export function AdminProductTable({
                         className="block rounded bg-blue-50 py-0.5 font-mono text-[9px] font-bold uppercase text-blue-500 transition-all hover:bg-blue-600 hover:text-white"
                         title="Abrir na Amazon"
                       >
-                        {String(attrs.asin || "---")} ↗
+                        {String(attrs.asin || "---")} {"->"}
                       </a>
                     </td>
 
                     <td
-                      className="p-4 align-top"
+                      className="px-3 py-3 align-top"
                       style={{
                         width: `${nameColumnWidth}px`,
                         minWidth: `${nameColumnWidth}px`,
@@ -939,7 +1163,7 @@ export function AdminProductTable({
                       }}
                     >
                       <textarea
-                        className="min-h-[50px] w-full resize-none border-none bg-transparent p-0 text-[13px] font-bold leading-tight text-gray-900 focus:ring-0"
+                        className="min-h-[42px] w-full resize-none border-none bg-transparent p-0 text-[12px] font-bold leading-tight text-gray-900 focus:ring-0"
                         defaultValue={p.name}
                         rows={2}
                         onBlur={(e) => handleQuickUpdate(p.id, "name", e.target.value)}
@@ -947,48 +1171,60 @@ export function AdminProductTable({
                     </td>
 
                     {showCategoryColumn ? (
-                      <td className="p-4 text-center">
+                      <td className="px-3 py-3 text-center">
                         <span className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-600">
                           {p.category.name}
                         </span>
                       </td>
                     ) : null}
 
-                    {dynamicColumns.map((col) => (
-                      <td key={col.key} className="p-4 text-center">
-                        <input
-                          className="w-full max-w-[90px] rounded-lg border border-transparent bg-gray-50 p-1.5 text-center text-[11px] font-black outline-none hover:border-gray-200 focus:border-yellow-400 focus:bg-white"
-                          defaultValue={String(getAttributeValue(attrs, col.key) || "")}
-                          onBlur={(e) => {
-                            const val =
-                              col.type === "number"
-                                ? solveMath(e.target.value)
-                                : e.target.value;
+                    {dynamicColumns.map((col) => {
+                      const currentValue = getAttributeValue(attrs, col.key);
+                      const displayValue = currentValue == null ? "" : String(currentValue);
+                      const isMissing = isMissingEditableValue(currentValue);
 
-                            e.target.value = val;
+                      return (
+                        <td key={col.key} className="px-3 py-3 text-center">
+                          <input
+                            className={`w-full max-w-[84px] rounded-lg border bg-white px-1.5 py-1 text-center text-[10px] font-black outline-none focus:border-yellow-400 ${
+                              isMissing ? "border-red-500" : "border-black"
+                            }`}
+                            defaultValue={displayValue}
+                            onBlur={(e) => {
+                              const val =
+                                col.type === "number"
+                                  ? solveMath(e.target.value)
+                                  : e.target.value;
 
-                            handleQuickUpdate(
-                              p.id,
-                              col.key === "volume" ? "volumeMl" : col.key,
-                              col.type === "number" ? Number(val) : val,
-                              true
-                            );
-                          }}
-                        />
-                      </td>
-                    ))}
+                              e.target.value = val;
 
-                    <td className="p-4 text-center">
+                              handleQuickUpdate(
+                                p.id,
+                                col.key === "volume" ? "volumeMl" : col.key,
+                                col.type === "number" ? Number(val) : val,
+                                true
+                              );
+                            }}
+                          />
+                        </td>
+                      );
+                    })}
+
+                    <td className="px-3 py-3 text-center">
                       <input
-                        className="w-full border-none bg-transparent text-center text-[10px] font-black uppercase italic text-gray-500 focus:ring-0"
-                        defaultValue={String(attrs.marca || attrs.brand || "")}
+                        className={`w-full rounded-lg border bg-white px-2 py-1 text-center text-[9px] font-black uppercase italic text-gray-500 focus:ring-0 ${
+                          isMissingEditableValue(attrs.marca ?? attrs.brand)
+                            ? "border-red-500"
+                            : "border-black"
+                        }`}
+                        defaultValue={String(attrs.marca ?? attrs.brand ?? "")}
                         onBlur={(e) =>
                           handleQuickUpdate(p.id, "marca", e.target.value, true)
                         }
                       />
                     </td>
 
-                    <td className="p-4 text-center">
+                    <td className="px-3 py-3 text-center">
                       <div className="text-[10px] font-black uppercase text-gray-700">
                         {new Date(p.createdAt).toLocaleDateString("pt-BR")}
                       </div>
@@ -1000,12 +1236,12 @@ export function AdminProductTable({
                       </div>
                     </td>
 
-                    <td className="p-4 text-center text-xs font-black text-green-700">
+                    <td className="px-3 py-3 text-center text-[11px] font-black text-green-700">
                       R${" "}
                       <input
                         type="number"
                         step="0.01"
-                        className="w-16 border-none bg-transparent p-0 text-center font-black focus:ring-0"
+                        className="w-14 border-none bg-transparent p-0 text-center font-black focus:ring-0"
                         defaultValue={p.totalPrice}
                         onBlur={(e) =>
                           handleQuickUpdate(
@@ -1016,31 +1252,37 @@ export function AdminProductTable({
                         }
                       />
                     </td>
-                    <td className="p-4 text-center">
-                      <div className="flex flex-col items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => router.push(`/admin/dynamic/produtos/${p.id}`)}
-                          className="text-[10px] font-black uppercase text-blue-500 transition-colors hover:text-blue-700"
-                        >
-                          Editar
-                        </button>
+                    <td className="px-3 py-3 text-center">
+                      <div className="flex flex-col items-center gap-1.5">
+                        <select
+                          value={normalizeDynamicVisibilityStatus(
+                            p.visibilityStatus,
+                            p.isVisibleOnSite
+                          )}
+                          onChange={(e) => {
+                            mutationQueueRef.current = mutationQueueRef.current
+                              .catch(() => undefined)
+                              .then(async () => {
+                                const result = await updateDynamicProduct(p.id, {
+                                  visibilityStatus: e.target.value as DynamicVisibilityStatus,
+                                });
+                                if (result && "error" in result && result.error) {
+                                  throw new Error(result.error);
+                                }
+                              });
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            updateDynamicProduct(p.id, {
-                              isVisibleOnSite: !(p.isVisibleOnSite ?? true),
-                            }).then(() => router.refresh())
-                          }
-                          className={`inline-flex min-w-[88px] items-center justify-center rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-colors ${
-                            (p.isVisibleOnSite ?? true)
-                              ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                              : "bg-red-50 text-red-700 hover:bg-red-100"
-                          }`}
+                            mutationQueueRef.current
+                              .then(() => router.refresh())
+                              .catch((error) => {
+                                console.error("Erro ao atualizar visibilidade:", error);
+                              });
+                          }}
+                          className="min-w-[100px] rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-gray-700 outline-none transition-colors hover:border-gray-300"
                         >
-                          {(p.isVisibleOnSite ?? true) ? "Visível" : "Oculto"}
-                        </button>
+                          <option value="visible">Visivel</option>
+                          <option value="pending">Pendente</option>
+                          <option value="hidden">Oculto</option>
+                        </select>
 
                         <button
                           onClick={() =>
@@ -1061,9 +1303,9 @@ export function AdminProductTable({
         </div>
 
         {processedProducts.length > 0 && (
-          <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4 text-sm md:flex-row md:items-center md:justify-between">
-            <div className="text-xs font-semibold text-gray-500">
-              Página {safeCurrentPage} de {totalPages} • exibindo {paginatedProducts.length} de {processedProducts.length} itens filtrados
+          <div className="flex flex-col gap-2 border-t border-gray-100 bg-gray-50 px-4 py-3 text-sm md:flex-row md:items-center md:justify-between">
+            <div className="text-[11px] font-semibold text-gray-500">
+              Pagina {safeCurrentPage} de {totalPages} - exibindo {paginatedProducts.length} de {processedProducts.length} itens filtrados
             </div>
 
             <div className="flex items-center gap-2">
@@ -1071,7 +1313,7 @@ export function AdminProductTable({
                 type="button"
                 onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
                 disabled={safeCurrentPage === 1}
-                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-gray-700 transition disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-gray-700 transition disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Anterior
               </button>
@@ -1080,9 +1322,9 @@ export function AdminProductTable({
                 type="button"
                 onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
                 disabled={safeCurrentPage === totalPages}
-                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-gray-700 transition disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-gray-700 transition disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Próxima
+                Proxima
               </button>
             </div>
           </div>

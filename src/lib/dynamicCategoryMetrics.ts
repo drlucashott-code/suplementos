@@ -1,4 +1,4 @@
-export type DynamicFieldType = "text" | "number" | "currency";
+﻿export type DynamicFieldType = "text" | "number" | "currency";
 export type DynamicFieldVisibility = "internal" | "public_table" | "public_highlight";
 
 export type DynamicDisplayField = {
@@ -101,6 +101,95 @@ export type DynamicAttributeValue =
 
 export type DynamicAttributesMap = Record<string, DynamicAttributeValue>;
 
+const SUPPLEMENT_DERIVED_ATTRIBUTES_BY_SLUG: Record<string, string[]> = {
+  barra: ["precoPorBarra", "precoPorGramaProteina"],
+  bebidaproteica: ["precoPorUnidade", "precoPorGramaProteina"],
+  "cafe-funcional": ["precoPorDose", "precoPor100MgCafeina"],
+  "pre-treino": ["precoPorDose"],
+  whey: ["precoPorDose", "precoPorGramaProteina"],
+  creatina: ["gramasCreatinaPuraNoPote", "precoPorDose", "precoPorGramaCreatina"],
+};
+
+function clearSupplementDerivedAttributes(
+  slug: string | null | undefined,
+  enriched: DynamicAttributesMap
+) {
+  if (!slug) return;
+
+  for (const key of SUPPLEMENT_DERIVED_ATTRIBUTES_BY_SLUG[slug] ?? []) {
+    delete enriched[key];
+  }
+}
+
+function applySupplementDerivedMetrics(
+  slug: string | null | undefined,
+  enriched: DynamicAttributesMap,
+  totalPrice: number
+) {
+  if (!slug || !Number.isFinite(totalPrice) || totalPrice <= 0) {
+    return;
+  }
+
+  const numberOfDoses = getNumericValue(enriched.numberOfDoses) || getNumericValue(enriched.doses);
+  const totalProteinInGrams = getNumericValue(enriched.totalProteinInGrams);
+  const cafeinaTotalMg = getNumericValue(enriched.cafeinaTotalMg);
+  const creatinaPorDose = getNumericValue(enriched.creatinaPorDose);
+  const unitsPerBox = getNumericValue(enriched.unitsPerBox);
+  const unitsPerPack = getNumericValue(enriched.unitsPerPack);
+
+  switch (slug) {
+    case "barra":
+      if (unitsPerBox > 0) {
+        enriched.precoPorBarra = toRoundedMetricValue(totalPrice / unitsPerBox);
+      }
+      if (totalProteinInGrams > 0) {
+        enriched.precoPorGramaProteina = toRoundedMetricValue(totalPrice / totalProteinInGrams);
+      }
+      return;
+    case "bebidaproteica":
+      if (unitsPerPack > 0) {
+        enriched.precoPorUnidade = toRoundedMetricValue(totalPrice / unitsPerPack);
+      }
+      if (totalProteinInGrams > 0) {
+        enriched.precoPorGramaProteina = toRoundedMetricValue(totalPrice / totalProteinInGrams);
+      }
+      return;
+    case "cafe-funcional":
+      if (numberOfDoses > 0) {
+        enriched.precoPorDose = toRoundedMetricValue(totalPrice / numberOfDoses);
+      }
+      if (cafeinaTotalMg > 0) {
+        enriched.precoPor100MgCafeina = toRoundedMetricValue((totalPrice / cafeinaTotalMg) * 100);
+      }
+      return;
+    case "pre-treino":
+      if (numberOfDoses > 0) {
+        enriched.precoPorDose = toRoundedMetricValue(totalPrice / numberOfDoses);
+      }
+      return;
+    case "whey":
+      if (numberOfDoses > 0) {
+        enriched.precoPorDose = toRoundedMetricValue(totalPrice / numberOfDoses);
+      }
+      if (totalProteinInGrams > 0) {
+        enriched.precoPorGramaProteina = toRoundedMetricValue(totalPrice / totalProteinInGrams);
+      }
+      return;
+    case "creatina": {
+      const precoPorDose = numberOfDoses > 0 ? totalPrice / numberOfDoses : 0;
+      if (precoPorDose > 0) {
+        enriched.precoPorDose = toRoundedMetricValue(precoPorDose);
+      }
+      if (precoPorDose > 0 && creatinaPorDose > 0) {
+        enriched.precoPorGramaCreatina = toRoundedMetricValue(precoPorDose / creatinaPorDose);
+      }
+      return;
+    }
+    default:
+      return;
+  }
+}
+
 const PRIMARY_METRIC_PRESETS: PrimaryMetricPresetDefinition[] = [
   {
     id: "units",
@@ -182,20 +271,29 @@ const FLAVOR_TERMS = [
   "morango",
   "banana",
   "cookies",
+  "cookies and cream",
   "coco",
   "uva",
   "limao",
   "limao siciliano",
+  "limonada",
   "laranja",
+  "maca verde",
+  "chiclete",
   "natural",
+  "neutro",
   "sem sabor",
   "tradicional",
   "menta",
   "hortela",
   "frutas vermelhas",
   "melancia",
+  "manga",
   "pessego",
   "maracuja",
+  "tropical",
+  "acai",
+  "pink lemonade",
 ];
 
 const COLOR_TERMS = [
@@ -655,6 +753,7 @@ export function enrichDynamicAttributesForCategory(params: {
   const normalizedConfig = normalizeDynamicDisplayConfig(params.rawDisplayConfig);
   const settings = normalizedConfig.settings ?? {};
   const enriched: DynamicAttributesMap = { ...params.attributes };
+  clearSupplementDerivedAttributes(params.category?.slug, enriched);
 
   const primaryDraft = createPrimaryMetricDraftFromSettings(settings);
   const primaryPreset = findPresetById(primaryDraft.preset);
@@ -705,9 +804,6 @@ export function enrichDynamicAttributesForCategory(params: {
   }
 
   for (const [priceKey, metricKind] of priceTargets) {
-    if (isValuePresent(enriched[priceKey])) {
-      continue;
-    }
 
     const metricValue =
       primaryDraft.attributeKey.trim() &&
@@ -726,5 +822,8 @@ export function enrichDynamicAttributesForCategory(params: {
     }
   }
 
+  applySupplementDerivedMetrics(params.category?.slug, enriched, totalPrice);
+
   return enriched;
 }
+

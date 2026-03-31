@@ -23,7 +23,7 @@ export type BestDeal = {
 type BestDealsGroup = string | undefined;
 
 const buildBestDealsWhereClause = (group?: BestDealsGroup) => Prisma.sql`
-  WHERE p."isVisibleOnSite" = true
+  WHERE p."visibilityStatus" = 'visible'
     AND p."totalPrice" > 0
     AND COALESCE(p."availabilityStatus", 'UNKNOWN') <> 'OUT_OF_STOCK'
     AND p."averagePrice30d" IS NOT NULL
@@ -122,7 +122,7 @@ export async function getBestDeals(
 export async function getBestDealsCount(group?: string): Promise<number> {
   const rows = await prisma.dynamicProduct.findMany({
     where: {
-      isVisibleOnSite: true,
+      visibilityStatus: "visible",
       totalPrice: {
         gt: 0,
       },

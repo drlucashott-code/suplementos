@@ -12,6 +12,7 @@ import {
   type AmazonItem,
   type AmazonSearchPriceRange,
 } from '@/lib/amazonApiClient';
+import { getDynamicVisibilityBoolean } from '@/lib/dynamicVisibility';
 import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
@@ -20,6 +21,7 @@ ENV
 ====================== */
 
 const AMAZON_PARTNER_TAG = process.env.AMAZON_PARTNER_TAG!;
+const IMPORT_DEFAULT_VISIBILITY = 'pending' as const;
 
 type PriceResult = {
   price: number;
@@ -1287,6 +1289,8 @@ async function runDynamicImportJob(
           url,
           totalPrice: price,
           categoryId,
+          visibilityStatus: IMPORT_DEFAULT_VISIBILITY,
+          isVisibleOnSite: getDynamicVisibilityBoolean(IMPORT_DEFAULT_VISIBILITY),
           attributes,
         },
       });
@@ -1377,7 +1381,7 @@ export async function startDynamicImportViaAPI(input: {
     filters: {
       requiredTitleRaw: input.requiredTitleRaw ?? "",
       forbiddenTitleRaw: input.forbiddenTitleRaw ?? "",
-      enableImportValidation: input.enableImportValidation !== false,
+        enableImportValidation: input.enableImportValidation === true,
     },
     logs: ["Fila criada. Preparando importaÃ§Ã£o..."],
   });
@@ -1385,7 +1389,7 @@ export async function startDynamicImportViaAPI(input: {
   void runDynamicImportJob(run.id, input.asinsRaw, input.categoryId, {
     requiredTitleRaw: input.requiredTitleRaw ?? "",
     forbiddenTitleRaw: input.forbiddenTitleRaw ?? "",
-    enableImportValidation: input.enableImportValidation !== false,
+    enableImportValidation: input.enableImportValidation === true,
   }, input.discoveredItems ?? []);
 
   return { success: true, runId: run.id };

@@ -1,4 +1,4 @@
-import { CreatineForm, Prisma, Store } from "@prisma/client";
+﻿import { CreatineForm, Prisma, Store } from "@prisma/client";
 import { prisma } from "../src/lib/prisma";
 import { extractAmazonASIN } from "../src/lib/extractAmazonASIN";
 
@@ -16,6 +16,7 @@ const categoryDisplayConfig = {
     enabledSorts: ["discount", "best_value", "price_asc"],
     defaultSort: "discount",
     bestValueAttributeKey: "precoPorGramaCreatina",
+    dosePriceAttributeKey: "precoPorDose",
   },
   fields: [
     {
@@ -26,8 +27,8 @@ const categoryDisplayConfig = {
       suffix: "g",
     },
     {
-      key: "precoPorGramaCreatina",
-      label: "preco",
+      key: "precoPorDose",
+      label: "Preço",
       type: "currency",
       visibility: "public_table",
       prefix: "R$ ",
@@ -35,6 +36,12 @@ const categoryDisplayConfig = {
     {
       key: "formLabel",
       label: "Forma",
+      type: "text",
+      visibility: "public_highlight",
+    },
+    {
+      key: "sabor",
+      label: "Sabor",
       type: "text",
       visibility: "public_highlight",
     },
@@ -179,11 +186,6 @@ function buildAttributes(
       ? Number((info.totalUnits / info.unitsPerDose).toFixed(2))
       : 0;
 
-  const gramasCreatinaPuraNoPote =
-    numberOfDoses > 0
-      ? Number((numberOfDoses * CREATINA_POR_DOSE).toFixed(2))
-      : 0;
-
   return {
     attributes: {
       ...baseAttributes,
@@ -193,7 +195,6 @@ function buildAttributes(
       unitsPerDose: info.unitsPerDose,
       creatinaPorDose: CREATINA_POR_DOSE,
       numberOfDoses,
-      gramasCreatinaPuraNoPote,
       hasCarbs: info.unitsPerDose > CREATINA_POR_DOSE + 0.5,
     },
     issue: null,
@@ -339,3 +340,6 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+
+

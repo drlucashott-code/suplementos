@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AdminProductTable } from "@/components/admin/AdminProductTable";
-import { getDynamicProducts, getHomeCategories } from "./actions";
+import { getAdminProductsPageData } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -22,10 +22,7 @@ export default async function AdminProdutosDynamic({
 }: AdminProdutosPageProps) {
   const params = await searchParams;
 
-  const [products, categories] = await Promise.all([
-    getDynamicProducts(),
-    getHomeCategories(),
-  ]);
+  const { products, categories } = await getAdminProductsPageData();
 
   return (
     <div className="min-h-screen bg-gray-50/30 p-8 font-sans text-black">
@@ -72,7 +69,7 @@ export default async function AdminProdutosDynamic({
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-xl shadow-gray-200/50">
+        <div className="rounded-3xl border border-gray-100 bg-white shadow-xl shadow-gray-200/50">
           <AdminProductTable
             initialProducts={products}
             categories={categories}
@@ -84,7 +81,9 @@ export default async function AdminProdutosDynamic({
                 .map((brand) => brand.trim())
                 .filter(Boolean),
               siteVisibilityFilter:
-                params.visibility === "visible" || params.visibility === "hidden"
+                params.visibility === "visible" ||
+                params.visibility === "hidden" ||
+                params.visibility === "pending"
                   ? params.visibility
                   : "all",
               currentPage: Math.max(1, Number(params.page ?? "1") || 1),

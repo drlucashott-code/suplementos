@@ -1,9 +1,12 @@
 'use server';
 
 import { enrichDynamicAttributesForCategory } from '@/lib/dynamicCategoryMetrics';
+import { getDynamicVisibilityBoolean } from '@/lib/dynamicVisibility';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+
+const NEW_PRODUCT_DEFAULT_VISIBILITY = 'pending' as const;
 
 export interface DynamicAttributes {
   [key: string]: string | number | boolean | null;
@@ -84,6 +87,8 @@ export async function importBulkProducts(data: {
           url: scraped.url,
           totalPrice: 0,
           categoryId: data.categoryId,
+          visibilityStatus: NEW_PRODUCT_DEFAULT_VISIBILITY,
+          isVisibleOnSite: getDynamicVisibilityBoolean(NEW_PRODUCT_DEFAULT_VISIBILITY),
           attributes: enrichDynamicAttributesForCategory({
             category,
             rawDisplayConfig: category.displayConfig,
@@ -140,6 +145,8 @@ export async function createDynamicProduct(data: {
         url: data.url,
         imageUrl: data.imageUrl,
         categoryId: data.categoryId,
+        visibilityStatus: NEW_PRODUCT_DEFAULT_VISIBILITY,
+        isVisibleOnSite: getDynamicVisibilityBoolean(NEW_PRODUCT_DEFAULT_VISIBILITY),
         attributes: enrichDynamicAttributesForCategory({
           category,
           rawDisplayConfig: category.displayConfig,

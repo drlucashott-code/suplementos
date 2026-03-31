@@ -1,9 +1,16 @@
 'use server';
 
 import { enrichDynamicAttributesForCategory } from '@/lib/dynamicCategoryMetrics';
+import {
+  getDynamicVisibilityBoolean,
+  normalizeDynamicVisibilityStatus,
+  type DynamicVisibilityStatus,
+} from '@/lib/dynamicVisibility';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+
+const NEW_PRODUCT_DEFAULT_VISIBILITY = 'pending' as const;
 
 export type DynamicAttributes = {
   [key: string]: string | number | boolean | null | undefined;
@@ -67,7 +74,7 @@ export async function importBulkProducts(data: {
   });
 
   if (!category) {
-    return { error: 'Categoria não encontrada.' };
+    return { error: 'Categoria nÃƒÂ£o encontrada.' };
   }
 
   for (const asin of asinList) {
@@ -77,7 +84,7 @@ export async function importBulkProducts(data: {
       });
 
       if (alreadyExists) {
-        results.push({ asin, status: 'skipped', message: 'Já cadastrado' });
+        results.push({ asin, status: 'skipped', message: 'JÃƒÂ¡ cadastrado' });
         continue;
       }
 
@@ -94,13 +101,15 @@ export async function importBulkProducts(data: {
           url: scraped.url,
           totalPrice: scraped.totalPrice || 0,
           categoryId: data.categoryId,
+          visibilityStatus: NEW_PRODUCT_DEFAULT_VISIBILITY,
+          isVisibleOnSite: getDynamicVisibilityBoolean(NEW_PRODUCT_DEFAULT_VISIBILITY),
           attributes: enrichDynamicAttributesForCategory({
             category,
             rawDisplayConfig: category.displayConfig,
             productName: scraped.name,
             totalPrice: scraped.totalPrice || 0,
             attributes: {
-              marca: scraped.brand || 'Não Informada',
+              marca: scraped.brand || 'NÃƒÂ£o Informada',
               asin,
             },
           }) as Prisma.InputJsonValue,
@@ -124,26 +133,54 @@ export async function updateManyProducts(
   value: string | number
 ) {
   try {
-    await Promise.all(
-      ids.map(async (id) => {
-        const product = await prisma.dynamicProduct.findUnique({
-          where: { id },
-          select: { attributes: true },
-        });
-        const currentAttributes =
-          (product?.attributes as Record<string, Prisma.JsonValue>) || {};
+    const products = await prisma.dynamicProduct.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        name: true,
+        totalPrice: true,
+        attributes: true,
+        category: {
+          select: { id: true, name: true, slug: true, displayConfig: true },
+        },
+      },
+    });
 
-        return prisma.dynamicProduct.update({
-          where: { id },
-          data: {
-            attributes: {
-              ...currentAttributes,
-              [key]: value,
-            } as Prisma.InputJsonValue,
-          },
-        });
-      })
-    );
+    const updates = products.map((product) => {
+      const currentAttributes =
+        ((product.attributes as DynamicAttributes | null | undefined) ?? {});
+
+      const nextAttributes: DynamicAttributes = {
+        ...currentAttributes,
+        [key]: value,
+      };
+
+      if (key === 'marca') nextAttributes.brand = value;
+      if (key === 'brand') nextAttributes.marca = value;
+      if (key === 'sabor') nextAttributes.flavor = value;
+      if (key === 'flavor') nextAttributes.sabor = value;
+      if (key === 'seller') nextAttributes.vendedor = value;
+      if (key === 'vendedor') nextAttributes.seller = value;
+      if (key === 'volume') nextAttributes.volumeMl = value;
+      if (key === 'volumeMl') nextAttributes.volume = value;
+
+      const enrichedAttributes = enrichDynamicAttributesForCategory({
+        category: product.category,
+        rawDisplayConfig: product.category.displayConfig,
+        productName: product.name,
+        totalPrice: product.totalPrice,
+        attributes: nextAttributes,
+      });
+
+      return prisma.dynamicProduct.update({
+        where: { id: product.id },
+        data: {
+          attributes: enrichedAttributes as Prisma.InputJsonValue,
+        },
+      });
+    });
+
+    await prisma.$transaction(updates);
 
     revalidatePath('/admin/dynamic/produtos');
     return { success: true };
@@ -160,6 +197,7 @@ export async function updateDynamicProduct(
     totalPrice?: number;
     imageUrl?: string;
     url?: string;
+    visibilityStatus?: DynamicVisibilityStatus;
     isVisibleOnSite?: boolean;
     attributes?: DynamicAttributes;
   }
@@ -186,6 +224,12 @@ export async function updateDynamicProduct(
         } as DynamicAttributes)
       : undefined;
 
+    const nextVisibilityStatus =
+      data.visibilityStatus ??
+      (typeof data.isVisibleOnSite === 'boolean'
+        ? normalizeDynamicVisibilityStatus(undefined, data.isVisibleOnSite)
+        : undefined);
+
     await (prisma.dynamicProduct as unknown as {
       update: (args: {
         where: { id: string };
@@ -198,7 +242,11 @@ export async function updateDynamicProduct(
         totalPrice: data.totalPrice,
         imageUrl: data.imageUrl,
         url: data.url,
-        isVisibleOnSite: data.isVisibleOnSite,
+        visibilityStatus: nextVisibilityStatus,
+        isVisibleOnSite:
+          nextVisibilityStatus !== undefined
+            ? getDynamicVisibilityBoolean(nextVisibilityStatus)
+            : data.isVisibleOnSite,
         attributes:
           mergedAttributes && current?.category
             ? (enrichDynamicAttributesForCategory({
@@ -216,7 +264,7 @@ export async function updateDynamicProduct(
     return { success: true };
   } catch (err) {
     console.error('Erro ao atualizar produto:', err);
-    return { error: 'Falha ao salvar alterações.' };
+    return { error: 'Falha ao salvar alteraÃƒÂ§ÃƒÂµes.' };
   }
 }
 
@@ -235,7 +283,7 @@ export async function createDynamicProduct(data: {
     });
 
     if (!category) {
-      return { error: 'Categoria não encontrada.' };
+      return { error: 'Categoria nÃƒÂ£o encontrada.' };
     }
 
     const asinMatch = data.url.match(/\/dp\/([A-Z0-9]{10})/);
@@ -243,14 +291,14 @@ export async function createDynamicProduct(data: {
     const finalAsin = (data.attributes?.asin as string) || extractedAsin;
 
     if (!finalAsin) {
-      return { error: 'Não foi possível identificar o ASIN do produto.' };
+      return { error: 'NÃƒÂ£o foi possÃƒÂ­vel identificar o ASIN do produto.' };
     }
 
     const existing = await prisma.dynamicProduct.findUnique({
       where: { asin: finalAsin },
     });
     if (existing) {
-      return { error: 'Este produto (ASIN) já está cadastrado.' };
+      return { error: 'Este produto (ASIN) jÃƒÂ¡ estÃƒÂ¡ cadastrado.' };
     }
 
     await prisma.dynamicProduct.create({
@@ -261,6 +309,8 @@ export async function createDynamicProduct(data: {
         url: data.url,
         imageUrl: data.imageUrl,
         categoryId: data.categoryId,
+        visibilityStatus: NEW_PRODUCT_DEFAULT_VISIBILITY,
+        isVisibleOnSite: getDynamicVisibilityBoolean(NEW_PRODUCT_DEFAULT_VISIBILITY),
         attributes: enrichDynamicAttributesForCategory({
           category,
           rawDisplayConfig: category.displayConfig,
@@ -298,26 +348,41 @@ export async function getDynamicProducts() {
   }
 }
 
+export async function getAdminProductsPageData() {
+  try {
+    const [products, categories] = await prisma.$transaction([
+      prisma.dynamicProduct.findMany({
+        include: {
+          category: {
+            select: { id: true, name: true, group: true, displayConfig: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.dynamicCategory.findMany({
+        orderBy: { name: 'asc' },
+      }),
+    ]);
+
+    return { products, categories };
+  } catch (error) {
+    console.error('Erro ao buscar dados do admin de produtos:', error);
+    return { products: [], categories: [] };
+  }
+}
+
 export async function updateManyProductsVisibility(
   ids: string[],
-  isVisibleOnSite: boolean
+  visibilityStatus: DynamicVisibilityStatus
 ) {
   try {
-    await Promise.all(
-      ids.map((id) =>
-        (prisma.dynamicProduct as unknown as {
-          update: (args: {
-            where: { id: string };
-            data: Record<string, unknown>;
-          }) => Promise<unknown>;
-        }).update({
-          where: { id },
-          data: {
-            isVisibleOnSite,
-          },
-        })
-      )
-    );
+    await prisma.dynamicProduct.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        visibilityStatus,
+        isVisibleOnSite: getDynamicVisibilityBoolean(visibilityStatus),
+      },
+    });
 
     revalidatePath('/admin/dynamic/produtos');
     return { success: true };
