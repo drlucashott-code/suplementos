@@ -1,6 +1,8 @@
 'use server';
 
 import { enrichDynamicAttributesForCategory } from '@/lib/dynamicCategoryMetrics';
+import { type DynamicCatalogCategoryRef } from '@/lib/dynamicCatalogCache';
+import { revalidateDynamicCatalogCategoryRefs } from '@/lib/dynamicCatalogRevalidation';
 import {
   getDynamicVisibilityBoolean,
   normalizeDynamicVisibilityStatus,
@@ -11,6 +13,25 @@ import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 const NEW_PRODUCT_DEFAULT_VISIBILITY = 'pending' as const;
+
+function getCategoryRef(
+  category:
+    | {
+        group?: string | null;
+        slug?: string | null;
+      }
+    | null
+    | undefined
+): DynamicCatalogCategoryRef | null {
+  if (!category?.group || !category?.slug) {
+    return null;
+  }
+
+  return {
+    group: category.group,
+    slug: category.slug,
+  };
+}
 
 export type DynamicAttributes = {
   [key: string]: string | number | boolean | null | undefined;
@@ -141,7 +162,7 @@ export async function updateManyProducts(
         totalPrice: true,
         attributes: true,
         category: {
-          select: { id: true, name: true, slug: true, displayConfig: true },
+          select: { id: true, name: true, slug: true, group: true, displayConfig: true },
         },
       },
     });
@@ -183,6 +204,11 @@ export async function updateManyProducts(
     await prisma.$transaction(updates);
 
     revalidatePath('/admin/dynamic/produtos');
+    revalidateDynamicCatalogCategoryRefs(
+      products
+        .map((product) => getCategoryRef(product.category))
+        .filter((ref): ref is DynamicCatalogCategoryRef => !!ref)
+    );
     return { success: true };
   } catch (err) {
     console.error('Erro no Bulk Edit:', err);
@@ -207,7 +233,7 @@ export async function updateDynamicProduct(
       where: { id },
       select: {
         category: {
-          select: { id: true, name: true, slug: true, displayConfig: true },
+          select: { id: true, name: true, slug: true, group: true, displayConfig: true },
         },
         attributes: true,
         name: true,
@@ -261,6 +287,11 @@ export async function updateDynamicProduct(
     });
 
     revalidatePath('/admin/dynamic/produtos');
+    revalidateDynamicCatalogCategoryRefs(
+      [getCategoryRef(current?.category)].filter(
+        (ref): ref is DynamicCatalogCategoryRef => !!ref
+      )
+    );
     return { success: true };
   } catch (err) {
     console.error('Erro ao atualizar produto:', err);
@@ -279,7 +310,7 @@ export async function createDynamicProduct(data: {
   try {
     const category = await prisma.dynamicCategory.findUnique({
       where: { id: data.categoryId },
-      select: { id: true, name: true, slug: true, displayConfig: true },
+      select: { id: true, name: true, slug: true, group: true, displayConfig: true },
     });
 
     if (!category) {
@@ -325,6 +356,9 @@ export async function createDynamicProduct(data: {
     });
 
     revalidatePath('/admin/dynamic/produtos');
+    revalidateDynamicCatalogCategoryRefs(
+      [getCategoryRef(category)].filter((ref): ref is DynamicCatalogCategoryRef => !!ref)
+    );
     return { success: true };
   } catch (err) {
     console.error('Erro ao salvar produto:', err);
@@ -376,6 +410,18 @@ export async function updateManyProductsVisibility(
   visibilityStatus: DynamicVisibilityStatus
 ) {
   try {
+    const products = await prisma.dynamicProduct.findMany({
+      where: { id: { in: ids } },
+      select: {
+        category: {
+          select: {
+            group: true,
+            slug: true,
+          },
+        },
+      },
+    });
+
     await prisma.dynamicProduct.updateMany({
       where: { id: { in: ids } },
       data: {
@@ -385,6 +431,11 @@ export async function updateManyProductsVisibility(
     });
 
     revalidatePath('/admin/dynamic/produtos');
+    revalidateDynamicCatalogCategoryRefs(
+      products
+        .map((product) => getCategoryRef(product.category))
+        .filter((ref): ref is DynamicCatalogCategoryRef => !!ref)
+    );
     return { success: true };
   } catch (err) {
     console.error('Erro ao atualizar visibilidade em massa:', err);
@@ -394,8 +445,25 @@ export async function updateManyProductsVisibility(
 
 export async function deleteDynamicProduct(id: string) {
   try {
+    const product = await prisma.dynamicProduct.findUnique({
+      where: { id },
+      select: {
+        category: {
+          select: {
+            group: true,
+            slug: true,
+          },
+        },
+      },
+    });
+
     await prisma.dynamicProduct.delete({ where: { id } });
     revalidatePath('/admin/dynamic/produtos');
+    revalidateDynamicCatalogCategoryRefs(
+      [getCategoryRef(product?.category)].filter(
+        (ref): ref is DynamicCatalogCategoryRef => !!ref
+      )
+    );
     return { success: true };
   } catch (err) {
     console.error('Erro ao excluir:', err);
@@ -405,10 +473,27 @@ export async function deleteDynamicProduct(id: string) {
 
 export async function deleteManyProducts(ids: string[]) {
   try {
+    const products = await prisma.dynamicProduct.findMany({
+      where: { id: { in: ids } },
+      select: {
+        category: {
+          select: {
+            group: true,
+            slug: true,
+          },
+        },
+      },
+    });
+
     await prisma.dynamicProduct.deleteMany({
       where: { id: { in: ids } },
     });
     revalidatePath('/admin/dynamic/produtos');
+    revalidateDynamicCatalogCategoryRefs(
+      products
+        .map((product) => getCategoryRef(product.category))
+        .filter((ref): ref is DynamicCatalogCategoryRef => !!ref)
+    );
     return { success: true };
   } catch (err) {
     console.error('Erro ao excluir em massa:', err);

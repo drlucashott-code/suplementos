@@ -1,6 +1,7 @@
 import { DynamicProduct, Prisma } from "@prisma/client";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { getDynamicCatalogCacheTag } from "@/lib/dynamicCatalogCache";
 import {
   getDynamicDisplayPrice,
   getDynamicFallbackConfig,
@@ -774,6 +775,7 @@ async function fetchDynamicCatalogBaseData(
     ["dynamic-catalog-base", group, slug],
     {
       revalidate: 300,
+      tags: [getDynamicCatalogCacheTag(group, slug)],
     }
   );
 

@@ -11,6 +11,10 @@ import {
   getAmazonItems,
   type AmazonItem,
 } from "@/lib/amazonApiClient";
+import {
+  dedupeDynamicCatalogCategoryRefs,
+  type DynamicCatalogCategoryRef,
+} from "@/lib/dynamicCatalogCache";
 import { enrichDynamicAttributesForCategory } from "@/lib/dynamicCategoryMetrics";
 import { prisma } from "@/lib/prisma";
 import { refreshDynamicProductPriceStats } from "@/lib/dynamicPriceStats";
@@ -39,6 +43,7 @@ export type PriorityRefreshRunSummary = {
   updatedProducts: number;
   skippedProducts: number;
   updatedAsins: string[];
+  updatedCategoryRefs: DynamicCatalogCategoryRef[];
   runId?: string;
 };
 
@@ -232,8 +237,10 @@ export async function processPriorityRefreshQueue() {
     updatedProducts: 0,
     skippedProducts: 0,
     updatedAsins: [],
+    updatedCategoryRefs: [],
     runId,
   };
+  const updatedCategoryRefs = new Map<string, DynamicCatalogCategoryRef>();
 
   try {
     while (true) {
@@ -268,6 +275,12 @@ export async function processPriorityRefreshQueue() {
           id: true,
           asin: true,
           name: true,
+          category: {
+            select: {
+              group: true,
+              slug: true,
+            },
+          },
         },
       });
 
@@ -287,6 +300,12 @@ export async function processPriorityRefreshQueue() {
         if (updated) {
           summary.updatedProducts += 1;
           summary.updatedAsins.push(asin);
+          if (product.category?.group && product.category?.slug) {
+            updatedCategoryRefs.set(`${product.category.group}:${product.category.slug}`, {
+              group: product.category.group,
+              slug: product.category.slug,
+            });
+          }
         } else {
           summary.skippedProducts += 1;
         }
@@ -305,6 +324,10 @@ export async function processPriorityRefreshQueue() {
         );
       }
     }
+
+    summary.updatedCategoryRefs = dedupeDynamicCatalogCategoryRefs([
+      ...updatedCategoryRefs.values(),
+    ]);
 
     await prisma.$executeRaw`
       UPDATE "PriorityRefreshRun"

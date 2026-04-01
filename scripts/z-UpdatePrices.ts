@@ -47,11 +47,18 @@ type DynamicProductLite = {
   attributes: unknown;
   category:
     | {
+        group: string;
         name: string;
         slug: string;
         displayConfig: Prisma.JsonValue;
       }
     | null;
+};
+
+type PersistDynamicUpdateResult = {
+  logStatus: string;
+  outcome: PersistOutcome;
+  shouldRefreshPriceStats: boolean;
 };
 
 async function fetchAmazonPricesBatch(
@@ -93,7 +100,7 @@ async function fetchAmazonPricesBatch(
 async function persistDynamicUpdate(
   product: DynamicProductLite,
   result?: PriceResult
-) {
+): Promise<PersistDynamicUpdateResult> {
   const currentAttrs = (product.attributes as Record<string, unknown>) || {};
   const nextAttributesBase = {
     ...currentAttrs,
@@ -160,7 +167,11 @@ async function persistDynamicUpdate(
     },
   });
 
-  return { logStatus, outcome, shouldRefreshPriceStats: false };
+  return {
+    logStatus,
+    outcome,
+    shouldRefreshPriceStats: false,
+  };
 }
 
 function incrementCounters(counters: RunCounters, outcome: PersistOutcome) {
@@ -247,6 +258,7 @@ async function updateAmazonPrices() {
         attributes: true,
         category: {
           select: {
+            group: true,
             name: true,
             slug: true,
             displayConfig: true,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processPriorityRefreshQueue } from "@/lib/priorityRefreshProcessor";
+import { revalidateDynamicCatalogCategoryRefs } from "@/lib/dynamicCatalogRevalidation";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -21,6 +22,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const summary = await processPriorityRefreshQueue();
+    revalidateDynamicCatalogCategoryRefs(summary.updatedCategoryRefs);
     return NextResponse.json({
       ok: true,
       summary,
