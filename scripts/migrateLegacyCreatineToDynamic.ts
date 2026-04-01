@@ -15,7 +15,7 @@ const categoryDisplayConfig = {
     analysisTitleTemplate: "ANALISE POR DOSE ({unitsPerDose}G)",
     enabledSorts: ["discount", "best_value", "price_asc"],
     defaultSort: "discount",
-    bestValueAttributeKey: "precoPorGramaCreatina",
+    bestValueAttributeKey: "precoPorDose",
     dosePriceAttributeKey: "precoPorDose",
   },
   fields: [
@@ -24,6 +24,7 @@ const categoryDisplayConfig = {
       label: "creatina",
       type: "number",
       visibility: "public_table",
+      filterable: false,
       suffix: "g",
     },
     {
@@ -38,24 +39,35 @@ const categoryDisplayConfig = {
       label: "Forma",
       type: "text",
       visibility: "public_highlight",
+      filterable: true,
     },
     {
       key: "sabor",
       label: "Sabor",
       type: "text",
       visibility: "public_highlight",
+      filterable: true,
+    },
+    {
+      key: "weightGrams",
+      label: "Peso (g)",
+      type: "number",
+      visibility: "public_highlight",
+      filterable: true,
     },
     {
       key: "numberOfDoses",
       label: "Doses",
       type: "number",
       visibility: "public_highlight",
+      filterable: false,
     },
     {
       key: "unitsPerDose",
       label: "Dose (g)",
       type: "number",
       visibility: "internal",
+      filterable: false,
     },
   ],
 } as const;
@@ -185,6 +197,12 @@ function buildAttributes(
     info.totalUnits > 0 && info.unitsPerDose > 0
       ? Number((info.totalUnits / info.unitsPerDose).toFixed(2))
       : 0;
+  const derivedWeightGrams =
+    numberOfDoses > 0 && info.unitsPerDose > 0
+      ? Math.round(numberOfDoses * info.unitsPerDose)
+      : info.totalUnits > 0
+        ? Math.round(info.totalUnits)
+        : undefined;
 
   return {
     attributes: {
@@ -192,6 +210,7 @@ function buildAttributes(
       form: info.form,
       formLabel: getFormLabel(info.form),
       totalUnits: info.totalUnits,
+      weightGrams: derivedWeightGrams,
       unitsPerDose: info.unitsPerDose,
       creatinaPorDose: CREATINA_POR_DOSE,
       numberOfDoses,

@@ -31,6 +31,7 @@ const categoryDisplayConfig = {
       label: "cafeina",
       type: "number",
       visibility: "public_table",
+      filterable: false,
       suffix: "mg",
     },
     {
@@ -44,18 +45,28 @@ const categoryDisplayConfig = {
       label: "Sabor",
       type: "text",
       visibility: "public_highlight",
+      filterable: true,
+    },
+    {
+      key: "weightGrams",
+      label: "Peso (g)",
+      type: "number",
+      visibility: "public_highlight",
+      filterable: true,
     },
     {
       key: "numberOfDoses",
       label: "Doses",
       type: "number",
       visibility: "public_highlight",
+      filterable: false,
     },
     {
       key: "doseInGrams",
       label: "Dose (g)",
       type: "number",
       visibility: "internal",
+      filterable: false,
     },
   ],
 } as const;
@@ -179,6 +190,7 @@ function buildAttributes(
     attributes: {
       ...baseAttributes,
       totalWeightInGrams: info.totalWeightInGrams,
+      weightGrams: info.totalWeightInGrams,
       doseInGrams: info.doseInGrams,
       caffeinePerDoseInMg: info.caffeinePerDoseInMg,
       numberOfDoses,

@@ -546,6 +546,11 @@ function CategoriaForm() {
             ((field as { public?: boolean }).public === false
               ? "internal"
               : "public_table"),
+          filterable:
+            typeof field.filterable === "boolean"
+              ? field.filterable
+              : field.type !== "currency" &&
+                (field.visibility ?? "public_table") !== "internal",
         }));
 
       setDisplayConfig(config);
@@ -563,6 +568,7 @@ function CategoriaForm() {
         label: "",
         type: "text",
         visibility: "public_table",
+        filterable: true,
       },
     ]);
   };
@@ -1155,6 +1161,25 @@ function CategoriaForm() {
                   <option value="public_highlight">Publico fora da tabela</option>
                   <option value="internal">Apenas interno</option>
                 </select>
+              </div>
+
+              <div className="min-w-[170px]">
+                <label className="mb-1 block text-[10px] font-black uppercase text-gray-400">
+                  Filtro
+                </label>
+                <label className="flex h-[42px] items-center gap-2 rounded-lg border border-gray-100 bg-gray-50 px-3">
+                  <input
+                    type="checkbox"
+                    checked={field.filterable ?? false}
+                    onChange={(e) =>
+                      updateField(index, { filterable: e.target.checked })
+                    }
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <span className="text-[12px] font-medium text-gray-700">
+                    Aparece nos filtros
+                  </span>
+                </label>
               </div>
 
               <button

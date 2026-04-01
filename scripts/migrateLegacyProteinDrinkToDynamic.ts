@@ -36,6 +36,7 @@ const categoryDisplayConfig = {
       label: "proteina",
       type: "number",
       visibility: "public_table",
+      filterable: false,
       suffix: "g",
     },
     {
@@ -49,18 +50,21 @@ const categoryDisplayConfig = {
       label: "Sabor",
       type: "text",
       visibility: "public_highlight",
+      filterable: true,
     },
     {
       key: "unitsPerPack",
       label: "Unidades",
       type: "number",
       visibility: "public_highlight",
+      filterable: true,
     },
     {
       key: "volumePerUnitInMl",
       label: "Volume (ml)",
       type: "number",
       visibility: "internal",
+      filterable: true,
     },
   ],
 } as const;

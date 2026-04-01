@@ -53,6 +53,72 @@ function insertOrReplaceField(params: {
   return nextFields;
 }
 
+function getSuggestedSupplementFilterable(
+  slug: string,
+  field: DynamicDisplayField
+) {
+  const key = field.key;
+
+  if (slug === 'whey') {
+    if (key === 'sabor' || key === 'weightGrams') return true;
+    if (key === 'proteinPerDoseInGrams' || key === 'proteinPercentage' || key === 'numberOfDoses' || key === 'doseInGrams') return false;
+  }
+
+  if (slug === 'barra') {
+    if (key === 'sabor' || key === 'unitsPerBox' || key === 'weightGrams') return true;
+    if (key === 'proteinPerDoseInGrams' || key === 'doseInGrams') return false;
+  }
+
+  if (slug === 'bebidaproteica') {
+    if (key === 'sabor' || key === 'unitsPerPack' || key === 'volumePerUnitInMl') return true;
+    if (key === 'proteinPerUnitInGrams') return false;
+  }
+
+  if (slug === 'creatina') {
+    if (key === 'formLabel' || key === 'sabor' || key === 'weightGrams') return true;
+    if (key === 'creatinaPorDose' || key === 'numberOfDoses' || key === 'unitsPerDose') return false;
+  }
+
+  if (slug === 'pre-treino') {
+    if (key === 'sabor' || key === 'weightGrams') return true;
+    if (key === 'caffeinePerDoseInMg' || key === 'numberOfDoses' || key === 'doseInGrams') return false;
+  }
+
+  if (slug === 'cafe-funcional') {
+    if (key === 'sabor' || key === 'weightGrams') return true;
+    if (key === 'cafeinaPorDoseMg' || key === 'doses' || key === 'doseInGrams') return false;
+  }
+
+  return undefined;
+}
+
+function applySuggestedFilterability(category: CategoryRow, fields: DynamicDisplayField[]) {
+  return fields.map((field) => {
+    const suggested =
+      category.group === 'suplementos'
+        ? getSuggestedSupplementFilterable(category.slug, field)
+        : undefined;
+
+    if (typeof suggested === 'boolean') {
+      return {
+        ...field,
+        filterable: suggested,
+      };
+    }
+
+    if (typeof field.filterable === 'boolean') {
+      return field;
+    }
+
+    return {
+      ...field,
+      filterable:
+        field.type !== 'currency' &&
+        (field.visibility ?? 'public_table') !== 'internal',
+    };
+  });
+}
+
 function buildNormalizedCategoryConfig(category: CategoryRow) {
   const normalized = normalizeDynamicDisplayConfig(
     category.displayConfig
@@ -83,12 +149,27 @@ function buildNormalizedCategoryConfig(category: CategoryRow) {
         label: 'Peso (g)',
         type: 'number',
         visibility: 'public_highlight',
+        filterable: true,
+      },
+    });
+  }
+
+  if (category.group === 'suplementos' && category.slug === 'barra') {
+    nextFields = insertOrReplaceField({
+      fields: nextFields,
+      afterKey: 'unitsPerBox',
+      field: {
+        key: 'weightGrams',
+        label: 'Peso (g)',
+        type: 'number',
+        visibility: 'public_highlight',
+        filterable: true,
       },
     });
   }
 
   if (category.group === 'suplementos' && category.slug === 'creatina') {
-    nextSettings.bestValueAttributeKey = 'precoPorGramaCreatina';
+    nextSettings.bestValueAttributeKey = 'precoPorDose';
     nextSettings.dosePriceAttributeKey = 'precoPorDose';
     nextFields = nextFields.filter((field) => field.key !== 'precoPorGramaCreatina');
     nextFields = insertOrReplaceField({
@@ -110,9 +191,51 @@ function buildNormalizedCategoryConfig(category: CategoryRow) {
         label: 'Sabor',
         type: 'text',
         visibility: 'public_highlight',
+        filterable: true,
+      },
+    });
+    nextFields = insertOrReplaceField({
+      fields: nextFields,
+      afterKey: 'sabor',
+      field: {
+        key: 'weightGrams',
+        label: 'Peso (g)',
+        type: 'number',
+        visibility: 'public_highlight',
+        filterable: true,
       },
     });
   }
+
+  if (category.group === 'suplementos' && category.slug === 'cafe-funcional') {
+    nextFields = insertOrReplaceField({
+      fields: nextFields,
+      afterKey: 'sabor',
+      field: {
+        key: 'weightGrams',
+        label: 'Peso (g)',
+        type: 'number',
+        visibility: 'public_highlight',
+        filterable: true,
+      },
+    });
+  }
+
+  if (category.group === 'suplementos' && category.slug === 'pre-treino') {
+    nextFields = insertOrReplaceField({
+      fields: nextFields,
+      afterKey: 'sabor',
+      field: {
+        key: 'weightGrams',
+        label: 'Peso (g)',
+        type: 'number',
+        visibility: 'public_highlight',
+        filterable: true,
+      },
+    });
+  }
+
+  nextFields = applySuggestedFilterability(category, nextFields);
 
   return {
     fields: nextFields,

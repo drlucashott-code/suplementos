@@ -43,6 +43,7 @@ const categoryDisplayConfig = {
       label: "proteina",
       type: "number",
       visibility: "public_table",
+      filterable: false,
       suffix: "g",
     },
     {
@@ -50,6 +51,7 @@ const categoryDisplayConfig = {
       label: "conc.",
       type: "number",
       visibility: "public_table",
+      filterable: false,
       suffix: "%",
     },
     {
@@ -63,18 +65,28 @@ const categoryDisplayConfig = {
       label: "Sabor",
       type: "text",
       visibility: "public_highlight",
+      filterable: true,
+    },
+    {
+      key: "weightGrams",
+      label: "Peso (g)",
+      type: "number",
+      visibility: "public_highlight",
+      filterable: true,
     },
     {
       key: "numberOfDoses",
       label: "Doses",
       type: "number",
       visibility: "public_highlight",
+      filterable: false,
     },
     {
       key: "doseInGrams",
       label: "Dose (g)",
       type: "number",
       visibility: "internal",
+      filterable: false,
     },
   ],
 } as const;
@@ -207,6 +219,7 @@ function buildAttributes(
   return {
     attributes: {
       ...baseAttributes,
+      weightGrams: info.totalWeightInGrams,
       totalWeightInGrams: info.totalWeightInGrams,
       doseInGrams: info.doseInGrams,
       proteinPerDoseInGrams: info.proteinPerDoseInGrams,

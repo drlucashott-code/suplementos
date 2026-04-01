@@ -22,6 +22,7 @@ export type ConfigField = {
   label: string;
   type: FieldType;
   visibility: FieldVisibility;
+  filterable?: boolean;
   prefix?: string;
   suffix?: string;
   hideLabel?: boolean;

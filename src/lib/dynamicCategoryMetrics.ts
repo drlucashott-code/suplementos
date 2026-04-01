@@ -6,6 +6,7 @@ export type DynamicDisplayField = {
   label: string;
   type: DynamicFieldType;
   visibility?: DynamicFieldVisibility;
+  filterable?: boolean;
   prefix?: string;
   suffix?: string;
   hideLabel?: boolean;
@@ -102,7 +103,7 @@ export type DynamicAttributeValue =
 export type DynamicAttributesMap = Record<string, DynamicAttributeValue>;
 
 const SUPPLEMENT_DERIVED_ATTRIBUTES_BY_SLUG: Record<string, string[]> = {
-  barra: ["precoPorBarra", "precoPorGramaProteina"],
+  barra: ["weightGrams", "precoPorBarra", "precoPorGramaProteina"],
   bebidaproteica: ["precoPorUnidade", "precoPorGramaProteina"],
   "cafe-funcional": ["precoPorDose", "precoPor100MgCafeina"],
   "pre-treino": ["precoPorDose"],
@@ -586,6 +587,99 @@ function getNumericValue(value: DynamicAttributeValue) {
   return Number.isFinite(numeric) ? numeric : 0;
 }
 
+function maybeDeriveCreatineWeightGrams(
+  slug: string | null | undefined,
+  enriched: DynamicAttributesMap
+) {
+  if (slug !== "creatina" || isValuePresent(enriched.weightGrams)) {
+    return;
+  }
+
+  const totalUnits = getNumericValue(enriched.totalUnits);
+  const numberOfDoses = getNumericValue(enriched.numberOfDoses) || getNumericValue(enriched.doses);
+  const unitsPerDose = getNumericValue(enriched.unitsPerDose) || getNumericValue(enriched.doseInGrams);
+
+  if (numberOfDoses > 0 && unitsPerDose > 0) {
+    enriched.weightGrams = Math.round(numberOfDoses * unitsPerDose);
+    return;
+  }
+
+  if (totalUnits <= 0) {
+    return;
+  }
+
+  const formToken =
+    typeof enriched.form === "string"
+      ? normalizeToken(enriched.form)
+      : typeof enriched.formLabel === "string"
+        ? normalizeToken(enriched.formLabel)
+        : "";
+
+  if (formToken === "powder" || formToken === "po") {
+    enriched.weightGrams = Math.round(totalUnits);
+  }
+}
+
+function maybeDeriveProteinBarWeightGrams(
+  slug: string | null | undefined,
+  enriched: DynamicAttributesMap
+) {
+  if (slug !== "barra" || isValuePresent(enriched.weightGrams)) {
+    return;
+  }
+
+  const unitsPerBox = getNumericValue(enriched.unitsPerBox);
+  const doseInGrams = getNumericValue(enriched.doseInGrams);
+
+  if (unitsPerBox > 0 && doseInGrams > 0) {
+    enriched.weightGrams = Math.round(unitsPerBox * doseInGrams);
+  }
+}
+
+function maybeDeriveFunctionalCoffeeWeightGrams(
+  slug: string | null | undefined,
+  enriched: DynamicAttributesMap
+) {
+  if (slug !== "cafe-funcional" || isValuePresent(enriched.weightGrams)) {
+    return;
+  }
+
+  const totalWeightInGrams = getNumericValue(enriched.totalWeightInGrams);
+  const numberOfDoses = getNumericValue(enriched.numberOfDoses) || getNumericValue(enriched.doses);
+  const doseInGrams = getNumericValue(enriched.doseInGrams) || getNumericValue(enriched.unitsPerDose);
+
+  if (totalWeightInGrams > 0) {
+    enriched.weightGrams = Math.round(totalWeightInGrams);
+    return;
+  }
+
+  if (numberOfDoses > 0 && doseInGrams > 0) {
+    enriched.weightGrams = Math.round(numberOfDoses * doseInGrams);
+  }
+}
+
+function maybeDerivePreWorkoutWeightGrams(
+  slug: string | null | undefined,
+  enriched: DynamicAttributesMap
+) {
+  if (slug !== "pre-treino" || isValuePresent(enriched.weightGrams)) {
+    return;
+  }
+
+  const totalWeightInGrams = getNumericValue(enriched.totalWeightInGrams);
+  const numberOfDoses = getNumericValue(enriched.numberOfDoses) || getNumericValue(enriched.doses);
+  const doseInGrams = getNumericValue(enriched.doseInGrams) || getNumericValue(enriched.unitsPerDose);
+
+  if (totalWeightInGrams > 0) {
+    enriched.weightGrams = Math.round(totalWeightInGrams);
+    return;
+  }
+
+  if (numberOfDoses > 0 && doseInGrams > 0) {
+    enriched.weightGrams = Math.round(numberOfDoses * doseInGrams);
+  }
+}
+
 function detectKnownMetricKind(field: Pick<DynamicDisplayField, "key" | "label">) {
   const tokens = [normalizeToken(field.key), normalizeToken(field.label)];
 
@@ -701,12 +795,14 @@ export function buildPrimaryMetricFields(draft: PrimaryMetricDraft): DynamicDisp
       label: metricLabel,
       type: "number",
       visibility: "public_table",
+      filterable: true,
     },
     {
       key: draft.priceKey.trim(),
       label: draft.priceLabel.trim(),
       type: "currency",
       visibility: "public_table",
+      filterable: false,
     },
   ];
 }
@@ -766,6 +862,10 @@ export function enrichDynamicAttributesForCategory(params: {
   const settings = normalizedConfig.settings ?? {};
   const enriched: DynamicAttributesMap = { ...params.attributes };
   clearSupplementDerivedAttributes(params.category?.slug, enriched);
+  maybeDerivePreWorkoutWeightGrams(params.category?.slug, enriched);
+  maybeDeriveFunctionalCoffeeWeightGrams(params.category?.slug, enriched);
+  maybeDeriveProteinBarWeightGrams(params.category?.slug, enriched);
+  maybeDeriveCreatineWeightGrams(params.category?.slug, enriched);
 
   const primaryDraft = createPrimaryMetricDraftFromSettings(settings);
   const primaryPreset = findPresetById(primaryDraft.preset);

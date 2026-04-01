@@ -36,6 +36,7 @@ const categoryDisplayConfig = {
       label: "proteina",
       type: "number",
       visibility: "public_table",
+      filterable: false,
       suffix: "g",
     },
     {
@@ -49,18 +50,28 @@ const categoryDisplayConfig = {
       label: "Sabor",
       type: "text",
       visibility: "public_highlight",
+      filterable: true,
     },
     {
       key: "unitsPerBox",
       label: "Unidades",
       type: "number",
       visibility: "public_highlight",
+      filterable: true,
+    },
+    {
+      key: "weightGrams",
+      label: "Peso (g)",
+      type: "number",
+      visibility: "public_highlight",
+      filterable: true,
     },
     {
       key: "doseInGrams",
       label: "Dose (g)",
       type: "number",
       visibility: "internal",
+      filterable: false,
     },
   ],
 } as const;
@@ -180,11 +191,16 @@ function buildAttributes(
     info.unitsPerBox > 0 && info.proteinPerDoseInGrams > 0
       ? Number((info.unitsPerBox * info.proteinPerDoseInGrams).toFixed(2))
       : 0;
+  const weightGrams =
+    info.unitsPerBox > 0 && info.doseInGrams > 0
+      ? Math.round(info.unitsPerBox * info.doseInGrams)
+      : 0;
 
   return {
     attributes: {
       ...baseAttributes,
       unitsPerBox: info.unitsPerBox,
+      weightGrams: weightGrams > 0 ? weightGrams : undefined,
       doseInGrams: info.doseInGrams,
       proteinPerDoseInGrams: info.proteinPerDoseInGrams,
       totalProteinInGrams,

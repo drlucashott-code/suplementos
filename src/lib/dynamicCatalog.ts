@@ -31,6 +31,7 @@ export interface DisplayConfigField {
   label: string;
   type: "text" | "number" | "currency";
   visibility?: FieldVisibility;
+  filterable?: boolean;
   public?: boolean;
   prefix?: string;
   suffix?: string;
@@ -169,6 +170,12 @@ const getFieldVisibility = (field: DisplayConfigField): FieldVisibility => {
   return field.public === false ? "internal" : "public_table";
 };
 
+const isFieldFilterable = (field: DisplayConfigField) => {
+  if (field.type === "currency") return false;
+  if (typeof field.filterable === "boolean") return field.filterable;
+  return field.type === "text" || field.type === "number";
+};
+
 const sortFilterValues = (values: string[], type: DisplayConfigField["type"]) => {
   if (type === "number") {
     return [...values].sort((a, b) => Number(a) - Number(b));
@@ -189,7 +196,7 @@ const formatPublicFilterValue = (value: string, type: DisplayConfigField["type"]
 };
 
 type NumericBucketConfig = {
-  step: number;
+  step?: number;
   openEndedFrom?: number;
 };
 
@@ -224,6 +231,71 @@ const guessNiceStep = (values: number[]) => {
   );
 };
 
+const guessNiceWeightStep = (values: number[]) => {
+  const minValue = values[0];
+  const maxValue = values[values.length - 1];
+  const spread = Math.max(maxValue - minValue, 1);
+  const targetBucketCount = 6;
+  const roughStep = spread / targetBucketCount;
+  const candidates = [
+    5, 10, 20, 25, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500, 750, 1000,
+    1250, 1500,
+  ];
+
+  return (
+    candidates.find((candidate) => candidate >= roughStep) ??
+    candidates[candidates.length - 1]
+  );
+};
+
+const guessNiceDoseStep = (values: number[]) => {
+  const minValue = values[0];
+  const maxValue = values[values.length - 1];
+  const spread = Math.max(maxValue - minValue, 1);
+  const targetBucketCount = 6;
+  const roughStep = spread / targetBucketCount;
+  const candidates = [
+    1, 2, 5, 10, 15, 20, 25, 30, 50, 60, 75, 100, 120, 150, 200, 250, 300, 500,
+  ];
+
+  return (
+    candidates.find((candidate) => candidate >= roughStep) ??
+    candidates[candidates.length - 1]
+  );
+};
+
+const guessNiceUnitsStep = (values: number[]) => {
+  const minValue = values[0];
+  const maxValue = values[values.length - 1];
+  const spread = Math.max(maxValue - minValue, 1);
+  const targetBucketCount = 4;
+  const roughStep = spread / targetBucketCount;
+  const candidates = [
+    5, 10, 20, 25, 30, 40, 50, 60, 100, 120, 150, 200, 250, 300, 500,
+  ];
+
+  return (
+    candidates.find((candidate) => candidate >= roughStep) ??
+    candidates[candidates.length - 1]
+  );
+};
+
+const guessNiceProteinOrDoseGramStep = (values: number[]) => {
+  const minValue = values[0];
+  const maxValue = values[values.length - 1];
+  const spread = Math.max(maxValue - minValue, 1);
+  const targetBucketCount = 4;
+  const roughStep = spread / targetBucketCount;
+  const candidates = [
+    5, 10, 15, 20, 25, 30, 40, 50, 60,
+  ];
+
+  return (
+    candidates.find((candidate) => candidate >= roughStep) ??
+    candidates[candidates.length - 1]
+  );
+};
+
 const getNumericBucketConfig = ({
   config,
   values,
@@ -242,6 +314,45 @@ const getNumericBucketConfig = ({
   const normalized = removeAccents(`${config.key} ${config.label}`.toLowerCase());
   const normalizedCategory = removeAccents(`${group || ""} ${slug || ""}`.toLowerCase());
 
+  const normalizedKey = removeAccents((config.key || "").toLowerCase()).replace(/[^a-z0-9]+/g, "");
+
+  if (normalizedKey === "weightgrams" || normalized.includes("peso")) {
+    return { step: guessNiceWeightStep(values) };
+  }
+
+  if (
+    normalizedKey === "units" ||
+    normalizedKey === "unitsperbox" ||
+    normalized.includes("unidade") ||
+    normalized.includes("units")
+  ) {
+    return { step: guessNiceUnitsStep(values) };
+  }
+
+  if (
+    normalizedKey === "proteinperdoseingrams" ||
+    normalized.includes("proteina")
+  ) {
+    return { step: guessNiceProteinOrDoseGramStep(values) };
+  }
+
+  if (
+    normalizedKey === "doseingrams" ||
+    normalizedKey === "unitsperdose" ||
+    normalized.includes("dose (g)") ||
+    normalized.includes("dose g")
+  ) {
+    return { step: guessNiceProteinOrDoseGramStep(values) };
+  }
+
+  if (
+    normalizedKey === "numberofdoses" ||
+    normalizedKey === "doses" ||
+    (normalized.includes("dose") && !normalized.includes("(g)") && !normalized.includes("dose (g)"))
+  ) {
+    return { step: guessNiceDoseStep(values) };
+  }
+
   if (
     normalized.includes("conc") ||
     normalized.includes("concentration") ||
@@ -253,7 +364,6 @@ const getNumericBucketConfig = ({
 
   if (
     normalized.includes("protein") ||
-    normalized.includes("proteina") ||
     normalized.includes("grama") ||
     normalized.includes("grams") ||
     (normalized.includes("dose") && normalized.includes("g"))
@@ -265,8 +375,6 @@ const getNumericBucketConfig = ({
     normalized.includes("dose") ||
     normalized.includes("lavagen") ||
     normalized.includes("metro") ||
-    normalized.includes("unidade") ||
-    normalized.includes("units") ||
     normalized.includes("caps")
   ) {
     return { step: 10 };
@@ -326,6 +434,13 @@ const buildBucketedFilterOptions = ({
     }));
   }
 
+  if (!bucketConfig.step || bucketConfig.step <= 0) {
+    return sortFilterValues(values, config.type).map((value) => ({
+      value,
+      label: formatPublicFilterValue(value, config.type),
+    }));
+  }
+
   const step = bucketConfig.step;
   const minValue = numericValues[0];
   const maxValue = numericValues[numericValues.length - 1];
@@ -347,7 +462,7 @@ const buildBucketedFilterOptions = ({
       break;
     }
 
-    const hasValues = numericValues.some((value) => value >= current && value < next);
+    const hasValues = numericValues.some((value) => value >= current && value <= next);
     if (!hasValues) continue;
 
     options.push({
@@ -813,7 +928,7 @@ export async function getDynamicCatalogData({
   );
 
   const filterableConfigs = fullDisplayConfig.filter(
-    (c) => c.type === "text" || c.type === "number"
+    (c) => isFieldFilterable(c)
   ).sort((a, b) => {
     const aLabel = removeAccents(a.label.toLowerCase());
     const bLabel = removeAccents(b.label.toLowerCase());
@@ -893,7 +1008,7 @@ export async function getDynamicCatalogData({
           const numericValue = Number(rawValue);
           if (Number.isNaN(numericValue)) return false;
           if (parsedRange.max === null) return numericValue >= parsedRange.min;
-          return numericValue >= parsedRange.min && numericValue < parsedRange.max;
+          return numericValue >= parsedRange.min && numericValue <= parsedRange.max;
         }
 
         return selectedValue === normalizedValue;
