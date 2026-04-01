@@ -168,6 +168,7 @@ export function AdminProductTable({
     key: string;
     direction: "asc" | "desc";
   } | null>(initialState?.sortConfig ?? { key: "name", direction: "asc" });
+  const [savingVisibilityIds, setSavingVisibilityIds] = useState<string[]>([]);
   const [nameColumnWidth, setNameColumnWidth] = useState(NAME_COLUMN_DEFAULT_WIDTH);
   const tableWrapperRef = useRef<HTMLDivElement>(null);
   const nameColumnResizeRef = useRef<{
@@ -645,6 +646,70 @@ export function AdminProductTable({
       );
     } catch (error) {
       console.error("Erro ao salvar alteracao rapida:", error);
+    }
+  };
+
+  const handleVisibilityChange = async (
+    productId: string,
+    nextVisibilityStatus: DynamicVisibilityStatus
+  ) => {
+    const currentProduct = products.find((product) => product.id === productId);
+    if (!currentProduct) return;
+
+    const previousVisibilityStatus = normalizeDynamicVisibilityStatus(
+      currentProduct.visibilityStatus,
+      currentProduct.isVisibleOnSite
+    );
+
+    if (previousVisibilityStatus === nextVisibilityStatus) {
+      return;
+    }
+
+    setProducts((prev) =>
+      prev.map((product) =>
+        product.id === productId
+          ? {
+              ...product,
+              visibilityStatus: nextVisibilityStatus,
+              isVisibleOnSite: getDynamicVisibilityBoolean(nextVisibilityStatus),
+            }
+          : product
+      )
+    );
+    setSavingVisibilityIds((prev) =>
+      prev.includes(productId) ? prev : [...prev, productId]
+    );
+
+    mutationQueueRef.current = mutationQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const result = await updateDynamicProduct(productId, {
+          visibilityStatus: nextVisibilityStatus,
+        });
+
+        if (result && "error" in result && result.error) {
+          throw new Error(result.error);
+        }
+      });
+
+    try {
+      await mutationQueueRef.current;
+      router.refresh();
+    } catch (error) {
+      setProducts((prev) =>
+        prev.map((product) =>
+          product.id === productId
+            ? {
+                ...product,
+                visibilityStatus: previousVisibilityStatus,
+                isVisibleOnSite: getDynamicVisibilityBoolean(previousVisibilityStatus),
+              }
+            : product
+        )
+      );
+      console.error("Erro ao atualizar visibilidade:", error);
+    } finally {
+      setSavingVisibilityIds((prev) => prev.filter((id) => id !== productId));
     }
   };
 
@@ -1259,24 +1324,13 @@ export function AdminProductTable({
                             p.visibilityStatus,
                             p.isVisibleOnSite
                           )}
-                          onChange={(e) => {
-                            mutationQueueRef.current = mutationQueueRef.current
-                              .catch(() => undefined)
-                              .then(async () => {
-                                const result = await updateDynamicProduct(p.id, {
-                                  visibilityStatus: e.target.value as DynamicVisibilityStatus,
-                                });
-                                if (result && "error" in result && result.error) {
-                                  throw new Error(result.error);
-                                }
-                              });
-
-                            mutationQueueRef.current
-                              .then(() => router.refresh())
-                              .catch((error) => {
-                                console.error("Erro ao atualizar visibilidade:", error);
-                              });
-                          }}
+                          onChange={(e) =>
+                            handleVisibilityChange(
+                              p.id,
+                              e.currentTarget.value as DynamicVisibilityStatus
+                            )
+                          }
+                          disabled={savingVisibilityIds.includes(p.id)}
                           className="min-w-[100px] rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-gray-700 outline-none transition-colors hover:border-gray-300"
                         >
                           <option value="visible">Visivel</option>
