@@ -14,6 +14,7 @@
     "normalize:dynamic:whey-weight": "tsx scripts/normalizeDynamicCategoryAttributes.ts --group=suplementos --slug=whey",
     "normalize:dynamic:creatina-flavor": "tsx scripts/normalizeDynamicCategoryAttributes.ts --group=suplementos --slug=creatina",
     "audit:dynamic:creatina-weight": "tsx scripts/auditDynamicCreatineWeight.ts",
+    "update:supplement:names": "tsx scripts/updateSupplementNamesFromAmazon.ts",
     "process:priority-refresh": "tsx scripts/processPriorityDynamicRefreshQueue.ts",
     "update:ml": "tsx scripts/updateMercadoLivrePrices.ts",
     "import:amazon:creatina": "tsx scripts/importAmazonCreatines.ts",

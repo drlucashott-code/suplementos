@@ -1,0 +1,30 @@
+{
+  "generatedAt": "2026-04-01T20:27:18.380Z",
+  "total": 3,
+  "items": [
+    {
+      "id": "cmn0f85s30br4vakxn57k5n0u",
+      "asin": "B0D2LWJWCY",
+      "name": "Thin Snacks BOLD 40g 2 caixas",
+      "categorySlug": "barra",
+      "categoryName": "Barra de Proteína",
+      "updatedAt": "2026-04-01T20:25:36.885Z"
+    },
+    {
+      "id": "cmn0g3k8g0wb212kinqr8zkpu",
+      "asin": "B0FVGC3D7Y",
+      "name": "Tasty Whey Adaptogen Science 408g sachê",
+      "categorySlug": "whey",
+      "categoryName": "Whey Protein",
+      "updatedAt": "2026-04-01T20:25:15.278Z"
+    },
+    {
+      "id": "cmn0g4ikd0z1w12kilh5qa9xz",
+      "asin": "B09SVH5HKS",
+      "name": "Fresh Whey Dux Nutrition Lab 900g + coqueteleira",
+      "categorySlug": "whey",
+      "categoryName": "Whey Protein",
+      "updatedAt": "2026-04-01T20:11:55.075Z"
+    }
+  ]
+}

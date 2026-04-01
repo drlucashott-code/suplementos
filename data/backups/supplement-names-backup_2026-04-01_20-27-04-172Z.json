@@ -1,0 +1,110 @@
+{
+  "generatedAt": "2026-04-01T20:27:04.174Z",
+  "total": 13,
+  "items": [
+    {
+      "id": "cmn0gf0670f88mcclw0r0cnrg",
+      "asin": "B0DZ2ZPMSZ",
+      "name": "DK VASCULOR POWDER FRUTAS AMARELAS 300G",
+      "categorySlug": "pre-treino",
+      "categoryName": "Pré-treino",
+      "updatedAt": "2026-04-01T20:26:51.101Z"
+    },
+    {
+      "id": "cmn0f85s30br4vakxn57k5n0u",
+      "asin": "B0D2LWJWCY",
+      "name": "Thin Snacks BOLD 40g 2 caixas",
+      "categorySlug": "barra",
+      "categoryName": "Barra de Proteína",
+      "updatedAt": "2026-04-01T20:25:36.885Z"
+    },
+    {
+      "id": "cmn0g3k8g0wb212kinqr8zkpu",
+      "asin": "B0FVGC3D7Y",
+      "name": "Tasty Whey Adaptogen Science 408g sachê",
+      "categorySlug": "whey",
+      "categoryName": "Whey Protein",
+      "updatedAt": "2026-04-01T20:25:15.278Z"
+    },
+    {
+      "id": "cmn0ge4ey0cqgmcclm84ndnwk",
+      "asin": "B0CQDCF1FC",
+      "name": "Pré-Treino Sixt Army Nigth 300g - Soldiers Nutrition (300g, Limonada Suiça)",
+      "categorySlug": "pre-treino",
+      "categoryName": "Pré-treino",
+      "updatedAt": "2026-04-01T20:24:00.804Z"
+    },
+    {
+      "id": "cmn0ge58u0csomcclejyhi6oh",
+      "asin": "B0CQDBKBP8",
+      "name": "Pré-Treino Sixt Army Nigth 300g - Soldiers Nutrition (300g, Melancia)",
+      "categorySlug": "pre-treino",
+      "categoryName": "Pré-treino",
+      "updatedAt": "2026-04-01T20:24:00.495Z"
+    },
+    {
+      "id": "cmn0gcygh09lomcclixnl1kbx",
+      "asin": "B0F3M2ZQF9",
+      "name": "MAX TITANIUM SHOOK PRE-WORKOUT BRANDÃO MANGA E PÊSSEGO - 300G",
+      "categorySlug": "pre-treino",
+      "categoryName": "Pré-treino",
+      "updatedAt": "2026-04-01T20:23:59.729Z"
+    },
+    {
+      "id": "cmn0gcs8h093qmcclfcwel1wi",
+      "asin": "B0F3LF3PSG",
+      "name": "MAX TITANIUM SHOOK PRE-WORKOUT BRANDÃO UVA - 300G",
+      "categorySlug": "pre-treino",
+      "categoryName": "Pré-treino",
+      "updatedAt": "2026-04-01T20:23:59.423Z"
+    },
+    {
+      "id": "cmn0f976v0ezivakxo41h3p61",
+      "asin": "B08P52KJ8B",
+      "name": "Barra Whey Protein sabor Baunilha +Mu Caixa 12 un",
+      "categorySlug": "barra",
+      "categoryName": "Barra de Proteína",
+      "updatedAt": "2026-04-01T20:16:40.495Z"
+    },
+    {
+      "id": "cmn0f8wjn0e28vakxprnsbs7s",
+      "asin": "B0DCQMKWKY",
+      "name": "+Mu Chocowheyfer Proteico Caixa Mista - Display 12 unidades",
+      "categorySlug": "barra",
+      "categoryName": "Barra de Proteína",
+      "updatedAt": "2026-04-01T20:16:40.463Z"
+    },
+    {
+      "id": "cmn0f938q0en6vakxpx0g9nsq",
+      "asin": "B08DRHBKPW",
+      "name": "+Mu Chocowheyfer Proteico Sabor Baunilha - Display com 12 unidades - 300g",
+      "categorySlug": "barra",
+      "categoryName": "Barra de Proteína",
+      "updatedAt": "2026-04-01T20:16:40.428Z"
+    },
+    {
+      "id": "cmn0f8vgv0dywvakxx2jr6s52",
+      "asin": "B0BBK1R34Z",
+      "name": "+Mu Chocowheyfer Snack Proteico 6g proteina Sabor Cookies - Display com 12 unidades - 300g",
+      "categorySlug": "barra",
+      "categoryName": "Barra de Proteína",
+      "updatedAt": "2026-04-01T20:16:40.393Z"
+    },
+    {
+      "id": "cmn0f8xso0e66vakxsrqq7ceo",
+      "asin": "B0FTJ6H9GD",
+      "name": "+Mu Chocowheyfer Proteico Sabor Doce de Leite - Display 12 unidades 25g",
+      "categorySlug": "barra",
+      "categoryName": "Barra de Proteína",
+      "updatedAt": "2026-04-01T20:16:40.350Z"
+    },
+    {
+      "id": "cmn0g4ikd0z1w12kilh5qa9xz",
+      "asin": "B09SVH5HKS",
+      "name": "Fresh Whey Dux Nutrition Lab 900g + coqueteleira",
+      "categorySlug": "whey",
+      "categoryName": "Whey Protein",
+      "updatedAt": "2026-04-01T20:11:55.075Z"
+    }
+  ]
+}
