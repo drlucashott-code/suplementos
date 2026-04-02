@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 
 export type CacheResetState = {
   ok: boolean;
@@ -33,7 +34,7 @@ export default function CacheResetButton({
 }: {
   action: (prevState: CacheResetState, formData: FormData) => Promise<CacheResetState>;
 }) {
-  const [state, formAction] = useFormState(action, initialState);
+  const [state, formAction] = useActionState(action, initialState);
 
   return (
     <div className="flex flex-col items-stretch gap-2">

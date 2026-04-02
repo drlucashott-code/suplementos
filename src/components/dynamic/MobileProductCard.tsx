@@ -533,7 +533,8 @@ export function MobileProductCard({
                     <b className="font-medium text-zinc-700">{item.value}</b>
                   ) : (
                     <>
-                      {item.label}: <b className="font-medium text-zinc-700">{item.value}</b>
+                      {item.label}:
+                      <b className="ml-0.5 font-medium text-zinc-700">{item.value}</b>
                     </>
                   )}
                 </span>
