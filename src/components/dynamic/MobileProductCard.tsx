@@ -526,6 +526,7 @@ export function MobileProductCard({
 
           {visibleHighlights.length > 0 && (
             <div className="mb-2 flex flex-wrap items-center gap-x-1.5 text-[11px] text-zinc-500">
+              <span className="mr-1">•</span>
               {visibleHighlights.map((item, index) => (
                 <span key={item.key}>
                   {index > 0 && <span className="mr-1">•</span>}
