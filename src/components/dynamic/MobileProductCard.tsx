@@ -191,8 +191,16 @@ function formatDisplayValue(
     return "";
   }
 
-  if (config.key === "tipo_pet") {
-    return formatPetTypeValue(String(rawValue));
+  if (config.type === "text") {
+    const textValue = String(rawValue).trim();
+    if (config.key === "tipo_pet") {
+      return formatPetTypeValue(textValue);
+    }
+
+    const hasUppercase = /[A-ZÁÀÂÃÄÉÊËÍÎÏÓÔÕÖÚÛÜÇ]/.test(textValue);
+    return hasUppercase
+      ? textValue
+      : `${textValue.charAt(0).toUpperCase()}${textValue.slice(1)}`;
   }
 
   if (config.type === "number") {

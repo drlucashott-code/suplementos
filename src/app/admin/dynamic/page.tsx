@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { revalidateDynamicCatalogCategoryRefs } from "@/lib/dynamicCatalogRevalidation";
+import CacheResetButton, { type CacheResetState } from "@/components/admin/CacheResetButton";
 
 type CardColor = "blue" | "emerald" | "purple" | "sky" | "orange" | "yellow" | "red" | "amber" | "gray";
 
@@ -90,6 +92,37 @@ function AdminCard({
   );
 }
 
+async function revalidateAllDynamicCatalog(
+  _prevState: CacheResetState,
+  _formData: FormData
+): Promise<CacheResetState> {
+  "use server";
+
+  const categories = await prisma.dynamicCategory.findMany({
+    select: { group: true, slug: true },
+  });
+
+  const refs = categories
+    .map((category) => ({
+      group: category.group || "",
+      slug: category.slug,
+    }))
+    .filter((category) => category.group && category.slug);
+
+  if (refs.length > 0) {
+    revalidateDynamicCatalogCategoryRefs(refs);
+  }
+
+  return {
+    ok: true,
+    count: refs.length,
+    message:
+      refs.length > 0
+        ? `Cache limpo (${refs.length} categorias)`
+        : "Nenhuma categoria para revalidar",
+  };
+}
+
 export default async function AdminDynamicDashboard() {
   const [totalProducts, totalCategories] = await Promise.all([
     prisma.dynamicProduct.count(),
@@ -133,6 +166,8 @@ export default async function AdminDynamicDashboard() {
               </span>
             </div>
           </div>
+
+          <CacheResetButton action={revalidateAllDynamicCatalog} />
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">

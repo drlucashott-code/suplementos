@@ -1,6 +1,7 @@
 import { getHomeCategories, deleteDynamicCategory, type ConfigField } from '../nova-categoria/actions';
 import { normalizeDynamicDisplayConfig } from '@/lib/dynamicCategoryMetrics';
 import Link from 'next/link';
+import DeleteCategoryButton from "@/components/admin/DeleteCategoryButton";
 
 export default async function AdminCategoriasDynamic() {
   // Busca as categorias usando a action que já corrigimos para 'prisma.dynamicCategory'
@@ -72,14 +73,12 @@ export default async function AdminCategoriasDynamic() {
                         Editar
                       </Link>
                       
-                      <form action={async () => { 'use server'; await deleteDynamicCategory(cat.id); }}>
-                        <button 
-                          className="text-red-400 hover:text-red-600 font-bold text-xs uppercase tracking-tighter transition-colors"
-                          title="Excluir Categoria"
-                        >
-                          Excluir
-                        </button>
-                      </form>
+                      <DeleteCategoryButton
+                        action={async () => {
+                          "use server";
+                          await deleteDynamicCategory(cat.id);
+                        }}
+                      />
                     </div>
                   </td>
                 </tr>
