@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { X } from "lucide-react";
+import { GripVertical, X } from "lucide-react";
 import {
   buildPrimaryMetricFields,
   createPrimaryMetricDraft,
@@ -414,6 +414,8 @@ function CategoriaForm() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(Boolean(editId));
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [draggingFieldIndex, setDraggingFieldIndex] = useState<number | null>(null);
+  const [dragOverFieldIndex, setDragOverFieldIndex] = useState<number | null>(null);
 
   const primaryMetricDraft = useMemo(
     () =>
@@ -583,6 +585,16 @@ function CategoriaForm() {
 
   const removeField = (index: number) => {
     setDisplayConfig(displayConfig.filter((_, currentIndex) => currentIndex !== index));
+  };
+
+  const moveField = (fromIndex: number, toIndex: number) => {
+    setDisplayConfig((current) => {
+      if (fromIndex === toIndex) return current;
+      const next = [...current];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
   };
 
   const addCustomSort = () => {
@@ -1116,8 +1128,52 @@ function CategoriaForm() {
           {displayConfig.map((field, index) => (
             <div
               key={index}
-              className="relative flex flex-wrap items-end gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-gray-300 md:flex-nowrap"
+              className={`relative flex flex-wrap items-end gap-4 rounded-2xl border bg-white p-5 shadow-sm transition-all md:flex-nowrap ${
+                dragOverFieldIndex === index
+                  ? "border-blue-400 ring-2 ring-blue-100"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+              onDragOver={(event) => {
+                event.preventDefault();
+                if (dragOverFieldIndex !== index) {
+                  setDragOverFieldIndex(index);
+                }
+              }}
+              onDrop={() => {
+                if (draggingFieldIndex === null || draggingFieldIndex === index) {
+                  setDragOverFieldIndex(null);
+                  return;
+                }
+                moveField(draggingFieldIndex, index);
+                setDraggingFieldIndex(null);
+                setDragOverFieldIndex(null);
+              }}
+              onDragLeave={() => {
+                if (dragOverFieldIndex === index) {
+                  setDragOverFieldIndex(null);
+                }
+              }}
             >
+              <div className="flex h-full items-center">
+                <button
+                  type="button"
+                  draggable
+                  onDragStart={(event) => {
+                    setDraggingFieldIndex(index);
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", String(index));
+                  }}
+                  onDragEnd={() => {
+                    setDraggingFieldIndex(null);
+                    setDragOverFieldIndex(null);
+                  }}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-gray-400 transition hover:border-gray-300 hover:text-gray-600"
+                  title="Arraste para ordenar"
+                  aria-label="Arraste para ordenar"
+                >
+                  <GripVertical className="h-4 w-4" />
+                </button>
+              </div>
               <div className="min-w-[150px] flex-1">
                 <label className="mb-1 block text-[10px] font-black uppercase text-gray-400">
                   Rotulo (Publico)
