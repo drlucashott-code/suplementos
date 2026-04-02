@@ -1,0 +1,145 @@
+[
+  {
+    "asin": "B0977TL866",
+    "nome": "NexGard Spectra Antipulgas e Carrapatos e Vermífugo para Cães de 2 a 3,5kg - 1 tablete",
+    "marca": "nexgard",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 1,
+    "peso_pet_min": 2,
+    "peso_pet_max": 3.5,
+    "linha": "nexgard spectra"
+  },
+  {
+    "asin": "B07XZGQ82L",
+    "nome": "NexGard Antipulgas e Carrapatos para Cães de 2 a 4kg, 1 tablete",
+    "marca": "nexgard",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 1,
+    "peso_pet_min": 2,
+    "peso_pet_max": 4,
+    "linha": "nexgard"
+  },
+  {
+    "asin": "B07XZDZWTG",
+    "nome": "NexGard Antipulgas e Carrapatos para Cães de 4,1 a 10kg, 1 tablete",
+    "marca": "nexgard",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 1,
+    "peso_pet_min": 4.1,
+    "peso_pet_max": 10,
+    "linha": "nexgard"
+  },
+  {
+    "asin": "B0977TDYVS",
+    "nome": "NexGard Spectra Antipulgas e Carrapatos e Vermífugo para Cães de 3,6 a 7,5kg - 1 tablete",
+    "marca": "nexgard",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 1,
+    "peso_pet_min": 3.6,
+    "peso_pet_max": 7.5,
+    "linha": "nexgard spectra"
+  },
+  {
+    "asin": "B07MZZMXPC",
+    "nome": "Nexgard Antipulgas e Carrapatos para Cães de 10,1 a 25kg, 1 tablete",
+    "marca": "nexgard",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 1,
+    "peso_pet_min": 10.1,
+    "peso_pet_max": 25,
+    "linha": "nexgard"
+  },
+  {
+    "asin": "B0977T9WTB",
+    "nome": "NexGard Spectra Antipulgas e Carrapatos e Vermífugo para Cães de 7,6 a 15kg - 1 tablete",
+    "marca": "nexgard",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 1,
+    "peso_pet_min": 7.6,
+    "peso_pet_max": 15,
+    "linha": "nexgard spectra"
+  },
+  {
+    "asin": "B0977TBDC7",
+    "nome": "NexGard Spectra Antipulgas e Carrapatos e Vermífugo para Cães de 15,1 a 30kg - 1 tablete",
+    "marca": "nexgard",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 1,
+    "peso_pet_min": 15.1,
+    "peso_pet_max": 30,
+    "linha": "nexgard spectra"
+  },
+  {
+    "asin": "B0977SH2WT",
+    "nome": "NexGard Spectra Antipulgas e Carrapatos e Vermífugo para Cães de 30,1 a 60kg - 1 tablete",
+    "marca": "nexgard",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 1,
+    "peso_pet_min": 30.1,
+    "peso_pet_max": 60,
+    "linha": "nexgard spectra"
+  },
+  {
+    "asin": "B0CP4D9D3M",
+    "nome": "NexGard Spectra Antipulgas, Carrapatos e Vermífugos para Cães de 2 a 3,5kg - 3 tabletes",
+    "marca": "nexgard",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 3,
+    "peso_pet_min": 2,
+    "peso_pet_max": 3.5,
+    "linha": "nexgard spectra"
+  },
+  {
+    "asin": "B07M6KHQKT",
+    "nome": "NexGard Antipulgas e Carrapatos para Cães de 4,1 a 10kg 3 tabletes",
+    "marca": "nexgard",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 3,
+    "peso_pet_min": 4.1,
+    "peso_pet_max": 10,
+    "linha": "nexgard"
+  },
+  {
+    "asin": "B07Y5MKPF2",
+    "nome": "Antipulgas e Carrapatos Nexgard 1,25gr Merial p/Cães de 4,1 a 10kg - 3 Tabletes Mastigáveis",
+    "marca": "nexgard",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 3,
+    "peso_pet_min": 4.1,
+    "peso_pet_max": 10,
+    "linha": "nexgard"
+  },
+  {
+    "asin": "B0DJ1D3BGH",
+    "nome": "Nexgard COMBO Antipulgas e Sarna e Vermífugo para Gatos até 2,5 kg - 1 aplicador",
+    "marca": "nexgard",
+    "tipo_pet": "gato",
+    "forma": "pipeta",
+    "unidades": 1,
+    "peso_pet_min": null,
+    "peso_pet_max": 2.5,
+    "linha": "nexgard combo"
+  },
+  {
+    "asin": "B0DJ1DFSV4",
+    "nome": "Nexgard COMBO Antipulgas e Sarna e Vermífugo para Gatos de 2,5kg a 7,5 kg - 3 aplicadores",
+    "marca": "nexgard",
+    "tipo_pet": "gato",
+    "forma": "pipeta",
+    "unidades": 3,
+    "peso_pet_min": 2.5,
+    "peso_pet_max": 7.5,
+    "linha": "nexgard combo"
+  }
+]

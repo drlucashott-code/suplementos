@@ -402,6 +402,7 @@ function CategoriaForm() {
   const [analysisTitleTemplate, setAnalysisTitleTemplate] = useState("");
   const [bestValueAttributeKey, setBestValueAttributeKey] = useState("");
   const [dosePriceAttributeKey, setDosePriceAttributeKey] = useState("");
+  const [hideFromHome, setHideFromHome] = useState(false);
   const [customSorts, setCustomSorts] = useState<CustomSortConfig[]>([]);
   const [enabledSorts, setEnabledSorts] = useState<SortOptionValue[]>([
     "best_value",
@@ -520,6 +521,7 @@ function CategoriaForm() {
       setGroup(cat.group || "");
       setGroupName(cat.groupName || cat.group || "");
       setImageUrl(cat.imageUrl || "");
+      setHideFromHome(Boolean(settings.hideFromHome));
       setPrimaryMetricPreset(primaryDraftFromSettings.preset);
       setPrimaryMetricLabel(primaryDraftFromSettings.label);
       setPrimaryMetricUnitLabel(primaryDraftFromSettings.unitLabel);
@@ -673,6 +675,7 @@ function CategoriaForm() {
       primaryMetricPriceLabel: primaryMetricPriceLabel.trim() || undefined,
       enabledSorts,
       defaultSort,
+      hideFromHome,
       customSorts: customSorts
         .map((item) => ({
           value: item.value.trim(),
@@ -730,7 +733,7 @@ function CategoriaForm() {
         </h1>
       </div>
 
-      <div className="mb-8 grid grid-cols-1 gap-4 rounded-3xl border border-gray-200 bg-gray-50 p-6 shadow-sm md:grid-cols-5">
+      <div className="mb-8 grid grid-cols-1 gap-4 rounded-3xl border border-gray-200 bg-gray-50 p-6 shadow-sm md:grid-cols-6">
         <div>
           <label className="mb-2 ml-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">
             1. Nome do Nicho
@@ -793,6 +796,18 @@ function CategoriaForm() {
             placeholder="https://..."
             className="w-full rounded-xl border border-gray-200 bg-white p-3 font-mono text-xs font-bold outline-none focus:ring-2 focus:ring-yellow-400"
           />
+        </div>
+
+        <div className="flex items-end">
+          <label className="flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-xs font-semibold text-gray-700">
+            <input
+              type="checkbox"
+              checked={!hideFromHome}
+              onChange={(e) => setHideFromHome(!e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-yellow-500 focus:ring-yellow-400"
+            />
+            Mostrar na home
+          </label>
         </div>
       </div>
 

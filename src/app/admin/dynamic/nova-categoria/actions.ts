@@ -34,6 +34,7 @@ export type CategorySettings = DynamicCategoryMetricSettings & {
   defaultSort?: SortOptionValue;
   bestValueAttributeKey?: string;
   dosePriceAttributeKey?: string;
+  hideFromHome?: boolean;
   customSorts?: Array<{
     value: string;
     label: string;

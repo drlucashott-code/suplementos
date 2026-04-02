@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, Dumbbell, Home, ShieldCheck, TrendingUp } from "lucide-react";
+import { BarChart3, Dumbbell, Home, ShieldCheck, TrendingUp, PawPrint } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "./Header";
@@ -22,7 +22,7 @@ function TrackHomeView() {
   return null;
 }
 
-type HubKey = "suplementos" | "casa";
+type HubKey = "suplementos" | "casa" | "pets";
 
 export type CategoryItem = {
   title: string;
@@ -182,20 +182,28 @@ function chunkQuickHeroCategories(items: QuickCategoryItem[], size: number) {
 
 export default function HomePageClient({
   houseCategories,
+  petCategories,
   bestDeals,
 }: {
   houseCategories: CategoryItem[];
+  petCategories: CategoryItem[];
   bestDeals: BestDeal[];
 }) {
   const router = useRouter();
   const [selectedHub, setSelectedHub] = useState<HubKey>("suplementos");
 
+  const headerCategories = useMemo(
+    () => [...houseCategories, ...petCategories],
+    [houseCategories, petCategories]
+  );
+
   const categoryGroups = useMemo<Record<HubKey, CategoryItem[]>>(
     () => ({
       suplementos: sortCategories(supplementsCategories),
       casa: sortCategories(houseCategories),
+      pets: sortCategories(petCategories),
     }),
-    [houseCategories]
+    [houseCategories, petCategories]
   );
 
   const quickHeroCategories = useMemo(
@@ -210,13 +218,17 @@ export default function HomePageClient({
 
   const visibleCategories = categoryGroups[selectedHub];
 
-  const handleCategoryClick = (path: string, categoryName: string) => {
+  const handleCategoryClick = (
+    path: string,
+    categoryName: string,
+    hubName: string = selectedHub
+  ) => {
     const win = window as typeof window & { dataLayer?: object[] };
     if (win.dataLayer) {
       win.dataLayer.push({
         event: "click_category",
         category_name: categoryName,
-        hub_name: selectedHub,
+        hub_name: hubName,
       });
     }
 
@@ -239,7 +251,7 @@ export default function HomePageClient({
     <main className="min-h-screen bg-[#E3E6E6] pb-12 font-sans">
       <TrackHomeView />
 
-      <Header extraCategories={houseCategories} />
+      <Header extraCategories={headerCategories} />
 
         <div className="bg-[#37475A] px-4 py-2 text-center text-[11px] font-medium text-white">
           <div className="flex items-center justify-center gap-2">
@@ -325,6 +337,16 @@ export default function HomePageClient({
                     active={selectedHub === "casa"}
                     onClick={() => handleHubClick("casa")}
                   />
+                  {petCategories.length > 0 ? (
+                    <HubToggleChip
+                      title="Pets"
+                      subtitle="Antipulgas, higiene e mais"
+                      icon={<PawPrint className="h-4 w-4" />}
+                      badge="Novo"
+                      active={selectedHub === "pets"}
+                      onClick={() => handleHubClick("pets")}
+                    />
+                  ) : null}
                 </div>
                 <p className="mt-5 text-[12px] text-[#565959]">
                   Abra uma categoria para ver os produtos com ordenação e filtros próprios.

@@ -1,4 +1,5 @@
 import HomePageClient, { type CategoryItem } from "./HomePageClient";
+import { normalizeDynamicDisplayConfig } from "@/lib/dynamicCategoryMetrics";
 import { prisma } from "@/lib/prisma";
 import { getBestDeals } from "@/lib/bestDeals";
 
@@ -6,8 +7,15 @@ type DynamicCategoryWithImageReader = {
   findMany: (args: {
     where: { group: string };
     orderBy: { name: "asc" | "desc" };
-    select: { name: true; slug: true; imageUrl: true };
-  }) => Promise<Array<{ name: string; slug: string; imageUrl?: string | null }>>;
+    select: { name: true; slug: true; imageUrl: true; displayConfig: true };
+  }) => Promise<
+    Array<{
+      name: string;
+      slug: string;
+      imageUrl?: string | null;
+      displayConfig: unknown;
+    }>
+  >;
 };
 
 const houseCategoryFallbacks: CategoryItem[] = [
@@ -66,27 +74,76 @@ async function getHouseCategories(): Promise<CategoryItem[]> {
         name: true,
         slug: true,
         imageUrl: true,
+        displayConfig: true,
       },
     });
 
-    return categories.map((category) => ({
-      title: category.name,
-      imageSrc:
-        category.imageUrl ||
-        houseCategoryFallbackMap[category.slug]?.imageSrc ||
-        "https://m.media-amazon.com/images/I/61NJbm2a9tL._AC_SL1200_.jpg",
-      path: `/casa/${category.slug}`,
-    }));
+    return categories
+      .filter((category) => {
+        const settings =
+          normalizeDynamicDisplayConfig(category.displayConfig).settings ?? {};
+        return !settings.hideFromHome;
+      })
+      .map((category) => ({
+        title: category.name,
+        imageSrc:
+          category.imageUrl ||
+          houseCategoryFallbackMap[category.slug]?.imageSrc ||
+          "https://m.media-amazon.com/images/I/61NJbm2a9tL._AC_SL1200_.jpg",
+        path: `/casa/${category.slug}`,
+      }));
   } catch {
     return houseCategoryFallbacks;
   }
 }
 
+async function getPetCategories(): Promise<CategoryItem[]> {
+  try {
+    const dynamicCategoryReader =
+      prisma.dynamicCategory as unknown as DynamicCategoryWithImageReader;
+
+    const categories = await dynamicCategoryReader.findMany({
+      where: { group: "pets" },
+      orderBy: { name: "asc" },
+      select: {
+        name: true,
+        slug: true,
+        imageUrl: true,
+        displayConfig: true,
+      },
+    });
+
+    return categories
+      .filter((category) => {
+        const settings =
+          normalizeDynamicDisplayConfig(category.displayConfig).settings ?? {};
+        return !settings.hideFromHome;
+      })
+      .map((category) => ({
+        title: category.name,
+        imageSrc:
+          category.imageUrl ||
+          houseCategoryFallbackMap[category.slug]?.imageSrc ||
+          "https://m.media-amazon.com/images/I/61NJbm2a9tL._AC_SL1200_.jpg",
+        path: `/pets/${category.slug}`,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 export default async function HomePage() {
-  const [houseCategories, bestDeals] = await Promise.all([
+  const [houseCategories, petCategories, bestDeals] = await Promise.all([
     getHouseCategories(),
+    getPetCategories(),
     getBestDeals(6),
   ]);
 
-  return <HomePageClient houseCategories={houseCategories} bestDeals={bestDeals} />;
+  return (
+    <HomePageClient
+      houseCategories={houseCategories}
+      petCategories={petCategories}
+      bestDeals={bestDeals}
+    />
+  );
 }

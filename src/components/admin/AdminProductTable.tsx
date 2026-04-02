@@ -94,6 +94,57 @@ function solveMath(input: string): string {
   return input;
 }
 
+function formatAdminPetType(value: string) {
+  const normalized = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, "");
+
+  if (normalized === "cachorro" || normalized === "cao") return "Cão";
+  if (normalized === "gato") return "Gato";
+  if (
+    normalized === "cachorro/gato" ||
+    normalized === "cachorroegato" ||
+    normalized === "cachorro,gato" ||
+    normalized === "cao/gato" ||
+    normalized === "caoegato"
+  ) {
+    return "Cão/gato";
+  }
+
+  return value;
+}
+
+function formatAdminTextValue(value: string, key?: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+
+  if (key === "tipo_pet" || key === "tipo") {
+    return formatAdminPetType(trimmed);
+  }
+
+  const normalized = trimmed
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, "");
+
+  if (normalized === "cachorro" || normalized === "cao") return "Cão";
+  if (normalized === "gato") return "Gato";
+  if (
+    normalized === "cachorro/gato" ||
+    normalized === "cachorroegato" ||
+    normalized === "cachorro,gato" ||
+    normalized === "cao/gato" ||
+    normalized === "caoegato"
+  ) {
+    return "Cão/gato";
+  }
+
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
+
 function normalizeDisplayConfig(rawConfig: Prisma.JsonValue): DisplayConfigItem[] {
   if (Array.isArray(rawConfig)) {
     return rawConfig as unknown as DisplayConfigItem[];
@@ -1245,7 +1296,10 @@ export function AdminProductTable({
 
                     {dynamicColumns.map((col) => {
                       const currentValue = getAttributeValue(attrs, col.key);
-                      const displayValue = currentValue == null ? "" : String(currentValue);
+                      let displayValue = currentValue == null ? "" : String(currentValue);
+                      if (col.type === "text" && displayValue) {
+                        displayValue = formatAdminTextValue(displayValue, col.key);
+                      }
                       const isMissing = isMissingEditableValue(currentValue);
 
                       return (
@@ -1256,17 +1310,21 @@ export function AdminProductTable({
                             }`}
                             defaultValue={displayValue}
                             onBlur={(e) => {
-                              const val =
+                              let val =
                                 col.type === "number"
                                   ? solveMath(e.target.value)
                                   : e.target.value;
 
-                              e.target.value = val;
+                              if (col.type === "text") {
+                                val = formatAdminTextValue(String(val), col.key);
+                              }
+
+                              e.target.value = String(val);
 
                               handleQuickUpdate(
                                 p.id,
                                 col.key === "volume" ? "volumeMl" : col.key,
-                                col.type === "number" ? Number(val) : val,
+                                col.type === "number" ? Number(val) : String(val),
                                 true
                               );
                             }}
@@ -1277,15 +1335,20 @@ export function AdminProductTable({
 
                     <td className="px-3 py-3 text-center">
                       <input
-                        className={`w-full rounded-lg border bg-white px-2 py-1 text-center text-[9px] font-black uppercase italic text-gray-500 focus:ring-0 ${
+                        className={`w-full rounded-lg border bg-white px-2 py-1 text-center text-[10px] font-black italic text-gray-600 focus:ring-0 ${
                           isMissingEditableValue(attrs.marca ?? attrs.brand)
                             ? "border-red-500"
                             : "border-black"
                         }`}
-                        defaultValue={String(attrs.marca ?? attrs.brand ?? "")}
-                        onBlur={(e) =>
-                          handleQuickUpdate(p.id, "marca", e.target.value, true)
-                        }
+                        defaultValue={formatAdminTextValue(
+                          String(attrs.marca ?? attrs.brand ?? ""),
+                          "marca"
+                        )}
+                        onBlur={(e) => {
+                          const formatted = formatAdminTextValue(e.target.value, "marca");
+                          e.target.value = formatted;
+                          handleQuickUpdate(p.id, "marca", formatted, true);
+                        }}
                       />
                     </td>
 

@@ -184,8 +184,30 @@ const sortFilterValues = (values: string[], type: DisplayConfigField["type"]) =>
   return [...values].sort((a, b) => a.localeCompare(b, "pt-BR"));
 };
 
-const formatPublicFilterValue = (value: string, type: DisplayConfigField["type"]) => {
-  if (type === "number") {
+const formatPetTypeValue = (value: string) => {
+  const normalized = removeAccents(value).toLowerCase().replace(/\s+/g, "");
+
+  if (normalized === "cachorro" || normalized === "cao") return "Cão";
+  if (normalized === "gato") return "Gato";
+  if (
+    normalized === "cachorro/gato" ||
+    normalized === "cachorroegato" ||
+    normalized === "cachorro,gato" ||
+    normalized === "cao/gato" ||
+    normalized === "caoegato"
+  ) {
+    return "Cão/gato";
+  }
+
+  return value;
+};
+
+const formatPublicFilterValue = (value: string, config: DisplayConfigField) => {
+  if (config.key === "tipo_pet") {
+    return formatPetTypeValue(value);
+  }
+
+  if (config.type === "number") {
     const numericValue = Number(value);
     if (!Number.isNaN(numericValue)) {
       return Math.round(numericValue).toString();
@@ -430,14 +452,14 @@ const buildBucketedFilterOptions = ({
   if (config.type !== "number" || !bucketConfig || numericValues.length <= 6) {
     return sortFilterValues(values, config.type).map((value) => ({
       value,
-      label: formatPublicFilterValue(value, config.type),
+      label: formatPublicFilterValue(value, config),
     }));
   }
 
   if (!bucketConfig.step || bucketConfig.step <= 0) {
     return sortFilterValues(values, config.type).map((value) => ({
       value,
-      label: formatPublicFilterValue(value, config.type),
+      label: formatPublicFilterValue(value, config),
     }));
   }
 
@@ -475,7 +497,7 @@ const buildBucketedFilterOptions = ({
     ? options
     : sortFilterValues(values, config.type).map((value) => ({
         value,
-        label: formatPublicFilterValue(value, config.type),
+        label: formatPublicFilterValue(value, config),
       }));
 };
 
@@ -501,6 +523,10 @@ const getDerivedAttributeMetric = (
 
   const unitsPerBox = getNumericAttribute(attrs, "unitsPerBox");
   const unitsPerPack = getNumericAttribute(attrs, "unitsPerPack");
+  const units =
+    getNumericAttribute(attrs, "units") ||
+    getNumericAttribute(attrs, "unidades") ||
+    getNumericAttribute(attrs, "quantidade");
   const numberOfDoses =
     getNumericAttribute(attrs, "numberOfDoses") || getNumericAttribute(attrs, "doses");
   const totalProteinInGrams = getNumericAttribute(attrs, "totalProteinInGrams");
@@ -511,7 +537,11 @@ const getDerivedAttributeMetric = (
     case "precoPorBarra":
       return unitsPerBox > 0 ? totalPrice / unitsPerBox : 0;
     case "precoPorUnidade":
-      return unitsPerPack > 0 ? totalPrice / unitsPerPack : 0;
+      return unitsPerPack > 0
+        ? totalPrice / unitsPerPack
+        : units > 0
+          ? totalPrice / units
+          : 0;
     case "precoPorDose":
       return numberOfDoses > 0 ? totalPrice / numberOfDoses : 0;
     case "precoPorMl":

@@ -1,0 +1,314 @@
+"URL": "https://m.media-amazon.com/images/I/51fNg7U1f4L._SL500_.jpg",           "Width": 500         }       }     },     "ItemInfo": {       "ByLineInfo": {         "Brand": {           "DisplayValue": "Merial",           "Label": "Brand",           "Locale": "pt_BR"         },         "Manufacturer": {           "DisplayValue": "MERIAL",           "Label": "Manufacturer",           "Locale": "pt_BR"         }       },       "Classifications": {         "Binding": {           "DisplayValue": "Diversos",           "Label": "Binding",           "Locale": "pt_BR"         },         "ProductGroup": {           "DisplayValue": "Pet Products",           "Label": "ProductGroup",           "Locale": "pt_BR"         }       },       "Features": {         "DisplayValues": [           "Recomendado para tratamento de pulgas"         ],         "Label": "Features",         "Locale": "pt_BR"       },       "Title": {         "DisplayValue": "Antipulgas E Carrapatos Cães Nexgard 10 A 25kg - Kit Com 02",         "Label": "Title",         "Locale": "pt_BR"       }     }   },   {     "ASIN": "B0CK52R56W",     "BrowseNodeInfo": {       "BrowseNodes": [         {           "ContextFreeName": "Dog Pulga Drops",           "DisplayName": "Gotas de pulgas",           "Id": "23884257011",           "IsRoot": false         }       ]     },     "DetailPageURL": "https://www.amazon.com.br/dp/B0CK52R56W?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",     "Images": {       "Primary": {         "Large": {           "Height": 500,           "URL": "https://m.media-amazon.com/images/I/413salp35ZL._SL500_.jpg",           "Width": 500         }       },       "Variants": [         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/41WZfq+xuyL._SL500_.jpg",             "Width": 498           }         },         {           "Large": {             "Height": 496,             "URL": "https://m.media-amazon.com/images/I/41m44mH6qJL._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/41dNYDTz23L._SL500_.jpg",             "Width": 495           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/414STEh6SIL._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/41xErp8U+wL._SL500_.jpg",             "Width": 495           }         },         {           "Large": {             "Height": 281,             "URL": "https://m.media-amazon.com/images/I/41eAV6LBicL._SL500_.jpg",             "Width": 500           }         }       ]     },     "ItemInfo": {       "ByLineInfo": {         "Brand": {           "DisplayValue": "BRAVECTO",           "Label": "Brand",           "Locale": "pt_BR"         },         "Manufacturer": {           "DisplayValue": "MSD",           "Label": "Manufacturer",           "Locale": "pt_BR"         }       },       "Classifications": {         "Binding": {           "DisplayValue": "Diversos",           "Label": "Binding",           "Locale": "pt_BR"         },         "ProductGroup": {           "DisplayValue": "Pet Products",           "Label": "ProductGroup",           "Locale": "pt_BR"         }       },       "Title": {         "DisplayValue": "Bravecto Cães Antipulgas e Carrapatos MSD 500mg 10-20 kg | Kit com Bolsa Bravecto",         "Label": "Title",         "Locale": "pt_BR"       }     }   },   {     "ASIN": "B0F5FSSV9W",     "BrowseNodeInfo": {       "BrowseNodes": [         {           "ContextFreeName": "Coleiras de pulgas de cão",           "DisplayName": "Coleiras de pulgas e carrapatos",           "Id": "23884254011",           "IsRoot": false         }       ]     },     "DetailPageURL": "https://www.amazon.com.br/dp/B0F5FSSV9W?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",     "Images": {       "Primary": {         "Large": {           "Height": 500,           "URL": "https://m.media-amazon.com/images/I/31lb5gWZ2ZL._SL500_.jpg",           "Width": 500         }       },       "Variants": [         {           "Large": {             "Height": 487,             "URL": "https://m.media-amazon.com/images/I/41kg48knmRL._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 473,             "URL": "https://m.media-amazon.com/images/I/412SqCo+8AL._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 465,             "URL": "https://m.media-amazon.com/images/I/41Im5v1jNcL._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/51Ho3bUmf3L._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/41IVWQuxoDL._SL500_.jpg",             "Width": 500           }         }       ]     },     "ItemInfo": {       "ByLineInfo": {         "Brand": {           "DisplayValue": "BRAVECTO",           "Label": "Brand",           "Locale": "pt_BR"         },         "Manufacturer": {           "DisplayValue": "BRAVECTO",           "Label": "Manufacturer",           "Locale": "pt_BR"         }       },       "Classifications": {         "Binding": {           "DisplayValue": "Diversos",           "Label": "Binding",           "Locale": "pt_BR"         },         "ProductGroup": {           "DisplayValue": "Pet Products",           "Label": "ProductGroup",           "Locale": "pt_BR"         }       },       "Title": {         "DisplayValue": "Bravecto Antipulgas Caes 20 A 40kg + Surpresa",         "Label": "Title",         "Locale": "pt_BR"       }     }   },   {     "ASIN": "B08WRGWV8K",     "BrowseNodeInfo": {       "BrowseNodes": [         {           "ContextFreeName": "Dog Pulga Drops",           "DisplayName": "Gotas de pulgas",           "Id": "23884257011",           "IsRoot": false         },         {           "ContextFreeName": "Guia de presentes em Pet Shop",           "DisplayName": "Guia de presentes em Pet Shop",           "Id": "20803417011",           "IsRoot": false         },         {           "ContextFreeName": "30% off em Pet Shop",           "DisplayName": "30% off em Pet Shop",           "Id": "20882048011",           "IsRoot": false         }       ]     },     "DetailPageURL": "https://www.amazon.com.br/dp/B08WRGWV8K?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",     "Images": {       "Primary": {         "Large": {           "Height": 500,           "URL": "https://m.media-amazon.com/images/I/51eiZ2pGjnS._SL500_.jpg",           "Width": 500         }       }     },     "ItemInfo": {       "ByLineInfo": {         "Brand": {           "DisplayValue": "Jheppbay",           "Label": "Brand",           "Locale": "pt_BR"         },         "Manufacturer": {           "DisplayValue": "BRAVECTO",           "Label": "Manufacturer",           "Locale": "pt_BR"         }       },       "Classifications": {         "ProductGroup": {           "DisplayValue": "Pet Products",           "Label": "ProductGroup",           "Locale": "pt_BR"         }       },       "Title": {         "DisplayValue": "Bravecto Antipulgas e Carrapatos Para Cães 20 a 40Kg + Luva Soft Pet Mascotito Azul",         "Label": "Title",         "Locale": "pt_BR"       }     }   },   {     "ASIN": "B0CK53VL3S",     "BrowseNodeInfo": {       "BrowseNodes": [         {           "ContextFreeName": "Dog Pulga Drops",           "DisplayName": "Gotas de pulgas",           "Id": "23884257011",           "IsRoot": false         }       ]     },     "DetailPageURL": "https://www.amazon.com.br/dp/B0CK53VL3S?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",     "Images": {       "Primary": {         "Large": {           "Height": 500,           "URL": "https://m.media-amazon.com/images/I/41Yib2IoNhL._SL500_.jpg",           "Width": 500         }       },       "Variants": [         {           "Large": {             "Height": 459,             "URL": "https://m.media-amazon.com/images/I/419HnP9yu1L._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/41tgea0fZcL._SL500_.jpg",             "Width": 495           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/41dNYDTz23L._SL500_.jpg",             "Width": 495           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/414STEh6SIL._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/41xErp8U+wL._SL500_.jpg",             "Width": 495           }         },         {           "Large": {             "Height": 281,             "URL": "https://m.media-amazon.com/images/I/41eAV6LBicL._SL500_.jpg",             "Width": 500           }         }       ]     },     "ItemInfo": {       "ByLineInfo": {         "Brand": {           "DisplayValue": "BRAVECTO",           "Label": "Brand",           "Locale": "pt_BR"         },         "Manufacturer": {           "DisplayValue": "MSD",           "Label": "Manufacturer",           "Locale": "pt_BR"         }       },       "Classifications": {         "Binding": {           "DisplayValue": "Diversos",           "Label": "Binding",           "Locale": "pt_BR"         },         "ProductGroup": {           "DisplayValue": "Pet Products",           "Label": "ProductGroup",           "Locale": "pt_BR"         }       },       "Features": {         "DisplayValues": [           "Antipulgas e carrapatos para cães de 2-4 kg",           "Kit inclui bolsa Bravecto",           "Dose única de 1mg da marca MSD"         ],         "Label": "Features",         "Locale": "pt_BR"       },       "Title": {         "DisplayValue": "Bravecto Cães Antipulgas e Carrapatos MSD 1000mg 20-40 kg | Kit com Bolsa Bravecto",         "Label": "Title",         "Locale": "pt_BR"       }     }   },   {     "ASIN": "B09SRWQJRB",     "BrowseNodeInfo": {       "BrowseNodes": [         {           "ContextFreeName": "Dog Pulga Drops",           "DisplayName": "Gotas de pulgas",           "Id": "23884257011",           "IsRoot": false         },         {           "ContextFreeName": "Guia de presentes em Pet Shop",           "DisplayName": "Guia de presentes em Pet Shop",           "Id": "20803417011",           "IsRoot": false         }       ]     },     "DetailPageURL": "https://www.amazon.com.br/dp/B09SRWQJRB?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",     "Images": {       "Primary": {         "Large": {           "Height": 351,           "URL": "https://m.media-amazon.com/images/I/41AIF1XfnmL._SL500_.jpg",           "Width": 500         }       },       "Variants": [         {           "Large": {             "Height": 355,             "URL": "https://m.media-amazon.com/images/I/41eINzwCfPL._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/41-0zj9FwfL._SL500_.jpg",             "Width": 425           }         },         {           "Large": {             "Height": 239,             "URL": "https://m.media-amazon.com/images/I/41FHTxVGgKL._SL500_.jpg",             "Width": 500           }         }       ]     },     "ItemInfo": {       "ByLineInfo": {         "Brand": {           "DisplayValue": "Dechra",           "Label": "Brand",           "Locale": "pt_BR"         },         "Manufacturer": {           "DisplayValue": "DECHRA",           "Label": "Manufacturer",           "Locale": "pt_BR"         }       },       "Classifications": {         "Binding": {           "DisplayValue": "Encadernação desconhecida",           "Label": "Binding",           "Locale": "pt_BR"         },         "ProductGroup": {           "DisplayValue": "Pet Products",           "Label": "ProductGroup",           "Locale": "pt_BR"         }       },       "Features": {         "DisplayValues": [           "Cartuchos embalagem hospitalar contendo 20 blísters de 1 comprimido cada.",           "Contém 20 comprimidos, oferecendo um tratamento antipulgas de longa duração para cães de 11,4 a 57 kg",           "Apresentação em cartuchos com 20 blísters, cada um contendo 1 comprimido, em embalagem hospitalar"         ],         "Label": "Features",         "Locale": "pt_BR"       },       "ProductInfo": {         "Color": {           "DisplayValue": "Incolor",           "Label": "Color",           "Locale": "pt_BR"         },         "ItemDimensions": {           "Height": {             "DisplayValue": 4.330708657,             "Label": "Height",             "Locale": "pt_BR",             "Unit": "Polegadas"           },           "Length": {             "DisplayValue": 2.362204722,             "Label": "Length",             "Locale": "pt_BR",             "Unit": "Polegadas"           },           "Width": {             "DisplayValue": 0.5905511805,             "Label": "Width",             "Locale": "pt_BR",             "Unit": "Polegadas"           }         },         "Size": {           "DisplayValue": "0",           "Label": "Size",           "Locale": "pt_BR"         },         "UnitCount": {           "DisplayValue": 20,           "Label": "NumberOfItems",           "Locale": "en_US"         }       },       "Title": {         "DisplayValue": "INVICTO 57 MG 20 BLISTER 1 CP",         "Label": "Title",         "Locale": "pt_BR"       }     }   },   {     "ASIN": "B08JTLLRTQ",     "BrowseNodeInfo": {       "BrowseNodes": [         {           "ContextFreeName": "Pílulas Dog Pulga",           "DisplayName": "Pílulas de pulgas",           "Id": "120957541011",           "IsRoot": false         }       ]     },     "DetailPageURL": "https://www.amazon.com.br/dp/B08JTLLRTQ?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",     "Images": {       "Primary": {         "Large": {           "Height": 420,           "URL": "https://m.media-amazon.com/images/I/41MxFwHZz3L._SL500_.jpg",           "Width": 420         }       }     },     "ItemInfo": {       "ByLineInfo": {         "Brand": {           "DisplayValue": "Elanco",           "Label": "Brand",           "Locale": "pt_BR"         },         "Manufacturer": {           "DisplayValue": "ELANCO",           "Label": "Manufacturer",           "Locale": "pt_BR"         }       },       "Classifications": {         "Binding": {           "DisplayValue": "Diversos",           "Label": "Binding",           "Locale": "pt_BR"         },         "ProductGroup": {           "DisplayValue": "Pet Products",           "Label": "ProductGroup",           "Locale": "pt_BR"         }       },       "Features": {         "DisplayValues": [           "Elimina pulgas em 6 horas e carrapatos em 8 horas, incluindo o responsável pela Febre Maculosa",           "Comprimido mensal palatável, testado em 7 raças diferentes de cães",           "Seguro para cães adultos e filhotes a partir de 8 semanas, atingindo pico máximo sangue em 2 horas"         ],         "Label": "Features",         "Locale": "pt_BR"       },       "Title": {         "DisplayValue": "Antipulgas e Carrapatos Credeli Cães de 11,0 A 22,0 KG",         "Label": "Title",         "Locale": "pt_BR"       }     }   },   {     "ASIN": "B007RQ43E4",     "BrowseNodeInfo": {       "BrowseNodes": [         {           "ContextFreeName": "Dog Pulga Drops",           "DisplayName": "Gotas de pulgas",           "Id": "23884257011",           "IsRoot": false         },         {           "ContextFreeName": "Guia de presentes em Pet Shop",           "DisplayName": "Guia de presentes em Pet Shop",           "Id": "20803417011",           "IsRoot": false         },         {           "ContextFreeName": "30% off em Pet Shop",           "DisplayName": "30% off em Pet Shop",           "Id": "20882048011",           "IsRoot": false         }       ]     },     "DetailPageURL": "https://www.amazon.com.br/dp/B007RQ43E4?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",     "Images": {       "Primary": {         "Large": {           "Height": 500,           "URL": "https://m.media-amazon.com/images/I/419HG5lo14L._SL500_.jpg",           "Width": 327         }       },       "Variants": [         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/41GEWPMemlL._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/41tsrgT0gUL._SL500_.jpg",             "Width": 500           }         }       ]     },     "ItemInfo": {       "ByLineInfo": {         "Brand": {           "DisplayValue": "BRAVECTO",           "Label": "Brand",           "Locale": "pt_BR"         }       },       "Classifications": {         "Binding": {           "DisplayValue": "Sapatos",           "Label": "Binding",           "Locale": "pt_BR"         },         "ProductGroup": {           "DisplayValue": "Shoes",           "Label": "ProductGroup",           "Locale": "pt_BR"         }       },       "Title": {         "DisplayValue": "BRAVECTO Antipulgas e Vermifugo para Cães de 40 a 56kg",         "Label": "Title",         "Locale": "pt_BR"       }     }   },   {     "ASIN": "B08JH5V196",     "BrowseNodeInfo": {       "BrowseNodes": [         {           "ContextFreeName": "Dog Pulga Drops",           "DisplayName": "Gotas de pulgas",           "Id": "23884257011",           "IsRoot": false         },         {           "ContextFreeName": "Guia de presentes em Pet Shop",           "DisplayName": "Guia de presentes em Pet Shop",           "Id": "20803417011",           "IsRoot": false         },         {           "ContextFreeName": "30% off em Pet Shop",           "DisplayName": "30% off em Pet Shop",           "Id": "20882048011",           "IsRoot": false         }       ]     },     "DetailPageURL": "https://www.amazon.com.br/dp/B08JH5V196?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",     "Images": {       "Primary": {         "Large": {           "Height": 500,           "URL": "https://m.media-amazon.com/images/I/51s9kqrOebL._SL500_.jpg",           "Width": 500         }       }     },     "ItemInfo": {       "ByLineInfo": {         "Brand": {           "DisplayValue": "Bravecto",           "Label": "Brand",           "Locale": "pt_BR"         },         "Manufacturer": {           "DisplayValue": "INTERSUL PRODUTOS VETERINARIOS",           "Label": "Manufacturer",           "Locale": "pt_BR"         }       },       "Classifications": {         "Binding": {           "DisplayValue": "Diversos",           "Label": "Binding",           "Locale": "pt_BR"         },         "ProductGroup": {           "DisplayValue": "Pet Products",           "Label": "ProductGroup",           "Locale": "pt_BR"         }       },       "Features": {         "DisplayValues": [           "Antipulgas",           "Anti Carrapatos"         ],         "Label": "Features",         "Locale": "pt_BR"       },       "ProductInfo": {         "Color": {           "DisplayValue": "multi-colored",           "Label": "Color",           "Locale": "pt_BR"         },         "ItemDimensions": {           "Height": {             "DisplayValue": 0.787401574,             "Label": "Height",             "Locale": "pt_BR",             "Unit": "Polegadas"           },           "Length": {             "DisplayValue": 6.299212592,             "Label": "Length",             "Locale": "pt_BR",             "Unit": "Polegadas"           },           "Weight": {             "DisplayValue": 0.9259415004,             "Label": "Weight",             "Locale": "pt_BR",             "Unit": "Libras"           },           "Width": {             "DisplayValue": 4.330708657,             "Label": "Width",             "Locale": "pt_BR",             "Unit": "Polegadas"           }         },         "UnitCount": {           "DisplayValue": 1,           "Label": "NumberOfItems",           "Locale": "en_US"         }       },       "Title": {         "DisplayValue": "Bravecto Combo Antipulgas E Carrapatos De 4,5 A 10kg",         "Label": "Title",         "Locale": "pt_BR"       }     }   },   {     "ASIN": "B07ZG4K25V",     "BrowseNodeInfo": {       "BrowseNodes": [         {           "ContextFreeName": "Dog Pulga Drops",           "DisplayName": "Gotas de pulgas",           "Id": "23884257011",           "IsRoot": false         },         {           "ContextFreeName": "Guia de presentes em Pet Shop",           "DisplayName": "Guia de presentes em Pet Shop",           "Id": "20803417011",           "IsRoot": false         },         {           "ContextFreeName": "30% off em Pet Shop",           "DisplayName": "30% off em Pet Shop",           "Id": "20882048011",           "IsRoot": false         }       ]     },     "DetailPageURL": "https://www.amazon.com.br/dp/B07ZG4K25V?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",     "Images": {       "Primary": {         "Large": {           "Height": 420,           "URL": "https://m.media-amazon.com/images/I/51lPsyV4KWL._SL500_.jpg",           "Width": 500         }       },       "Variants": [         {           "Large": {             "Height": 420,             "URL": "https://m.media-amazon.com/images/I/51lPsyV4KWL._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 491,             "URL": "https://m.media-amazon.com/images/I/51q6zgbM6PL._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 494,             "URL": "https://m.media-amazon.com/images/I/61P58wdzAYL._SL500_.jpg",             "Width": 500           }         }       ]     },     "ItemInfo": {       "ByLineInfo": {         "Brand": {           "DisplayValue": "Nexgard",           "Label": "Brand",           "Locale": "pt_BR"         },         "Manufacturer": {           "DisplayValue": "Boehringer Ingelheim",           "Label": "Manufacturer",           "Locale": "pt_BR"         }       },       "Classifications": {         "ProductGroup": {           "DisplayValue": "Pet Products",           "Label": "ProductGroup",           "Locale": "pt_BR"         }       },       "Features": {         "DisplayValues": [           "Indicado para cães com peso entre 25,1 a 50 kg",           "Tablete mastigável sabor carne que os cães adoram",           "Proteção mensal contra pulgas e carrapatos"         ],         "Label": "Features",         "Locale": "pt_BR"       },       "Title": {         "DisplayValue": "Nexgard Antipulgas e Carrapatos 6,0gr Merial p/Cães de 25,1 a 50kg - 3 Tabletes Mastigáveis",         "Label": "Title",         "Locale": "pt_BR"       }     }   },   {     "ASIN": "B07YN9BLBZ",     "BrowseNodeInfo": {       "BrowseNodes": [         {           "ContextFreeName": "Coleiras de pulgas de cão",           "DisplayName": "Coleiras de pulgas e carrapatos",           "Id": "23884254011",           "IsRoot": false         },         {           "ContextFreeName": "Guia de presentes em Pet Shop",           "DisplayName": "Guia de presentes em Pet Shop",           "Id": "20803417011",           "IsRoot": false         },         {           "ContextFreeName": "30% off em Pet Shop",           "DisplayName": "30% off em Pet Shop",           "Id": "20882048011",           "IsRoot": false         }       ]     },     "DetailPageURL": "https://www.amazon.com.br/dp/B07YN9BLBZ?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",     "Images": {       "Primary": {         "Large": {           "Height": 500,           "URL": "https://m.media-amazon.com/images/I/51BTbGdiN8L._SL500_.jpg",           "Width": 500         }       }     },     "ItemInfo": {       "ByLineInfo": {         "Brand": {           "DisplayValue": "Merial",           "Label": "Brand",           "Locale": "pt_BR"         },         "Manufacturer": {           "DisplayValue": "MERIAL",           "Label": "Manufacturer",           "Locale": "pt_BR"         }       },       "Classifications": {         "ProductGroup": {           "DisplayValue": "Pet Products",           "Label": "ProductGroup",           "Locale": "pt_BR"         }       },       "Features": {         "DisplayValues": [           "Recomendado para tratamento de pulgas"         ],         "Label": "Features",         "Locale": "pt_BR"       },       "Title": {         "DisplayValue": "Antipulgas E Carrapatos Cães Nexgard 10 A 25kg - Kit Com 03",         "Label": "Title",         "Locale": "pt_BR"       }     }   },   {     "ASIN": "B0CP4DNHJX",     "BrowseNodeInfo": {       "BrowseNodes": [         {           "ContextFreeName": "Dog Pulga Drops",           "DisplayName": "Gotas de pulgas",           "Id": "23884257011",           "IsRoot": false         },         {           "ContextFreeName": "Para Cães",           "DisplayName": "Para Cães",           "Id": "21234726011",           "IsRoot": false         },         {           "ContextFreeName": "Para Gatos",           "DisplayName": "Para Gatos",           "Id": "21234727011",           "IsRoot": false         }       ]     },     "DetailPageURL": "https://www.amazon.com.br/dp/B0CP4DNHJX?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",     "Images": {       "Primary": {         "Large": {           "Height": 500,           "URL": "https://m.media-amazon.com/images/I/417s7ZRPvhL._SL500_.jpg",           "Width": 500         }       },       "Variants": [         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/41JLAS5cgJL._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/416M2Gb0+IL._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/519cvsvK-fL._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/515NxElNu2L._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/511au9pjgNL._SL500_.jpg",             "Width": 499           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/51LMPSDW7cL._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/41GECnS5m+L._SL500_.jpg",             "Width": 499           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/51Bunk0e0uL._SL500_.jpg",             "Width": 500           }         }       ]     },     "ItemInfo": {       "ByLineInfo": {         "Brand": {           "DisplayValue": "Nexgard",           "Label": "Brand",           "Locale": "pt_BR"         },         "Manufacturer": {           "DisplayValue": "Boehringer Ingelheim",           "Label": "Manufacturer",           "Locale": "pt_BR"         }       },       "Classifications": {         "Binding": {           "DisplayValue": "Diversos",           "Label": "Binding",           "Locale": "pt_BR"         },         "ProductGroup": {           "DisplayValue": "Pet Products",           "Label": "ProductGroup",           "Locale": "pt_BR"         }       },       "Features": {         "DisplayValues": [           "O único antiparasitário oral com ação 4 em 1 contra sarna, pulgas, carrapatos e até vermes.",           "Proteção mensal.",           "Tablete mastigável sabor carne que os cães adoram. Não precisa enganar seu doguinho, é gostoso de verdade!",           "Seguro para todas as raças de cães.",           "Indicado para cães a partir de 8 semanas de vida e 2kg.",           "Pode ser administrado com ou sem alimento."         ],         "Label": "Features",         "Locale": "pt_BR"       },       "ProductInfo": {         "ItemDimensions": {           "Height": {             "DisplayValue": 4.0157480274,             "Label": "Height",             "Locale": "pt_BR",             "Unit": "Polegadas"           },           "Length": {             "DisplayValue": 4.5669291292,             "Label": "Length",             "Locale": "pt_BR",             "Unit": "Polegadas"           },           "Weight": {             "DisplayValue": 0.0440924524,             "Label": "Weight",             "Locale": "pt_BR",             "Unit": "Libras"           },           "Width": {             "DisplayValue": 1.0236220462,             "Label": "Width",             "Locale": "pt_BR",             "Unit": "Polegadas"           }         },         "Size": {           "DisplayValue": "30,1 a 60kg",           "Label": "Size",           "Locale": "pt_BR"         }       },       "Title": {         "DisplayValue": "NexGard Spectra Antipulgas, Carrapatos e Vermífugos para Cães de 30,1 a 60kg - 3 tabletes",         "Label": "Title",         "Locale": "pt_BR"       }     }   },   {     "ASIN": "B07YNB6X1Q",     "BrowseNodeInfo": {       "BrowseNodes": [         {           "ContextFreeName": "Dog Pulga Drops",           "DisplayName": "Gotas de pulgas",           "Id": "23884257011",           "IsRoot": false         },         {           "ContextFreeName": "Guia de presentes em Pet Shop",           "DisplayName": "Guia de presentes em Pet Shop",           "Id": "20803417011",           "IsRoot": false         },         {           "ContextFreeName": "30% off em Pet Shop",           "DisplayName": "30% off em Pet Shop",           "Id": "20882048011",           "IsRoot": false         }       ]     },     "DetailPageURL": "https://www.amazon.com.br/dp/B07YNB6X1Q?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",     "Images": {       "Primary": {         "Large": {           "Height": 500,           "URL": "https://m.media-amazon.com/images/I/51qpY-A6MmL._SL500_.jpg",           "Width": 500         }       }     },     "ItemInfo": {       "ByLineInfo": {         "Brand": {           "DisplayValue": "Merial",           "Label": "Brand",           "Locale": "pt_BR"         },         "Manufacturer": {           "DisplayValue": "MERIAL",           "Label": "Manufacturer",           "Locale": "pt_BR"         }       },       "Classifications": {         "Binding": {           "DisplayValue": "Diversos",           "Label": "Binding",           "Locale": "pt_BR"         },         "ProductGroup": {           "DisplayValue": "Pet Products",           "Label": "ProductGroup",           "Locale": "pt_BR"         }       },       "Features": {         "DisplayValues": [           "Recomendado para tratamento de pulgas"         ],         "Label": "Features",         "Locale": "pt_BR"       },       "ProductInfo": {         "UnitCount": {           "DisplayValue": 3,           "Label": "NumberOfItems",           "Locale": "en_US"         }       },       "Title": {         "DisplayValue": "Antipulgas E Carrapatos Cães Nexgard 25 A 50 Kg - Kit Com 03",         "Label": "Title",         "Locale": "pt_BR"       }     }   },   {     "ASIN": "B08ZT2SZSZ",     "BrowseNodeInfo": {       "BrowseNodes": [         {           "ContextFreeName": "Dog Pulga Drops",           "DisplayName": "Gotas de pulgas",           "Id": "23884257011",           "IsRoot": false         },         {           "ContextFreeName": "30% off em Pet Shop",           "DisplayName": "30% off em Pet Shop",           "Id": "20882048011",           "IsRoot": false         }       ]     },     "DetailPageURL": "https://www.amazon.com.br/dp/B08ZT2SZSZ?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",     "Images": {       "Primary": {         "Large": {           "Height": 500,           "URL": "https://m.media-amazon.com/images/I/41fvBKdTx7L._SL500_.jpg",           "Width": 500         }       },       "Variants": [         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/51U8SAL4QpL._SL500_.jpg",             "Width": 500           }         }       ]     },     "ItemInfo": {       "ByLineInfo": {         "Brand": {           "DisplayValue": "Nexgard",           "Label": "Brand",           "Locale": "pt_BR"         },         "Manufacturer": {           "DisplayValue": "NEXGARD",           "Label": "Manufacturer",           "Locale": "pt_BR"         }       },       "Classifications": {         "Binding": {           "DisplayValue": "Diversos",           "Label": "Binding",           "Locale": "pt_BR"         },         "ProductGroup": {           "DisplayValue": "Pet Products",           "Label": "ProductGroup",           "Locale": "pt_BR"         }       },       "Features": {         "DisplayValues": [           "um brinde por pedido",           "brinde sortido conforme disponibilidade de estoque",           "imagem ilustrativa"         ],         "Label": "Features",         "Locale": "pt_BR"       },       "Title": {         "DisplayValue": "Kit 2 Un Nexgard Antipulgas Cães 2 A 4kg C/3 + Brinde",         "Label": "Title",         "Locale": "pt_BR"       }     }   },   {     "ASIN": "B08VQKKSPC",     "BrowseNodeInfo": {       "BrowseNodes": [         {           "ContextFreeName": "Coleiras de pulgas de cão",           "DisplayName": "Coleiras de pulgas e carrapatos",           "Id": "23884254011",           "IsRoot": false         },         {           "ContextFreeName": "Guia de presentes em Pet Shop",           "DisplayName": "Guia de presentes em Pet Shop",           "Id": "20803417011",           "IsRoot": false         },         {           "ContextFreeName": "30% off em Pet Shop",           "DisplayName": "30% off em Pet Shop",           "Id": "20882048011",           "IsRoot": false         }       ]     },     "DetailPageURL": "https://www.amazon.com.br/dp/B08VQKKSPC?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",     "Images": {       "Primary": {         "Large": {           "Height": 500,           "URL": "https://m.media-amazon.com/images/I/41iWJLUqAWL._SL500_.jpg",           "Width": 500         }       },       "Variants": [         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/412ddgy3HqL._SL500_.jpg",             "Width": 248           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/41TBwiPM3hL._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/41yL4pqK7fL._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/41DP2WaZN5L._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/41yprFZTdfL._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/41TnB5XvtiL._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 500,             "URL": "https://m.media-amazon.com/images/I/51RMhvxp05L._SL500_.jpg",             "Width": 500           }         },         {           "Large": {             "Height": 455,             "URL": "https://m.media-amazon.com/images/I/41pzAtb2TWL._SL500_.jpg",             "Width": 500           }         }       ]     },     "ItemInfo": {       "ByLineInfo": {         "Brand": {           "DisplayValue": "Bravecto",           "Label": "Brand",           "Locale": "pt_BR"         },         "Manufacturer": {           "DisplayValue": "Msd",           "Label": "Manufacturer",           "Locale": "pt_BR"         }       },       "Classifications": {         "ProductGroup": {           "DisplayValue": "Pet Products",           "Label": "ProductGroup",           "Locale": "pt_BR"         }       },       "Features": {         "DisplayValues": [           "Antipulgas",           "10 a 20Kg",           "10 a 20Kg"         ],         "Label": "Features",         "Locale": "pt_BR"       },       "ProductInfo": {         "UnitCount": {           "DisplayValue": 1,           "Label": "NumberOfItems",           "Locale": "en_US"         }       },       "Title": {         "DisplayValue": "Combo 2 Unidades Antipulgas Bravecto Cães 10 a 20kg",         "Label": "Title",         "Locale": "pt_BR"       }     }   },   {     "ASIN": "B07YNB1N9R",     "BrowseNodeInfo": {       "BrowseNodes": [         {           "ContextFreeName": "Sprays Dog Pulga",           "DisplayName": "Pulverizadores de Pulga",           "Id": "23884252011",           "IsRoot": false         },         {           "ContextFreeName": "Guia de presentes em Pet Shop",           "DisplayName": "Guia de presentes em Pet Shop",           "Id": "20803417011",           "IsRoot": false         },         {           "ContextFreeName": "30% off em Pet Shop",           "DisplayName": "30% off em Pet Shop",           "Id": "20882048011",           "IsRoot": false         }       ]     },     "DetailPageURL": "https://www.amazon.com.br/dp/B07YNB1N9R?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",     "Images": {       "Primary": {         "Large": {           "Height": 463,           "URL": "https://m.media-amazon.com/images/I/41FPuubOAHL._SL500_.jpg",           "Width": 463         }       }     },     "ItemInfo": {       "ByLineInfo": {         "Brand": {           "DisplayValue": "Merial",           "Label": "Brand",           "Locale": "pt_BR"         },         "Manufacturer": {           "DisplayValue": "MERIAL",           "Label": "Manufacturer",           "Locale": "pt_BR"         }       },       "Classifications": {         "Binding": {           "DisplayValue": "Diversos",           "Label": "Binding",           "Locale": "pt_BR"         },         "ProductGroup": {           "DisplayValue": "Pet Products",           "Label": "ProductGroup",           "Locale": "pt_BR"         }       },       "Features": {         "DisplayValues": [           "Recomendado para tratamento de pulgas"         ],         "Label": "Features",         "Locale": "pt_BR"       },       "Title": {         "DisplayValue": "Antipulgas E Carrapatos Nexgard Merial Para Cães De 25,1 A 50kg - 3 Tabletes",         "Label": "Title",         "Locale": "pt_BR"       }     }   }[
+  {
+    "asin": "B07ZG4K25V",
+    "title": "Nexgard Antipulgas e Carrapatos 25,1 a 50kg - 3 tabletes",
+    "brand": "Nexgard",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "25,1 a 50kg",
+    "quantidade_total": 3,
+    "observacoes": "tabletes mastigáveis"
+  },
+  {
+    "asin": "B08ZT2SZSZ",
+    "title": "Kit 2 Un Nexgard 2 a 4kg C/3 + brinde",
+    "brand": "Nexgard",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "2 a 4kg",
+    "quantidade_total": 6,
+    "observacoes": "kit com 2 caixas de 3 comprimidos"
+  },
+  {
+    "asin": "B08VQKKSPC",
+    "title": "Combo 2 unidades Bravecto 10 a 20kg",
+    "brand": "Bravecto",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "10 a 20kg",
+    "quantidade_total": 2,
+    "observacoes": "cada unidade é dose única"
+  },
+  {
+    "asin": "B0CK52R56W",
+    "title": "Bravecto 500mg 10 a 20kg com bolsa",
+    "brand": "Bravecto",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "10 a 20kg",
+    "quantidade_total": 1,
+    "observacoes": "acompanha brinde"
+  },
+  {
+    "asin": "B0CK53VL3S",
+    "title": "Bravecto 1000mg 20 a 40kg com bolsa",
+    "brand": "Bravecto",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "20 a 40kg",
+    "quantidade_total": 1,
+    "observacoes": "acompanha brinde"
+  },
+  {
+    "asin": "B08JH5V196",
+    "title": "Bravecto combo 4,5 a 10kg",
+    "brand": "Bravecto",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "4,5 a 10kg",
+    "quantidade_total": 1,
+    "observacoes": "dose única"
+  },
+  {
+    "asin": "B07YN9BLBZ",
+    "title": "Nexgard 10 a 25kg kit com 3",
+    "brand": "Nexgard",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "10 a 25kg",
+    "quantidade_total": 3,
+    "observacoes": "uso mensal"
+  },
+  {
+    "asin": "B07YNB6X1Q",
+    "title": "Nexgard 25 a 50kg kit com 3",
+    "brand": "Nexgard",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "25 a 50kg",
+    "quantidade_total": 3,
+    "observacoes": "uso mensal"
+  },
+  {
+    "asin": "B0CP4DNHJX",
+    "title": "Nexgard Spectra 30,1 a 60kg 3 tabletes",
+    "brand": "Nexgard",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "30,1 a 60kg",
+    "quantidade_total": 3,
+    "observacoes": "4 em 1"
+  },
+  {
+    "asin": "B08JTLLRTQ",
+    "title": "Credeli 11 a 22kg",
+    "brand": "Credeli",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "11 a 22kg",
+    "quantidade_total": 1,
+    "observacoes": "uso mensal"
+  },
+  {
+    "asin": "B09SRWQJRB",
+    "title": "Invicto 57mg 20 comprimidos",
+    "brand": "Invicto",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "11,4 a 57kg",
+    "quantidade_total": 20,
+    "observacoes": "cartela com 20 unidades"
+  }
+][
+  {
+    "asin": "B07ZG4K25V-VAR1",
+    "title": "Nexgard 25 a 50kg variação 1",
+    "brand": "Nexgard",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "25 a 50kg",
+    "quantidade_total": 3,
+    "observacoes": "variação listada"
+  },
+  {
+    "asin": "B07ZG4K25V-VAR2",
+    "title": "Nexgard 25 a 50kg variação 2",
+    "brand": "Nexgard",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "25 a 50kg",
+    "quantidade_total": 3,
+    "observacoes": "variação listada"
+  },
+  {
+    "asin": "B08JTLLRTQ-VAR1",
+    "title": "Credeli 11 a 22kg variação",
+    "brand": "Credeli",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "11 a 22kg",
+    "quantidade_total": 1,
+    "observacoes": "variação"
+  },
+  {
+    "asin": "B09SRWQJRB-VAR1",
+    "title": "Invicto 57mg variação",
+    "brand": "Invicto",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "11,4 a 57kg",
+    "quantidade_total": 20,
+    "observacoes": "variação hospitalar"
+  },
+  {
+    "asin": "B08WRGWV8K-VAR1",
+    "title": "Bravecto 20 a 40kg com acessório",
+    "brand": "Bravecto",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "20 a 40kg",
+    "quantidade_total": 1,
+    "observacoes": "inclui brinde"
+  },
+  {
+    "asin": "B08WRGWV8K-VAR2",
+    "title": "Bravecto 20 a 40kg variação 2",
+    "brand": "Bravecto",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "20 a 40kg",
+    "quantidade_total": 1,
+    "observacoes": "variação"
+  },
+  {
+    "asin": "B0F5FSSV9W-VAR1",
+    "title": "Bravecto coleira variação",
+    "brand": "Bravecto",
+    "tipo_animal": "cachorro",
+    "forma": "coleira",
+    "peso_indicado": "20 a 40kg",
+    "quantidade_total": 1,
+    "observacoes": "categoria inconsistente"
+  },
+  {
+    "asin": "B08VQKKSPC-VAR1",
+    "title": "Combo Bravecto 10 a 20kg variação",
+    "brand": "Bravecto",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "10 a 20kg",
+    "quantidade_total": 2,
+    "observacoes": "combo"
+  },
+  {
+    "asin": "B08ZT2SZSZ-VAR1",
+    "title": "Kit Nexgard 2 a 4kg variação",
+    "brand": "Nexgard",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "2 a 4kg",
+    "quantidade_total": 6,
+    "observacoes": "kit"
+  },
+  {
+    "asin": "B0CP4DNHJX-VAR1",
+    "title": "Nexgard Spectra variação",
+    "brand": "Nexgard",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "30,1 a 60kg",
+    "quantidade_total": 3,
+    "observacoes": "4 em 1"
+  }
+][
+  {
+    "asin": "B07YNB1N9R-VAR1",
+    "title": "Nexgard spray variação",
+    "brand": "Nexgard",
+    "tipo_animal": "cachorro",
+    "forma": "spray",
+    "peso_indicado": "não especificado",
+    "quantidade_total": 1,
+    "observacoes": "uso tópico"
+  },
+  {
+    "asin": "B007RQ43E4-VAR1",
+    "title": "Bravecto 40 a 56kg variação",
+    "brand": "Bravecto",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "40 a 56kg",
+    "quantidade_total": 1,
+    "observacoes": "categoria incorreta"
+  },
+  {
+    "asin": "B07YN9BLBZ-VAR1",
+    "title": "Nexgard 10 a 25kg variação",
+    "brand": "Nexgard",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "10 a 25kg",
+    "quantidade_total": 3,
+    "observacoes": "variação"
+  },
+  {
+    "asin": "B07YNB6X1Q-VAR1",
+    "title": "Nexgard 25 a 50kg variação",
+    "brand": "Nexgard",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "25 a 50kg",
+    "quantidade_total": 3,
+    "observacoes": "variação"
+  },
+  {
+    "asin": "B08JH5V196-VAR1",
+    "title": "Bravecto 4,5 a 10kg variação",
+    "brand": "Bravecto",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "4,5 a 10kg",
+    "quantidade_total": 1,
+    "observacoes": "dose única"
+  },
+  {
+    "asin": "B0CK52R56W-VAR1",
+    "title": "Bravecto 10 a 20kg variação extra",
+    "brand": "Bravecto",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "10 a 20kg",
+    "quantidade_total": 1,
+    "observacoes": "variação"
+  },
+  {
+    "asin": "B0CK53VL3S-VAR1",
+    "title": "Bravecto 20 a 40kg variação extra",
+    "brand": "Bravecto",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "20 a 40kg",
+    "quantidade_total": 1,
+    "observacoes": "variação"
+  },
+  {
+    "asin": "B08JTLLRTQ-VAR2",
+    "title": "Credeli variação 2",
+    "brand": "Credeli",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "11 a 22kg",
+    "quantidade_total": 1,
+    "observacoes": "variação"
+  },
+  {
+    "asin": "B09SRWQJRB-VAR2",
+    "title": "Invicto variação 2",
+    "brand": "Invicto",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "11,4 a 57kg",
+    "quantidade_total": 20,
+    "observacoes": "variação"
+  },
+  {
+    "asin": "B08WRGWV8K-VAR3",
+    "title": "Bravecto variação 3",
+    "brand": "Bravecto",
+    "tipo_animal": "cachorro",
+    "forma": "comprimido",
+    "peso_indicado": "20 a 40kg",
+    "quantidade_total": 1,
+    "observacoes": "variação"
+  }
+]

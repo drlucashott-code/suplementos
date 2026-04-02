@@ -666,6 +666,29 @@ async function getItemsViaPaapi(input: GetAmazonItemsInput): Promise<AmazonItem[
   return response?.ItemsResult?.Items ?? [];
 }
 
+export async function getAmazonItemsRaw(
+  input: GetAmazonItemsInput
+): Promise<{ items: AmazonItem[]; raw: unknown }> {
+  const payload = JSON.stringify({
+    ItemIds: input.itemIds,
+    Resources: input.resources,
+    PartnerTag: AMAZON_PARTNER_TAG,
+    PartnerType: "Associates",
+    Marketplace: input.marketplace ?? DEFAULT_MARKETPLACE,
+  });
+
+  const response = await requestPaapi<{ ItemsResult?: { Items?: AmazonItem[] } }>(
+    "/paapi5/getitems",
+    "com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems",
+    payload
+  );
+
+  return {
+    items: response?.ItemsResult?.Items ?? [],
+    raw: response,
+  };
+}
+
 async function searchItemsViaPaapi(input: SearchAmazonItemsInput): Promise<AmazonItem[]> {
   const payload = JSON.stringify({
     Keywords: input.keywords,

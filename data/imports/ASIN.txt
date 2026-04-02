@@ -1,0 +1,194 @@
+ASIN	Unidades	Tipo	Forma	PesoMin	PesoMax	Linha
+B08KYJ34XW	1	cão	comprimido	11.4	57	Invicto
+B08W148X53	1	cão/gato	comprimido	1	11.4	Capstar
+B08KYK6WPW	1	cão	comprimido	0	11.4	Invicto
+B084T695FT	1	cão	pipeta	1	10	Fiprolex
+B07XWS5LNM	1	gato	pipeta	0	0	Effipro
+B07Y2NCRTG	1	cão	shampoo	0	0	Ibasa
+B07XWRF2SJ	1	cão	pipeta	2	10	Effipro
+B07YN9K7W6	1	cão	pipeta	11	20	Fiprolex
+B07Y2MFP18	1	cão	pó	0	0	Ibasa
+B095JB9S84	1	cão	comprimido	11.4	999	Capstar
+B0DXXM359M	1	cão/gato	comprimido	0	11.4	Capstar
+B07Z5GBQ8T	1	cão	pipeta	0	10	Effipro
+B07XWSHXDB	1	cão	pipeta	10	20	Effipro
+B07Y5MYF1P	1	cão	pó	0	0	Konig
+B07Y2DMR3P	1	cão	pipeta	1	10	Frontline
+B084B3H2T4	1	cão	pipeta	1	10	Fiprolex
+B07Y2F7VFW	1	cão	pipeta	40	67	Vectra 3D
+B08R7NHXVS	1	cão	comprimido	11.4	57	Capstar
+B07Y2D5TJX	1	gato	pipeta	0	0	Frontline
+B084T6BZBV	1	cão	pipeta	40	999	Fiprolex
+B084BQ63XZ	1	cão	pipeta	11	20	Fiprolex
+B07ZDKWYY6	1	cão	pipeta	10.1	20	Neopet
+B07Y2D8T49	2	cão	comprimido	0	5	Milbemax
+B0FR9R4WTL	1	cão	comprimido	2	4.5	Wellpet
+B0BFX9H19P	1	cão	comprimido	1.3	2.5	Credeli
+B07XWRJQX9	1	cão	pipeta	20	40	Effipro
+B0DJ9XGWW8	1	cão	pipeta	5.1	10	Banni
+B0BFXD8BBH	1	cão	comprimido	2.5	5.5	Credeli
+B07NGYCYC2	1	gato	pipeta	0	0	Frontline
+B07Y2CXVTZ	1	cão	pipeta	10	20	Frontline
+B07Z5GDS4R	1	cão	pó	20.1	40	Neopet
+B084BNDGLT	1	gato	pipeta	0	0	Fiprolex
+B0BFXFLP3N	1	cão	comprimido	5.5	11	Credeli
+B084BPK6YZ	1	cão	pipeta	21	40	Fiprolex
+B07Y2D79M3	1	cão	comprimido	18	27	Comfortis
+B09PPT5SVJ	1	cão	comprimido	18	27	Comfortis
+B07Y2CVT65	1	cão	pipeta	20	40	Frontline
+B07Y2CNVKX	1	gato	pipeta	0	10	Vectra
+B0D462MW8D	1	cão	comprimido	2	4.5	Defenza
+B07Y2NDWKB	1	cão	shampoo	0	0	Ibasa
+B0D463TTQ4	1	cão	comprimido	10	20	Defenza
+B07Y2DM5BM	1	cão	pipeta	10	20	Frontline
+B0C81WVKQ8	1	gato	pipeta	0.9	2	Credeli
+B0849TTYCW	1	cão	pipeta	40	999	Fiprolex
+B07Y5HC676	1	cão	pipeta	0	10	Frontline
+B0C65WSQPT	1	gato	pipeta	2.6	7.5	Banni
+B0FR9V4J6F	1	cão	comprimido	10.1	20	Wellpet
+B07YN9NBCZ	2	gato	pipeta	1	8	Neopet
+B0D4642YL3	1	cão	comprimido	4.5	10	Defenza
+B07Y2BXV9N	1	cão	pipeta	20	40	Frontline
+B0DNR4SFJF	1	cão	pipeta	10	20	Banni
+B0C65XWHCR	1	gato	pipeta	0	2.5	Banni
+B0FR9TVT2W	1	cão	comprimido	40.1	56	Wellpet
+B0DJ9XYFDS	1	cão	pipeta	20	40	Banni
+B07YSTB4VZ	1	cão	pipeta	40	999	Fiprolex
+B082T3X4QW	1	cão	pipeta	4	10	Vectra 3D
+B0DJ9Y6FLZ	1	cão	pipeta	40	60	Banni
+B07Y2CFX2W	1	cão	pipeta	1.5	4	Vectra 3D
+B0977TL866	1	cão	comprimido	2	3.5	Nexgard Spectra
+B07XZGQ82L	1	cão	comprimido	2	4	Nexgard
+B081TKTLGF	3	gato	pipeta	0	10	Vectra
+B07XWRLD1S	4	cão	pipeta	2	10	Effipro
+B07XZDZWTG	1	cão	comprimido	4.1	10	Nexgard
+B09PQD68LZ	1	cão	comprimido	27	54	Comfortis
+B0977TDYVS	1	cão	comprimido	3.6	7.5	Nexgard Spectra
+B0D463569C	1	cão	comprimido	40	56	Defenza
+B0C81WLC16	1	gato	pipeta	2.1	8	Credeli
+B07Z5FPK8Y	3	cão	pipeta	1.5	4	Vectra 3D
+B084T76P28	1	cão	pipeta	10	25	Vectra 3D
+B07MZZMXPC	1	cão	comprimido	10.1	25	Nexgard
+B0D463TVK2	1	cão	comprimido	20	40	Defenza
+B0849WZ593	3	cão	pipeta	4	10	Vectra 3D
+B0BFXFGT56	1	cão	comprimido	11	22	Credeli
+B0DJ1D3BGH	1	gato	pipeta	0	2.5	Nexgard Combo
+B07XWSF89J	4	gato	pipeta	0	0	Effipro
+B084T6VGD4	1	cão	pipeta	25	40	Vectra 3D
+B09V3GWHSW	6	cão	comprimido	0	11.4	Invicto
+B0BFJTRKTC	1	cão	comprimido	22	45	Credeli
+B07XWR1DTH	4	cão	pipeta	10	20	Effipro
+B07NDNLCKV	1	cão	coleira	0	0	Leevre
+B082T3KB1M	1	cão	pipeta	40	67	Vectra 3D
+B0977T9WTB	1	cão	comprimido	7.6	15	Nexgard Spectra
+B0BF1BM3CQ	3	gato	pipeta	0	0	Advocate
+B0C7DY8SVS	3	cão	comprimido	1.3	2.5	Credeli
+B0D98GK6W1	3	gato	pipeta	0	2.5	Banni
+B07YNZTV1C	1	cão	comprimido	1.3	2.5	Credeli
+B0977TBDC7	1	cão	comprimido	15.1	30	Nexgard Spectra
+B07YP192QF	3	cão	comprimido	2.5	5.5	Credeli
+B07YN9H1C3	3	cão	pipeta	10	25	Vectra 3D
+B0D8449W57	3	gato	pipeta	2.6	7.5	Banni
+B07Y2C86GF	1	cão	coleira	0	0	Leevre
+B07Y5HDPPT	6	cão/gato	comprimido	0	11.4	Capstar
+B0B3JS9ZH8	1	cão	pipeta	0	4	Advocate
+B0977SH2WT	1	cão	comprimido	30.1	60	Nexgard Spectra
+B07ZG4FN46	6	cão/gato	comprimido	0	11.4	Capstar
+B07YN94YMV	2	gato	pipeta	0	0	Frontline
+B07J4LGB4G	1	cão	comprimido	2	4.5	Bravecto
+B0BFVB1D58	3	cão	comprimido	2.5	5.5	Credeli
+B07YN95QJ5	3	cão	pipeta	25	40	Vectra 3D
+B0F6X7VGCS	3	cão	comprimido	1.3	2.5	Credeli
+ASIN	Unidades	Tipo	Forma	PesoMin	PesoMax	Linha
+B0B3JVCSRH	3	cão	pipeta	0	10	Advocate
+B07XZH5P84	1	gato	pipeta	2.8	6.25	Bravecto
+B09716SSTH	1	gato	pipeta	1.2	2.8	Bravecto Plus
+B08JTLPHP9	1	cão	comprimido	2.5	5.5	Credeli
+B00EOTFSNC	1	cão	comprimido	2	4.5	Bravecto
+B08KSL8TLV	3	cão	comprimido	5.5	11	Credeli
+B07YN8ZBV1	3	cão	pipeta	40	67	Vectra 3D
+B007XHBFPC	1	cão	comprimido	2	4.5	Bravecto
+B0C2ZMVG99	3	cão	pipeta	0	10	Advocate
+B08JTGX5GF	1	cão	comprimido	5.5	11	Credeli
+B07Y5J68X3	3	cão	comprimido	5.5	11	Credeli
+B07Y2DGQMF	1	gato	pipeta	1.2	2.8	Bravecto
+B07YNB7XDF	3	gato	pipeta	0	0	Frontline
+B07YN9YTKZ	1	cão	comprimido	4.5	10	Bravecto
+B07J4J9XKZ	1	cão	comprimido	4.5	10	Bravecto
+B007XHBL42	1	cão	comprimido	4.5	10	Bravecto
+B0CP4D9D3M	3	cão	comprimido	2	3.5	Nexgard Spectra
+B0C2QLP6L8	3	cão	pipeta	10	25	Advocate
+B08DLF8BFT	1	ambiente	spray	0	0	Konig
+B007RQ45ZQ	1	cão	comprimido	2	4.5	Bravecto
+B07YN9VC87	3	cão	comprimido	2	4	Nexgard
+B07B35QQPM	1	cão	comprimido	10	20	Bravecto
+B0CK554XVZ	1	cão	comprimido	4.5	10	Bravecto
+B0BFRXF6SC	3	cão	comprimido	11	22	Credeli
+B007RQ5RF8	1	cão	comprimido	10	20	Bravecto
+B0DJ1DFSV4	3	gato	pipeta	2.5	7.5	Nexgard Combo
+B07M6KHQKT	3	cão	comprimido	4.1	10	Nexgard
+B08ZT5Q6F6	6	cão	comprimido	4.1	10	Nexgard
+B07Y2D7R2V	1	cão	pipeta	10	20	Bravecto
+B09714K4H5	1	gato	pipeta	6.25	12.5	Bravecto Plus
+B0CK5295Z4	1	cão	comprimido	10	20	Bravecto
+B07Y5MKPF2	3	cão	comprimido	4.1	10	Nexgard
+B007RQAOZQ	1	cão	comprimido	40	56	Bravecto
+B0CP4DVW59	3	cão	comprimido	3.6	7.5	Nexgard Spectra
+B0D1DXNRP4	3	cão	pipeta	25	40	Advocate
+B007RP1V0E	1	cão	comprimido	10	20	Bravecto
+B08G86YKBL	1	cão	comprimido	20	40	Bravecto
+B07Y8P9LC2	1	cão	comprimido	40	56	Bravecto
+B0CP4FWQW9	3	cão	comprimido	7.6	15	Nexgard Spectra
+B07YNBTZH1	2	cão	comprimido	4	10	Nexgard
+B0FH3V8PKH	1	cão	comprimido	40	56	Bravecto
+B07YN9J1JN	3	cão	comprimido	4	10	Nexgard
+B09SS5JKKB	20	cão/gato	comprimido	11.4	57	Invicto
+B0B5M6VNZL	1	cão	comprimido	10	20	Bravecto
+B0BF16DBM7	3	cão	pipeta	10	25	Advocate
+B07S8BMFPD	3	cão	comprimido	10.1	25	Nexgard
+B07YNBH6GD	2	cão	comprimido	10	25	Nexgard
+B0CK52R56W	1	cão	comprimido	10	20	Bravecto
+B0F5FSSV9W	1	cão	comprimido	20	40	Bravecto
+B08WRGWV8K	1	cão	comprimido	20	40	Bravecto
+B0CK53VL3S	1	cão	comprimido	20	40	Bravecto
+B09SRWQJRB	20	cão	comprimido	11.4	57	Invicto
+B007XHBKDO	1	cão	comprimido	10	20	Bravecto
+B07NH62MTM	3	cão	comprimido	27	54	Comfortis
+B07YNB1JG2	3	cão	comprimido	10	25	Nexgard
+B07Z5FRCF6	1	cão	pipeta	40	56	Bravecto
+B007RQANMK	1	cão	comprimido	40	56	Bravecto
+B0CP4DVRRB	3	cão	comprimido	15.1	30	Nexgard Spectra
+B07V9W6N8P	3	cão	comprimido	25.1	50	Nexgard
+B0BF18488W	3	cão	pipeta	40	999	Advocate
+B007RQ6ZIQ	1	cão	comprimido	40	56	Bravecto
+B0FY3PKC5S	1	cão	comprimido	2	4	Nexgard
+B08JTLLRTQ	1	cão	comprimido	11	22	Credeli
+B007RQ43E4	1	cão	comprimido	40	56	Bravecto
+B08JH5V196	1	cão	comprimido	4.5	10	Bravecto
+B07ZG4K25V	3	cão	comprimido	25.1	50	Nexgard
+B07YN9BLBZ	3	cão	comprimido	10	25	Nexgard
+B0CP4DNHJX	3	cão	comprimido	30.1	60	Nexgard Spectra
+B07YNB6X1Q	3	cão	comprimido	25	50	Nexgard
+B08ZT2SZSZ	6	cão	comprimido	2	4	Nexgard
+B08VQKKSPC	2	cão	comprimido	10	20	Bravecto
+B07YNB1N9R	3	cão	comprimido	25.1	50	Nexgard
+B08ZT3RDDK	6	cão	comprimido	4.1	10	Nexgard
+B07YNBHKY9	6	cão	comprimido	10	25	Nexgard
+B08ZT3N9CV	6	cão	comprimido	10.1	25	Nexgard
+B07YNBMTSH	9	cão	comprimido	2	4	Nexgard
+B0CK9PTRM3	2	cão	comprimido	20	40	Bravecto
+B0CK94TG42	2	cão	comprimido	4.5	10	Bravecto
+B082T4399H	6	cão/gato	pipeta	0	10	Allerderm
+B07Z5DVVLZ	1	cão	comprimido	20	40	Bravecto
+B07Z5GVGFQ	1	cão	pipeta	4.5	10	Bravecto
+B07YN9XBXV	2	cão	comprimido	25	50	Nexgard
+B07Y2DXF7Z	1	cão	pipeta	10	25	Vectra 3D
+B084B1QDP5	1	cão	pipeta	1.5	4	Vectra 3D
+B07YNZPC6F	1	cão	pipeta	1	10	Frontline
+B0DJ9WH8SM	1	cão	pipeta	0	5	Banni
+B0FFDZXV8C	1	gato	pipeta	0	2.5	Banni
+B07YSTT8SV	1	cão	pipeta	21	40	Fiprolex
+B07YN8K19N	1	gato	pipeta	0	0	Fiprolex
+B07YNB4PNW	1	cão	pipeta	40	999	Fiprolex
+B07YNB2Z15	1	cão	pipeta	0	10	Frontline
+B07Y2DDRKX	1	cão	pipeta	40	999	Neopet

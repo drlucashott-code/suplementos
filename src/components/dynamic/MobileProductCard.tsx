@@ -68,6 +68,10 @@ function getDerivedMetricValue(
 
   const unitsPerBox = getNumericAttribute(attributes, "unitsPerBox");
   const unitsPerPack = getNumericAttribute(attributes, "unitsPerPack");
+  const units =
+    getNumericAttribute(attributes, "units") ||
+    getNumericAttribute(attributes, "unidades") ||
+    getNumericAttribute(attributes, "quantidade");
   const numberOfDoses =
     getNumericAttribute(attributes, "numberOfDoses") ||
     getNumericAttribute(attributes, "doses");
@@ -82,7 +86,11 @@ function getDerivedMetricValue(
     case "precoPorBarra":
       return unitsPerBox > 0 ? totalPrice / unitsPerBox : 0;
     case "precoPorUnidade":
-      return unitsPerPack > 0 ? totalPrice / unitsPerPack : 0;
+      return unitsPerPack > 0
+        ? totalPrice / unitsPerPack
+        : units > 0
+          ? totalPrice / units
+          : 0;
     case "precoPorDose":
       return numberOfDoses > 0 ? totalPrice / numberOfDoses : 0;
     case "precoPorMl":
@@ -153,12 +161,38 @@ function formatRoundedNumber(value: number) {
   return Math.round(value).toString();
 }
 
+function formatPetTypeValue(value: string) {
+  const normalized = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, "");
+
+  if (normalized === "cachorro" || normalized === "cao") return "Cão";
+  if (normalized === "gato") return "Gato";
+  if (
+    normalized === "cachorro/gato" ||
+    normalized === "cachorroegato" ||
+    normalized === "cachorro,gato" ||
+    normalized === "cao/gato" ||
+    normalized === "caoegato"
+  ) {
+    return "Cão/gato";
+  }
+
+  return value;
+}
+
 function formatDisplayValue(
   rawValue: string | number | undefined,
   config: DisplayConfigField
 ) {
   if (rawValue === undefined || rawValue === null || String(rawValue).trim() === "") {
     return "";
+  }
+
+  if (config.key === "tipo_pet") {
+    return formatPetTypeValue(String(rawValue));
   }
 
   if (config.type === "number") {

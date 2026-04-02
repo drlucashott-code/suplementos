@@ -1,6 +1,8 @@
 'use server';
 
 import { createHash } from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import { enrichDynamicAttributesForCategory } from '@/lib/dynamicCategoryMetrics';
 import { prisma } from '@/lib/prisma';
 import {
@@ -8,6 +10,7 @@ import {
   getAmazonItemMerchantName,
   getAmazonItemPrice,
   getAmazonItems,
+  getAmazonItemsRaw,
   searchAmazonItems as searchAmazonCatalogItems,
   type AmazonItem,
   type AmazonSearchPriceRange,
@@ -33,6 +36,7 @@ type ImportFilters = {
   requiredTitleRaw?: string;
   forbiddenTitleRaw?: string;
   enableImportValidation?: boolean;
+  saveRawData?: boolean;
 };
 
 type ImportFilterMatchResult =
@@ -136,7 +140,7 @@ function parseDiscoveryPriceRanges(value?: string): SearchPriceRange[] {
         .toLowerCase()
         .replace(/r\$/g, "")
         .replace(/\s+/g, "")
-        .replace(/atÃ©/g, "-")
+        .replace(/ate/g, "-")
         .replace(/a/g, "-");
 
       const match = normalized.match(/^(\d+(?:[.,]\d+)?)\-(\d+(?:[.,]\d+)?)$/);
@@ -755,7 +759,7 @@ function matchesImportFilters(params: {
   ) {
     return {
       ok: false,
-      reason: `Ignorado: tÃƒÂ­tulo nÃƒÂ£o contÃƒÂ©m ${requiredTitleTerms.join(", ")}`,
+      reason: `Ignorado: titulo nao contem ${requiredTitleTerms.join(", ")}`,
     };
   }
 
@@ -765,7 +769,7 @@ function matchesImportFilters(params: {
   ) {
     return {
       ok: false,
-      reason: `Ignorado: tÃƒÂ­tulo contÃƒÂ©m termo proibido (${forbiddenTitleTerms.join(", ")})`,
+      reason: `Ignorado: titulo contem termo proibido (${forbiddenTitleTerms.join(", ")})`,
     };
   }
 
@@ -983,6 +987,202 @@ async function fetchAmazonPrice(
   };
 }
 
+const RAW_RESOURCE_SETS: string[][] = [
+  [
+    "ItemInfo.Title",
+    "ItemInfo.ByLineInfo",
+    "ItemInfo.Features",
+    "ItemInfo.ProductInfo",
+    "ItemInfo.Classifications",
+    "BrowseNodeInfo.BrowseNodes",
+    "Offers.Listings.Price",
+    "Offers.Listings.Savings",
+    "Offers.Listings.Price.PerUnitPrice",
+    "Images.Primary.Large",
+    "Images.Variants.Large",
+  ],
+  [
+    "ItemInfo.Title",
+    "ItemInfo.ByLineInfo",
+    "ItemInfo.Features",
+    "ItemInfo.ProductInfo",
+    "ItemInfo.Classifications",
+    "BrowseNodeInfo.BrowseNodes",
+    "Offers.Listings.Price",
+    "Offers.Listings.SavingBasis",
+    "Images.Primary.Large",
+    "Images.Variants.Large",
+  ],
+  [
+    "ItemInfo.Title",
+    "ItemInfo.ByLineInfo",
+    "ItemInfo.Features",
+    "ItemInfo.ProductInfo",
+    "ItemInfo.Classifications",
+    "BrowseNodeInfo.BrowseNodes",
+    "Offers.Listings.Price",
+    "Images.Primary.Large",
+    "Images.Variants.Large",
+  ],
+  ["ItemInfo.Title", "ItemInfo.ByLineInfo", "Offers.Listings.Price", "Images.Primary.Large"],
+];
+
+function hasInvalidResourcesError(raw: unknown) {
+  const maybeErrors = (raw as any)?.Errors;
+  if (!Array.isArray(maybeErrors)) {
+    return false;
+  }
+  return maybeErrors.some((err) => err?.Code === "InvalidParameterValue");
+}
+
+function hasTooManyRequestsError(raw: unknown) {
+  const maybeErrors = (raw as any)?.Errors;
+  if (!Array.isArray(maybeErrors)) {
+    return false;
+  }
+  return maybeErrors.some((err) => err?.Code === "TooManyRequests");
+}
+
+const RAW_BATCH_DELAY_MS = Number(process.env.AMAZON_RAW_BATCH_DELAY_MS ?? 600);
+const RAW_RETRY_LIMIT = Number(process.env.AMAZON_RAW_RETRY_LIMIT ?? 3);
+const RAW_RETRY_DELAY_MS = Number(process.env.AMAZON_RAW_RETRY_DELAY_MS ?? 1500);
+
+async function fetchRawItemsForAsins(asins: string[]) {
+  let attempt = 0;
+  let lastResult:
+    | { items: AmazonItem[]; raw: unknown; resourcesUsed?: string[] }
+    | null = null;
+
+  while (attempt < RAW_RETRY_LIMIT) {
+    for (const resources of RAW_RESOURCE_SETS) {
+      const result = await getAmazonItemsRaw({
+        itemIds: asins,
+        resources,
+      });
+      lastResult = { items: result.items, raw: result.raw, resourcesUsed: resources };
+      if (hasTooManyRequestsError(result.raw)) {
+        continue;
+      }
+      if (!hasInvalidResourcesError(result.raw)) {
+        return { items: result.items, raw: result.raw, resourcesUsed: resources };
+      }
+    }
+
+    attempt += 1;
+    if (attempt < RAW_RETRY_LIMIT) {
+      await delay(RAW_RETRY_DELAY_MS);
+    }
+  }
+
+  const fallbackResources = RAW_RESOURCE_SETS[RAW_RESOURCE_SETS.length - 1] ?? [];
+  if (lastResult) {
+    return lastResult;
+  }
+  const result = await getAmazonItemsRaw({
+    itemIds: asins,
+    resources: fallbackResources,
+  });
+  return { items: result.items, raw: result.raw, resourcesUsed: fallbackResources };
+}
+
+async function persistRawImportSnapshot(asins: string[], runId: string) {
+  const batchSize = 5;
+  const chunkLimit = 100;
+  const rawItems: unknown[] = [];
+  const returnedAsins = new Set<string>();
+  const debugBatches: Array<{
+    asins: string[];
+    returned: string[];
+    errors?: Array<{ Code?: string; Message?: string }>;
+    resourcesUsed?: string[];
+  }> = [];
+
+  for (let i = 0; i < asins.length; i += batchSize) {
+    const batch = asins.slice(i, i + batchSize);
+    const result = await fetchRawItemsForAsins(batch);
+    const items = result.items;
+    rawItems.push(...items);
+    items.forEach((item: any) => {
+      if (item?.ASIN) {
+        returnedAsins.add(String(item.ASIN));
+      }
+    });
+
+    const returnedInBatch = items
+      .map((item: any) => String(item?.ASIN ?? ""))
+      .filter(Boolean);
+    const errors = Array.isArray((result.raw as any)?.Errors)
+      ? ((result.raw as any).Errors as Array<{ Code?: string; Message?: string }>)
+      : undefined;
+
+    if (errors?.length || returnedInBatch.length < batch.length) {
+      debugBatches.push({
+        asins: batch,
+        returned: returnedInBatch,
+        errors,
+        resourcesUsed: result.resourcesUsed,
+      });
+    }
+
+    if (RAW_BATCH_DELAY_MS > 0) {
+      await delay(RAW_BATCH_DELAY_MS);
+    }
+  }
+
+  const dir = path.resolve(process.cwd(), "data", "imports");
+  fs.mkdirSync(dir, { recursive: true });
+
+  const outputPaths: string[] = [];
+  const exportItems = rawItems.map((item: any) => {
+    const features = Array.isArray(item?.ItemInfo?.Features?.DisplayValues)
+      ? item.ItemInfo.Features.DisplayValues.join("; ")
+      : "";
+    return {
+      ASIN: String(item?.ASIN ?? ""),
+      Title: String(item?.ItemInfo?.Title?.DisplayValue ?? ""),
+      Brand: String(item?.ItemInfo?.ByLineInfo?.Brand?.DisplayValue ?? ""),
+      BrowseNode: String(item?.BrowseNodeInfo?.BrowseNodes?.[0]?.DisplayName ?? ""),
+      Features: features,
+    };
+  });
+
+  const chunks =
+    exportItems.length > chunkLimit
+      ? Math.ceil(exportItems.length / chunkLimit)
+      : 1;
+
+  for (let i = 0; i < chunks; i += 1) {
+    const start = i * chunkLimit;
+    const end = start + chunkLimit;
+    const slice = exportItems.slice(start, end);
+    const suffix = chunks > 1 ? `_part${i + 1}` : "";
+    const outputPath = path.resolve(
+      dir,
+      `raw_import_${runId}${suffix}.json`
+    );
+    fs.writeFileSync(outputPath, JSON.stringify(slice, null, 2));
+    outputPaths.push(outputPath);
+  }
+
+  const missingAsins = asins.filter((asin) => !returnedAsins.has(asin));
+  if (missingAsins.length > 0) {
+    const missingPath = path.resolve(dir, `raw_import_${runId}_missing.json`);
+    fs.writeFileSync(missingPath, JSON.stringify(missingAsins, null, 2));
+  }
+
+  if (debugBatches.length > 0) {
+    const debugPath = path.resolve(dir, `raw_import_${runId}_debug.json`);
+    fs.writeFileSync(debugPath, JSON.stringify(debugBatches, null, 2));
+  }
+
+  return {
+    outputPaths,
+    requested: asins.length,
+    returned: returnedAsins.size,
+    missing: missingAsins.length,
+  };
+}
+
 async function searchAmazonItems(
   keyword: string,
   page: number,
@@ -1037,7 +1237,7 @@ async function runDynamicImportJob(
     await updateImportRun(runId, {
       status: "failed",
       finishedAt: new Date(),
-      logs: ["Categoria nÃ£o encontrada."],
+      logs: ["Categoria nao encontrada."],
     });
     return;
   }
@@ -1050,6 +1250,26 @@ async function runDynamicImportJob(
   let importedItems = 0;
   let skippedItems = 0;
   let errorItems = 0;
+  const errorAsins: string[] = [];
+
+  if (filters.saveRawData) {
+    try {
+      logs.push("Baixando JSON completo da Amazon...");
+      await updateImportRun(runId, { logs });
+      const snapshot = await persistRawImportSnapshot(asinList, runId);
+      logs.push(
+        `JSON completo salvo em ${snapshot.outputPaths.join(" | ")}`
+      );
+      logs.push(
+        `JSON completo: ${snapshot.returned}/${snapshot.requested} itens. Faltando: ${snapshot.missing}`
+      );
+      await updateImportRun(runId, { logs });
+    } catch (error) {
+      console.error(error);
+      logs.push("Falha ao salvar JSON completo. Importacao continua.");
+      await updateImportRun(runId, { logs });
+    }
+  }
 
   await updateImportRun(runId, { logs });
 
@@ -1099,7 +1319,7 @@ async function runDynamicImportJob(
       const runState = await findDynamicImportRunById(runId);
 
       if (runState?.cancelRequested) {
-        logs.push("ImportaÃ§Ã£o interrompida pelo usuÃ¡rio.");
+        logs.push("Importacao interrompida pelo usuario.");
         await updateImportRun(runId, {
           status: "cancelled",
           processedItems,
@@ -1163,7 +1383,7 @@ async function runDynamicImportJob(
         }
         skippedItems += 1;
         processedItems += 1;
-        logs.push(`â­ï¸ ${asin}: JÃ¡ existe no banco de dados`);
+        logs.push(`- ${asin}: Ja existe no banco de dados`);
         await updateImportRun(runId, {
           processedItems,
           importedItems,
@@ -1178,8 +1398,9 @@ async function runDynamicImportJob(
 
       if (!result) {
         errorItems += 1;
+        errorAsins.push(asin);
         processedItems += 1;
-        logs.push(`âŒ ${asin}: NÃ£o encontrado na API`);
+        logs.push(`X ${asin}: Nao encontrado na API`);
         await updateImportRun(runId, {
           processedItems,
           importedItems,
@@ -1210,7 +1431,7 @@ async function runDynamicImportJob(
         });
         skippedItems += 1;
         processedItems += 1;
-        logs.push(`ðŸš« ${asin}: ExcluÃ­do (Loja Suplemento)`);
+        logs.push(`! ${asin}: Excluido (Loja Suplemento)`);
         await updateImportRun(runId, {
           processedItems,
           importedItems,
@@ -1251,7 +1472,7 @@ async function runDynamicImportJob(
           });
           skippedItems += 1;
           processedItems += 1;
-          logs.push(`â­ï¸ ${asin}: ${filterResult.reason}`);
+          logs.push(`- ${asin}: ${filterResult.reason}`);
           await updateImportRun(runId, {
             processedItems,
             importedItems,
@@ -1310,9 +1531,9 @@ async function runDynamicImportJob(
       importedItems += 1;
       processedItems += 1;
       if (price === 0) {
-        logs.push(`âš ï¸ ${asin}: Importado sem preÃ§o`);
+        logs.push(`! ${asin}: Importado sem preco`);
       } else {
-        logs.push(`âœ… R$ ${price.toFixed(2)} | ${asin} | ðŸª ${merchantName}`);
+        logs.push(`OK R$ ${price.toFixed(2)} | ${asin} | ${merchantName}`);
       }
 
       await updateImportRun(runId, {
@@ -1325,8 +1546,9 @@ async function runDynamicImportJob(
     } catch (error) {
       console.error(error);
       errorItems += 1;
+      errorAsins.push(asin);
       processedItems += 1;
-      logs.push(`âŒ ${asin}: erro na importaÃ§Ã£o`);
+      logs.push(`X ${asin}: erro na importacao`);
       await updateImportRun(runId, {
         processedItems,
         importedItems,
@@ -1335,6 +1557,10 @@ async function runDynamicImportJob(
         logs,
       });
     }
+  }
+
+  if (errorAsins.length > 0) {
+    logs.push(`ASINs com erro: ${errorAsins.join(", ")}`);
   }
 
   await updateImportRun(runId, {
@@ -1357,6 +1583,7 @@ export async function startDynamicImportViaAPI(input: {
   requiredTitleRaw?: string;
   forbiddenTitleRaw?: string;
   enableImportValidation?: boolean;
+  saveRawData?: boolean;
   discoveredItems?: ImportDiscoveryContextItem[];
 }) {
   const asinList = input.asinsRaw
@@ -1365,13 +1592,13 @@ export async function startDynamicImportViaAPI(input: {
     .filter(Boolean);
 
   if (asinList.length === 0) {
-    return { error: "Cole ao menos um ASIN para iniciar a importaÃ§Ã£o." };
+    return { error: "Cole ao menos um ASIN para iniciar a importacao." };
   }
 
   const activeRun = await findLatestDynamicImportRunByStatuses(["running"]);
 
   if (activeRun) {
-    return { error: "JÃ¡ existe uma importaÃ§Ã£o em andamento." };
+    return { error: "Ja existe uma importacao em andamento." };
   }
 
   const run = await createDynamicImportRun({
@@ -1381,15 +1608,17 @@ export async function startDynamicImportViaAPI(input: {
     filters: {
       requiredTitleRaw: input.requiredTitleRaw ?? "",
       forbiddenTitleRaw: input.forbiddenTitleRaw ?? "",
-        enableImportValidation: input.enableImportValidation === true,
+      enableImportValidation: input.enableImportValidation === true,
+      saveRawData: input.saveRawData === true,
     },
-    logs: ["Fila criada. Preparando importaÃ§Ã£o..."],
+    logs: ["Fila criada. Preparando importacao..."],
   });
 
   void runDynamicImportJob(run.id, input.asinsRaw, input.categoryId, {
     requiredTitleRaw: input.requiredTitleRaw ?? "",
     forbiddenTitleRaw: input.forbiddenTitleRaw ?? "",
     enableImportValidation: input.enableImportValidation === true,
+    saveRawData: input.saveRawData === true,
   }, input.discoveredItems ?? []);
 
   return { success: true, runId: run.id };
@@ -1416,11 +1645,11 @@ export async function cancelDynamicImport(runId: string) {
   const run = await findDynamicImportRunById(runId);
 
   if (!run) {
-    return { error: "ImportaÃ§Ã£o nÃ£o encontrada." };
+    return { error: "Importacao nao encontrada." };
   }
 
   if (run.status !== "running") {
-    return { error: "Essa importaÃ§Ã£o nÃ£o estÃ¡ mais em andamento." };
+    return { error: "Essa importacao nao esta mais em andamento." };
   }
 
   await updateImportRun(runId, {

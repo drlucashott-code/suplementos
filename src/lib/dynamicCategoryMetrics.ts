@@ -36,6 +36,7 @@ export type DynamicCategorySettingsLike = DynamicCategoryMetricSettings & {
   analysisTitleTemplate?: string;
   bestValueAttributeKey?: string;
   dosePriceAttributeKey?: string;
+  hideFromHome?: boolean;
   enabledSorts?: string[];
   defaultSort?: string;
   customSorts?: Array<{

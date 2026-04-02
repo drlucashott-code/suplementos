@@ -1,0 +1,3449 @@
+[
+  {
+    "ASIN": "B0977TL866",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Dog Pulga Drops",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884257011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Guia de presentes em Pet Shop",
+          "DisplayName": "Guia de presentes em Pet Shop",
+          "Id": "20803417011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "30% off em Pet Shop",
+          "DisplayName": "30% off em Pet Shop",
+          "Id": "20882048011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Cães",
+          "DisplayName": "Para Cães",
+          "Id": "21234726011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Gatos",
+          "DisplayName": "Para Gatos",
+          "Id": "21234727011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B0977TL866?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 500,
+          "URL": "https://m.media-amazon.com/images/I/41xFHThRCiL._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41SH1ac9SLL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41W0AvIlhlL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51ytn4HP7WL._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/515NxElNu2L._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51LMPSDW7cL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41GECnS5m+L._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51Bunk0e0uL._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Target",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "O único antiparasitário oral com ação 4 em 1 contra sarna, pulgas, carrapatos e até vermes.",
+          "Proteção mensal.",
+          "Tablete mastigável sabor carne que os cães adoram. Não precisa enganar seu doguinho, é gostoso de verdade!",
+          "Seguro para todas as raças de cães.",
+          "Indicado para cães a partir de 8 semanas de vida e 2kg.",
+          "Pode ser administrado com ou sem alimento."
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "ProductInfo": {
+        "Color": {
+          "DisplayValue": "Laranja",
+          "Label": "Color",
+          "Locale": "pt_BR"
+        },
+        "ItemDimensions": {
+          "Height": {
+            "DisplayValue": 0.787401574,
+            "Label": "Height",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Length": {
+            "DisplayValue": 4.724409444,
+            "Label": "Length",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Weight": {
+            "DisplayValue": 4.40924524,
+            "Label": "Weight",
+            "Locale": "pt_BR",
+            "Unit": "Libras"
+          },
+          "Width": {
+            "DisplayValue": 3.93700787,
+            "Label": "Width",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          }
+        },
+        "Size": {
+          "DisplayValue": "2 a 3,5kg",
+          "Label": "Size",
+          "Locale": "pt_BR"
+        },
+        "UnitCount": {
+          "DisplayValue": 1,
+          "Label": "NumberOfItems",
+          "Locale": "en_US"
+        }
+      },
+      "Title": {
+        "DisplayValue": "NexGard Spectra Antipulgas e Carrapatos e Vermífugo para Cães de 2 a 3,5kg - 1 tablete",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B07XZGQ82L",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Dog Pulga Drops",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884257011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Guia de presentes em Pet Shop",
+          "DisplayName": "Guia de presentes em Pet Shop",
+          "Id": "20803417011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "30% off em Pet Shop",
+          "DisplayName": "30% off em Pet Shop",
+          "Id": "20882048011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Cães",
+          "DisplayName": "Para Cães",
+          "Id": "21234726011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Gatos",
+          "DisplayName": "Para Gatos",
+          "Id": "21234727011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B07XZGQ82L?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 375,
+          "URL": "https://m.media-amazon.com/images/I/41O+9+1hlDL._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 375,
+            "URL": "https://m.media-amazon.com/images/I/41Xjy3kXrDL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/31VGHxd2HvL._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Target",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "Proteção mensal na medida certa contra pulgas e carrapatos.",
+          "Tablete mastigável sabor carne que os cães adoram.",
+          "Seguro para todas as raças de cães.",
+          "Indicado para cães a partir de 8 semanas de vida e 2kg.",
+          "Pode ser administrado com ou sem alimento."
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "ProductInfo": {
+        "Color": {
+          "DisplayValue": "azul e cinza",
+          "Label": "Color",
+          "Locale": "pt_BR"
+        },
+        "ItemDimensions": {
+          "Height": {
+            "DisplayValue": 3.93700787,
+            "Label": "Height",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Length": {
+            "DisplayValue": 5.511811018,
+            "Label": "Length",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Weight": {
+            "DisplayValue": 0.0440924524,
+            "Label": "Weight",
+            "Locale": "pt_BR",
+            "Unit": "Libras"
+          },
+          "Width": {
+            "DisplayValue": 7.086614166,
+            "Label": "Width",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          }
+        },
+        "Size": {
+          "DisplayValue": "2 a 4kg",
+          "Label": "Size",
+          "Locale": "pt_BR"
+        },
+        "UnitCount": {
+          "DisplayValue": 1,
+          "Label": "NumberOfItems",
+          "Locale": "en_US"
+        }
+      },
+      "Title": {
+        "DisplayValue": "NexGard Antipulgas e Carrapatos para Cães de 2 a 4kg, 1 tablete",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B07XZDZWTG",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Dog Pulga Drops",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884257011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Guia de presentes em Pet Shop",
+          "DisplayName": "Guia de presentes em Pet Shop",
+          "Id": "20803417011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "30% off em Pet Shop",
+          "DisplayName": "30% off em Pet Shop",
+          "Id": "20882048011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Cães",
+          "DisplayName": "Para Cães",
+          "Id": "21234726011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Gatos",
+          "DisplayName": "Para Gatos",
+          "Id": "21234727011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B07XZDZWTG?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 375,
+          "URL": "https://m.media-amazon.com/images/I/31X5nBk1MNL._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 375,
+            "URL": "https://m.media-amazon.com/images/I/31Az5CTvMyL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 417,
+            "URL": "https://m.media-amazon.com/images/I/51ejyVFZrfL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/31NRHHl3C1L._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Target",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "Quebra o ciclo das pulgas desde a primeira aplicação",
+          "Eficaz no tratamento, prevenção e controle",
+          "Auxilia a desinfestação do ambiente",
+          "Quantidade no pacote: 1"
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "ProductInfo": {
+        "Color": {
+          "DisplayValue": "Azul e Cinza",
+          "Label": "Color",
+          "Locale": "pt_BR"
+        },
+        "ItemDimensions": {
+          "Height": {
+            "DisplayValue": 3.93700787,
+            "Label": "Height",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Length": {
+            "DisplayValue": 5.511811018,
+            "Label": "Length",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Weight": {
+            "DisplayValue": 0.0440924524,
+            "Label": "Weight",
+            "Locale": "pt_BR",
+            "Unit": "Libras"
+          },
+          "Width": {
+            "DisplayValue": 7.086614166,
+            "Label": "Width",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          }
+        },
+        "Size": {
+          "DisplayValue": "4,1 a 10kg",
+          "Label": "Size",
+          "Locale": "pt_BR"
+        },
+        "UnitCount": {
+          "DisplayValue": 1,
+          "Label": "NumberOfItems",
+          "Locale": "en_US"
+        }
+      },
+      "Title": {
+        "DisplayValue": "NexGard Antipulgas e Carrapatos para Cães de 4,1 a 10kg, 1 tablete",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B0977TDYVS",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Pílulas Dog Pulga",
+          "DisplayName": "Pílulas de pulgas",
+          "Id": "120957541011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Guia de presentes em Pet Shop",
+          "DisplayName": "Guia de presentes em Pet Shop",
+          "Id": "20803417011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "30% off em Pet Shop",
+          "DisplayName": "30% off em Pet Shop",
+          "Id": "20882048011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Cães",
+          "DisplayName": "Para Cães",
+          "Id": "21234726011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Gatos",
+          "DisplayName": "Para Gatos",
+          "Id": "21234727011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B0977TDYVS?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 500,
+          "URL": "https://m.media-amazon.com/images/I/410rvvXCyeL._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41qawx5o9xL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41eN5q++D4L._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51ytn4HP7WL._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/515NxElNu2L._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51LMPSDW7cL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41GECnS5m+L._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51Bunk0e0uL._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Target",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "O único antiparasitário oral com ação 4 em 1 contra sarna, pulgas, carrapatos e até vermes.",
+          "Tablete mastigável sabor carne que os cães adoram. Não precisa enganar seu doguinho, é gostoso de verdade!",
+          "Proteção mensal.",
+          "Seguro para todas as raças de cães.",
+          "Indicado para cães a partir de 8 semanas de vida e 2kg.",
+          "Pode ser administrado com ou sem alimento."
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "ProductInfo": {
+        "Color": {
+          "DisplayValue": "Amarelo",
+          "Label": "Color",
+          "Locale": "pt_BR"
+        },
+        "ItemDimensions": {
+          "Height": {
+            "DisplayValue": 0.787401574,
+            "Label": "Height",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Length": {
+            "DisplayValue": 4.724409444,
+            "Label": "Length",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Width": {
+            "DisplayValue": 3.93700787,
+            "Label": "Width",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          }
+        },
+        "Size": {
+          "DisplayValue": "3,6 a 7,5kg",
+          "Label": "Size",
+          "Locale": "pt_BR"
+        },
+        "UnitCount": {
+          "DisplayValue": 1,
+          "Label": "NumberOfItems",
+          "Locale": "en_US"
+        }
+      },
+      "Title": {
+        "DisplayValue": "NexGard Spectra Antipulgas e Carrapatos e Vermífugo para Cães de 3,6 a 7,5kg - 1 tablete",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B07MZZMXPC",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Dog Pulga Drops",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884257011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Guia de presentes em Pet Shop",
+          "DisplayName": "Guia de presentes em Pet Shop",
+          "Id": "20803417011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "30% off em Pet Shop",
+          "DisplayName": "30% off em Pet Shop",
+          "Id": "20882048011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Cães",
+          "DisplayName": "Para Cães",
+          "Id": "21234726011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Gatos",
+          "DisplayName": "Para Gatos",
+          "Id": "21234727011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B07MZZMXPC?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 375,
+          "URL": "https://m.media-amazon.com/images/I/41bvqlQCXhL._SL500_.jpg",
+          "Width": 500
+        }
+      }
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Alimentos e Bebidas",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "Proteção mensal na medida certa contra pulgas e carrapatos.",
+          "Tablete mastigável sabor carne que os cães adoram.",
+          "Seguro para todas as raças de cães.",
+          "Indicado para cães a partir de 8 semanas de vida e 2kg.",
+          "Pode ser administrado com ou sem alimento."
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "ProductInfo": {
+        "Color": {
+          "DisplayValue": "multi-colored",
+          "Label": "Color",
+          "Locale": "pt_BR"
+        },
+        "ItemDimensions": {
+          "Height": {
+            "DisplayValue": 3.93700787,
+            "Label": "Height",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Length": {
+            "DisplayValue": 5.511811018,
+            "Label": "Length",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Weight": {
+            "DisplayValue": 0.1322773572,
+            "Label": "Weight",
+            "Locale": "pt_BR",
+            "Unit": "Libras"
+          },
+          "Width": {
+            "DisplayValue": 7.086614166,
+            "Label": "Width",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          }
+        },
+        "Size": {
+          "DisplayValue": "10,1 a 25kg",
+          "Label": "Size",
+          "Locale": "pt_BR"
+        },
+        "UnitCount": {
+          "DisplayValue": 1,
+          "Label": "NumberOfItems",
+          "Locale": "en_US"
+        }
+      },
+      "Title": {
+        "DisplayValue": "Nexgard Antipulgas e Carrapatos para Cães de 10,1 a 25kg, 1 tablete",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B0DJ1D3BGH",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Gato Pulga Gotas",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884258011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Cães",
+          "DisplayName": "Para Cães",
+          "Id": "21234726011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Gatos",
+          "DisplayName": "Para Gatos",
+          "Id": "21234727011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B0DJ1D3BGH?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 325,
+          "URL": "https://m.media-amazon.com/images/I/31PzD0ap+1L._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/318vR0Rd5ML._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/31oSZ8St40L._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/61Np3vBN6QL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/610LjhqwyEL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51vbPKYApGL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51X+k3pxgVL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/61nAvXHr5ML._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Diversos",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "Ação 3 em 1 contra pulgas, sarna e vermes.",
+          "Proteção contra verme chato.",
+          "Seguro para gatos adultos e filhotes a partir de 2 meses de idade e 0,8kg de peso.",
+          "Uso tópico: fácil de aplicar."
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "ProductInfo": {
+        "ItemDimensions": {
+          "Height": {
+            "DisplayValue": 5.7874015689,
+            "Label": "Height",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Length": {
+            "DisplayValue": 0.9055118101,
+            "Label": "Length",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Weight": {
+            "DisplayValue": 0.0330693393,
+            "Label": "Weight",
+            "Locale": "pt_BR",
+            "Unit": "Libras"
+          },
+          "Width": {
+            "DisplayValue": 1.6535433054,
+            "Label": "Width",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          }
+        },
+        "Size": {
+          "DisplayValue": "tamanho único",
+          "Label": "Size",
+          "Locale": "pt_BR"
+        }
+      },
+      "Title": {
+        "DisplayValue": "Nexgard COMBO Antipulgas e Sarna e Vermífugo para Gatos até 2,5 kg - 1 aplicador",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B0977T9WTB",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Dog Pulga Drops",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884257011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Guia de presentes em Pet Shop",
+          "DisplayName": "Guia de presentes em Pet Shop",
+          "Id": "20803417011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "30% off em Pet Shop",
+          "DisplayName": "30% off em Pet Shop",
+          "Id": "20882048011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Cães",
+          "DisplayName": "Para Cães",
+          "Id": "21234726011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Gatos",
+          "DisplayName": "Para Gatos",
+          "Id": "21234727011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B0977T9WTB?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 500,
+          "URL": "https://m.media-amazon.com/images/I/41lMjRk97vL._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41acLEe-X7L._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41jAVqz0NVL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51ytn4HP7WL._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/515NxElNu2L._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51LMPSDW7cL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41GECnS5m+L._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51Bunk0e0uL._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Encadernação desconhecida",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "O único antiparasitário oral com ação 4 em 1 contra sarna, pulgas, carrapatos e até vermes.",
+          "Tablete mastigável sabor carne que os cães adoram. Não precisa enganar seu doguinho, é gostoso de verdade!",
+          "Proteção mensal.",
+          "Seguro para todas as raças de cães.",
+          "Indicado para cães a partir de 8 semanas de vida e 2kg.",
+          "Pode ser administrado com ou sem alimento."
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "ProductInfo": {
+        "Color": {
+          "DisplayValue": "Cor característica de carne.",
+          "Label": "Color",
+          "Locale": "pt_BR"
+        },
+        "ItemDimensions": {
+          "Height": {
+            "DisplayValue": 0.01181102361,
+            "Label": "Height",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Length": {
+            "DisplayValue": 0.04724409444,
+            "Label": "Length",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Weight": {
+            "DisplayValue": 0.0440924524,
+            "Label": "Weight",
+            "Locale": "pt_BR",
+            "Unit": "Libras"
+          },
+          "Width": {
+            "DisplayValue": 0.0393700787,
+            "Label": "Width",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          }
+        },
+        "Size": {
+          "DisplayValue": "7,6 a 15kg",
+          "Label": "Size",
+          "Locale": "pt_BR"
+        },
+        "UnitCount": {
+          "DisplayValue": 1,
+          "Label": "NumberOfItems",
+          "Locale": "en_US"
+        }
+      },
+      "Title": {
+        "DisplayValue": "NexGard Spectra Antipulgas e Carrapatos e Vermífugo para Cães de 7,6 a 15kg - 1 tablete",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B0977TBDC7",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Dog Pulga Drops",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884257011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Guia de presentes em Pet Shop",
+          "DisplayName": "Guia de presentes em Pet Shop",
+          "Id": "20803417011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "30% off em Pet Shop",
+          "DisplayName": "30% off em Pet Shop",
+          "Id": "20882048011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B0977TBDC7?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 500,
+          "URL": "https://m.media-amazon.com/images/I/41QFTE8juPL._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41lNK9-m1RL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41taLIfaHyL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51ytn4HP7WL._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/515NxElNu2L._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51LMPSDW7cL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41GECnS5m+L._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51Bunk0e0uL._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Encadernação desconhecida",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "O único antiparasitário oral com ação 4 em 1 contra sarna, pulgas, carrapatos e até vermes.",
+          "Proteção mensal.",
+          "Tablete mastigável sabor carne que os cães adoram. Não precisa enganar seu doguinho, é gostoso de verdade!",
+          "Seguro para todas as raças de cães.",
+          "Indicado para cães a partir de 8 semanas de vida e 2kg.",
+          "Pode ser administrado com ou sem alimento."
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "ProductInfo": {
+        "ItemDimensions": {
+          "Height": {
+            "DisplayValue": 0.787401574,
+            "Label": "Height",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Length": {
+            "DisplayValue": 4.724409444,
+            "Label": "Length",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Weight": {
+            "DisplayValue": 0.0440924524,
+            "Label": "Weight",
+            "Locale": "pt_BR",
+            "Unit": "Libras"
+          },
+          "Width": {
+            "DisplayValue": 3.93700787,
+            "Label": "Width",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          }
+        },
+        "Size": {
+          "DisplayValue": "15,1 a 30kg",
+          "Label": "Size",
+          "Locale": "pt_BR"
+        },
+        "UnitCount": {
+          "DisplayValue": 1,
+          "Label": "NumberOfItems",
+          "Locale": "en_US"
+        }
+      },
+      "Title": {
+        "DisplayValue": "NexGard Spectra Antipulgas e Carrapatos e Vermífugo para Cães de 15,1 a 30kg - 1 tablete",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B0977SH2WT",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Dog Pulga Drops",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884257011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Guia de presentes em Pet Shop",
+          "DisplayName": "Guia de presentes em Pet Shop",
+          "Id": "20803417011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "30% off em Pet Shop",
+          "DisplayName": "30% off em Pet Shop",
+          "Id": "20882048011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Cães",
+          "DisplayName": "Para Cães",
+          "Id": "21234726011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Gatos",
+          "DisplayName": "Para Gatos",
+          "Id": "21234727011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B0977SH2WT?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 500,
+          "URL": "https://m.media-amazon.com/images/I/41vEOfjWpmL._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41y+cRPt5AL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41BGo+tulxL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51ytn4HP7WL._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/515NxElNu2L._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51LMPSDW7cL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41GECnS5m+L._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51Bunk0e0uL._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Alimentos e Bebidas",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "O único antiparasitário oral com ação 4 em 1 contra sarna, pulgas, carrapatos e até vermes.",
+          "Tablete mastigável sabor carne que os cães adoram. Não precisa enganar seu doguinho, é gostoso de verdade!",
+          "Proteção mensal.",
+          "Seguro para todas as raças de cães.",
+          "Indicado para cães a partir de 8 semanas de vida e 2kg.",
+          "Pode ser administrado com ou sem alimento."
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "ProductInfo": {
+        "Color": {
+          "DisplayValue": "Padrão",
+          "Label": "Color",
+          "Locale": "pt_BR"
+        },
+        "ItemDimensions": {
+          "Height": {
+            "DisplayValue": 0.787401574,
+            "Label": "Height",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Length": {
+            "DisplayValue": 4.724409444,
+            "Label": "Length",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Weight": {
+            "DisplayValue": 0.000440924524,
+            "Label": "Weight",
+            "Locale": "pt_BR",
+            "Unit": "Libras"
+          },
+          "Width": {
+            "DisplayValue": 3.93700787,
+            "Label": "Width",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          }
+        },
+        "Size": {
+          "DisplayValue": "30,1 a 60kg",
+          "Label": "Size",
+          "Locale": "pt_BR"
+        }
+      },
+      "Title": {
+        "DisplayValue": "NexGard Spectra Antipulgas e Carrapatos e Vermífugo para Cães de 30,1 a 60kg - 1 tablete",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B0CP4D9D3M",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Dog Pulga Drops",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884257011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Cães",
+          "DisplayName": "Para Cães",
+          "Id": "21234726011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Gatos",
+          "DisplayName": "Para Gatos",
+          "Id": "21234727011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B0CP4D9D3M?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 500,
+          "URL": "https://m.media-amazon.com/images/I/41rRToA-psL._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41d94KOMC1L._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41ilpAaL6GL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/519cvsvK-fL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/515NxElNu2L._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/511au9pjgNL._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51LMPSDW7cL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41GECnS5m+L._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51Bunk0e0uL._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Diversos",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "O único antiparasitário oral com ação 4 em 1 contra sarna, pulgas, carrapatos e até vermes.",
+          "Proteção mensal.",
+          "Tablete mastigável sabor carne que os cães adoram. Não precisa enganar seu doguinho, é gostoso de verdade!",
+          "Seguro para todas as raças de cães.",
+          "Indicado para cães a partir de 8 semanas de vida e 2kg.",
+          "Pode ser administrado com ou sem alimento."
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "ProductInfo": {
+        "ItemDimensions": {
+          "Height": {
+            "DisplayValue": 4.0157480274,
+            "Label": "Height",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Length": {
+            "DisplayValue": 4.5669291292,
+            "Label": "Length",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Weight": {
+            "DisplayValue": 0.0440924524,
+            "Label": "Weight",
+            "Locale": "pt_BR",
+            "Unit": "Libras"
+          },
+          "Width": {
+            "DisplayValue": 1.0236220462,
+            "Label": "Width",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          }
+        },
+        "Size": {
+          "DisplayValue": "2 a 3,5kg",
+          "Label": "Size",
+          "Locale": "pt_BR"
+        }
+      },
+      "Title": {
+        "DisplayValue": "NexGard Spectra Antipulgas, Carrapatos e Vermífugos para Cães de 2 a 3,5kg - 3 tabletes",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B0DJ1DFSV4",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Gato Pulga Gotas",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884258011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Cães",
+          "DisplayName": "Para Cães",
+          "Id": "21234726011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Gatos",
+          "DisplayName": "Para Gatos",
+          "Id": "21234727011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B0DJ1DFSV4?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 325,
+          "URL": "https://m.media-amazon.com/images/I/41ZFWNFEPWL._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41l0d6ajqpL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41bEguT9SsL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/61Np3vBN6QL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/610LjhqwyEL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51vbPKYApGL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51X+k3pxgVL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/61nAvXHr5ML._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Diversos",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "Ação 3 em 1 contra pulgas, sarnas e vermes.",
+          "Proteção contra verme chato.",
+          "Seguro para gatos adultos e filhotes a partir de 2 meses de idade e 0,8kg de peso.",
+          "Uso tópico: fácil de aplicar."
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "ProductInfo": {
+        "ItemDimensions": {
+          "Height": {
+            "DisplayValue": 5.7874015689,
+            "Label": "Height",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Length": {
+            "DisplayValue": 0.9055118101,
+            "Label": "Length",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Weight": {
+            "DisplayValue": 0.10141264052,
+            "Label": "Weight",
+            "Locale": "pt_BR",
+            "Unit": "Libras"
+          },
+          "Width": {
+            "DisplayValue": 3.9763779487,
+            "Label": "Width",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          }
+        },
+        "Size": {
+          "DisplayValue": "tamanho único",
+          "Label": "Size",
+          "Locale": "pt_BR"
+        }
+      },
+      "Title": {
+        "DisplayValue": "Nexgard COMBO Antipulgas e Sarna e Vermífugo para Gatos de 2,5kg a 7,5 kg - 3 aplicadores",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B07M6KHQKT",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Ofertas em Cozinha",
+          "DisplayName": "Ofertas em Cozinha",
+          "Id": "18323619011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Dog Pulga Drops",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884257011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Guia de presentes em Pet Shop",
+          "DisplayName": "Guia de presentes em Pet Shop",
+          "Id": "20803417011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "30% off em Pet Shop",
+          "DisplayName": "30% off em Pet Shop",
+          "Id": "20882048011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Cães",
+          "DisplayName": "Para Cães",
+          "Id": "21234726011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Gatos",
+          "DisplayName": "Para Gatos",
+          "Id": "21234727011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B07M6KHQKT?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 375,
+          "URL": "https://m.media-amazon.com/images/I/419m+P6JcmL._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 375,
+            "URL": "https://m.media-amazon.com/images/I/41Y3zp-RxxL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/31NRHHl3C1L._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Target",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "Proteção mensal na medida certa contra pulgas e carrapatos.",
+          "Tablete mastigável sabor carne que os cães adoram.",
+          "Seguro para todas as raças de cães.",
+          "Indicado para cães a partir de 8 semanas de vida e 2kg.",
+          "Pode ser administrado com ou sem alimento."
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "ProductInfo": {
+        "Color": {
+          "DisplayValue": "multi-colored",
+          "Label": "Color",
+          "Locale": "pt_BR"
+        },
+        "ItemDimensions": {
+          "Height": {
+            "DisplayValue": 7.87401574,
+            "Label": "Height",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Length": {
+            "DisplayValue": 7.87401574,
+            "Label": "Length",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Weight": {
+            "DisplayValue": 0.220462262,
+            "Label": "Weight",
+            "Locale": "pt_BR",
+            "Unit": "Libras"
+          },
+          "Width": {
+            "DisplayValue": 7.87401574,
+            "Label": "Width",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          }
+        },
+        "Size": {
+          "DisplayValue": "4,1 a 10kg",
+          "Label": "Size",
+          "Locale": "pt_BR"
+        },
+        "UnitCount": {
+          "DisplayValue": 3,
+          "Label": "NumberOfItems",
+          "Locale": "en_US"
+        }
+      },
+      "Title": {
+        "DisplayValue": "NexGard Antipulgas e Carrapatos para Cães de 4,1 a 10kg 3 tabletes",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B08ZT5Q6F6",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Pó de pulga de cão",
+          "DisplayName": "Pó de pulga",
+          "Id": "23884253011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "30% off em Pet Shop",
+          "DisplayName": "30% off em Pet Shop",
+          "Id": "20882048011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B08ZT5Q6F6?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 500,
+          "URL": "https://m.media-amazon.com/images/I/41GjHC3Y5LL._SL500_.jpg",
+          "Width": 500
+        }
+      }
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "NEXGARD",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Diversos",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Title": {
+        "DisplayValue": "Kit 2 Un Nexgard Antipulgas Cães De 4,1 A 10kg + Brinde",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B07Y5MKPF2",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Dog Pulga Drops",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884257011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Guia de presentes em Pet Shop",
+          "DisplayName": "Guia de presentes em Pet Shop",
+          "Id": "20803417011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "30% off em Pet Shop",
+          "DisplayName": "30% off em Pet Shop",
+          "Id": "20882048011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B07Y5MKPF2?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 500,
+          "URL": "https://m.media-amazon.com/images/I/51lTl2CrL2L._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51YLqYdyhPL._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Diversos",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "Tratamento ideal para pulgas, carrapatos, e outros parasitos",
+          "Verificar a necessidade ou não de uso de medicamentos",
+          "Verificar a dose antes de administrar"
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "Title": {
+        "DisplayValue": "Antipulgas e Carrapatos Nexgard 1,25gr Merial p/Cães de 4,1 a 10kg - 3 Tabletes Mastigáveis",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B0CP4DVW59",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Dog Pulga Drops",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884257011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Cães",
+          "DisplayName": "Para Cães",
+          "Id": "21234726011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Gatos",
+          "DisplayName": "Para Gatos",
+          "Id": "21234727011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B0CP4DVW59?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 500,
+          "URL": "https://m.media-amazon.com/images/I/41CBAddMx5L._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41zHDuGmG0L._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41N-l9plcQL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/519cvsvK-fL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/515NxElNu2L._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/511au9pjgNL._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51LMPSDW7cL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41GECnS5m+L._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51Bunk0e0uL._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Diversos",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "O único antiparasitário oral com ação 4 em 1 contra sarna, pulgas, carrapatos e até vermes.",
+          "Proteção mensal.",
+          "Tablete mastigável sabor carne que os cães adoram. Não precisa enganar seu doguinho, é gostoso de verdade!",
+          "Seguro para todas as raças de cães.",
+          "Indicado para cães a partir de 8 semanas de vida e 2kg.",
+          "Pode ser administrado com ou sem alimento."
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "ProductInfo": {
+        "ItemDimensions": {
+          "Height": {
+            "DisplayValue": 4.0157480274,
+            "Label": "Height",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Length": {
+            "DisplayValue": 4.5669291292,
+            "Label": "Length",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Weight": {
+            "DisplayValue": 0.0440924524,
+            "Label": "Weight",
+            "Locale": "pt_BR",
+            "Unit": "Libras"
+          },
+          "Width": {
+            "DisplayValue": 1.0236220462,
+            "Label": "Width",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          }
+        },
+        "Size": {
+          "DisplayValue": "3,6 a 7,5kg",
+          "Label": "Size",
+          "Locale": "pt_BR"
+        }
+      },
+      "Title": {
+        "DisplayValue": "NexGard Spectra Antipulgas, Carrapatos e Vermífugos para Cães de 3,6 a 7,5kg - 3 tabletes",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B0CP4FWQW9",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Dog Pulga Drops",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884257011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Cães",
+          "DisplayName": "Para Cães",
+          "Id": "21234726011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Gatos",
+          "DisplayName": "Para Gatos",
+          "Id": "21234727011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B0CP4FWQW9?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 500,
+          "URL": "https://m.media-amazon.com/images/I/41B3+HnjbmL._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41l+4upl3EL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41xYYgQe0GL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/519cvsvK-fL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/515NxElNu2L._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/511au9pjgNL._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51LMPSDW7cL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41GECnS5m+L._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51Bunk0e0uL._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Diversos",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "O único antiparasitário oral com ação 4 em 1 contra sarna, pulgas, carrapatos e até vermes.",
+          "Proteção mensal.",
+          "Tablete mastigável sabor carne que os cães adoram. Não precisa enganar seu doguinho, é gostoso de verdade!",
+          "Seguro para todas as raças de cães.",
+          "Indicado para cães a partir de 8 semanas de vida e 2kg.",
+          "Pode ser administrado com ou sem alimento."
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "ProductInfo": {
+        "ItemDimensions": {
+          "Height": {
+            "DisplayValue": 4.0157480274,
+            "Label": "Height",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Length": {
+            "DisplayValue": 4.5669291292,
+            "Label": "Length",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Weight": {
+            "DisplayValue": 0.0440924524,
+            "Label": "Weight",
+            "Locale": "pt_BR",
+            "Unit": "Libras"
+          },
+          "Width": {
+            "DisplayValue": 1.0236220462,
+            "Label": "Width",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          }
+        },
+        "Size": {
+          "DisplayValue": "7,6 a 15kg",
+          "Label": "Size",
+          "Locale": "pt_BR"
+        }
+      },
+      "Title": {
+        "DisplayValue": "NexGard Spectra Antipulgas e Carrapatos e Vermífugo para Cães 7,6-15kg - 3 tabletes",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B07S8BMFPD",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Dog Pulga Drops",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884257011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Guia de presentes em Pet Shop",
+          "DisplayName": "Guia de presentes em Pet Shop",
+          "Id": "20803417011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "30% off em Pet Shop",
+          "DisplayName": "30% off em Pet Shop",
+          "Id": "20882048011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Cães",
+          "DisplayName": "Para Cães",
+          "Id": "21234726011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Gatos",
+          "DisplayName": "Para Gatos",
+          "Id": "21234727011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B07S8BMFPD?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 375,
+          "URL": "https://m.media-amazon.com/images/I/41Ht0hpIFPL._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 375,
+            "URL": "https://m.media-amazon.com/images/I/41T6opaTwQL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/31hR-xcVYSL._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Target",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "Proteção mensal na medida certa contra pulgas e carrapatos.",
+          "Tablete mastigável sabor carne que os cães adoram.",
+          "Seguro para todas as raças de cães.",
+          "Indicado para cães a partir de 8 semanas de vida e 2kg.",
+          "Pode ser administrado com ou sem alimento."
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "ProductInfo": {
+        "Color": {
+          "DisplayValue": "multi-colored",
+          "Label": "Color",
+          "Locale": "pt_BR"
+        },
+        "ItemDimensions": {
+          "Height": {
+            "DisplayValue": 7.87401574,
+            "Label": "Height",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Length": {
+            "DisplayValue": 7.87401574,
+            "Label": "Length",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Weight": {
+            "DisplayValue": 0.220462262,
+            "Label": "Weight",
+            "Locale": "pt_BR",
+            "Unit": "Libras"
+          },
+          "Width": {
+            "DisplayValue": 7.87401574,
+            "Label": "Width",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          }
+        },
+        "Size": {
+          "DisplayValue": "10,1 a 25kg",
+          "Label": "Size",
+          "Locale": "pt_BR"
+        },
+        "UnitCount": {
+          "DisplayValue": 1,
+          "Label": "NumberOfItems",
+          "Locale": "en_US"
+        }
+      },
+      "Title": {
+        "DisplayValue": "NexGard Antipulgas e Carrapatos para Cães de 10.1 a 25kg 3 tabletes",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B07V9W6N8P",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Ofertas em Cozinha",
+          "DisplayName": "Ofertas em Cozinha",
+          "Id": "18323619011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Dog Pulga Drops",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884257011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Guia de presentes em Pet Shop",
+          "DisplayName": "Guia de presentes em Pet Shop",
+          "Id": "20803417011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "30% off em Pet Shop",
+          "DisplayName": "30% off em Pet Shop",
+          "Id": "20882048011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Cães",
+          "DisplayName": "Para Cães",
+          "Id": "21234726011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Gatos",
+          "DisplayName": "Para Gatos",
+          "Id": "21234727011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B07V9W6N8P?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 375,
+          "URL": "https://m.media-amazon.com/images/I/41RW2tmpZ4L._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 375,
+            "URL": "https://m.media-amazon.com/images/I/41kc3gdL5dL._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Diversos",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "Proteção mensal na medida certa contra pulgas e carrapatos.",
+          "Tablete mastigável sabor carne que os cães adoram.",
+          "Seguro para todas as raças de cães.",
+          "Indicado para cães a partir de 8 semanas de vida e 2kg.",
+          "Pode ser administrado com ou sem alimento."
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "ProductInfo": {
+        "Color": {
+          "DisplayValue": "multi-colored",
+          "Label": "Color",
+          "Locale": "pt_BR"
+        },
+        "ItemDimensions": {
+          "Height": {
+            "DisplayValue": 7.87401574,
+            "Label": "Height",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Length": {
+            "DisplayValue": 7.87401574,
+            "Label": "Length",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Weight": {
+            "DisplayValue": 0.220462262,
+            "Label": "Weight",
+            "Locale": "pt_BR",
+            "Unit": "Libras"
+          },
+          "Width": {
+            "DisplayValue": 7.87401574,
+            "Label": "Width",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          }
+        },
+        "Size": {
+          "DisplayValue": "25,1 a 50kg",
+          "Label": "Size",
+          "Locale": "pt_BR"
+        },
+        "UnitCount": {
+          "DisplayValue": 1,
+          "Label": "NumberOfItems",
+          "Locale": "en_US"
+        }
+      },
+      "Title": {
+        "DisplayValue": "NexGard Antipulgas e Carrapatos para Cães de 25,1 a 50kg, 3 tabletes",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B0CP4DVRRB",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Dog Pulga Drops",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884257011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Cães",
+          "DisplayName": "Para Cães",
+          "Id": "21234726011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Gatos",
+          "DisplayName": "Para Gatos",
+          "Id": "21234727011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B0CP4DVRRB?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 500,
+          "URL": "https://m.media-amazon.com/images/I/41nyEdO-U9L._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41b1eq6aA+L._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41AYHmK5znL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/519cvsvK-fL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/515NxElNu2L._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/511au9pjgNL._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51LMPSDW7cL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41GECnS5m+L._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51Bunk0e0uL._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Diversos",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "O único antiparasitário oral com ação 4 em 1 contra sarna, pulgas, carrapatos e até vermes.",
+          "Proteção mensal.",
+          "Tablete mastigável sabor carne que os cães adoram. Não precisa enganar seu doguinho, é gostoso de verdade!",
+          "Seguro para todas as raças de cães.",
+          "Indicado para cães a partir de 8 semanas de vida e 2kg.",
+          "Pode ser administrado com ou sem alimento."
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "ProductInfo": {
+        "ItemDimensions": {
+          "Height": {
+            "DisplayValue": 4.0157480274,
+            "Label": "Height",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Length": {
+            "DisplayValue": 4.5669291292,
+            "Label": "Length",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Weight": {
+            "DisplayValue": 0.0440924524,
+            "Label": "Weight",
+            "Locale": "pt_BR",
+            "Unit": "Libras"
+          },
+          "Width": {
+            "DisplayValue": 1.0236220462,
+            "Label": "Width",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          }
+        },
+        "Size": {
+          "DisplayValue": "15,1 a 30kg",
+          "Label": "Size",
+          "Locale": "pt_BR"
+        }
+      },
+      "Title": {
+        "DisplayValue": "NexGard Spectra Antipulgas, Carrapatos e Vermífugos para Cães de 15,1 a 30kg - 3 tabletes",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B0FY3PKC5S",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Coleiras de pulgas de cão",
+          "DisplayName": "Coleiras de pulgas e carrapatos",
+          "Id": "23884254011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B0FY3PKC5S?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 500,
+          "URL": "https://m.media-amazon.com/images/I/41T-viMWO0L._SL500_.jpg",
+          "Width": 500
+        }
+      }
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "NexGard",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Diversos",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Title": {
+        "DisplayValue": "Nexgard Antipulgas e Carrapatos para Cachorros de 2 a 4kg",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B07ZG4K25V",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Dog Pulga Drops",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884257011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Guia de presentes em Pet Shop",
+          "DisplayName": "Guia de presentes em Pet Shop",
+          "Id": "20803417011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "30% off em Pet Shop",
+          "DisplayName": "30% off em Pet Shop",
+          "Id": "20882048011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B07ZG4K25V?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 420,
+          "URL": "https://m.media-amazon.com/images/I/51lPsyV4KWL._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 420,
+            "URL": "https://m.media-amazon.com/images/I/51lPsyV4KWL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 491,
+            "URL": "https://m.media-amazon.com/images/I/51q6zgbM6PL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 494,
+            "URL": "https://m.media-amazon.com/images/I/61P58wdzAYL._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "Indicado para cães com peso entre 25,1 a 50 kg",
+          "Tablete mastigável sabor carne que os cães adoram",
+          "Proteção mensal contra pulgas e carrapatos"
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "Title": {
+        "DisplayValue": "Nexgard Antipulgas e Carrapatos 6,0gr Merial p/Cães de 25,1 a 50kg - 3 Tabletes Mastigáveis",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B0CP4DNHJX",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Dog Pulga Drops",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884257011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Cães",
+          "DisplayName": "Para Cães",
+          "Id": "21234726011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "Para Gatos",
+          "DisplayName": "Para Gatos",
+          "Id": "21234727011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B0CP4DNHJX?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 500,
+          "URL": "https://m.media-amazon.com/images/I/417s7ZRPvhL._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41JLAS5cgJL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/416M2Gb0+IL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/519cvsvK-fL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/515NxElNu2L._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/511au9pjgNL._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51LMPSDW7cL._SL500_.jpg",
+            "Width": 500
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/41GECnS5m+L._SL500_.jpg",
+            "Width": 499
+          }
+        },
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51Bunk0e0uL._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "Boehringer Ingelheim",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Diversos",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "O único antiparasitário oral com ação 4 em 1 contra sarna, pulgas, carrapatos e até vermes.",
+          "Proteção mensal.",
+          "Tablete mastigável sabor carne que os cães adoram. Não precisa enganar seu doguinho, é gostoso de verdade!",
+          "Seguro para todas as raças de cães.",
+          "Indicado para cães a partir de 8 semanas de vida e 2kg.",
+          "Pode ser administrado com ou sem alimento."
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "ProductInfo": {
+        "ItemDimensions": {
+          "Height": {
+            "DisplayValue": 4.0157480274,
+            "Label": "Height",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Length": {
+            "DisplayValue": 4.5669291292,
+            "Label": "Length",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          },
+          "Weight": {
+            "DisplayValue": 0.0440924524,
+            "Label": "Weight",
+            "Locale": "pt_BR",
+            "Unit": "Libras"
+          },
+          "Width": {
+            "DisplayValue": 1.0236220462,
+            "Label": "Width",
+            "Locale": "pt_BR",
+            "Unit": "Polegadas"
+          }
+        },
+        "Size": {
+          "DisplayValue": "30,1 a 60kg",
+          "Label": "Size",
+          "Locale": "pt_BR"
+        }
+      },
+      "Title": {
+        "DisplayValue": "NexGard Spectra Antipulgas, Carrapatos e Vermífugos para Cães de 30,1 a 60kg - 3 tabletes",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B08ZT2SZSZ",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Dog Pulga Drops",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884257011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "30% off em Pet Shop",
+          "DisplayName": "30% off em Pet Shop",
+          "Id": "20882048011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B08ZT2SZSZ?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 500,
+          "URL": "https://m.media-amazon.com/images/I/41fvBKdTx7L._SL500_.jpg",
+          "Width": 500
+        }
+      },
+      "Variants": [
+        {
+          "Large": {
+            "Height": 500,
+            "URL": "https://m.media-amazon.com/images/I/51U8SAL4QpL._SL500_.jpg",
+            "Width": 500
+          }
+        }
+      ]
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "NEXGARD",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Diversos",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "um brinde por pedido",
+          "brinde sortido conforme disponibilidade de estoque",
+          "imagem ilustrativa"
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "Title": {
+        "DisplayValue": "Kit 2 Un Nexgard Antipulgas Cães 2 A 4kg C/3 + Brinde",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B08ZT3RDDK",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Dog Pulga Drops",
+          "DisplayName": "Gotas de pulgas",
+          "Id": "23884257011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "30% off em Pet Shop",
+          "DisplayName": "30% off em Pet Shop",
+          "Id": "20882048011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B08ZT3RDDK?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 500,
+          "URL": "https://m.media-amazon.com/images/I/41toy46wzAL._SL500_.jpg",
+          "Width": 500
+        }
+      }
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "NEXGARD",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Diversos",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "Elimina 1% das pulgas em até 8 horas e carrapatos em 48 horas, oferecendo proteção por 3 dias",
+          "Comprimido mastigável com sabor atrativo de carne, altamente palatável para cães",
+          "Eficaz mesmo após o banho, indicado para cães com gene MDR1 positivo e controle da Dermatite Alérgica por Picada de Pulga"
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "Title": {
+        "DisplayValue": "Kit 2 Un Nexgard Antipulgas Cães 4,1 A 10kg C/ 3 + Brinde",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  },
+  {
+    "ASIN": "B08ZT3N9CV",
+    "BrowseNodeInfo": {
+      "BrowseNodes": [
+        {
+          "ContextFreeName": "Pó de pulga de cão",
+          "DisplayName": "Pó de pulga",
+          "Id": "23884253011",
+          "IsRoot": false
+        },
+        {
+          "ContextFreeName": "30% off em Pet Shop",
+          "DisplayName": "30% off em Pet Shop",
+          "Id": "20882048011",
+          "IsRoot": false
+        }
+      ]
+    },
+    "DetailPageURL": "https://www.amazon.com.br/dp/B08ZT3N9CV?tag=luanna0ff-20&linkCode=ogi&th=1&psc=1",
+    "Images": {
+      "Primary": {
+        "Large": {
+          "Height": 500,
+          "URL": "https://m.media-amazon.com/images/I/41yAnC8pkIL._SL500_.jpg",
+          "Width": 500
+        }
+      }
+    },
+    "ItemInfo": {
+      "ByLineInfo": {
+        "Brand": {
+          "DisplayValue": "Nexgard",
+          "Label": "Brand",
+          "Locale": "pt_BR"
+        },
+        "Manufacturer": {
+          "DisplayValue": "NEXGARD",
+          "Label": "Manufacturer",
+          "Locale": "pt_BR"
+        }
+      },
+      "Classifications": {
+        "Binding": {
+          "DisplayValue": "Diversos",
+          "Label": "Binding",
+          "Locale": "pt_BR"
+        },
+        "ProductGroup": {
+          "DisplayValue": "Pet Products",
+          "Label": "ProductGroup",
+          "Locale": "pt_BR"
+        }
+      },
+      "Features": {
+        "DisplayValues": [
+          "Um brinde por pedido",
+          "Brindes sortidos conforme disponibilidade de estoque",
+          "Imagem ilustrativa"
+        ],
+        "Label": "Features",
+        "Locale": "pt_BR"
+      },
+      "Title": {
+        "DisplayValue": "Kit 2 Un Nexgard Antipulgas Cães 10,1 A 25kg C/ 3 + Brinde",
+        "Label": "Title",
+        "Locale": "pt_BR"
+      }
+    }
+  }
+]

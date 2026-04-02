@@ -1,0 +1,227 @@
+[
+  {
+    "asin": "B0977TL866",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 1,
+    "peso_pet_min": 2,
+    "peso_pet_max": 3.5,
+    "linha": "nexgard spectra"
+  },
+  {
+    "asin": "B07XZGQ82L",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 1,
+    "peso_pet_min": 2,
+    "peso_pet_max": 4,
+    "linha": "nexgard"
+  },
+  {
+    "asin": "B07XZDZWTG",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 1,
+    "peso_pet_min": 4.1,
+    "peso_pet_max": 10,
+    "linha": "nexgard"
+  },
+  {
+    "asin": "B0977TDYVS",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 1,
+    "peso_pet_min": 3.6,
+    "peso_pet_max": 7.5,
+    "linha": "nexgard spectra"
+  },
+  {
+    "asin": "B07MZZMXPC",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 1,
+    "peso_pet_min": 10.1,
+    "peso_pet_max": 25,
+    "linha": "nexgard"
+  },
+  {
+    "asin": "B0DJ1D3BGH",
+    "tipo_pet": "gato",
+    "forma": "pipeta",
+    "unidades": 1,
+    "peso_pet_min": null,
+    "peso_pet_max": 2.5,
+    "linha": "nexgard combo"
+  },
+  {
+    "asin": "B0977T9WTB",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 1,
+    "peso_pet_min": 7.6,
+    "peso_pet_max": 15,
+    "linha": "nexgard spectra"
+  },
+  {
+    "asin": "B0977TBDC7",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 1,
+    "peso_pet_min": 15.1,
+    "peso_pet_max": 30,
+    "linha": "nexgard spectra"
+  },
+  {
+    "asin": "B0977SH2WT",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 1,
+    "peso_pet_min": 30.1,
+    "peso_pet_max": 60,
+    "linha": "nexgard spectra"
+  },
+  {
+    "asin": "B0CP4D9D3M",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 3,
+    "peso_pet_min": 2,
+    "peso_pet_max": 3.5,
+    "linha": "nexgard spectra"
+  },
+  {
+    "asin": "B0DJ1DFSV4",
+    "tipo_pet": "gato",
+    "forma": "pipeta",
+    "unidades": 3,
+    "peso_pet_min": 2.5,
+    "peso_pet_max": 7.5,
+    "linha": "nexgard combo"
+  },
+  {
+    "asin": "B07M6KHQKT",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 3,
+    "peso_pet_min": 4.1,
+    "peso_pet_max": 10,
+    "linha": "nexgard"
+  },
+  {
+    "asin": "B08ZT5Q6F6",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 2,
+    "peso_pet_min": 4.1,
+    "peso_pet_max": 10,
+    "linha": "nexgard"
+  },
+  {
+    "asin": "B07Y5MKPF2",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 3,
+    "peso_pet_min": 4.1,
+    "peso_pet_max": 10,
+    "linha": "nexgard"
+  },
+  {
+    "asin": "B0CP4DVW59",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 6,
+    "peso_pet_min": 2,
+    "peso_pet_max": 3.5,
+    "linha": "nexgard spectra"
+  },
+  {
+    "asin": "B0CP4FWQW9",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 6,
+    "peso_pet_min": 7.6,
+    "peso_pet_max": 15,
+    "linha": "nexgard spectra"
+  },
+  {
+    "asin": "B07S8BMFPD",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 1,
+    "peso_pet_min": null,
+    "peso_pet_max": null,
+    "linha": "nexgard"
+  },
+  {
+    "asin": "B07V9W6N8P",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 1,
+    "peso_pet_min": null,
+    "peso_pet_max": null,
+    "linha": "nexgard"
+  },
+  {
+    "asin": "B0CP4DVRRB",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 6,
+    "peso_pet_min": 10.1,
+    "peso_pet_max": 25,
+    "linha": "nexgard"
+  },
+  {
+    "asin": "B0FY3PKC5S",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 6,
+    "peso_pet_min": 30.1,
+    "peso_pet_max": 60,
+    "linha": "nexgard spectra"
+  },
+  {
+    "asin": "B07ZG4K25V",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 1,
+    "peso_pet_min": null,
+    "peso_pet_max": null,
+    "linha": "nexgard"
+  },
+  {
+    "asin": "B0CP4DNHJX",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 6,
+    "peso_pet_min": 15.1,
+    "peso_pet_max": 30,
+    "linha": "nexgard spectra"
+  },
+  {
+    "asin": "B08ZT2SZSZ",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 2,
+    "peso_pet_min": 2,
+    "peso_pet_max": 4,
+    "linha": "nexgard"
+  },
+  {
+    "asin": "B08ZT3RDDK",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 6,
+    "peso_pet_min": 3.6,
+    "peso_pet_max": 7.5,
+    "linha": "nexgard spectra"
+  },
+  {
+    "asin": "B08ZT3N9CV",
+    "tipo_pet": "cachorro",
+    "forma": "comprimido",
+    "unidades": 6,
+    "peso_pet_min": 7.6,
+    "peso_pet_max": 15,
+    "linha": "nexgard spectra"
+  }
+]

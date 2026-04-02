@@ -128,10 +128,34 @@ export function MobileFiltersDrawer({ brands, sellers, dynamicConfigs, dynamicOp
   );
 }
 
+function formatFilterLabel(value: string) {
+  if (!value) return value;
+
+  const normalized = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, "");
+
+  if (normalized === "cachorro" || normalized === "cao") return "Cão";
+  if (normalized === "gato") return "Gato";
+  if (
+    normalized === "cachorro/gato" ||
+    normalized === "cachorroegato" ||
+    normalized === "cachorro,gato" ||
+    normalized === "cao/gato" ||
+    normalized === "caoegato"
+  ) {
+    return "Cão/gato";
+  }
+
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 function TabButton({ label, isActive, onClick, badgeCount }: { label: string; isActive: boolean; onClick: () => void; badgeCount: number }) {
   return (
     <button onClick={onClick} className={`w-full text-left px-4 py-4 text-[13px] leading-tight font-bold transition-all border-l-[4px] relative ${isActive ? "bg-white border-[#007185] text-[#007185]" : "border-transparent text-zinc-600 hover:bg-[#e3e6e6]"}`}>
-      {label}
+      {formatFilterLabel(label)}
       {badgeCount > 0 && <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#007185]" />}
     </button>
   );
@@ -140,7 +164,7 @@ function TabButton({ label, isActive, onClick, badgeCount }: { label: string; is
 function Tag({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button onClick={onClick} className={`px-3 py-2 rounded-lg text-[13px] border transition-all text-left ${active ? "bg-[#EDFDFF] border-[#007185] text-[#007185] font-bold ring-1 ring-[#007185]" : "bg-white border-zinc-300 text-zinc-700 hover:bg-zinc-50"}`}>
-      {label}
+      {formatFilterLabel(label)}
     </button>
   );
 }

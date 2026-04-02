@@ -88,6 +88,7 @@ export default function ImportadorDynamicAPI() {
   const [requiredTitleRaw, setRequiredTitleRaw] = useState('');
   const [forbiddenTitleRaw, setForbiddenTitleRaw] = useState('');
   const [enableImportValidation, setEnableImportValidation] = useState(false);
+  const [saveRawData, setSaveRawData] = useState(false);
   const [discoveryKeywordsRaw, setDiscoveryKeywordsRaw] = useState('');
   const [discoveryBrandsRaw, setDiscoveryBrandsRaw] = useState('');
   const [discoveryPriceRangesRaw, setDiscoveryPriceRangesRaw] = useState('');
@@ -171,6 +172,7 @@ export default function ImportadorDynamicAPI() {
       requiredTitleRaw,
       forbiddenTitleRaw,
       enableImportValidation,
+      saveRawData,
       discoveredItems,
     });
 
@@ -553,6 +555,30 @@ export default function ImportadorDynamicAPI() {
                   }`}
                 >
                   {enableImportValidation ? 'Ativada' : 'Desativada'}
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-black text-gray-900">
+                    Baixar dados completos (JSON)
+                  </div>
+                  <div className="text-xs font-semibold text-gray-500">
+                    Salva um JSON bruto da Amazon para revisÃ£o posterior.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSaveRawData((current) => !current)}
+                  className={`rounded-xl px-4 py-2 text-xs font-black transition-all ${
+                    saveRawData
+                      ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  {saveRawData ? 'Ativado' : 'Desativado'}
                 </button>
               </div>
             </div>
