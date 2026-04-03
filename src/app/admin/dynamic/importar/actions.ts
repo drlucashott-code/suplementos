@@ -18,6 +18,8 @@ import {
 import { getDynamicVisibilityBoolean } from '@/lib/dynamicVisibility';
 import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { revalidateDynamicCatalogCategoryRefs } from '@/lib/dynamicCatalogRevalidation';
+import { dedupeDynamicCatalogCategoryRefs, type DynamicCatalogCategoryRef } from '@/lib/dynamicCatalogCache';
 
 /* ======================
 ENV
@@ -37,6 +39,7 @@ type ImportFilters = {
   forbiddenTitleRaw?: string;
   enableImportValidation?: boolean;
   saveRawData?: boolean;
+  autoFillAttributes?: boolean;
 };
 
 type ImportFilterMatchResult =
@@ -1494,13 +1497,16 @@ async function runDynamicImportJob(
         seller: merchantName,
         asin,
       };
-      const attributes = enrichDynamicAttributesForCategory({
-        category,
-        rawDisplayConfig: category.displayConfig,
-        productName: name,
-        totalPrice: price,
-        attributes: baseAttributes,
-      }) as Record<string, string | number>;
+      const attributes =
+        filters.autoFillAttributes === false
+          ? baseAttributes
+          : (enrichDynamicAttributesForCategory({
+              category,
+              rawDisplayConfig: category.displayConfig,
+              productName: name,
+              totalPrice: price,
+              attributes: baseAttributes,
+            }) as Record<string, string | number>);
 
       const createdProduct = await prisma.dynamicProduct.create({
         data: {
@@ -1584,6 +1590,7 @@ export async function startDynamicImportViaAPI(input: {
   forbiddenTitleRaw?: string;
   enableImportValidation?: boolean;
   saveRawData?: boolean;
+  autoFillAttributes?: boolean;
   discoveredItems?: ImportDiscoveryContextItem[];
 }) {
   const asinList = input.asinsRaw
@@ -1605,20 +1612,22 @@ export async function startDynamicImportViaAPI(input: {
     status: "running",
     categoryId: input.categoryId,
     totalItems: asinList.length,
-    filters: {
-      requiredTitleRaw: input.requiredTitleRaw ?? "",
-      forbiddenTitleRaw: input.forbiddenTitleRaw ?? "",
-      enableImportValidation: input.enableImportValidation === true,
-      saveRawData: input.saveRawData === true,
-    },
-    logs: ["Fila criada. Preparando importacao..."],
-  });
+      filters: {
+        requiredTitleRaw: input.requiredTitleRaw ?? "",
+        forbiddenTitleRaw: input.forbiddenTitleRaw ?? "",
+        enableImportValidation: input.enableImportValidation === true,
+        saveRawData: input.saveRawData === true,
+        autoFillAttributes: input.autoFillAttributes === true,
+      },
+      logs: ["Fila criada. Preparando importacao..."],
+    });
 
   void runDynamicImportJob(run.id, input.asinsRaw, input.categoryId, {
     requiredTitleRaw: input.requiredTitleRaw ?? "",
     forbiddenTitleRaw: input.forbiddenTitleRaw ?? "",
     enableImportValidation: input.enableImportValidation === true,
     saveRawData: input.saveRawData === true,
+    autoFillAttributes: input.autoFillAttributes === true,
   }, input.discoveredItems ?? []);
 
   return { success: true, runId: run.id };
@@ -1639,6 +1648,106 @@ export async function getLatestDynamicImportRun() {
   ]);
 
   return run ? normalizeImportRun(run) : null;
+}
+
+function parseAttributeListEntries(raw: string) {
+  const lines = raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const entries: Array<{ asin: string; value: string }> = [];
+
+  for (const line of lines) {
+    const match = line.match(/([A-Z0-9]{10})\s*[-,;:\t|]\s*(.+)$/i);
+    if (match) {
+      entries.push({ asin: match[1].toUpperCase(), value: match[2].trim() });
+      continue;
+    }
+
+    const parts = line.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2 && /^[A-Z0-9]{10}$/i.test(parts[0])) {
+      entries.push({ asin: parts[0].toUpperCase(), value: parts.slice(1).join(" ") });
+    }
+  }
+
+  return entries;
+}
+
+function parseAttributeValue(rawValue: string) {
+  const normalized = rawValue.replace(",", ".").trim();
+  const numericValue = Number(normalized);
+  if (Number.isFinite(numericValue)) {
+    return numericValue;
+  }
+  return rawValue.trim();
+}
+
+export async function applyDynamicAttributesFromList(input: {
+  categoryId?: string;
+  attributeKey: string;
+  listRaw: string;
+}) {
+  const attributeKey = input.attributeKey.trim();
+  if (!attributeKey) {
+    return { error: "Informe a chave do atributo." };
+  }
+
+  const entries = parseAttributeListEntries(input.listRaw);
+  if (entries.length === 0) {
+    return { error: "Nenhum ASIN valido encontrado na lista." };
+  }
+
+  const refs: DynamicCatalogCategoryRef[] = [];
+  const missing: string[] = [];
+  let updated = 0;
+
+  for (const entry of entries) {
+    const product = await prisma.dynamicProduct.findFirst({
+      where: {
+        asin: entry.asin,
+        ...(input.categoryId ? { categoryId: input.categoryId } : {}),
+      },
+      select: {
+        id: true,
+        attributes: true,
+        category: { select: { group: true, slug: true } },
+      },
+    });
+
+    if (!product) {
+      missing.push(entry.asin);
+      continue;
+    }
+
+    const currentAttrs = (product.attributes as Record<string, unknown>) || {};
+    const nextAttrs = {
+      ...currentAttrs,
+      [attributeKey]: parseAttributeValue(entry.value),
+    };
+
+    await prisma.dynamicProduct.update({
+      where: { id: product.id },
+      data: { attributes: nextAttrs as Prisma.InputJsonValue },
+    });
+
+    if (product.category?.group && product.category.slug) {
+      refs.push({ group: product.category.group, slug: product.category.slug });
+    }
+    updated += 1;
+  }
+
+  if (refs.length > 0) {
+    revalidateDynamicCatalogCategoryRefs(dedupeDynamicCatalogCategoryRefs(refs));
+  }
+
+  revalidatePath("/admin/dynamic/produtos");
+
+  return {
+    updated,
+    missing,
+    total: entries.length,
+  };
 }
 
 export async function cancelDynamicImport(runId: string) {

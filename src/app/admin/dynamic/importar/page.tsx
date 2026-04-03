@@ -10,6 +10,7 @@ import {
   getLatestDynamicDiscoveryRun,
   getDynamicImportRun,
   getLatestDynamicImportRun,
+  applyDynamicAttributesFromList,
   startDynamicDiscovery,
   startDynamicImportViaAPI,
 } from './actions';
@@ -89,6 +90,7 @@ export default function ImportadorDynamicAPI() {
   const [forbiddenTitleRaw, setForbiddenTitleRaw] = useState('');
   const [enableImportValidation, setEnableImportValidation] = useState(false);
   const [saveRawData, setSaveRawData] = useState(false);
+  const [autoFillAttributes, setAutoFillAttributes] = useState(false);
   const [discoveryKeywordsRaw, setDiscoveryKeywordsRaw] = useState('');
   const [discoveryBrandsRaw, setDiscoveryBrandsRaw] = useState('');
   const [discoveryPriceRangesRaw, setDiscoveryPriceRangesRaw] = useState('');
@@ -101,6 +103,9 @@ export default function ImportadorDynamicAPI() {
   const [activeDiscoveryRun, setActiveDiscoveryRun] = useState<DiscoveryRunState | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [activeRun, setActiveRun] = useState<ImportRunState | null>(null);
+  const [attributeKey, setAttributeKey] = useState('');
+  const [attributeListRaw, setAttributeListRaw] = useState('');
+  const [attributeApplyResult, setAttributeApplyResult] = useState<string>('');
 
   useEffect(() => {
     getHomeCategories().then((data) => setCategories(data as unknown as Category[]));
@@ -173,6 +178,7 @@ export default function ImportadorDynamicAPI() {
       forbiddenTitleRaw,
       enableImportValidation,
       saveRawData,
+      autoFillAttributes,
       discoveredItems,
     });
 
@@ -269,6 +275,38 @@ export default function ImportadorDynamicAPI() {
     }
 
     setAsins(filteredItems.map((item) => item.asin).join(', '));
+  };
+
+  const handleApplyAttributeList = async () => {
+    if (!attributeKey.trim()) {
+      alert('Informe a chave do atributo.');
+      return;
+    }
+
+    if (!attributeListRaw.trim()) {
+      alert('Cole a lista de ASINs com valores.');
+      return;
+    }
+
+    if (!selectedCat) {
+      alert('Selecione a categoria destino para aplicar os atributos.');
+      return;
+    }
+
+    const res = await applyDynamicAttributesFromList({
+      categoryId: selectedCat,
+      attributeKey,
+      listRaw: attributeListRaw,
+    });
+
+    if (res.error) {
+      alert(res.error);
+      setAttributeApplyResult('');
+      return;
+    }
+
+    const missing = res.missing?.length ? ` | Faltando: ${res.missing.length}` : '';
+    setAttributeApplyResult(`Atualizados: ${res.updated}${missing}`);
   };
 
   const running = activeRun?.status === 'running';
@@ -583,6 +621,30 @@ export default function ImportadorDynamicAPI() {
               </div>
             </div>
 
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-black text-gray-900">
+                    Preenchimento automatico de atributos
+                  </div>
+                  <div className="text-xs font-semibold text-gray-500">
+                    Desative para usar a lista externa de ASINs + atributos.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAutoFillAttributes((current) => !current)}
+                  className={`rounded-xl px-4 py-2 text-xs font-black transition-all ${
+                    autoFillAttributes
+                      ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  {autoFillAttributes ? 'Ativado' : 'Desativado'}
+                </button>
+              </div>
+            </div>
+
             <div>
               <label className="mb-2 block text-xs font-black uppercase tracking-tighter text-gray-400">
                 4. Lista de ASINs (Amazon IDs)
@@ -593,6 +655,46 @@ export default function ImportadorDynamicAPI() {
                 value={asins}
                 onChange={(e) => setAsins(e.target.value)}
               />
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+              <div className="mb-3">
+                <div className="text-sm font-black text-gray-900">
+                  Aplicar lista externa de atributos
+                </div>
+                <div className="text-xs font-semibold text-gray-500">
+                  Cole linhas no formato: <span className="font-mono">ASIN - valor</span>. Ex:
+                  <span className="font-mono"> B0DDRJGQFP - 10</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto]">
+                <input
+                  value={attributeKey}
+                  onChange={(e) => setAttributeKey(e.target.value)}
+                  placeholder="Chave do atributo (ex: capsules, unidades)"
+                  className="w-full rounded-xl border border-gray-200 bg-white p-3 font-semibold outline-none transition-all focus:ring-2 focus:ring-yellow-400"
+                />
+                <button
+                  onClick={handleApplyAttributeList}
+                  className="rounded-xl bg-black px-5 py-3 font-black text-white transition-all hover:bg-gray-800"
+                >
+                  Aplicar lista
+                </button>
+              </div>
+
+              <textarea
+                value={attributeListRaw}
+                onChange={(e) => setAttributeListRaw(e.target.value)}
+                placeholder="B0DDRJGQFP - 10"
+                className="mt-3 h-40 w-full resize-none rounded-xl border border-gray-200 bg-white p-3 font-mono text-sm text-black shadow-inner outline-none transition-all focus:ring-2 focus:ring-yellow-400"
+              />
+
+              {attributeApplyResult ? (
+                <div className="mt-3 text-[11px] font-black uppercase tracking-widest text-emerald-600">
+                  {attributeApplyResult}
+                </div>
+              ) : null}
             </div>
 
             {activeRun && (

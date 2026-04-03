@@ -235,6 +235,14 @@ export function AdminProductTable({
 
   const hasCategoryFilter = filterCategory !== "";
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+  const searchTerms = useMemo(
+    () =>
+      searchTerm
+        .split(",")
+        .map((term) => term.trim().toLowerCase())
+        .filter(Boolean),
+    [searchTerm]
+  );
 
   useEffect(() => {
     setProducts(initialProducts);
@@ -352,10 +360,14 @@ export function AdminProductTable({
       );
 
       const matchesSearch =
-        normalizedSearchTerm === "" ||
-        p.name.toLowerCase().includes(normalizedSearchTerm) ||
-        String(attrs.asin || "").toLowerCase().includes(normalizedSearchTerm) ||
-        brandValue.toLowerCase().includes(normalizedSearchTerm);
+        searchTerms.length === 0 ||
+        searchTerms.some((term) => {
+          return (
+            p.name.toLowerCase().includes(term) ||
+            String(attrs.asin || "").toLowerCase().includes(term) ||
+            brandValue.toLowerCase().includes(term)
+          );
+        });
 
       const matchesBrand =
         selectedBrands.length === 0 || selectedBrands.includes(brandValue);
@@ -371,6 +383,7 @@ export function AdminProductTable({
     filterCategory,
     hasCategoryFilter,
     normalizedSearchTerm,
+    searchTerms,
     selectedBrands,
     siteVisibilityFilter,
   ]);
