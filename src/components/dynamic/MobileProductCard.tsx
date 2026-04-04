@@ -161,6 +161,33 @@ function formatRoundedNumber(value: number) {
   return Math.round(value).toString();
 }
 
+function normalizeText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function shouldShowOneDecimal(config: DisplayConfigField) {
+  const label = normalizeText(config.label || "");
+  const key = normalizeText(config.key || "");
+  const suffix = normalizeText(config.suffix || "");
+  const prefix = normalizeText(config.prefix || "");
+
+  return (
+    label.includes("kg") ||
+    suffix.includes("kg") ||
+    key.includes("kg") ||
+    prefix.includes("kg")
+  );
+}
+
+function formatNumberForDisplay(value: number, useOneDecimal: boolean) {
+  if (!useOneDecimal) return formatRoundedNumber(value);
+  if (Number.isInteger(value)) return value.toString();
+  return value.toFixed(1).replace(".", ",");
+}
+
 function formatPetTypeValue(value: string) {
   const normalized = value
     .normalize("NFD")
@@ -206,7 +233,11 @@ function formatDisplayValue(
   if (config.type === "number") {
     const numericValue = Number(rawValue);
     if (!Number.isNaN(numericValue)) {
-      return `${config.prefix ?? ""}${formatRoundedNumber(numericValue)}${config.suffix ?? ""}`;
+      const formatted = formatNumberForDisplay(
+        numericValue,
+        shouldShowOneDecimal(config)
+      );
+      return `${config.prefix ?? ""}${formatted}${config.suffix ?? ""}`;
     }
   }
 
