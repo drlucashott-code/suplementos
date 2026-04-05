@@ -73,6 +73,7 @@ export default async function DynamicCategoryPage({
             <MobileFiltersDrawer
               brands={catalog.sortedBrands}
               sellers={catalog.sortedSellers}
+              ratingOptions={catalog.ratingOptions}
               dynamicConfigs={catalog.filterableConfigs}
               dynamicOptions={catalog.sortedDynamicOptions}
             />

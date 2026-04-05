@@ -6,11 +6,18 @@ import { useEffect, useState } from "react"; // 🚀 useMemo removido
 type Props = {
   brands: string[];
   sellers: string[];
+  ratingOptions: Array<{ value: string; label: string }>;
   dynamicConfigs: { key: string; label: string }[];
   dynamicOptions: Record<string, Array<{ value: string; label: string }>>;
 };
 
-export function MobileFiltersDrawer({ brands, sellers, dynamicConfigs, dynamicOptions }: Props) {
+export function MobileFiltersDrawer({
+  brands,
+  sellers,
+  ratingOptions,
+  dynamicConfigs,
+  dynamicOptions,
+}: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -19,6 +26,7 @@ export function MobileFiltersDrawer({ brands, sellers, dynamicConfigs, dynamicOp
 
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedSellers, setSelectedSellers] = useState<string[]>([]);
+  const [selectedRatings, setSelectedRatings] = useState<string[]>([]);
   const [selectedDynamics, setSelectedDynamics] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
@@ -31,6 +39,7 @@ export function MobileFiltersDrawer({ brands, sellers, dynamicConfigs, dynamicOp
     function handleOpen() {
       setSelectedBrands(searchParams.get("brand")?.split(",") ?? []);
       setSelectedSellers(searchParams.get("seller")?.split(",") ?? []);
+      setSelectedRatings(searchParams.get("rating")?.split(",") ?? []);
       
       const dynParams: Record<string, string[]> = {};
       dynamicConfigs.forEach(c => {
@@ -63,6 +72,9 @@ export function MobileFiltersDrawer({ brands, sellers, dynamicConfigs, dynamicOp
     if (selectedSellers.length) params.set("seller", selectedSellers.join(",")); 
     else params.delete("seller");
 
+    if (selectedRatings.length) params.set("rating", selectedRatings.join(","));
+    else params.delete("rating");
+
     dynamicConfigs.forEach(c => {
       if (selectedDynamics[c.key]?.length) params.set(c.key, selectedDynamics[c.key].join(","));
       else params.delete(c.key);
@@ -75,6 +87,7 @@ export function MobileFiltersDrawer({ brands, sellers, dynamicConfigs, dynamicOp
   const clearInternalFilters = () => {
     setSelectedBrands([]);
     setSelectedSellers([]);
+    setSelectedRatings([]);
     setSelectedDynamics({});
   };
 
@@ -94,6 +107,12 @@ export function MobileFiltersDrawer({ brands, sellers, dynamicConfigs, dynamicOp
           <nav className="w-[130px] bg-[#f0f2f2] border-r border-zinc-200 overflow-y-auto">
             <TabButton label="Marcas" isActive={activeTab === "brand"} onClick={() => setActiveTab("brand")} badgeCount={selectedBrands.length} />
             <TabButton label="Vendido por" isActive={activeTab === "seller"} onClick={() => setActiveTab("seller")} badgeCount={selectedSellers.length} />
+            <TabButton
+              label="Avaliações"
+              isActive={activeTab === "rating"}
+              onClick={() => setActiveTab("rating")}
+              badgeCount={selectedRatings.length}
+            />
             {dynamicConfigs.map(c => (
               <TabButton key={c.key} label={c.label} isActive={activeTab === c.key} onClick={() => setActiveTab(c.key)} badgeCount={selectedDynamics[c.key]?.length || 0} />
             ))}
@@ -107,6 +126,17 @@ export function MobileFiltersDrawer({ brands, sellers, dynamicConfigs, dynamicOp
               {activeTab === "seller" && sellers.map((s) => (
                 <Tag key={s} label={s} active={selectedSellers.includes(s)} onClick={() => toggle(s, selectedSellers, setSelectedSellers)} />
               ))}
+              {activeTab === "rating" &&
+                ratingOptions.map((option) => (
+                  <Tag
+                    key={`rating-${option.value}`}
+                    label={option.label}
+                    active={selectedRatings.includes(option.value)}
+                    onClick={() =>
+                      toggle(option.value, selectedRatings, setSelectedRatings)
+                    }
+                  />
+                ))}
               {dynamicConfigs.map(c => activeTab === c.key && dynamicOptions[c.key]?.map(opt => (
                 <Tag
                   key={`${c.key}-${opt.value}`}

@@ -122,6 +122,7 @@ export type DynamicCatalogData = {
   filterableConfigs: DisplayConfigField[];
   sortedBrands: string[];
   sortedSellers: string[];
+  ratingOptions: Array<{ value: string; label: string }>;
   sortedDynamicOptions: Record<string, Array<{ value: string; label: string }>>;
   allSortOptions: CatalogSortOption[];
   defaultOrder: string;
@@ -1013,6 +1014,13 @@ export async function getDynamicCatalogData({
         .map((s) => s.trim().toLowerCase())
     : [];
 
+  const selectedRatings = search.rating
+    ? String(search.rating)
+        .split(",")
+        .map((s) => Number(s.trim()))
+        .filter((value) => Number.isFinite(value) && value > 0)
+    : [];
+
   const matchedProducts = visibleProducts.filter((p) => {
     const attrs = p.attributes as unknown as DynamicAttributes;
     const pBrand = String(attrs.brand || "").trim().toLowerCase();
@@ -1025,6 +1033,13 @@ export async function getDynamicCatalogData({
 
     if (selectedBrands.length > 0 && !selectedBrands.includes(pBrand)) return false;
     if (selectedSellers.length > 0 && !selectedSellers.includes(pSeller)) return false;
+    if (selectedRatings.length > 0) {
+      const productRating = Number(p.ratingAverage || 0);
+      const meetsAnySelectedRating = selectedRatings.some(
+        (minRating) => productRating >= minRating
+      );
+      if (!meetsAnySelectedRating) return false;
+    }
 
     for (const config of filterableConfigs) {
       const paramValue = search[config.key];
@@ -1318,6 +1333,7 @@ export async function getDynamicCatalogData({
     filterableConfigs,
     sortedBrands,
     sortedSellers,
+    ratingOptions: [{ value: "4", label: "★★★★ e acima" }],
     sortedDynamicOptions,
     allSortOptions,
     defaultOrder,
