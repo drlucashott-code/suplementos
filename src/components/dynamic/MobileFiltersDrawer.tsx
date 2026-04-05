@@ -166,7 +166,7 @@ export function MobileFiltersDrawer({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] bg-white">
+    <div className="fixed inset-0 z-[80] flex h-[100dvh] flex-col bg-white">
       <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
         <h2 className="text-[15px] font-semibold text-zinc-900">
           {selectedCount > 0 ? `Filtros (${selectedCount})` : "Filtros"}
@@ -202,7 +202,7 @@ export function MobileFiltersDrawer({
         </div>
       </div>
 
-      <div className="flex h-[calc(100vh-188px)]">
+      <div className="flex min-h-0 flex-1">
         <nav className="w-[34%] min-w-[130px] overflow-y-auto border-r border-zinc-200 bg-[#f2f3f3]">
           {visibleTabs.map((tab) => (
             <TabButton
@@ -271,7 +271,7 @@ export function MobileFiltersDrawer({
         </div>
       </div>
 
-      <div className="border-t border-zinc-200 bg-white px-4 pb-7 pt-3">
+      <div className="shrink-0 border-t border-zinc-200 bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3">
         <div className="flex items-center justify-between gap-3">
           {selectedCount > 0 ? (
             <button
