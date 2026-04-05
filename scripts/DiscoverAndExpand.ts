@@ -73,7 +73,6 @@ async function run() {
 
     for (const currentKeyword of keywordsList) {
       console.log(`   🔑 Termo: "${currentKeyword}"`);
-      let foundCount = 0;
 
       for (let page = 1; page <= MAX_PAGES_SEARCH; page++) {
         try {
@@ -95,7 +94,6 @@ async function run() {
             if (!seedAsins.has(item.ASIN)) {
               console.log(`      Found: [${item.ASIN}] ${item.ItemInfo.Title.DisplayValue.substring(0, 30)}...`);
               seedAsins.add(item.ASIN);
-              foundCount++;
             }
           });
 

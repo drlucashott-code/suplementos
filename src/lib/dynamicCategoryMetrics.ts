@@ -681,6 +681,44 @@ function maybeDerivePreWorkoutWeightGrams(
   }
 }
 
+function maybeDeriveDosesFromWeight(enriched: DynamicAttributesMap) {
+  const currentNumberOfDoses = getNumericValue(enriched.numberOfDoses);
+  const currentDoses = getNumericValue(enriched.doses);
+
+  if (currentNumberOfDoses > 0 || currentDoses > 0) {
+    const canonical = currentNumberOfDoses > 0 ? currentNumberOfDoses : currentDoses;
+    if (!isValuePresent(enriched.numberOfDoses)) {
+      enriched.numberOfDoses = canonical;
+    }
+    if (!isValuePresent(enriched.doses)) {
+      enriched.doses = canonical;
+    }
+    return;
+  }
+
+  const weightInGrams =
+    getNumericValue(enriched.weightGrams) || getNumericValue(enriched.totalWeightInGrams);
+  const doseInGrams =
+    getNumericValue(enriched.doseInGrams) || getNumericValue(enriched.unitsPerDose);
+
+  if (weightInGrams <= 0 || doseInGrams <= 0) {
+    return;
+  }
+
+  const derivedDoses = weightInGrams / doseInGrams;
+  if (!Number.isFinite(derivedDoses) || derivedDoses <= 0) {
+    return;
+  }
+
+  const roundedDoses =
+    Math.abs(derivedDoses - Math.round(derivedDoses)) < 0.001
+      ? Math.round(derivedDoses)
+      : toRoundedMetricValue(derivedDoses);
+
+  enriched.numberOfDoses = roundedDoses;
+  enriched.doses = roundedDoses;
+}
+
 function detectKnownMetricKind(field: Pick<DynamicDisplayField, "key" | "label">) {
   const tokens = [normalizeToken(field.key), normalizeToken(field.label)];
 
@@ -857,8 +895,10 @@ export function enrichDynamicAttributesForCategory(params: {
   productName: string;
   totalPrice?: number | null;
   attributes: DynamicAttributesMap;
+  allowTitleExtraction?: boolean;
 }): DynamicAttributesMap {
-  const normalizedTitle = normalizeTitle(params.productName);
+  const shouldExtractFromTitle = params.allowTitleExtraction !== false;
+  const normalizedTitle = shouldExtractFromTitle ? normalizeTitle(params.productName) : "";
   const normalizedConfig = normalizeDynamicDisplayConfig(params.rawDisplayConfig);
   const settings = normalizedConfig.settings ?? {};
   const enriched: DynamicAttributesMap = { ...params.attributes };
@@ -867,33 +907,36 @@ export function enrichDynamicAttributesForCategory(params: {
   maybeDeriveFunctionalCoffeeWeightGrams(params.category?.slug, enriched);
   maybeDeriveProteinBarWeightGrams(params.category?.slug, enriched);
   maybeDeriveCreatineWeightGrams(params.category?.slug, enriched);
+  maybeDeriveDosesFromWeight(enriched);
 
   const primaryDraft = createPrimaryMetricDraftFromSettings(settings);
   const primaryPreset = findPresetById(primaryDraft.preset);
 
-  if (
-    primaryPreset &&
-    primaryDraft.attributeKey.trim() &&
-    !isValuePresent(enriched[primaryDraft.attributeKey.trim()])
-  ) {
-    const extractedMetric = extractKnownValue(primaryPreset.extractorKind, normalizedTitle);
-    if (isValuePresent(extractedMetric)) {
-      enriched[primaryDraft.attributeKey.trim()] = extractedMetric as
-        | string
-        | number;
-    }
-  }
-
-  for (const field of normalizedConfig.fields) {
-    if (isValuePresent(enriched[field.key])) {
-      continue;
+  if (shouldExtractFromTitle) {
+    if (
+      primaryPreset &&
+      primaryDraft.attributeKey.trim() &&
+      !isValuePresent(enriched[primaryDraft.attributeKey.trim()])
+    ) {
+      const extractedMetric = extractKnownValue(primaryPreset.extractorKind, normalizedTitle);
+      if (isValuePresent(extractedMetric)) {
+        enriched[primaryDraft.attributeKey.trim()] = extractedMetric as
+          | string
+          | number;
+      }
     }
 
-    const metricKind = detectKnownMetricKind(field);
-    if (metricKind) {
-      const extractedValue = extractKnownValue(metricKind, normalizedTitle);
-      if (isValuePresent(extractedValue)) {
-        enriched[field.key] = extractedValue as string | number;
+    for (const field of normalizedConfig.fields) {
+      if (isValuePresent(enriched[field.key])) {
+        continue;
+      }
+
+      const metricKind = detectKnownMetricKind(field);
+      if (metricKind) {
+        const extractedValue = extractKnownValue(metricKind, normalizedTitle);
+        if (isValuePresent(extractedValue)) {
+          enriched[field.key] = extractedValue as string | number;
+        }
       }
     }
   }

@@ -244,6 +244,14 @@ export default async function AdminDynamicDashboard() {
           />
 
           <AdminCard
+            title="Expansoes"
+            description="Audite ASINs descobertos na expansao e identifique os que faltam importar."
+            href="/admin/dynamic/expansoes"
+            icon="E"
+            color="blue"
+          />
+
+          <AdminCard
             title="Ver no Site"
             description="Abra a versao publica para validar categorias, cards e ordenacoes."
             href="/"

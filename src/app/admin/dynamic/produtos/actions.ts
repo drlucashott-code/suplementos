@@ -191,6 +191,7 @@ export async function updateManyProducts(
         productName: product.name,
         totalPrice: product.totalPrice,
         attributes: nextAttributes,
+        allowTitleExtraction: false,
       });
 
       return prisma.dynamicProduct.update({
@@ -281,6 +282,7 @@ export async function updateDynamicProduct(
                 productName: data.name ?? current.name,
                 totalPrice: data.totalPrice ?? current.totalPrice,
                 attributes: mergedAttributes,
+                allowTitleExtraction: false,
               }) as Prisma.InputJsonValue)
             : undefined,
       },

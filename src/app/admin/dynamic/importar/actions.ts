@@ -61,7 +61,7 @@ type ImportDiscoveryContextItem = {
   displayPrice?: string;
 };
 
-type AsinDecisionStatus = 'imported' | 'rejected_soft' | 'rejected_hard';
+type AsinDecisionStatus = 'imported' | 'rejected_soft' | 'rejected_hard' | 'discovered';
 
 type ImportRunState = {
   id: string;
@@ -1305,7 +1305,21 @@ async function runDynamicImportJob(
           imageUrl: item.imageUrl ?? null,
           observedPrice: item.price ?? null,
         });
+        continue;
       }
+
+      await upsertCategoryAsinDecision({
+        categoryId,
+        asin: item.asin,
+        status: 'discovered',
+        reasonCode: 'DISCOVERED_NOT_SELECTED',
+        reasonText: 'ASIN descoberto na expansao, mas nao incluido na lista final de importacao',
+        policyHash: importPolicyHash,
+        title: item.title,
+        brand: item.brand,
+        imageUrl: item.imageUrl ?? null,
+        observedPrice: item.price ?? null,
+      });
     }
   }
 
