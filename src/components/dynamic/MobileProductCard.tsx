@@ -101,6 +101,10 @@ function getDerivedMetricValue(
       return getNumericAttribute(attributes, "weightGrams") > 0
         ? totalPrice / getNumericAttribute(attributes, "weightGrams")
         : 0;
+    case "precoPor100g":
+      return getNumericAttribute(attributes, "weightGrams") > 0
+        ? (totalPrice / getNumericAttribute(attributes, "weightGrams")) * 100
+        : 0;
     case "precoPorMetro":
       return getNumericAttribute(attributes, "meters") > 0
         ? totalPrice / getNumericAttribute(attributes, "meters")

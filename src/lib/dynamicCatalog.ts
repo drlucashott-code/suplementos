@@ -552,6 +552,10 @@ const getDerivedAttributeMetric = (
       return getNumericAttribute(attrs, "weightGrams") > 0
         ? totalPrice / getNumericAttribute(attrs, "weightGrams")
         : 0;
+    case "precoPor100g":
+      return getNumericAttribute(attrs, "weightGrams") > 0
+        ? (totalPrice / getNumericAttribute(attrs, "weightGrams")) * 100
+        : 0;
     case "precoPorMetro":
       return getNumericAttribute(attrs, "meters") > 0
         ? totalPrice / getNumericAttribute(attrs, "meters")
@@ -647,6 +651,8 @@ const getBestValueHelperText = (attributeKey?: string) => {
       return "Baseado em R$/ml";
     case "precoPorGrama":
       return "Baseado em R$/g";
+    case "precoPor100g":
+      return "Baseado em R$/100g";
     case "precoPorMetro":
       return "Baseado em R$/metro";
     case "precoPorLavagem":
