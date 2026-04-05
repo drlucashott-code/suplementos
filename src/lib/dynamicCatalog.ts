@@ -188,7 +188,7 @@ const sortFilterValues = (values: string[], type: DisplayConfigField["type"]) =>
 const formatPetTypeValue = (value: string) => {
   const normalized = removeAccents(value).toLowerCase().replace(/\s+/g, "");
 
-  if (normalized === "cachorro" || normalized === "cao") return "Cão";
+  if (normalized === "cachorro" || normalized === "cao") return "C\u00e3o";
   if (normalized === "gato") return "Gato";
   if (
     normalized === "cachorro/gato" ||
@@ -197,7 +197,7 @@ const formatPetTypeValue = (value: string) => {
     normalized === "cao/gato" ||
     normalized === "caoegato"
   ) {
-    return "Cão/gato";
+    return "C\u00e3o/gato";
   }
 
   return value;
