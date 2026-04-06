@@ -235,21 +235,23 @@ export default function BestDealProductCard({
                 <span className="pb-[7px] text-[12px] leading-none text-[#0F1111]">
                   {price.cents}
                 </span>
-                <div
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                  }}
-                  className="ml-1 inline-flex shrink-0"
-                >
-                  <PriceHistoryButton productId={item.id} productName={item.name} />
-                </div>
               </div>
             </div>
 
-            <p className="mt-0.5 min-h-[18px] text-[12px] text-[#565959]">
-              De: <span className="line-through">{formatCurrency(item.averagePrice30d)}</span>
-            </p>
+            <div className="mt-0.5 flex min-h-[18px] items-center gap-1.5 text-[12px] text-[#565959]">
+              <p>
+                De: <span className="line-through">{formatCurrency(item.averagePrice30d)}</span>
+              </p>
+              <div
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+                className="inline-flex shrink-0"
+              >
+                <PriceHistoryButton productId={item.id} productName={item.name} />
+              </div>
+            </div>
           </div>
         </TrackedDealLink>
       </div>

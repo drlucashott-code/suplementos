@@ -3,7 +3,7 @@
 import {
   ArrowDownRight,
   ArrowUpRight,
-  LineChart,
+  TrendingUp,
   Loader2,
   Minus,
   X,
@@ -320,12 +320,16 @@ export function PriceHistoryButton({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setOpen(true);
+        }}
         className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-[#6B7280] transition hover:border-[#D1D5DB] hover:bg-[#FAFAFA] hover:text-[#374151]"
         aria-label="Ver histórico de preço"
         title="Ver histórico de preço"
       >
-        <LineChart className="h-3 w-3" />
+        <TrendingUp className="h-3 w-3" />
       </button>
 
       {open ? (
@@ -350,7 +354,11 @@ export function PriceHistoryButton({
 
                 <button
                   type="button"
-                  onClick={() => setOpen(false)}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setOpen(false);
+                  }}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-[#6B7280] shadow-sm transition hover:border-[#D1D5DB] hover:text-[#374151]"
                   aria-label="Fechar histórico"
                 >
