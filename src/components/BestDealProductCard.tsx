@@ -4,6 +4,7 @@ import Image from "next/image";
 import { AlertTriangle, Bookmark, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import TrackedDealLink from "@/components/TrackedDealLink";
+import { PriceHistoryButton } from "@/components/dynamic/PriceHistoryButton";
 import type { BestDeal } from "@/lib/bestDeals";
 import { SAVED_DEALS_EVENT, isDealSaved, toggleSavedDeal } from "@/lib/client/savedDeals";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
@@ -149,7 +150,6 @@ export default function BestDealProductCard({
             >
               <AlertTriangle className="h-4 w-4" />
             </button>
-
             <button
               type="button"
               onClick={(event) => {
@@ -222,18 +222,29 @@ export default function BestDealProductCard({
               ) : null}
             </div>
 
-            <div className="flex min-h-[40px] items-end gap-1 font-variant-numeric-tabular">
-              <span className="pb-[4px] text-[12px] font-medium leading-none text-[#CC0C39]">-</span>
-              <span className="text-[18px] font-medium leading-none text-[#CC0C39]">
-                {item.discountPercent}%
-              </span>
-              <span className="pb-[5px] pl-1 text-[12px] leading-none text-[#565959]">R$</span>
-              <span className="text-[24px] font-normal leading-none text-[#0F1111]">
-                {price.whole}
-              </span>
-              <span className="pb-[7px] text-[12px] leading-none text-[#0F1111]">
-                {price.cents}
-              </span>
+            <div className="flex min-h-[40px] items-end gap-2">
+              <div className="flex items-end gap-1 font-variant-numeric-tabular">
+                <span className="pb-[4px] text-[12px] font-medium leading-none text-[#CC0C39]">-</span>
+                <span className="text-[18px] font-medium leading-none text-[#CC0C39]">
+                  {item.discountPercent}%
+                </span>
+                <span className="pb-[5px] pl-1 text-[12px] leading-none text-[#565959]">R$</span>
+                <span className="text-[24px] font-normal leading-none text-[#0F1111]">
+                  {price.whole}
+                </span>
+                <span className="pb-[7px] text-[12px] leading-none text-[#0F1111]">
+                  {price.cents}
+                </span>
+                <div
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }}
+                  className="ml-1 inline-flex shrink-0"
+                >
+                  <PriceHistoryButton productId={item.id} productName={item.name} />
+                </div>
+              </div>
             </div>
 
             <p className="mt-0.5 min-h-[18px] text-[12px] text-[#565959]">

@@ -62,8 +62,9 @@ function getDerivedMetricValue(
   attributes: Record<string, string | number | undefined>,
   totalPrice: number
 ) {
+  const shouldBypassExplicitMetric = key === "precoPor100g";
   const explicitValue = getNumericAttribute(attributes, key);
-  if (explicitValue > 0) return explicitValue;
+  if (!shouldBypassExplicitMetric && explicitValue > 0) return explicitValue;
   if (totalPrice <= 0) return 0;
 
   const unitsPerBox = getNumericAttribute(attributes, "unitsPerBox");

@@ -512,7 +512,8 @@ const getDerivedAttributeMetric = (
   key: string,
   totalPrice: number
 ) => {
-  const shouldBypassExplicitMetric = key === "precoPorGramaCreatina";
+  const shouldBypassExplicitMetric =
+    key === "precoPorGramaCreatina" || key === "precoPor100g";
   const explicitValue = getNumericAttribute(attrs, key);
   if (!shouldBypassExplicitMetric && explicitValue > 0) {
     return explicitValue;

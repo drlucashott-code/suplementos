@@ -3,7 +3,7 @@
 import {
   ArrowDownRight,
   ArrowUpRight,
-  BarChart3,
+  LineChart,
   Loader2,
   Minus,
   X,
@@ -325,7 +325,7 @@ export function PriceHistoryButton({
         aria-label="Ver histórico de preço"
         title="Ver histórico de preço"
       >
-        <BarChart3 className="h-3 w-3" />
+        <LineChart className="h-3 w-3" />
       </button>
 
       {open ? (

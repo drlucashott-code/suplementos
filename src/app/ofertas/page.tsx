@@ -12,6 +12,7 @@ const filters = [
   { label: "Todos", value: "todos" },
   { label: "Suplementos", value: "suplementos" },
   { label: "Casa", value: "casa" },
+  { label: "Pets", value: "pets" },
 ] as const;
 
 interface OfertasPageProps {
@@ -21,7 +22,9 @@ interface OfertasPageProps {
 export default async function OfertasPage({ searchParams }: OfertasPageProps) {
   const params = await searchParams;
   const selectedGroup =
-    params.grupo === "suplementos" || params.grupo === "casa" ? params.grupo : "todos";
+    params.grupo === "suplementos" || params.grupo === "casa" || params.grupo === "pets"
+      ? params.grupo
+      : "todos";
   const normalizedGroup = selectedGroup === "todos" ? undefined : selectedGroup;
   const requestedPage = Math.max(1, Number.parseInt(params.pagina ?? "1", 10) || 1);
 
