@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { ScrollToTop } from "@/components/ScrollToTop"; // ✅ Importação do componente
+import { AttributionCapture } from "@/components/AttributionCapture";
 import "./globals.css";
 
 // 🚀 Otimização de Fontes
@@ -100,6 +101,7 @@ export default function RootLayout({
       >
         {/* ✅ COMPONENTE QUE CORRIGE A POSIÇÃO DO SCROLL */}
         <ScrollToTop />
+        <AttributionCapture />
 
         {/* ✅ GA INICIALIZA GLOBALMENTE */}
         <GoogleAnalytics gaId="G-CLEY1YQ80S" />
