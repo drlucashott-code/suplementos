@@ -335,11 +335,18 @@ export function PriceHistoryButton({
       {open ? (
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 backdrop-blur-[2px] px-3 py-4 sm:px-4 sm:py-6"
-          onClick={() => setOpen(false)}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setOpen(false);
+          }}
         >
           <div
             className="flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_28px_90px_rgba(15,17,17,0.26)] sm:max-h-[calc(100vh-3rem)]"
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
           >
             <div className="border-b border-[#EEF2F2] bg-[linear-gradient(180deg,#FAFCFC_0%,#F4F8F8_100%)] px-4 py-4 sm:px-6 sm:py-5">
               <div className="flex items-start justify-between gap-4">
