@@ -1,7 +1,7 @@
 import Link from "next/link";
 import BestDealProductCard from "@/components/BestDealProductCard";
 import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
-import { getBestDeals, getBestDealsCount } from "@/lib/bestDeals";
+import { getBestDeals } from "@/lib/bestDeals";
 
 export const revalidate = 600;
 
@@ -38,7 +38,17 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
             getBestDeals(DEALS_PER_GROUP_WHEN_ALL, "pets", 0),
           ]);
 
-          const merged = [...supplements, ...home, ...pets];
+          const merged = [...supplements, ...home, ...pets].sort((a, b) => {
+            if (b.discountPercent !== a.discountPercent) {
+              return b.discountPercent - a.discountPercent;
+            }
+
+            if (b.averagePrice30d !== a.averagePrice30d) {
+              return b.averagePrice30d - a.averagePrice30d;
+            }
+
+            return (b.ratingCount ?? 0) - (a.ratingCount ?? 0);
+          });
           return {
             deals: merged,
             totalDeals: merged.length,
