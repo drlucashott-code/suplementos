@@ -3,6 +3,10 @@ import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { enqueuePriorityRefresh } from "@/lib/priorityRefreshQueue";
 import { sendDynamicClickAlertEmail } from "@/lib/dynamicClickAlerts";
+import {
+  normalizeAttributionSource,
+  resolveAttributionSource,
+} from "@/lib/attributionSource";
 
 const ASIN_PATTERN = /^[A-Z0-9]{10}$/;
 
@@ -44,10 +48,16 @@ export async function POST(request: NextRequest) {
         return normalized ? normalized.slice(0, maxLength) : null;
       };
 
-      const utmSource = normalizeOptionalText(body.utmSource, 100);
+      const utmSource = normalizeOptionalText(
+        normalizeAttributionSource(body.utmSource) ?? undefined,
+        100
+      );
       const utmMedium = normalizeOptionalText(body.utmMedium, 100);
       const utmCampaign = normalizeOptionalText(body.utmCampaign, 150);
-      const inferredSource = normalizeOptionalText(body.inferredSource, 100);
+      const inferredSource = normalizeOptionalText(
+        normalizeAttributionSource(body.inferredSource) ?? undefined,
+        100
+      );
       const pagePath = normalizeOptionalText(body.pagePath, 300);
       const referrer = normalizeOptionalText(body.referrer, 500);
 
@@ -101,10 +111,10 @@ export async function POST(request: NextRequest) {
       });
 
       if (productInfo) {
-        const source =
-          utmSource ||
-          inferredSource ||
-          "direto";
+        const source = resolveAttributionSource({
+          utmSource,
+          inferredSource,
+        });
 
         await sendDynamicClickAlertEmail({
           asin: productInfo.asin,

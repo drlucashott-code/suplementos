@@ -1,6 +1,9 @@
 "use client";
 
 import { sendGAEvent } from "@next/third-parties/google";
+import {
+  normalizeAttributionSource,
+} from "@/lib/attributionSource";
 
 type ClickTrackingContext = {
   utmSource?: string;
@@ -72,12 +75,17 @@ function getClickTrackingContext(): ClickTrackingContext {
   const currentReferrer = document.referrer || stored.referrer || "";
 
   const currentContext: ClickTrackingContext = {
-    utmSource: searchParams.get("utm_source") || stored.utmSource,
+    utmSource:
+      normalizeAttributionSource(searchParams.get("utm_source")) ||
+      normalizeAttributionSource(stored.utmSource) ||
+      undefined,
     utmMedium: searchParams.get("utm_medium") || stored.utmMedium,
     utmCampaign: searchParams.get("utm_campaign") || stored.utmCampaign,
     referrer: currentReferrer || undefined,
     inferredSource:
-      stored.inferredSource || inferSourceFromReferrer(currentReferrer) || undefined,
+      normalizeAttributionSource(stored.inferredSource) ||
+      normalizeAttributionSource(inferSourceFromReferrer(currentReferrer)) ||
+      undefined,
     pagePath: `${window.location.pathname}${window.location.search}`,
   };
 

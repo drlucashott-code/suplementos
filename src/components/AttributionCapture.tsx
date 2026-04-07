@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { normalizeAttributionSource } from "@/lib/attributionSource";
 
 type ClickTrackingContext = {
   utmSource?: string;
@@ -87,10 +88,15 @@ export function AttributionCapture() {
       const stored = readStoredAttribution();
       const referrer = document.referrer || stored.referrer || "";
       const inferredSource =
-        stored.inferredSource || inferSourceFromReferrer(referrer) || undefined;
+        normalizeAttributionSource(stored.inferredSource) ||
+        normalizeAttributionSource(inferSourceFromReferrer(referrer)) ||
+        undefined;
 
       writeStoredAttribution({
-        utmSource: utmSource || stored.utmSource,
+        utmSource:
+          normalizeAttributionSource(utmSource) ||
+          normalizeAttributionSource(stored.utmSource) ||
+          undefined,
         utmMedium: utmMedium || stored.utmMedium,
         utmCampaign: utmCampaign || stored.utmCampaign,
         inferredSource,
@@ -103,4 +109,3 @@ export function AttributionCapture() {
 
   return null;
 }
-

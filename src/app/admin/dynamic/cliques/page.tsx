@@ -1,180 +1,71 @@
-import Image from "next/image";
 import Link from "next/link";
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getDynamicClickAlertConfig } from "@/lib/dynamicClickAlerts";
+import { normalizeAttributionSource } from "@/lib/attributionSource";
 import { saveClickAlertConfig } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const CLICK_TIMEZONE = "America/Sao_Paulo";
-const SORTABLE_COLUMNS = ["clicks", "lastClick"] as const;
-
-type SortKey = (typeof SORTABLE_COLUMNS)[number];
-type SortDirection = "asc" | "desc";
-
-type ClickedProductRow = {
-  id: string;
-  name: string;
-  imageUrl: string | null;
-  asin: string;
-  clickCount: number;
-  lastClickedAt: Date | null;
-  lastClickedAtLabel: string | null;
-  lastSource: string | null;
-  lastMedium: string | null;
-  lastCampaign: string | null;
-  lastPagePath: string | null;
-  topSource: string | null;
-  topSourceCount: number | null;
-};
 
 type SourceSummaryRow = {
   source: string;
   clickCount: number;
 };
 
-type DailyClickRow = {
+type CategorySummaryRow = {
+  category: string;
+  clickCount: number;
+};
+
+type DailyProductOriginRow = {
+  day: string;
+  dayLabel: string;
+  productId: string;
+  asin: string;
+  productName: string;
+  source: string;
+  clickCount: number;
+};
+
+type DailyProductSource = {
+  source: string;
+  clickCount: number;
+};
+
+type DailyProductItem = {
+  productId: string;
+  asin: string;
+  productName: string;
+  clickCount: number;
+  sources: DailyProductSource[];
+};
+
+type DailyProductBreakdown = {
   day: string;
   dayLabel: string;
   clickCount: number;
   uniqueProducts: number;
+  products: DailyProductItem[];
+};
+
+type MonthlyProductBreakdown = {
+  monthKey: string;
+  monthLabel: string;
+  clickCount: number;
+  sourceTotals: Array<{ source: string; clickCount: number }>;
+  days: DailyProductBreakdown[];
 };
 
 function getSourceLabel(value: string | null) {
-  if (!value) {
+  const normalized = normalizeAttributionSource(value);
+
+  if (!normalized || normalized === "direto") {
     return "Direto";
   }
 
-  return value;
-}
-
-function getSortConfig(
-  sort: string | undefined,
-  direction: string | undefined
-): { sortKey: SortKey; sortDirection: SortDirection } {
-  const sortKey = SORTABLE_COLUMNS.includes(sort as SortKey)
-    ? (sort as SortKey)
-    : "lastClick";
-  const sortDirection = direction === "asc" ? "asc" : "desc";
-
-  return { sortKey, sortDirection };
-}
-
-function getNextDirection(
-  activeSortKey: SortKey,
-  activeDirection: SortDirection,
-  nextSortKey: SortKey
-) {
-  if (activeSortKey !== nextSortKey) {
-    return "desc";
-  }
-
-  return activeDirection === "desc" ? "asc" : "desc";
-}
-
-async function getClickedProducts(
-  sortKey: SortKey,
-  sortDirection: SortDirection
-): Promise<ClickedProductRow[]> {
-  const orderByClause =
-    sortKey === "lastClick"
-      ? sortDirection === "asc"
-        ? Prisma.sql`ORDER BY s."lastClickedAt" ASC NULLS LAST, s."clickCount" DESC`
-        : Prisma.sql`ORDER BY s."lastClickedAt" DESC NULLS LAST, s."clickCount" DESC`
-      : sortDirection === "asc"
-        ? Prisma.sql`ORDER BY s."clickCount" ASC, s."lastClickedAt" DESC NULLS LAST`
-        : Prisma.sql`ORDER BY s."clickCount" DESC, s."lastClickedAt" DESC NULLS LAST`;
-
-  const rows = await prisma.$queryRaw<ClickedProductRow[]>`
-    SELECT
-      p."id",
-      p."name",
-      p."imageUrl",
-      p."asin",
-      s."clickCount",
-      s."lastClickedAt",
-      TO_CHAR(
-        (s."lastClickedAt" AT TIME ZONE 'UTC') AT TIME ZONE ${CLICK_TIMEZONE},
-        'DD/MM/YYYY HH24:MI:SS'
-      ) AS "lastClickedAtLabel",
-      (
-        SELECT COALESCE(
-          NULLIF(e."utmSource", ''),
-          NULLIF(e."inferredSource", ''),
-          'direto'
-        )
-        FROM "DynamicProductClickEvent" e
-        WHERE e."productId" = p."id"
-        ORDER BY e."createdAt" DESC
-        LIMIT 1
-      ) AS "lastSource",
-      (
-        SELECT NULLIF(e."utmMedium", '')
-        FROM "DynamicProductClickEvent" e
-        WHERE e."productId" = p."id"
-        ORDER BY e."createdAt" DESC
-        LIMIT 1
-      ) AS "lastMedium",
-      (
-        SELECT NULLIF(e."utmCampaign", '')
-        FROM "DynamicProductClickEvent" e
-        WHERE e."productId" = p."id"
-        ORDER BY e."createdAt" DESC
-        LIMIT 1
-      ) AS "lastCampaign",
-      (
-        SELECT NULLIF(e."pagePath", '')
-        FROM "DynamicProductClickEvent" e
-        WHERE e."productId" = p."id"
-        ORDER BY e."createdAt" DESC
-        LIMIT 1
-      ) AS "lastPagePath",
-      (
-        SELECT src."source"
-        FROM (
-          SELECT
-            COALESCE(
-              NULLIF(e."utmSource", ''),
-              NULLIF(e."inferredSource", ''),
-              'direto'
-            ) AS "source",
-            COUNT(*) AS "count"
-          FROM "DynamicProductClickEvent" e
-          WHERE e."productId" = p."id"
-          GROUP BY 1
-          ORDER BY "count" DESC, "source" ASC
-          LIMIT 1
-        ) src
-      ) AS "topSource",
-      (
-        SELECT src."count"
-        FROM (
-          SELECT
-            COALESCE(
-              NULLIF(e."utmSource", ''),
-              NULLIF(e."inferredSource", ''),
-              'direto'
-            ) AS "source",
-            COUNT(*) AS "count"
-          FROM "DynamicProductClickEvent" e
-          WHERE e."productId" = p."id"
-          GROUP BY 1
-          ORDER BY "count" DESC, "source" ASC
-          LIMIT 1
-        ) src
-      ) AS "topSourceCount"
-    FROM "DynamicProductClickStats" s
-    INNER JOIN "DynamicProduct" p ON p."id" = s."productId"
-    ${orderByClause}
-  `;
-
-  return rows.map((row) => ({
-    ...row,
-    clickCount: Number(row.clickCount) || 0,
-    topSourceCount: Number(row.topSourceCount) || 0,
-  }));
+  return normalized;
 }
 
 async function getSourceSummary(): Promise<SourceSummaryRow[]> {
@@ -189,96 +80,209 @@ async function getSourceSummary(): Promise<SourceSummaryRow[]> {
     FROM "DynamicProductClickEvent"
     GROUP BY 1
     ORDER BY "clickCount" DESC, "source" ASC
-    LIMIT 5
+    LIMIT 8
   `;
 
   return rows.map((row) => ({
-    source: row.source,
+    source: getSourceLabel(row.source),
     clickCount: Number(row.clickCount) || 0,
   }));
 }
 
-async function getDailyClickSummary(): Promise<DailyClickRow[]> {
-  const rows = await prisma.$queryRaw<DailyClickRow[]>`
+async function getCategorySummary(): Promise<CategorySummaryRow[]> {
+  const rows = await prisma.$queryRaw<CategorySummaryRow[]>`
     SELECT
-      TO_CHAR(base."localDay", 'YYYY-MM-DD') AS "day",
-      TO_CHAR(base."localDay", 'DD/MM/YYYY') AS "dayLabel",
-      base."clickCount",
-      base."uniqueProducts"
-    FROM (
+      c."name" AS "category",
+      COUNT(*) AS "clickCount"
+    FROM "DynamicProductClickEvent" e
+    INNER JOIN "DynamicProduct" p ON p."id" = e."productId"
+    INNER JOIN "DynamicCategory" c ON c."id" = p."categoryId"
+    GROUP BY c."name"
+    ORDER BY "clickCount" DESC, c."name" ASC
+    LIMIT 6
+  `;
+
+  return rows.map((row) => ({
+    category: row.category,
+    clickCount: Number(row.clickCount) || 0,
+  }));
+}
+
+async function getDailyProductBreakdown(): Promise<DailyProductBreakdown[]> {
+  const rows = await prisma.$queryRaw<DailyProductOriginRow[]>`
+    WITH base_events AS (
       SELECT
         DATE_TRUNC(
           'day',
-          ("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${CLICK_TIMEZONE}
+          (e."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${CLICK_TIMEZONE}
         ) AS "localDay",
-        COUNT(*)::int AS "clickCount",
-        COUNT(DISTINCT "productId")::int AS "uniqueProducts"
-      FROM "DynamicProductClickEvent"
-      GROUP BY 1
-    ) base
-    ORDER BY base."localDay" DESC
-    LIMIT 14
+        e."productId",
+        COALESCE(
+          NULLIF(e."utmSource", ''),
+          NULLIF(e."inferredSource", ''),
+          'direto'
+        ) AS "source"
+      FROM "DynamicProductClickEvent" e
+    ),
+    recent_days AS (
+      SELECT DISTINCT b."localDay"
+      FROM base_events b
+      ORDER BY b."localDay" DESC
+      LIMIT 120
+    )
+    SELECT
+      TO_CHAR(b."localDay", 'YYYY-MM-DD') AS "day",
+      TO_CHAR(b."localDay", 'DD/MM/YYYY') AS "dayLabel",
+      p."id" AS "productId",
+      p."asin" AS "asin",
+      p."name" AS "productName",
+      b."source" AS "source",
+      COUNT(*)::int AS "clickCount"
+    FROM base_events b
+    INNER JOIN recent_days d ON d."localDay" = b."localDay"
+    INNER JOIN "DynamicProduct" p ON p."id" = b."productId"
+    GROUP BY
+      b."localDay",
+      p."id",
+      p."asin",
+      p."name",
+      b."source"
+    ORDER BY
+      b."localDay" DESC,
+      p."name" ASC,
+      b."source" ASC
   `;
 
-  return rows.map((row) => ({
-    day: row.day,
-    dayLabel: row.dayLabel,
-    clickCount: Number(row.clickCount) || 0,
-    uniqueProducts: Number(row.uniqueProducts) || 0,
-  }));
+  const dayMap = new Map<string, DailyProductBreakdown>();
+
+  for (const row of rows) {
+    const dayKey = row.day;
+    const normalizedSource = getSourceLabel(row.source);
+
+    if (!dayMap.has(dayKey)) {
+      dayMap.set(dayKey, {
+        day: row.day,
+        dayLabel: row.dayLabel,
+        clickCount: 0,
+        uniqueProducts: 0,
+        products: [],
+      });
+    }
+
+    const dayEntry = dayMap.get(dayKey)!;
+    dayEntry.clickCount += Number(row.clickCount) || 0;
+
+    let productEntry = dayEntry.products.find(
+      (product) => product.productId === row.productId
+    );
+
+    if (!productEntry) {
+      productEntry = {
+        productId: row.productId,
+        asin: row.asin,
+        productName: row.productName,
+        clickCount: 0,
+        sources: [],
+      };
+      dayEntry.products.push(productEntry);
+    }
+
+    const clicks = Number(row.clickCount) || 0;
+    productEntry.clickCount += clicks;
+    productEntry.sources.push({
+      source: normalizedSource,
+      clickCount: clicks,
+    });
+  }
+
+  const breakdown = Array.from(dayMap.values()).map((dayEntry) => {
+    dayEntry.products.sort((a, b) => b.clickCount - a.clickCount);
+    dayEntry.uniqueProducts = dayEntry.products.length;
+    return dayEntry;
+  });
+
+  breakdown.sort((a, b) => b.day.localeCompare(a.day));
+
+  return breakdown;
 }
 
-function SortLink({
-  label,
-  sortKey,
-  activeSortKey,
-  activeDirection,
-}: {
-  label: string;
-  sortKey: SortKey;
-  activeSortKey: SortKey;
-  activeDirection: SortDirection;
-}) {
-  const nextDirection = getNextDirection(activeSortKey, activeDirection, sortKey);
-  const isActive = activeSortKey === sortKey;
-  const arrow = !isActive ? "" : activeDirection === "desc" ? " ↓" : " ↑";
+export default async function AdminDynamicClicksPage() {
+  const [sourceSummary, categorySummary, dailyProductBreakdown, clickAlertConfig] =
+    await Promise.all([
+      getSourceSummary(),
+      getCategorySummary(),
+      getDailyProductBreakdown(),
+      getDynamicClickAlertConfig(),
+    ]);
 
-  return (
-    <Link
-      href={`/admin/dynamic/cliques?sort=${sortKey}&direction=${nextDirection}`}
-      className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-wide transition ${
-        isActive
-          ? "border-blue-200 bg-blue-50 text-blue-700"
-          : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:text-black"
-      }`}
-    >
-      {label}
-      {arrow}
-    </Link>
-  );
-}
+  const monthFormatter = new Intl.DateTimeFormat("pt-BR", {
+    month: "long",
+    year: "numeric",
+    timeZone: CLICK_TIMEZONE,
+  });
 
-export default async function AdminDynamicClicksPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ sort?: string; direction?: string }>;
-}) {
-  const params = await searchParams;
-  const { sortKey, sortDirection } = getSortConfig(params.sort, params.direction);
-  const [clickedProducts, sourceSummary, dailySummary, clickAlertConfig] = await Promise.all([
-    getClickedProducts(sortKey, sortDirection),
-    getSourceSummary(),
-    getDailyClickSummary(),
-    getDynamicClickAlertConfig(),
-  ]);
+  const monthlyBreakdownMap = new Map<
+    string,
+    {
+      monthKey: string;
+      monthLabel: string;
+      clickCount: number;
+      sourceCounts: Map<string, number>;
+      days: DailyProductBreakdown[];
+    }
+  >();
 
-  const totalClicks = clickedProducts.reduce(
-    (total, product) => total + product.clickCount,
+  for (const day of dailyProductBreakdown) {
+    const dayDate = new Date(`${day.day}T00:00:00`);
+    const monthKey = day.day.slice(0, 7);
+    const monthLabel = monthFormatter.format(dayDate);
+
+    if (!monthlyBreakdownMap.has(monthKey)) {
+      monthlyBreakdownMap.set(monthKey, {
+        monthKey,
+        monthLabel,
+        clickCount: 0,
+        sourceCounts: new Map<string, number>(),
+        days: [],
+      });
+    }
+
+    const monthEntry = monthlyBreakdownMap.get(monthKey)!;
+    monthEntry.clickCount += day.clickCount;
+    monthEntry.days.push(day);
+
+    for (const product of day.products) {
+      for (const source of product.sources) {
+        monthEntry.sourceCounts.set(
+          source.source,
+          (monthEntry.sourceCounts.get(source.source) ?? 0) + source.clickCount
+        );
+      }
+    }
+  }
+
+  const monthlyBreakdown: MonthlyProductBreakdown[] = Array.from(
+    monthlyBreakdownMap.values()
+  )
+    .map((month) => ({
+      monthKey: month.monthKey,
+      monthLabel:
+        month.monthLabel.charAt(0).toUpperCase() + month.monthLabel.slice(1),
+      clickCount: month.clickCount,
+      sourceTotals: Array.from(month.sourceCounts.entries())
+        .map(([source, clickCount]) => ({ source, clickCount }))
+        .sort((a, b) => b.clickCount - a.clickCount),
+      days: month.days.sort((a, b) => b.day.localeCompare(a.day)),
+    }))
+    .sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+
+  const totalClicks = monthlyBreakdown.reduce(
+    (total, month) => total + month.clickCount,
     0
   );
-
-  const lastClick = clickedProducts[0]?.lastClickedAt ?? null;
   const topSource = sourceSummary[0] ?? null;
+  const topCategory = categorySummary[0] ?? null;
+  const latestClickDay = dailyProductBreakdown[0]?.dayLabel ?? "Sem dados";
 
   return (
     <div className="min-h-screen bg-gray-50/30 p-8 font-sans text-black">
@@ -288,14 +292,14 @@ export default async function AdminDynamicClicksPage({
             <div className="mb-2 flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-blue-600" />
               <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">
-                Prioridade por clique
+                Inteligência de cliques
               </span>
             </div>
             <h1 className="text-4xl font-black tracking-tight text-gray-900">
               CLIQUES DE PRODUTOS
             </h1>
             <p className="mt-1 text-sm font-medium text-gray-500">
-              Veja quantos cliques cada produto recebeu e de onde eles vieram.
+              Visão mensal com detalhamento diário por ASIN e origem dos cliques.
             </p>
           </div>
 
@@ -315,32 +319,28 @@ export default async function AdminDynamicClicksPage({
           </div>
         </div>
 
-        <div className="mb-6 grid gap-3 md:grid-cols-4">
+        <div className="mb-6 grid gap-3 md:grid-cols-5">
           <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
             <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Produtos clicados
+              Cliques totais
+            </div>
+            <div className="mt-1 text-3xl font-black text-gray-900">{totalClicks}</div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
+            <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+              Meses no período
             </div>
             <div className="mt-1 text-3xl font-black text-gray-900">
-              {clickedProducts.length}
+              {monthlyBreakdown.length}
             </div>
           </div>
 
           <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
             <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Cliques acumulados
+              Último dia com clique
             </div>
-            <div className="mt-1 text-3xl font-black text-gray-900">
-              {totalClicks}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
-            <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Ultimo clique
-            </div>
-            <div className="mt-2 text-sm font-black text-gray-900">
-              {clickedProducts[0]?.lastClickedAtLabel || "Sem cliques"}
-            </div>
+            <div className="mt-2 text-sm font-black text-gray-900">{latestClickDay}</div>
           </div>
 
           <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
@@ -348,10 +348,22 @@ export default async function AdminDynamicClicksPage({
               Origem principal
             </div>
             <div className="mt-1 text-lg font-black text-gray-900">
-              {topSource ? getSourceLabel(topSource.source) : "Sem dados"}
+              {topSource ? topSource.source : "Sem dados"}
             </div>
             <div className="mt-1 text-[11px] font-bold text-gray-500">
               {topSource ? `${topSource.clickCount} cliques` : "Nenhum clique"}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
+            <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+              Categoria mais clicada
+            </div>
+            <div className="mt-1 text-lg font-black text-gray-900">
+              {topCategory ? topCategory.category : "Sem dados"}
+            </div>
+            <div className="mt-1 text-[11px] font-bold text-gray-500">
+              {topCategory ? `${topCategory.clickCount} cliques` : "Nenhum clique"}
             </div>
           </div>
         </div>
@@ -397,169 +409,119 @@ export default async function AdminDynamicClicksPage({
         <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
             <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Cliques por dia
+              Ranking de categorias
             </div>
-            <div className="text-[11px] font-bold text-gray-500">
-              Ultimos 14 dias
-            </div>
+            <div className="text-[11px] font-bold text-gray-500">Top 6 categorias</div>
           </div>
 
-          {dailySummary.length === 0 ? (
+          {categorySummary.length === 0 ? (
             <div className="py-4 text-sm font-semibold text-gray-400">
               Nenhum clique registrado ainda.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-[520px] w-full border-collapse text-left">
-                <thead>
-                  <tr className="border-b border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                    <th className="px-2 py-3 text-black">Data</th>
-                    <th className="px-2 py-3 text-center text-black">Cliques</th>
-                    <th className="px-2 py-3 text-center text-black">
-                      Produtos unicos
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {dailySummary.map((day) => (
-                    <tr key={day.day}>
-                      <td className="px-2 py-3 text-sm font-bold text-gray-900">
-                        {day.dayLabel}
-                      </td>
-                      <td className="px-2 py-3 text-center text-sm font-black text-gray-900">
-                        {day.clickCount}
-                      </td>
-                      <td className="px-2 py-3 text-center text-sm font-bold text-gray-500">
-                        {day.uniqueProducts}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex flex-wrap gap-2">
+              {categorySummary.map((category) => (
+                <span
+                  key={category.category}
+                  className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[12px] font-bold text-gray-700"
+                >
+                  {category.category}: {category.clickCount}
+                </span>
+              ))}
             </div>
           )}
         </div>
 
-        <div className="mb-4 flex flex-wrap gap-2">
-          <SortLink
-            label="Ordenar por cliques"
-            sortKey="clicks"
-            activeSortKey={sortKey}
-            activeDirection={sortDirection}
-          />
-          <SortLink
-            label="Ordenar por ultimo clique"
-            sortKey="lastClick"
-            activeSortKey={sortKey}
-            activeDirection={sortDirection}
-          />
-        </div>
-
-        <div className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-xl shadow-gray-200/50">
-          <div className="overflow-x-auto">
-            <table className="min-w-[1300px] w-full border-collapse text-left">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                  <th className="w-24 p-4 text-center text-black">Foto</th>
-                  <th className="p-4 text-black">Produto</th>
-                  <th className="w-40 p-4 text-center text-black">ASIN</th>
-                  <th className="w-24 p-4 text-center text-black">Cliques</th>
-                  <th className="w-44 p-4 text-center text-black">Ultimo clique</th>
-                  <th className="w-48 p-4 text-center text-black">Ultima origem</th>
-                  <th className="w-48 p-4 text-center text-black">Origem principal</th>
-                  <th className="w-56 p-4 text-center text-black">Ultima campanha</th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-gray-50">
-                {clickedProducts.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={8}
-                      className="p-10 text-center text-sm font-semibold text-gray-400"
-                    >
-                      Nenhum clique registrado ainda.
-                    </td>
-                  </tr>
-                ) : (
-                  clickedProducts.map((product) => (
-                    <tr key={product.id} className="transition-colors hover:bg-gray-50/50">
-                      <td className="p-4 text-center">
-                        <div className="relative mx-auto h-14 w-14 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
-                          {product.imageUrl ? (
-                            <Image
-                              src={product.imageUrl}
-                              alt={product.name}
-                              fill
-                              className="object-contain p-1"
-                            />
-                          ) : (
-                            <div className="flex h-full items-center justify-center text-[10px] font-bold text-gray-300">
-                              sem imagem
-                            </div>
-                          )}
-                        </div>
-                      </td>
-
-                      <td className="p-4">
-                        <div className="text-[13px] font-bold leading-tight text-gray-900">
-                          {product.name}
-                        </div>
-                        {product.lastPagePath && (
-                          <div className="mt-1 text-[11px] font-medium text-gray-500">
-                            {product.lastPagePath}
-                          </div>
-                        )}
-                      </td>
-
-                      <td className="p-4 text-center">
-                        <a
-                          href={`https://www.amazon.com.br/dp/${product.asin}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-block rounded bg-blue-50 px-2 py-1 font-mono text-[10px] font-black uppercase text-blue-600 transition hover:bg-blue-600 hover:text-white"
-                        >
-                          {product.asin} {"->"}
-                        </a>
-                      </td>
-
-                      <td className="p-4 text-center text-xl font-black text-gray-900">
-                        {product.clickCount}
-                      </td>
-
-                      <td className="p-4 text-center text-[12px] font-bold text-gray-500">
-                        {product.lastClickedAtLabel || "Nunca"}
-                      </td>
-
-                      <td className="p-4 text-center">
-                        <div className="text-[12px] font-black text-gray-900">
-                          {getSourceLabel(product.lastSource)}
-                        </div>
-                        {product.lastMedium && (
-                          <div className="mt-1 text-[11px] font-bold text-gray-500">
-                            {product.lastMedium}
-                          </div>
-                        )}
-                      </td>
-
-                      <td className="p-4 text-center">
-                        <div className="text-[12px] font-black text-gray-900">
-                          {getSourceLabel(product.topSource)}
-                        </div>
-                        <div className="mt-1 text-[11px] font-bold text-gray-500">
-                          {product.topSourceCount || 0} cliques
-                        </div>
-                      </td>
-
-                      <td className="p-4 text-center text-[12px] font-bold text-gray-500">
-                        {product.lastCampaign || "-"}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+        <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+              Visão mensal (expansível)
+            </div>
+            <div className="text-[11px] font-bold text-gray-500">
+              Clique no mês para ver o detalhe diário
+            </div>
           </div>
+
+          {monthlyBreakdown.length === 0 ? (
+            <div className="py-4 text-sm font-semibold text-gray-400">
+              Nenhum clique registrado ainda.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {monthlyBreakdown.map((month) => (
+                <details
+                  key={month.monthKey}
+                  className="overflow-hidden rounded-2xl border border-gray-100 bg-white"
+                >
+                  <summary className="cursor-pointer list-none px-4 py-3">
+                    <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                      <div className="text-sm font-black text-gray-900">
+                        {month.monthLabel} - {month.clickCount} cliques
+                      </div>
+                      <div className="text-[12px] font-bold text-gray-500">
+                        {month.sourceTotals
+                          .slice(0, 5)
+                          .map((source) => `${source.clickCount} ${source.source}`)
+                          .join(" / ")}
+                      </div>
+                    </div>
+                  </summary>
+
+                  <div className="space-y-3 border-t border-gray-100 bg-gray-50/40 p-3">
+                    {month.days.map((day) => (
+                      <div
+                        key={day.day}
+                        className="overflow-hidden rounded-xl border border-gray-100 bg-white"
+                      >
+                        <div className="flex flex-col gap-1 border-b border-gray-100 bg-gray-50 px-4 py-3 md:flex-row md:items-center md:justify-between">
+                          <div className="text-sm font-black text-gray-900">
+                            {day.dayLabel}
+                          </div>
+                          <div className="text-[12px] font-bold text-gray-500">
+                            {day.clickCount} cliques • {day.uniqueProducts} produtos
+                          </div>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="min-w-[860px] w-full border-collapse text-left">
+                            <thead>
+                              <tr className="border-b border-gray-100 bg-white text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                <th className="p-3 text-black">Produto</th>
+                                <th className="w-36 p-3 text-center text-black">ASIN</th>
+                                <th className="w-24 p-3 text-center text-black">Cliques</th>
+                                <th className="w-[360px] p-3 text-black">Origens</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 bg-white">
+                              {day.products.map((product) => (
+                                <tr key={`${day.day}-${product.productId}`}>
+                                  <td className="p-3 text-[12px] font-bold text-gray-900">
+                                    {product.productName}
+                                  </td>
+                                  <td className="p-3 text-center font-mono text-[11px] font-black text-gray-600">
+                                    {product.asin}
+                                  </td>
+                                  <td className="p-3 text-center text-sm font-black text-gray-900">
+                                    {product.clickCount}
+                                  </td>
+                                  <td className="p-3 text-[12px] font-semibold text-gray-700">
+                                    {product.sources
+                                      .sort((a, b) => b.clickCount - a.clickCount)
+                                      .map((source) => `${source.clickCount} ${source.source}`)
+                                      .join(" / ")}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
