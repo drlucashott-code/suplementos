@@ -35,6 +35,27 @@ function inferSourceFromReferrer(referrer: string) {
   }
 }
 
+function getExternalReferrer(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+
+  const referrer = document.referrer?.trim();
+
+  if (!referrer) return undefined;
+
+  try {
+    const refUrl = new URL(referrer);
+    const currentUrl = new URL(window.location.href);
+
+    if (refUrl.hostname.replace(/^www\./, "") === currentUrl.hostname.replace(/^www\./, "")) {
+      return undefined;
+    }
+
+    return referrer;
+  } catch {
+    return undefined;
+  }
+}
+
 function readStoredAttribution(): ClickTrackingContext {
   try {
     const raw = window.sessionStorage.getItem(ATTRIBUTION_STORAGE_KEY);
@@ -81,28 +102,31 @@ export function AttributionCapture() {
     const utmSource = url.searchParams.get("utm_source")?.trim() || "";
     const utmMedium = url.searchParams.get("utm_medium")?.trim() || "";
     const utmCampaign = url.searchParams.get("utm_campaign")?.trim() || "";
+    const externalReferrer = getExternalReferrer();
 
     const hasUtm = Boolean(utmSource || utmMedium || utmCampaign);
 
+    const stored = readStoredAttribution();
+    const referrer = stored.referrer || externalReferrer || "";
+    const inferredSource =
+      normalizeAttributionSource(utmSource) ||
+      normalizeAttributionSource(stored.utmSource) ||
+      normalizeAttributionSource(stored.inferredSource) ||
+      normalizeAttributionSource(inferSourceFromReferrer(referrer)) ||
+      undefined;
+
+    writeStoredAttribution({
+      utmSource:
+        normalizeAttributionSource(utmSource) ||
+        normalizeAttributionSource(stored.utmSource) ||
+        undefined,
+      utmMedium: utmMedium || stored.utmMedium,
+      utmCampaign: utmCampaign || stored.utmCampaign,
+      inferredSource,
+      referrer: referrer || undefined,
+    });
+
     if (hasUtm) {
-      const stored = readStoredAttribution();
-      const referrer = document.referrer || stored.referrer || "";
-      const inferredSource =
-        normalizeAttributionSource(stored.inferredSource) ||
-        normalizeAttributionSource(inferSourceFromReferrer(referrer)) ||
-        undefined;
-
-      writeStoredAttribution({
-        utmSource:
-          normalizeAttributionSource(utmSource) ||
-          normalizeAttributionSource(stored.utmSource) ||
-          undefined,
-        utmMedium: utmMedium || stored.utmMedium,
-        utmCampaign: utmCampaign || stored.utmCampaign,
-        inferredSource,
-        referrer: referrer || undefined,
-      });
-
       removeUtmParamsFromCurrentUrl();
     }
   }, []);

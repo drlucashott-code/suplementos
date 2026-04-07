@@ -48,6 +48,34 @@ function inferSourceFromReferrer(referrer: string) {
   }
 }
 
+function getExternalReferrer(): string | undefined {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+
+  const referrer = document.referrer?.trim();
+
+  if (!referrer) {
+    return undefined;
+  }
+
+  try {
+    const refUrl = new URL(referrer);
+    const currentUrl = new URL(window.location.href);
+
+    if (
+      refUrl.hostname.replace(/^www\./, "") ===
+      currentUrl.hostname.replace(/^www\./, "")
+    ) {
+      return undefined;
+    }
+
+    return referrer;
+  } catch {
+    return undefined;
+  }
+}
+
 function getClickTrackingContext(): ClickTrackingContext {
   if (typeof window === "undefined") {
     return {};
@@ -72,7 +100,8 @@ function getClickTrackingContext(): ClickTrackingContext {
 
   const stored = readStored();
   const searchParams = new URLSearchParams(window.location.search);
-  const currentReferrer = document.referrer || stored.referrer || "";
+  const externalReferrer = getExternalReferrer();
+  const currentReferrer = stored.referrer || externalReferrer || "";
 
   const currentContext: ClickTrackingContext = {
     utmSource:
@@ -83,6 +112,7 @@ function getClickTrackingContext(): ClickTrackingContext {
     utmCampaign: searchParams.get("utm_campaign") || stored.utmCampaign,
     referrer: currentReferrer || undefined,
     inferredSource:
+      normalizeAttributionSource(searchParams.get("utm_source")) ||
       normalizeAttributionSource(stored.inferredSource) ||
       normalizeAttributionSource(inferSourceFromReferrer(currentReferrer)) ||
       undefined,
@@ -90,11 +120,11 @@ function getClickTrackingContext(): ClickTrackingContext {
   };
 
   writeStored({
-    utmSource: currentContext.utmSource,
+    utmSource: currentContext.utmSource || stored.utmSource,
     utmMedium: currentContext.utmMedium,
     utmCampaign: currentContext.utmCampaign,
-    inferredSource: currentContext.inferredSource,
-    referrer: currentContext.referrer,
+    inferredSource: stored.inferredSource || currentContext.inferredSource,
+    referrer: stored.referrer || currentContext.referrer,
   });
 
   return currentContext;
