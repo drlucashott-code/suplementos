@@ -7,8 +7,10 @@ import {
   cancelDynamicImport,
   forceStopDynamicDiscovery,
   getDynamicDiscoveryRun,
+  getDynamicDiscoveryRunProgress,
   getLatestDynamicDiscoveryRun,
   getDynamicImportRun,
+  getDynamicImportRunProgress,
   getLatestDynamicImportRun,
   applyDynamicAttributesFromList,
   startDynamicDiscovery,
@@ -134,16 +136,27 @@ export default function ImportadorDynamicAPI() {
     if (!activeDiscoveryRunId) return;
 
     const poll = async () => {
-      const run = await getDynamicDiscoveryRun(activeDiscoveryRunId);
+      const run = await getDynamicDiscoveryRunProgress(activeDiscoveryRunId);
       if (!run) return;
-      setActiveDiscoveryRun(run as DiscoveryRunState);
-      setDiscoveryLogs(run.logs);
-      setDiscoveredItems(run.items ?? []);
+      setActiveDiscoveryRun((previous) => ({
+        ...(previous ?? { logs: [], items: [] }),
+        ...run,
+      }));
       setDiscovering(run.status === 'running');
+
+      if (run.status !== 'running') {
+        const fullRun = await getDynamicDiscoveryRun(activeDiscoveryRunId);
+        if (fullRun) {
+          setActiveDiscoveryRun(fullRun as DiscoveryRunState);
+          setDiscoveryLogs(fullRun.logs);
+          setDiscoveredItems(fullRun.items ?? []);
+        }
+        setActiveDiscoveryRunId(null);
+      }
     };
 
     poll();
-    const interval = setInterval(poll, 2500);
+    const interval = setInterval(poll, 10000);
     return () => clearInterval(interval);
   }, [activeDiscoveryRunId]);
 
@@ -151,14 +164,25 @@ export default function ImportadorDynamicAPI() {
     if (!activeRunId) return;
 
     const poll = async () => {
-      const run = await getDynamicImportRun(activeRunId);
+      const run = await getDynamicImportRunProgress(activeRunId);
       if (!run) return;
-      setActiveRun(run as ImportRunState);
-      setLogs(run.logs);
+      setActiveRun((previous) => ({
+        ...(previous ?? { logs: [] }),
+        ...run,
+      }));
+
+      if (run.status !== 'running') {
+        const fullRun = await getDynamicImportRun(activeRunId);
+        if (fullRun) {
+          setActiveRun(fullRun as ImportRunState);
+          setLogs(fullRun.logs);
+        }
+        setActiveRunId(null);
+      }
     };
 
     poll();
-    const interval = setInterval(poll, 2500);
+    const interval = setInterval(poll, 10000);
     return () => clearInterval(interval);
   }, [activeRunId]);
 

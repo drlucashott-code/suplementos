@@ -5,8 +5,9 @@ import { getBestDeals, getBestDealsCount } from "@/lib/bestDeals";
 
 export const revalidate = 600;
 
-const PAGE_SIZE = 30;
-const MAX_DEALS = 300;
+const PAGE_SIZE = 20;
+const DEALS_PER_GROUP_WHEN_ALL = 20;
+const MAX_DEALS = DEALS_PER_GROUP_WHEN_ALL * 3;
 
 const filters = [
   { label: "Todos", value: "todos" },
@@ -28,15 +29,33 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
   const normalizedGroup = selectedGroup === "todos" ? undefined : selectedGroup;
   const requestedPage = Math.max(1, Number.parseInt(params.pagina ?? "1", 10) || 1);
 
-  const rawTotalDeals = await getBestDealsCount(normalizedGroup);
-  const totalDeals = Math.min(rawTotalDeals, MAX_DEALS);
-  const totalPages = Math.max(1, Math.ceil(totalDeals / PAGE_SIZE));
-  const currentPage = Math.min(requestedPage, totalPages);
-  const deals = await getBestDeals(
-    PAGE_SIZE,
-    normalizedGroup,
-    (currentPage - 1) * PAGE_SIZE
-  );
+  const { deals, totalDeals, totalPages, currentPage } =
+    selectedGroup === "todos"
+      ? await (async () => {
+          const [supplements, home, pets] = await Promise.all([
+            getBestDeals(DEALS_PER_GROUP_WHEN_ALL, "suplementos", 0),
+            getBestDeals(DEALS_PER_GROUP_WHEN_ALL, "casa", 0),
+            getBestDeals(DEALS_PER_GROUP_WHEN_ALL, "pets", 0),
+          ]);
+
+          const merged = [...supplements, ...home, ...pets];
+          return {
+            deals: merged,
+            totalDeals: merged.length,
+            totalPages: 1,
+            currentPage: 1,
+          };
+        })()
+      : await (async () => {
+          const pageDeals = await getBestDeals(PAGE_SIZE, normalizedGroup, 0);
+
+          return {
+            deals: pageDeals,
+            totalDeals: pageDeals.length,
+            totalPages: 1,
+            currentPage: 1,
+          };
+        })();
 
   const buildPageHref = (page: number) => {
     const query = new URLSearchParams();

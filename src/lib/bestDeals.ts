@@ -120,46 +120,13 @@ export async function getBestDeals(
 }
 
 export async function getBestDealsCount(group?: string): Promise<number> {
-  const rows = await prisma.dynamicProduct.findMany({
-    where: {
-      visibilityStatus: "visible",
-      totalPrice: {
-        gt: 0,
-      },
-      OR: [
-        {
-          availabilityStatus: null,
-        },
-        {
-          availabilityStatus: {
-            not: "OUT_OF_STOCK",
-          },
-        },
-      ],
-      averagePrice30d: {
-        not: null,
-        gt: 0,
-      },
-      category: group
-        ? {
-            group,
-          }
-        : undefined,
-    },
-    select: {
-      totalPrice: true,
-      averagePrice30d: true,
-    },
-  });
+  const rows = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+    SELECT COUNT(*)::bigint AS "count"
+    FROM "DynamicProduct" p
+    INNER JOIN "DynamicCategory" c ON c."id" = p."categoryId"
+    ${buildBestDealsWhereClause(group)}
+  `);
 
-  return rows.filter((row) => {
-    if (!row.averagePrice30d || row.averagePrice30d <= row.totalPrice) {
-      return false;
-    }
-
-    const discountPercent =
-      ((row.averagePrice30d - row.totalPrice) / row.averagePrice30d) * 100;
-
-    return discountPercent >= 5;
-  }).length;
+  const rawCount = rows[0]?.count ?? BigInt(0);
+  return Number(rawCount);
 }

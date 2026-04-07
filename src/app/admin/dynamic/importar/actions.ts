@@ -107,6 +107,29 @@ type DiscoveryRunState = {
   finishedAt: Date | null;
 };
 
+type ImportRunProgressState = {
+  id: string;
+  status: string;
+  totalItems: number;
+  processedItems: number;
+  importedItems: number;
+  skippedItems: number;
+  errorItems: number;
+  cancelRequested: boolean;
+};
+
+type DiscoveryRunProgressState = {
+  id: string;
+  status: string;
+  totalSearches: number;
+  processedSearches: number;
+  foundItems: number;
+  cancelRequested: boolean;
+};
+
+const MAX_IMPORT_LOG_ENTRIES = 400;
+const MAX_DISCOVERY_LOG_ENTRIES = 400;
+
 type SearchPriceRange = AmazonSearchPriceRange;
 
 type DiscoverySearchTask = {
@@ -570,6 +593,26 @@ async function findDynamicImportRunById(runId: string) {
   return rows[0] ?? null;
 }
 
+async function findDynamicImportRunProgressById(runId: string) {
+  const rows = await prisma.$queryRaw<
+    Array<{
+      id: string;
+      status: string;
+      totalItems: number;
+      processedItems: number;
+      importedItems: number;
+      skippedItems: number;
+      errorItems: number;
+      cancelRequested: boolean;
+    }>
+  >`SELECT "id", "status", "totalItems", "processedItems", "importedItems", "skippedItems", "errorItems", "cancelRequested"
+    FROM "DynamicImportRun"
+    WHERE "id" = ${runId}
+    LIMIT 1`;
+
+  return rows[0] ?? null;
+}
+
 async function findLatestDynamicImportRunByStatuses(statuses: string[]) {
   if (statuses.length === 0) return null;
 
@@ -663,6 +706,24 @@ async function findDynamicDiscoveryRunById(runId: string) {
       finishedAt: Date | null;
     }>
   >`SELECT "id", "status", "totalSearches", "processedSearches", "foundItems", "cancelRequested", "inputs", "items", "logs", "startedAt", "finishedAt"
+    FROM "DynamicDiscoveryRun"
+    WHERE "id" = ${runId}
+    LIMIT 1`;
+
+  return rows[0] ?? null;
+}
+
+async function findDynamicDiscoveryRunProgressById(runId: string) {
+  const rows = await prisma.$queryRaw<
+    Array<{
+      id: string;
+      status: string;
+      totalSearches: number;
+      processedSearches: number;
+      foundItems: number;
+      cancelRequested: boolean;
+    }>
+  >`SELECT "id", "status", "totalSearches", "processedSearches", "foundItems", "cancelRequested"
     FROM "DynamicDiscoveryRun"
     WHERE "id" = ${runId}
     LIMIT 1`;
@@ -883,7 +944,11 @@ async function updateImportRun(
   }
 
   if (data.logs !== undefined) {
-    updates.push(Prisma.sql`"logs" = ${JSON.stringify(data.logs)}::jsonb`);
+    const trimmedLogs =
+      data.logs.length > MAX_IMPORT_LOG_ENTRIES
+        ? data.logs.slice(-MAX_IMPORT_LOG_ENTRIES)
+        : data.logs;
+    updates.push(Prisma.sql`"logs" = ${JSON.stringify(trimmedLogs)}::jsonb`);
   }
 
   updates.push(Prisma.sql`"updatedAt" = NOW()`);
@@ -941,7 +1006,11 @@ async function updateDiscoveryRun(
   }
 
   if (data.logs !== undefined) {
-    updates.push(Prisma.sql`"logs" = ${JSON.stringify(data.logs)}::jsonb`);
+    const trimmedLogs =
+      data.logs.length > MAX_DISCOVERY_LOG_ENTRIES
+        ? data.logs.slice(-MAX_DISCOVERY_LOG_ENTRIES)
+        : data.logs;
+    updates.push(Prisma.sql`"logs" = ${JSON.stringify(trimmedLogs)}::jsonb`);
   }
 
   updates.push(Prisma.sql`"updatedAt" = NOW()`);
@@ -1653,6 +1722,11 @@ export async function getDynamicImportRun(runId: string) {
   return run ? normalizeImportRun(run) : null;
 }
 
+export async function getDynamicImportRunProgress(runId: string) {
+  const run = await findDynamicImportRunProgressById(runId);
+  return (run ?? null) as ImportRunProgressState | null;
+}
+
 export async function getLatestDynamicImportRun() {
   const run = await findLatestDynamicImportRunByStatuses([
     "running",
@@ -2087,6 +2161,11 @@ export async function startDynamicDiscovery(input: {
 export async function getDynamicDiscoveryRun(runId: string) {
   const run = await findDynamicDiscoveryRunById(runId);
   return run ? normalizeDiscoveryRun(run) : null;
+}
+
+export async function getDynamicDiscoveryRunProgress(runId: string) {
+  const run = await findDynamicDiscoveryRunProgressById(runId);
+  return (run ?? null) as DiscoveryRunProgressState | null;
 }
 
 export async function getLatestDynamicDiscoveryRun() {
