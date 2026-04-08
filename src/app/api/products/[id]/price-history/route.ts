@@ -39,7 +39,6 @@ export async function GET(
       select: {
         id: true,
         totalPrice: true,
-        averagePrice30d: true,
         lowestPrice30d: true,
         highestPrice30d: true,
         lastValidPrice: true,
@@ -144,18 +143,11 @@ export async function GET(
     const min = prices.length > 0 ? roundPrice(Math.min(...prices)) : null;
     const max = prices.length > 0 ? roundPrice(Math.max(...prices)) : null;
 
-    const stats =
-      range <= 30
-        ? {
-            avg: roundPrice(product.averagePrice30d) ?? avg,
-            min,
-            max,
-          }
-        : {
-            avg,
-            min,
-            max,
-          };
+    const stats = {
+      avg,
+      min,
+      max,
+    };
 
     return NextResponse.json({
       ok: true,
