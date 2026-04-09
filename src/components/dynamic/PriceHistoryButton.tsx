@@ -93,6 +93,18 @@ function formatDateLabel(value: string) {
   }).format(date);
 }
 
+function parseIsoDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function diffDays(fromIso: string, toIso: string) {
+  const from = parseIsoDate(fromIso).getTime();
+  const to = parseIsoDate(toIso).getTime();
+  const dayMs = 24 * 60 * 60 * 1000;
+  return Math.max(0, Math.round((to - from) / dayMs));
+}
+
 function formatDeltaPercent(value: number | null) {
   if (value === null || Number.isNaN(value)) return null;
   return Math.round(Math.abs(value));
@@ -231,6 +243,7 @@ export function PriceHistoryButton({
 
   const chart = useMemo(() => {
     if (!data || data.history.length === 0) return null;
+    const sortedHistory = [...data.history].sort((a, b) => a.date.localeCompare(b.date));
 
     const width = 560;
     const height = 210;
@@ -238,19 +251,22 @@ export function PriceHistoryButton({
     const drawableWidth = width - padding.left - padding.right;
     const drawableHeight = height - padding.top - padding.bottom;
 
-    const values = data.history.map((point) => point.price);
+    const values = sortedHistory.map((point) => point.price);
     const minValue = Math.min(...values);
     const maxValue = Math.max(...values);
     const spread = Math.max(maxValue - minValue, 1);
     const paddedMin = Math.max(0, minValue - spread * 0.12);
     const paddedMax = maxValue + spread * 0.12;
-    const xStep = data.history.length > 1 ? drawableWidth / (data.history.length - 1) : 0;
+    const firstDate = sortedHistory[0]?.date ?? "";
+    const lastDate = sortedHistory[sortedHistory.length - 1]?.date ?? firstDate;
+    const totalDays = Math.max(diffDays(firstDate, lastDate), 1);
 
-    const points = data.history.map((point, index) => {
+    const points = sortedHistory.map((point, index) => {
+      const dayOffset = diffDays(firstDate, point.date);
       const x =
-        data.history.length === 1
+        sortedHistory.length === 1
           ? padding.left + drawableWidth / 2
-          : padding.left + xStep * index;
+          : padding.left + (dayOffset / totalDays) * drawableWidth;
       const normalizedY =
         drawableHeight -
         ((point.price - paddedMin) / Math.max(paddedMax - paddedMin, 1)) * drawableHeight;
@@ -263,9 +279,58 @@ export function PriceHistoryButton({
       };
     });
 
-    const path = points
-      .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
-      .join(" ");
+    const pathSegments: string[] = [];
+    const missingRanges: Array<{
+      startX: number;
+      endX: number;
+      startDate: string;
+      endDate: string;
+    }> = [];
+    let currentSegment: Array<{ x: number; y: number }> = [];
+
+    points.forEach((point, index) => {
+      if (index === 0) {
+        currentSegment = [{ x: point.x, y: point.y }];
+        return;
+      }
+
+      const previousPoint = points[index - 1];
+      const gapDays = diffDays(previousPoint.date, point.date);
+
+      if (gapDays > 1) {
+        if (currentSegment.length > 0) {
+          pathSegments.push(
+            currentSegment
+              .map((segmentPoint, segmentIndex) =>
+                `${segmentIndex === 0 ? "M" : "L"} ${segmentPoint.x} ${segmentPoint.y}`
+              )
+              .join(" ")
+          );
+        }
+
+        missingRanges.push({
+          startX: previousPoint.x,
+          endX: point.x,
+          startDate: previousPoint.date,
+          endDate: point.date,
+        });
+
+        currentSegment = [{ x: point.x, y: point.y }];
+        return;
+      }
+
+      currentSegment.push({ x: point.x, y: point.y });
+    });
+
+    if (currentSegment.length > 0) {
+      pathSegments.push(
+        currentSegment
+          .map((segmentPoint, segmentIndex) =>
+            `${segmentIndex === 0 ? "M" : "L"} ${segmentPoint.x} ${segmentPoint.y}`
+          )
+          .join(" ")
+      );
+    }
 
     const averageY =
       data.stats.avg !== null
@@ -289,7 +354,8 @@ export function PriceHistoryButton({
       height,
       padding,
       points,
-      path,
+      pathSegments,
+      missingRanges,
       averageY,
       minIndex,
       currentIndex,
@@ -543,14 +609,57 @@ export function PriceHistoryButton({
                           />
                         ) : null}
 
-                        <path
-                          d={chart.path}
-                          fill="none"
-                          stroke="#007185"
-                          strokeWidth="2.25"
-                          strokeLinejoin="round"
-                          strokeLinecap="round"
-                        />
+                        {chart.pathSegments.map((segment, index) => (
+                          <path
+                            key={`segment-${index}`}
+                            d={segment}
+                            fill="none"
+                            stroke="#007185"
+                            strokeWidth="2.25"
+                            strokeLinejoin="round"
+                            strokeLinecap="round"
+                          />
+                        ))}
+
+                        {chart.missingRanges.map((range, index) => {
+                          const centerX = (range.startX + range.endX) / 2;
+                          const canShowLabel = range.endX - range.startX > 52;
+
+                          return (
+                            <g key={`missing-${index}`}>
+                              <line
+                                x1={range.startX}
+                                y1={chart.padding.top}
+                                x2={range.startX}
+                                y2={chart.height - chart.padding.bottom}
+                                stroke="#F59E0B"
+                                strokeDasharray="3 4"
+                                strokeOpacity={0.65}
+                              />
+                              <line
+                                x1={range.endX}
+                                y1={chart.padding.top}
+                                x2={range.endX}
+                                y2={chart.height - chart.padding.bottom}
+                                stroke="#F59E0B"
+                                strokeDasharray="3 4"
+                                strokeOpacity={0.65}
+                              />
+                              {canShowLabel ? (
+                                <text
+                                  x={centerX}
+                                  y={chart.padding.top + 12}
+                                  textAnchor="middle"
+                                  fontSize="10"
+                                  fontWeight="700"
+                                  fill="#B45309"
+                                >
+                                  Sem estoque
+                                </text>
+                              ) : null}
+                            </g>
+                          );
+                        })}
 
                         {chart.points.map((point, index) => {
                           const isCurrent = index === chart.currentIndex;

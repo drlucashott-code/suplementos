@@ -124,6 +124,19 @@ export async function GET(
               .map(([date, price]) => ({ date, price }))
               .sort((a, b) => a.date.localeCompare(b.date));
 
+            if (range < 30) {
+              const observedTail = fullHistory.slice(-range);
+              const observedStartDate = observedTail[0]?.date;
+
+              if (!observedStartDate) {
+                return observedTail;
+              }
+
+              return fullHistory.filter((point) => {
+                return point.date >= observedStartDate && point.date <= todayKey;
+              });
+            }
+
             const sinceKey = shiftPriceHistoryDateKey(todayKey, -(range - 1));
 
             return fullHistory.filter((point) => {
