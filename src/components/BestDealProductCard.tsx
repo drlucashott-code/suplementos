@@ -32,6 +32,39 @@ function formatCount(value: number) {
   return value.toLocaleString("pt-BR");
 }
 
+function getProgramAndSavePrice(
+  attributes: Record<string, string | number | boolean | null>
+) {
+  const candidates = [
+    attributes.precoProgramaPoupe,
+    attributes.precoAssinatura,
+    attributes.precoSubscribeAndSave,
+  ];
+
+  for (const candidate of candidates) {
+    const parsed = Number(candidate);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function getProgramAndSaveUnitFromAttributes(
+  attributes: Record<string, string | number | boolean | null>
+) {
+  if (typeof attributes.precoPorUnidade === "number") return "unidade";
+  if (typeof attributes.precoPorDose === "number") return "dose";
+  if (typeof attributes.precoPorCapsula === "number") return "cápsula";
+  if (typeof attributes.precoPorMl === "number") return "ml";
+  if (typeof attributes.precoPorGrama === "number") return "grama";
+  if (typeof attributes.precoPor100g === "number") return "100g";
+  if (typeof attributes.precoPorLavagem === "number") return "lavagem";
+  if (typeof attributes.precoPorMetro === "number") return "metro";
+  return "unidade";
+}
+
 function StarRow({ rating }: { rating: number }) {
   const rounded = Math.round(rating * 2) / 2;
 
@@ -79,6 +112,11 @@ export default function BestDealProductCard({
   const [reportState, setReportState] = useState<"idle" | "submitting" | "success" | "error">(
     "idle"
   );
+  const programAndSavePrice = getProgramAndSavePrice(item.attributes);
+  const programAndSaveParts = programAndSavePrice
+    ? formatPriceParts(programAndSavePrice)
+    : null;
+  const programAndSaveUnit = getProgramAndSaveUnitFromAttributes(item.attributes);
 
   useEffect(() => {
     setSaved(isDealSaved(item.asin));
@@ -252,6 +290,32 @@ export default function BestDealProductCard({
                 <PriceHistoryButton productId={item.id} productName={item.name} />
               </div>
             </div>
+
+            {programAndSavePrice && programAndSaveParts ? (
+              <div className="mt-1.5 inline-flex w-fit flex-col rounded-md border border-[#e7e9ec] bg-white px-2 py-1">
+                <span className="inline-flex items-center gap-1 text-[12px] font-bold text-[#0F1111]">
+                  Programa e Poupe
+                  <span
+                    className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#F3A847] text-[10px]"
+                    aria-hidden="true"
+                  >
+                    🛒
+                  </span>
+                </span>
+                <div className="mt-0.5 flex items-end gap-1 leading-none">
+                  <span className="pb-[2px] text-[13px] text-[#0F1111]">R$</span>
+                  <span className="text-[34px] font-medium text-[#0F1111]">
+                    {programAndSaveParts.whole}
+                  </span>
+                  <span className="pb-[14px] text-[14px] text-[#0F1111]">
+                    {programAndSaveParts.cents}
+                  </span>
+                  <span className="pb-[3px] text-[12px] text-[#0F1111]">
+                    ({formatCurrency(programAndSavePrice)} / {programAndSaveUnit})
+                  </span>
+                </div>
+              </div>
+            ) : null}
           </div>
         </TrackedDealLink>
       </div>

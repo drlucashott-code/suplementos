@@ -9,6 +9,7 @@ import {
   getAmazonItemAffiliateUrl,
   getAmazonItemMerchantName,
   getAmazonItemPrice,
+  getAmazonItemProgramAndSavePrice,
   getAmazonItems,
   getAmazonItemsRaw,
   searchAmazonItems as searchAmazonCatalogItems,
@@ -31,6 +32,7 @@ const IMPORT_DEFAULT_VISIBILITY = 'pending' as const;
 type PriceResult = {
   price: number;
   merchantName: string;
+  programAndSavePrice: number | null;
   item?: AmazonItem;
 };
 
@@ -1042,6 +1044,8 @@ async function fetchAmazonPrice(
       "Images.Primary.Large",
       "Offers.Listings.Price",
       "OffersV2.Listings.Price",
+      "Offers.Listings.Type",
+      "OffersV2.Listings.Type",
       "Offers.Listings.MerchantInfo",
       "OffersV2.Listings.MerchantInfo",
     ],
@@ -1055,6 +1059,7 @@ async function fetchAmazonPrice(
   return {
     price: getAmazonItemPrice(item),
     merchantName: getAmazonItemMerchantName(item) ?? "Desconhecido",
+    programAndSavePrice: getAmazonItemProgramAndSavePrice(item),
     item,
   };
 }
@@ -1497,7 +1502,7 @@ async function runDynamicImportJob(
         continue;
       }
 
-      const { price, merchantName, item } = result;
+      const { price, merchantName, item, programAndSavePrice } = result;
 
       if (merchantName === "Loja Suplemento") {
         await upsertCategoryAsinDecision({
@@ -1580,6 +1585,9 @@ async function runDynamicImportJob(
         seller: merchantName,
         asin,
       };
+      if (typeof programAndSavePrice === "number" && programAndSavePrice > 0) {
+        baseAttributes.precoProgramaPoupe = Number(programAndSavePrice.toFixed(2));
+      }
       const attributes =
         filters.autoFillAttributes === false
           ? baseAttributes

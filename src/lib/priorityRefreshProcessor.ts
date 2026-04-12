@@ -8,6 +8,7 @@ import {
   getAmazonItemAffiliateUrl,
   getAmazonItemMerchantName,
   getAmazonItemPrice,
+  getAmazonItemProgramAndSavePrice,
   getAmazonItems,
   type AmazonItem,
 } from "@/lib/amazonApiClient";
@@ -30,6 +31,7 @@ const BATCH_SIZE = 10;
 type PriceResult = {
   asin: string;
   price: number;
+  programAndSavePrice: number | null;
   merchantName: string | null;
   affiliateUrl: string;
   ratingAverage: number | null;
@@ -63,6 +65,8 @@ async function fetchAmazonPricesBatch(
     resources: [
       "Offers.Listings.Price",
       "OffersV2.Listings.Price",
+      "Offers.Listings.Type",
+      "OffersV2.Listings.Type",
       "Offers.Listings.MerchantInfo",
       "OffersV2.Listings.MerchantInfo",
       "CustomerReviews.Count",
@@ -82,6 +86,7 @@ async function fetchAmazonPricesBatch(
     results[asin] = {
       asin,
       price,
+      programAndSavePrice: getAmazonItemProgramAndSavePrice(item),
       merchantName,
       affiliateUrl:
         getAmazonItemAffiliateUrl(item) ||
@@ -133,6 +138,10 @@ async function persistDynamicUpdate(productId: string, result: PriceResult) {
       result.status === "OUT_OF_STOCK"
         ? "Indisponivel"
         : (result.merchantName ?? undefined),
+    precoProgramaPoupe:
+      typeof result.programAndSavePrice === "number" && result.programAndSavePrice > 0
+        ? Number(result.programAndSavePrice.toFixed(2))
+        : undefined,
     asin: result.asin,
   };
   const attributes = current.category

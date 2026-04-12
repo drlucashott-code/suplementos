@@ -6,6 +6,7 @@ import path from "node:path";
 
 export type AmazonListing = {
   IsBuyBoxWinner?: boolean;
+  Type?: string;
   DeliveryInfo?: {
     IsPrimeEligible?: boolean;
     IsFreeShippingEligible?: boolean;
@@ -384,6 +385,7 @@ function normalizeCreatorsListing(listing: any): AmazonListing {
 
   return {
     IsBuyBoxWinner: listing?.isBuyBoxWinner === true,
+    Type: typeof listing?.type === "string" ? listing.type : undefined,
     Price: {
       Amount:
         typeof money?.amount === "number" && Number.isFinite(money.amount)
@@ -470,34 +472,21 @@ function normalizeCreatorsItem(item: any): AmazonItem {
   };
 }
 
-function buildAffiliateUrl(asin?: string, detailPageUrl?: string) {
-  if (detailPageUrl) {
-    return detailPageUrl;
-  }
+function isProgramAndSaveListing(listing?: AmazonListing | null) {
+  const normalizedType = (listing?.Type ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 
-  if (!asin) {
-    return "";
-  }
-
-  return `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG ?? ""}`;
+  return (
+    normalizedType.includes("subscribe") ||
+    normalizedType.includes("programa") ||
+    normalizedType.includes("poupe") ||
+    normalizedType.includes("assin")
+  );
 }
 
-function getPreferredListing(item: AmazonItem): AmazonListing | null {
-  const listingsV2 = item.OffersV2?.Listings;
-  if (Array.isArray(listingsV2) && listingsV2.length > 0) {
-    return listingsV2.find((listing) => listing?.IsBuyBoxWinner) ?? listingsV2[0] ?? null;
-  }
-
-  const listings = item.Offers?.Listings;
-  if (Array.isArray(listings) && listings.length > 0) {
-    return listings.find((listing) => listing?.IsBuyBoxWinner) ?? listings[0] ?? null;
-  }
-
-  return null;
-}
-
-export function getAmazonItemPrice(item: AmazonItem): number {
-  const listing = getPreferredListing(item);
+function getListingAmount(listing?: AmazonListing | null): number {
   const offersV2Amount = listing?.Price?.Money?.Amount;
   if (typeof offersV2Amount === "number" && Number.isFinite(offersV2Amount)) {
     return offersV2Amount;
@@ -511,19 +500,116 @@ export function getAmazonItemPrice(item: AmazonItem): number {
   return 0;
 }
 
+function getListingDisplayAmount(listing?: AmazonListing | null): string {
+  return listing?.Price?.Money?.DisplayAmount ?? listing?.Price?.DisplayAmount ?? "";
+}
+
+function buildAffiliateUrl(asin?: string, detailPageUrl?: string) {
+  if (detailPageUrl) {
+    return detailPageUrl;
+  }
+
+  if (!asin) {
+    return "";
+  }
+
+  return `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG ?? ""}`;
+}
+
+function getPreferredListing(
+  item: AmazonItem,
+  options?: { preferOneTimePurchase?: boolean }
+): AmazonListing | null {
+  const preferOneTimePurchase = options?.preferOneTimePurchase ?? true;
+  const listingsV2 = item.OffersV2?.Listings;
+  if (Array.isArray(listingsV2) && listingsV2.length > 0) {
+    const buyBoxListing = listingsV2.find((listing) => listing?.IsBuyBoxWinner);
+
+    if (!preferOneTimePurchase) {
+      return buyBoxListing ?? listingsV2[0] ?? null;
+    }
+
+    if (buyBoxListing && !isProgramAndSaveListing(buyBoxListing)) {
+      return buyBoxListing;
+    }
+
+    const fallbackNonProgramAndSave = listingsV2.find(
+      (listing) => !isProgramAndSaveListing(listing)
+    );
+    if (fallbackNonProgramAndSave) {
+      return fallbackNonProgramAndSave;
+    }
+
+    return buyBoxListing ?? listingsV2[0] ?? null;
+  }
+
+  const listings = item.Offers?.Listings;
+  if (Array.isArray(listings) && listings.length > 0) {
+    const buyBoxListing = listings.find((listing) => listing?.IsBuyBoxWinner);
+
+    if (!preferOneTimePurchase) {
+      return buyBoxListing ?? listings[0] ?? null;
+    }
+
+    if (buyBoxListing && !isProgramAndSaveListing(buyBoxListing)) {
+      return buyBoxListing;
+    }
+
+    const fallbackNonProgramAndSave = listings.find(
+      (listing) => !isProgramAndSaveListing(listing)
+    );
+    if (fallbackNonProgramAndSave) {
+      return fallbackNonProgramAndSave;
+    }
+
+    return buyBoxListing ?? listings[0] ?? null;
+  }
+
+  return null;
+}
+
+export function getAmazonItemPrice(item: AmazonItem): number {
+  return getListingAmount(getPreferredListing(item, { preferOneTimePurchase: true }));
+}
+
+export function getAmazonItemProgramAndSavePrice(item: AmazonItem): number | null {
+  const listingsV2 = item.OffersV2?.Listings;
+  if (Array.isArray(listingsV2) && listingsV2.length > 0) {
+    const programAndSaveListing = listingsV2.find((listing) =>
+      isProgramAndSaveListing(listing)
+    );
+    if (programAndSaveListing) {
+      const amount = getListingAmount(programAndSaveListing);
+      return amount > 0 ? amount : null;
+    }
+  }
+
+  const listings = item.Offers?.Listings;
+  if (Array.isArray(listings) && listings.length > 0) {
+    const programAndSaveListing = listings.find((listing) =>
+      isProgramAndSaveListing(listing)
+    );
+    if (programAndSaveListing) {
+      const amount = getListingAmount(programAndSaveListing);
+      return amount > 0 ? amount : null;
+    }
+  }
+
+  return null;
+}
+
 export function getAmazonItemDisplayPrice(item: AmazonItem): {
   price: number | null;
   displayPrice: string;
 } {
-  const listing = getPreferredListing(item);
-  const offersV2Display = listing?.Price?.Money?.DisplayAmount;
-  const offersDisplay = listing?.Price?.DisplayAmount;
+  const listing = getPreferredListing(item, { preferOneTimePurchase: true });
+  const displayAmount = getListingDisplayAmount(listing);
   const price = getAmazonItemPrice(item);
 
   if (price > 0) {
     return {
       price,
-      displayPrice: offersV2Display || offersDisplay || `R$ ${price.toFixed(2)}`,
+      displayPrice: displayAmount || `R$ ${price.toFixed(2)}`,
     };
   }
 
@@ -534,7 +620,10 @@ export function getAmazonItemDisplayPrice(item: AmazonItem): {
 }
 
 export function getAmazonItemMerchantName(item: AmazonItem): string | null {
-  return getPreferredListing(item)?.MerchantInfo?.Name ?? null;
+  return (
+    getPreferredListing(item, { preferOneTimePurchase: true })?.MerchantInfo?.Name ??
+    null
+  );
 }
 
 export function getAmazonItemTitle(item: AmazonItem): string {

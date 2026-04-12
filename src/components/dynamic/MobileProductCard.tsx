@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Image from "next/image";
-import { AlertTriangle, Bookmark, X } from "lucide-react";
+import { AlertTriangle, Bookmark, ShoppingCart, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { trackProductClick } from "@/lib/client/productClickTracking";
 import type { SaveableDeal } from "@/lib/client/savedDeals";
@@ -193,6 +193,30 @@ function formatNumberForDisplay(value: number, useOneDecimal: boolean) {
   return value.toFixed(1).replace(".", ",");
 }
 
+function formatPriceParts(value: number) {
+  const [whole, cents] = value.toFixed(2).split(".");
+  return { whole, cents };
+}
+
+function getProgramAndSavePrice(
+  attributes: Record<string, string | number | undefined>
+) {
+  const candidates = [
+    attributes.precoProgramaPoupe,
+    attributes.precoAssinatura,
+    attributes.precoSubscribeAndSave,
+  ];
+
+  for (const candidate of candidates) {
+    const parsed = Number(candidate);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
 function formatPetTypeValue(value: string) {
   const normalized = value
     .normalize("NFD")
@@ -369,6 +393,10 @@ export function MobileProductCard({
     canShowPriceHistory &&
     typeof product.avgPrice === "number" &&
     Math.round(product.avgPrice * 100) > Math.round(product.price * 100);
+  const programAndSavePrice = getProgramAndSavePrice(product.attributes);
+  const programAndSaveParts = programAndSavePrice
+    ? formatPriceParts(programAndSavePrice)
+    : null;
 
   useEffect(() => {
     if (!asin) return;
@@ -702,6 +730,29 @@ export function MobileProductCard({
                         productName={product.name}
                       />
                     ) : null}
+                  </div>
+                ) : null}
+
+                {programAndSavePrice && programAndSaveParts ? (
+                  <div className="mt-1.5 inline-flex w-fit flex-col rounded-md border border-[#d5d9d9] bg-[#f7f8f8] px-2 py-1">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0F1111]">
+                      Programa e Poupe
+                      <span
+                        className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#f2c200] text-[#6b4f00]"
+                        aria-hidden="true"
+                      >
+                        <ShoppingCart className="h-2.5 w-2.5" />
+                      </span>
+                    </span>
+                    <div className="mt-0.5 flex items-end gap-0.5 leading-none">
+                      <span className="pb-[1px] text-[11px] text-[#0F1111]">R$</span>
+                      <span className="text-[28px] font-medium text-[#0F1111]">
+                        {programAndSaveParts.whole}
+                      </span>
+                      <span className="pb-[10px] text-[11px] text-[#0F1111]">
+                        {programAndSaveParts.cents}
+                      </span>
+                    </div>
                   </div>
                 ) : null}
 
