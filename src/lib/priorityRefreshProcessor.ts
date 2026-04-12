@@ -64,11 +64,8 @@ async function fetchAmazonPricesBatch(
     itemIds: asins,
     resources: [
       "Offers.Listings.Price",
-      "OffersV2.Listings.Price",
       "Offers.Listings.Type",
-      "OffersV2.Listings.Type",
       "Offers.Listings.MerchantInfo",
-      "OffersV2.Listings.MerchantInfo",
       "CustomerReviews.Count",
       "CustomerReviews.StarRating",
     ],
@@ -295,12 +292,17 @@ export async function processPriorityRefreshQueue() {
 
       const productMap = new Map(products.map((product) => [product.asin, product]));
       const results = await fetchAmazonPricesBatch(uniqueAsins);
+      const successfullyUpdatedAsins = new Set<string>();
 
       for (const asin of uniqueAsins) {
         const product = productMap.get(asin);
         const result = results[asin];
 
         if (!product || !result) {
+          const reason = !product
+            ? "produto nao encontrado no banco"
+            : "API nao retornou item/preco";
+          console.warn(`[priority] ASIN ${asin} pulado: ${reason}`);
           summary.skippedProducts += 1;
           continue;
         }
@@ -309,6 +311,7 @@ export async function processPriorityRefreshQueue() {
         if (updated) {
           summary.updatedProducts += 1;
           summary.updatedAsins.push(asin);
+          successfullyUpdatedAsins.add(asin);
           if (product.category?.group && product.category?.slug) {
             updatedCategoryRefs.set(`${product.category.group}:${product.category.slug}`, {
               group: product.category.group,
@@ -320,7 +323,11 @@ export async function processPriorityRefreshQueue() {
         }
       }
 
-      const deletableMessages = messages.filter((message) => message.ReceiptHandle);
+      const deletableMessages = messages.filter((message) => {
+        if (!message.ReceiptHandle) return false;
+        const asin = extractAsinFromMessage(message);
+        return Boolean(asin && successfullyUpdatedAsins.has(asin));
+      });
       if (deletableMessages.length > 0) {
         await sqsClient.send(
           new DeleteMessageBatchCommand({
