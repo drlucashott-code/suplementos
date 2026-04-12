@@ -57,29 +57,39 @@ export default async function AdminDynamicExpansoesPage({
     take: 2000,
   });
 
-  const scopedCategoryIds = selectedCategory
-    ? [selectedCategory]
-    : Array.from(new Set(decisions.map((item) => item.categoryId)));
   const scopedAsins = Array.from(new Set(decisions.map((item) => item.asin)));
 
   const existingProducts = scopedAsins.length
     ? await prisma.dynamicProduct.findMany({
         where: {
           asin: { in: scopedAsins },
-          ...(scopedCategoryIds.length ? { categoryId: { in: scopedCategoryIds } } : {}),
         },
         select: {
           asin: true,
           categoryId: true,
+          category: {
+            select: {
+              name: true,
+            },
+          },
         },
       })
     : [];
 
-  const existingKey = new Set(existingProducts.map((item) => `${item.categoryId}::${item.asin}`));
-
-  const missing = decisions.filter(
-    (item) => !existingKey.has(`${item.categoryId}::${item.asin}`)
+  const existingAnyByAsin = new Set(existingProducts.map((item) => item.asin));
+  const existingCategoriesByAsin = existingProducts.reduce<Record<string, string[]>>(
+    (acc, item) => {
+      const current = acc[item.asin] ?? [];
+      if (!current.includes(item.category.name)) {
+        current.push(item.category.name);
+      }
+      acc[item.asin] = current;
+      return acc;
+    },
+    {}
   );
+
+  const missing = decisions.filter((item) => !existingAnyByAsin.has(item.asin));
 
   const statusCounts = decisions.reduce<Record<string, number>>((acc, item) => {
     acc[item.status] = (acc[item.status] ?? 0) + 1;
@@ -266,7 +276,8 @@ export default async function AdminDynamicExpansoesPage({
                   </tr>
                 ) : (
                   decisions.map((item) => {
-                    const exists = existingKey.has(`${item.categoryId}::${item.asin}`);
+                    const exists = existingAnyByAsin.has(item.asin);
+                    const existingCategories = existingCategoriesByAsin[item.asin] ?? [];
                     return (
                       <tr key={item.id} className="transition-colors hover:bg-gray-50/50">
                         <td className="p-4 text-center">
@@ -319,7 +330,9 @@ export default async function AdminDynamicExpansoesPage({
                           </span>
                         </td>
                         <td className="p-4 text-[12px] font-semibold text-gray-700">
-                          {item.reasonText || item.reasonCode || "-"}
+                          {exists && existingCategories.length > 0
+                            ? `Ja cadastrado em: ${existingCategories.join(", ")}`
+                            : item.reasonText || item.reasonCode || "-"}
                         </td>
                         <td className="p-4 text-center text-[12px] font-semibold text-gray-500">
                           {formatDate(item.lastSeenAt)}

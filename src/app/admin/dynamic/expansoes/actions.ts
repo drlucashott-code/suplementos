@@ -195,6 +195,12 @@ export async function scanCategoryExpansionGaps(formData: FormData) {
     },
   });
 
+  const productsInCatalog = await prisma.dynamicProduct.findMany({
+    select: {
+      asin: true,
+    },
+  });
+
   const baseAsins = Array.from(new Set(products.map((item) => item.asin).filter(Boolean)));
   if (baseAsins.length === 0) {
     redirect(
@@ -206,7 +212,9 @@ export async function scanCategoryExpansionGaps(formData: FormData) {
     );
   }
 
-  const existingAsinsSet = new Set(baseAsins);
+  const existingAsinsInCatalogSet = new Set(
+    productsInCatalog.map((item) => item.asin).filter(Boolean)
+  );
   const processedParents = new Set<string>();
   const discoveredCandidates = new Map<string, PaapiItem>();
   const failedBases: string[] = [];
@@ -243,7 +251,7 @@ export async function scanCategoryExpansionGaps(formData: FormData) {
   }
 
   const candidateAsins = Array.from(discoveredCandidates.keys());
-  const missingAsins = candidateAsins.filter((asin) => !existingAsinsSet.has(asin));
+  const missingAsins = candidateAsins.filter((asin) => !existingAsinsInCatalogSet.has(asin));
 
   if (missingAsins.length > 0) {
     const existingDecisions = await prisma.dynamicCategoryAsinDecision.findMany({
@@ -328,4 +336,3 @@ export async function scanCategoryExpansionGaps(formData: FormData) {
     })
   );
 }
-

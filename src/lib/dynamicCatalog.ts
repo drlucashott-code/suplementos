@@ -203,9 +203,96 @@ const formatPetTypeValue = (value: string) => {
   return value;
 };
 
+const FLAVOR_LABEL_WORD_MAP: Record<string, string> = {
+  limao: "limão",
+  maca: "maçã",
+  acai: "açaí",
+  pessego: "pêssego",
+  cafe: "café",
+};
+
+const FLAVOR_CONNECTORS = new Set(["de", "do", "da", "e", "com", "and"]);
+
+const isFlavorFilterField = (config: DisplayConfigField) => {
+  const normalizedKey = removeAccents((config.key || "").toLowerCase());
+  const normalizedLabel = removeAccents((config.label || "").toLowerCase());
+
+  return (
+    normalizedKey === "flavor" ||
+    normalizedKey === "sabor" ||
+    normalizedKey.includes("flavor") ||
+    normalizedKey.includes("sabor") ||
+    normalizedLabel.includes("flavor") ||
+    normalizedLabel.includes("sabor")
+  );
+};
+
+const normalizeFlavorFilterValue = (value: string) => {
+  return removeAccents(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+};
+
+const formatFlavorWord = (word: string, preserveLowerCase = false) => {
+  const normalized = removeAccents(word).toLowerCase();
+  const mapped = FLAVOR_LABEL_WORD_MAP[normalized] ?? word.toLocaleLowerCase("pt-BR");
+  if (preserveLowerCase) return mapped.toLocaleLowerCase("pt-BR");
+  return mapped.charAt(0).toLocaleUpperCase("pt-BR") + mapped.slice(1);
+};
+
+const formatFlavorDisplayLabel = (rawValue: string) => {
+  const cleaned = rawValue.replace(/\s+/g, " ").trim();
+  if (!cleaned) return "";
+
+  const words = cleaned.toLocaleLowerCase("pt-BR").split(" ");
+
+  return words
+    .map((word, index) => {
+      const parts = word.split("/");
+      const formattedParts = parts.map((part, partIndex) => {
+        const isConnector =
+          (index > 0 || partIndex > 0) &&
+          FLAVOR_CONNECTORS.has(removeAccents(part).toLowerCase());
+        return formatFlavorWord(part, isConnector);
+      });
+      return formattedParts.join("/");
+    })
+    .join(" ");
+};
+
+const pickBestFlavorVariant = (variants: string[]) => {
+  if (variants.length === 0) return "";
+
+  const score = (value: string) => {
+    const cleaned = value.replace(/\s+/g, " ").trim();
+    const hasDiacritics =
+      removeAccents(cleaned.toLocaleLowerCase("pt-BR")) !==
+      cleaned.toLocaleLowerCase("pt-BR");
+    const notAllUpper = cleaned !== cleaned.toUpperCase();
+    const hasLetters = /[a-zà-ÿ]/i.test(cleaned);
+
+    return (
+      (hasDiacritics ? 100 : 0) +
+      (notAllUpper ? 10 : 0) +
+      (hasLetters ? 1 : 0) +
+      cleaned.length / 1000
+    );
+  };
+
+  return [...variants]
+    .sort((a, b) => score(b) - score(a))
+    .find((item) => item.trim().length > 0) ?? variants[0];
+};
+
 const formatPublicFilterValue = (value: string, config: DisplayConfigField) => {
   if (config.key === "tipo_pet") {
     return formatPetTypeValue(value);
+  }
+
+  if (config.type === "text" && isFlavorFilterField(config)) {
+    return formatFlavorDisplayLabel(value);
   }
 
   if (config.type === "number") {
@@ -449,6 +536,28 @@ const buildBucketedFilterOptions = ({
     group,
     slug,
   });
+
+  if (config.type === "text" && isFlavorFilterField(config)) {
+    const canonical = new Map<string, string[]>();
+
+    for (const raw of values) {
+      const normalized = normalizeFlavorFilterValue(raw);
+      if (!normalized) continue;
+      const current = canonical.get(normalized) ?? [];
+      current.push(raw);
+      canonical.set(normalized, current);
+    }
+
+    return Array.from(canonical.entries())
+      .map(([value, variants]) => {
+        const bestVariant = pickBestFlavorVariant(variants);
+        return {
+          value,
+          label: formatFlavorDisplayLabel(bestVariant || value),
+        };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+  }
 
   if (config.type !== "number" || !bucketConfig || numericValues.length <= 6) {
     return sortFilterValues(values, config.type).map((value) => ({
@@ -1052,6 +1161,7 @@ export async function getDynamicCatalogData({
 
       const rawValue = String(attrs[config.key] || "").trim();
       const normalizedValue = rawValue.toLowerCase();
+      const normalizedFlavorValue = normalizeFlavorFilterValue(rawValue);
 
       const matchesAnySelected = selectedDynamic.some((selectedValue) => {
         const parsedRange = parseRangeFilterToken(selectedValue);
@@ -1061,6 +1171,10 @@ export async function getDynamicCatalogData({
           if (Number.isNaN(numericValue)) return false;
           if (parsedRange.max === null) return numericValue >= parsedRange.min;
           return numericValue >= parsedRange.min && numericValue <= parsedRange.max;
+        }
+
+        if (config.type === "text" && isFlavorFilterField(config)) {
+          return normalizeFlavorFilterValue(selectedValue) === normalizedFlavorValue;
         }
 
         return selectedValue === normalizedValue;
