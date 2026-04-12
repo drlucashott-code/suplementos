@@ -27,6 +27,7 @@ type DailyProductOriginRow = {
   productName: string;
   source: string;
   clickCount: number;
+  uniqueVisitors: number;
 };
 
 type DailyProductSource = {
@@ -39,6 +40,7 @@ type DailyProductItem = {
   asin: string;
   productName: string;
   clickCount: number;
+  uniqueVisitors: number;
   sources: DailyProductSource[];
 };
 
@@ -47,6 +49,7 @@ type DailyProductBreakdown = {
   dayLabel: string;
   clickCount: number;
   uniqueProducts: number;
+  uniqueVisitors: number;
   products: DailyProductItem[];
 };
 
@@ -54,8 +57,15 @@ type MonthlyProductBreakdown = {
   monthKey: string;
   monthLabel: string;
   clickCount: number;
+  uniqueVisitors: number;
   sourceTotals: Array<{ source: string; clickCount: number }>;
   days: DailyProductBreakdown[];
+};
+
+type VisitorSummary = {
+  uniqueVisitors: number;
+  uniqueSessions: number;
+  avgClicksPerVisitor: number;
 };
 
 function getSourceLabel(value: string | null) {
@@ -110,48 +120,80 @@ async function getCategorySummary(): Promise<CategorySummaryRow[]> {
 
 async function getDailyProductBreakdown(): Promise<DailyProductBreakdown[]> {
   const rows = await prisma.$queryRaw<DailyProductOriginRow[]>`
-    WITH base_events AS (
+    WITH recent_days AS (
       SELECT
         DATE_TRUNC(
           'day',
           (e."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${CLICK_TIMEZONE}
-        ) AS "localDay",
-        e."productId",
-        COALESCE(
-          NULLIF(e."utmSource", ''),
-          NULLIF(e."inferredSource", ''),
-          'direto'
-        ) AS "source"
+        ) AS "localDay"
       FROM "DynamicProductClickEvent" e
-    ),
-    recent_days AS (
-      SELECT DISTINCT b."localDay"
-      FROM base_events b
-      ORDER BY b."localDay" DESC
+      GROUP BY 1
+      ORDER BY 1 DESC
       LIMIT 120
     )
     SELECT
-      TO_CHAR(b."localDay", 'YYYY-MM-DD') AS "day",
-      TO_CHAR(b."localDay", 'DD/MM/YYYY') AS "dayLabel",
+      TO_CHAR(d."localDay", 'YYYY-MM-DD') AS "day",
+      TO_CHAR(d."localDay", 'DD/MM/YYYY') AS "dayLabel",
       p."id" AS "productId",
       p."asin" AS "asin",
       p."name" AS "productName",
-      b."source" AS "source",
-      COUNT(*)::int AS "clickCount"
-    FROM base_events b
-    INNER JOIN recent_days d ON d."localDay" = b."localDay"
-    INNER JOIN "DynamicProduct" p ON p."id" = b."productId"
+      COALESCE(
+        NULLIF(e."utmSource", ''),
+        NULLIF(e."inferredSource", ''),
+        'direto'
+      ) AS "source",
+      COUNT(*)::int AS "clickCount",
+      COUNT(
+        DISTINCT COALESCE(NULLIF(e."visitorId", ''), NULLIF(e."sessionId", ''), e."id")
+      )::int AS "uniqueVisitors"
+    FROM "DynamicProductClickEvent" e
+    INNER JOIN recent_days d ON
+      DATE_TRUNC(
+        'day',
+        (e."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${CLICK_TIMEZONE}
+      ) = d."localDay"
+    INNER JOIN "DynamicProduct" p ON p."id" = e."productId"
     GROUP BY
-      b."localDay",
+      d."localDay",
       p."id",
       p."asin",
       p."name",
-      b."source"
+      6
     ORDER BY
-      b."localDay" DESC,
+      d."localDay" DESC,
       p."name" ASC,
-      b."source" ASC
+      6 ASC
   `;
+  const dayVisitorRows = await prisma.$queryRaw<
+    Array<{ day: string; uniqueVisitors: number }>
+  >`
+    WITH recent_days AS (
+      SELECT
+        DATE_TRUNC(
+          'day',
+          (e."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${CLICK_TIMEZONE}
+        ) AS "localDay"
+      FROM "DynamicProductClickEvent" e
+      GROUP BY 1
+      ORDER BY 1 DESC
+      LIMIT 120
+    )
+    SELECT
+      TO_CHAR(d."localDay", 'YYYY-MM-DD') AS "day",
+      COUNT(
+        DISTINCT COALESCE(NULLIF(e."visitorId", ''), NULLIF(e."sessionId", ''), e."id")
+      )::int AS "uniqueVisitors"
+    FROM recent_days d
+    INNER JOIN "DynamicProductClickEvent" e ON
+      DATE_TRUNC(
+        'day',
+        (e."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${CLICK_TIMEZONE}
+      ) = d."localDay"
+    GROUP BY 1
+  `;
+  const dayVisitorsMap = new Map(
+    dayVisitorRows.map((row) => [row.day, Number(row.uniqueVisitors) || 0])
+  );
 
   const dayMap = new Map<string, DailyProductBreakdown>();
 
@@ -165,6 +207,7 @@ async function getDailyProductBreakdown(): Promise<DailyProductBreakdown[]> {
         dayLabel: row.dayLabel,
         clickCount: 0,
         uniqueProducts: 0,
+        uniqueVisitors: 0,
         products: [],
       });
     }
@@ -182,6 +225,7 @@ async function getDailyProductBreakdown(): Promise<DailyProductBreakdown[]> {
         asin: row.asin,
         productName: row.productName,
         clickCount: 0,
+        uniqueVisitors: 0,
         sources: [],
       };
       dayEntry.products.push(productEntry);
@@ -189,6 +233,7 @@ async function getDailyProductBreakdown(): Promise<DailyProductBreakdown[]> {
 
     const clicks = Number(row.clickCount) || 0;
     productEntry.clickCount += clicks;
+    productEntry.uniqueVisitors += Number(row.uniqueVisitors) || 0;
     productEntry.sources.push({
       source: normalizedSource,
       clickCount: clicks,
@@ -198,6 +243,7 @@ async function getDailyProductBreakdown(): Promise<DailyProductBreakdown[]> {
   const breakdown = Array.from(dayMap.values()).map((dayEntry) => {
     dayEntry.products.sort((a, b) => b.clickCount - a.clickCount);
     dayEntry.uniqueProducts = dayEntry.products.length;
+    dayEntry.uniqueVisitors = dayVisitorsMap.get(dayEntry.day) ?? 0;
     return dayEntry;
   });
 
@@ -206,14 +252,43 @@ async function getDailyProductBreakdown(): Promise<DailyProductBreakdown[]> {
   return breakdown;
 }
 
+async function getVisitorSummary(): Promise<VisitorSummary> {
+  const rows = await prisma.$queryRaw<
+    Array<{ uniqueVisitors: number; uniqueSessions: number; totalClicks: number }>
+  >`
+    SELECT
+      COUNT(DISTINCT NULLIF(e."visitorId", ''))::int AS "uniqueVisitors",
+      COUNT(DISTINCT NULLIF(e."sessionId", ''))::int AS "uniqueSessions",
+      COUNT(*)::int AS "totalClicks"
+    FROM "DynamicProductClickEvent" e
+  `;
+
+  const row = rows[0] ?? { uniqueVisitors: 0, uniqueSessions: 0, totalClicks: 0 };
+  const uniqueVisitors = Number(row.uniqueVisitors) || 0;
+  const totalClicks = Number(row.totalClicks) || 0;
+
+  return {
+    uniqueVisitors,
+    uniqueSessions: Number(row.uniqueSessions) || 0,
+    avgClicksPerVisitor:
+      uniqueVisitors > 0 ? Number((totalClicks / uniqueVisitors).toFixed(2)) : 0,
+  };
+}
+
 export default async function AdminDynamicClicksPage() {
-  const [sourceSummary, categorySummary, dailyProductBreakdown, clickAlertConfig] =
-    await Promise.all([
-      getSourceSummary(),
-      getCategorySummary(),
-      getDailyProductBreakdown(),
-      getDynamicClickAlertConfig(),
-    ]);
+  const [
+    sourceSummary,
+    categorySummary,
+    dailyProductBreakdown,
+    clickAlertConfig,
+    visitorSummary,
+  ] = await Promise.all([
+    getSourceSummary(),
+    getCategorySummary(),
+    getDailyProductBreakdown(),
+    getDynamicClickAlertConfig(),
+    getVisitorSummary(),
+  ]);
 
   const monthFormatter = new Intl.DateTimeFormat("pt-BR", {
     month: "long",
@@ -227,6 +302,7 @@ export default async function AdminDynamicClicksPage() {
       monthKey: string;
       monthLabel: string;
       clickCount: number;
+      uniqueVisitors: number;
       sourceCounts: Map<string, number>;
       days: DailyProductBreakdown[];
     }
@@ -242,6 +318,7 @@ export default async function AdminDynamicClicksPage() {
         monthKey,
         monthLabel,
         clickCount: 0,
+        uniqueVisitors: 0,
         sourceCounts: new Map<string, number>(),
         days: [],
       });
@@ -249,6 +326,7 @@ export default async function AdminDynamicClicksPage() {
 
     const monthEntry = monthlyBreakdownMap.get(monthKey)!;
     monthEntry.clickCount += day.clickCount;
+    monthEntry.uniqueVisitors += day.uniqueVisitors;
     monthEntry.days.push(day);
 
     for (const product of day.products) {
@@ -269,6 +347,7 @@ export default async function AdminDynamicClicksPage() {
       monthLabel:
         month.monthLabel.charAt(0).toUpperCase() + month.monthLabel.slice(1),
       clickCount: month.clickCount,
+      uniqueVisitors: month.uniqueVisitors,
       sourceTotals: Array.from(month.sourceCounts.entries())
         .map(([source, clickCount]) => ({ source, clickCount }))
         .sort((a, b) => b.clickCount - a.clickCount),
@@ -292,14 +371,14 @@ export default async function AdminDynamicClicksPage() {
             <div className="mb-2 flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-blue-600" />
               <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">
-                Inteligência de cliques
+                Inteligencia de cliques
               </span>
             </div>
             <h1 className="text-4xl font-black tracking-tight text-gray-900">
               CLIQUES DE PRODUTOS
             </h1>
             <p className="mt-1 text-sm font-medium text-gray-500">
-              Visão mensal com detalhamento diário por ASIN e origem dos cliques.
+              Visao mensal com detalhamento diario por ASIN, origem, visitantes e sessoes.
             </p>
           </div>
 
@@ -319,7 +398,7 @@ export default async function AdminDynamicClicksPage() {
           </div>
         </div>
 
-        <div className="mb-6 grid gap-3 md:grid-cols-5">
+        <div className="mb-6 grid gap-3 md:grid-cols-7">
           <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
             <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
               Cliques totais
@@ -329,16 +408,34 @@ export default async function AdminDynamicClicksPage() {
 
           <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
             <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Meses no período
+              Visitantes unicos
             </div>
             <div className="mt-1 text-3xl font-black text-gray-900">
-              {monthlyBreakdown.length}
+              {visitorSummary.uniqueVisitors}
             </div>
           </div>
 
           <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
             <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Último dia com clique
+              Sessoes unicas
+            </div>
+            <div className="mt-1 text-3xl font-black text-gray-900">
+              {visitorSummary.uniqueSessions}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
+            <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+              Cliques por visitante
+            </div>
+            <div className="mt-1 text-3xl font-black text-gray-900">
+              {visitorSummary.avgClicksPerVisitor}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
+            <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+              Ultimo dia com clique
             </div>
             <div className="mt-2 text-sm font-black text-gray-900">{latestClickDay}</div>
           </div>
@@ -372,10 +469,10 @@ export default async function AdminDynamicClicksPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                Notificação por email
+                Notificacao por email
               </div>
               <p className="mt-1 text-sm font-medium text-gray-500">
-                Envia um email a cada clique com o nome do produto e o ASIN.
+                Envia resumo por sessao com visitante anonimo, origens e produtos clicados.
               </p>
             </div>
 
@@ -435,10 +532,10 @@ export default async function AdminDynamicClicksPage() {
         <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
             <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Visão mensal (expansível)
+              Visao mensal (expansivel)
             </div>
             <div className="text-[11px] font-bold text-gray-500">
-              Clique no mês para ver o detalhe diário
+              Clique no mes para ver o detalhe diario
             </div>
           </div>
 
@@ -459,6 +556,7 @@ export default async function AdminDynamicClicksPage() {
                         {month.monthLabel} - {month.clickCount} cliques
                       </div>
                       <div className="text-[12px] font-bold text-gray-500">
+                        {month.uniqueVisitors} visitantes •{" "}
                         {month.sourceTotals
                           .slice(0, 5)
                           .map((source) => `${source.clickCount} ${source.source}`)
@@ -478,17 +576,19 @@ export default async function AdminDynamicClicksPage() {
                             {day.dayLabel}
                           </div>
                           <div className="text-[12px] font-bold text-gray-500">
-                            {day.clickCount} cliques • {day.uniqueProducts} produtos
+                            {day.clickCount} cliques • {day.uniqueProducts} produtos •{" "}
+                            {day.uniqueVisitors} visitantes
                           </div>
                         </div>
 
                         <div className="overflow-x-auto">
-                          <table className="min-w-[860px] w-full border-collapse text-left">
+                          <table className="min-w-[940px] w-full border-collapse text-left">
                             <thead>
                               <tr className="border-b border-gray-100 bg-white text-[10px] font-black uppercase tracking-widest text-gray-400">
                                 <th className="p-3 text-black">Produto</th>
                                 <th className="w-36 p-3 text-center text-black">ASIN</th>
                                 <th className="w-24 p-3 text-center text-black">Cliques</th>
+                                <th className="w-24 p-3 text-center text-black">Visitantes</th>
                                 <th className="w-[360px] p-3 text-black">Origens</th>
                               </tr>
                             </thead>
@@ -503,6 +603,9 @@ export default async function AdminDynamicClicksPage() {
                                   </td>
                                   <td className="p-3 text-center text-sm font-black text-gray-900">
                                     {product.clickCount}
+                                  </td>
+                                  <td className="p-3 text-center text-sm font-black text-gray-900">
+                                    {product.uniqueVisitors}
                                   </td>
                                   <td className="p-3 text-[12px] font-semibold text-gray-700">
                                     {product.sources

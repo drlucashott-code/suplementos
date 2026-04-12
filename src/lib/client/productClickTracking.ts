@@ -12,6 +12,9 @@ type ClickTrackingContext = {
   inferredSource?: string;
   pagePath?: string;
   referrer?: string;
+  visitorId?: string;
+  sessionId?: string;
+  sessionStartedAt?: string;
 };
 
 type TrackProductClickInput = {
@@ -23,6 +26,157 @@ type TrackProductClickInput = {
 };
 
 const ATTRIBUTION_STORAGE_KEY = "amazonpicks-attribution";
+const VISITOR_ID_STORAGE_KEY = "amazonpicks-visitor-id";
+const SESSION_STORAGE_KEY = "amazonpicks-click-session";
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+
+type ClientClickSession = {
+  sessionId: string;
+  startedAt: string;
+  lastActivityAt: string;
+};
+
+let sessionCloseListenerRegistered = false;
+
+function createRandomId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `v_${Math.random().toString(36).slice(2)}_${Date.now()}`;
+}
+
+function getOrCreateVisitorId() {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const existing = window.localStorage.getItem(VISITOR_ID_STORAGE_KEY)?.trim();
+    if (existing) return existing;
+    const created = createRandomId();
+    window.localStorage.setItem(VISITOR_ID_STORAGE_KEY, created);
+    return created;
+  } catch {
+    return undefined;
+  }
+}
+
+function readSession(): ClientClickSession | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ClientClickSession;
+    if (!parsed?.sessionId || !parsed?.startedAt || !parsed?.lastActivityAt) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeSession(session: ClientClickSession) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  } catch {
+    // no-op
+  }
+}
+
+function closeSessionOnServer(session: ClientClickSession, visitorId: string) {
+  if (typeof navigator === "undefined") return;
+  try {
+    const payload = JSON.stringify({
+      visitorId,
+      sessionId: session.sessionId,
+    });
+    const blob = new Blob([payload], { type: "application/json" });
+    navigator.sendBeacon("/api/click-session/close", blob);
+  } catch {
+    // no-op
+  }
+}
+
+function registerSessionCloseListener() {
+  if (typeof window === "undefined" || sessionCloseListenerRegistered) return;
+
+  const handler = () => {
+    const visitorId = getOrCreateVisitorId();
+    const session = readSession();
+    if (!visitorId || !session) return;
+    closeSessionOnServer(session, visitorId);
+  };
+
+  window.addEventListener("pagehide", handler);
+  window.addEventListener("beforeunload", handler);
+  sessionCloseListenerRegistered = true;
+}
+
+function getOrCreateSessionContext() {
+  if (typeof window === "undefined") {
+    return {
+      visitorId: undefined,
+      sessionId: undefined,
+      sessionStartedAt: undefined,
+    };
+  }
+
+  const visitorId = getOrCreateVisitorId();
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const existing = readSession();
+
+  if (!existing) {
+    const next: ClientClickSession = {
+      sessionId: createRandomId(),
+      startedAt: nowIso,
+      lastActivityAt: nowIso,
+    };
+    writeSession(next);
+    registerSessionCloseListener();
+    return {
+      visitorId,
+      sessionId: next.sessionId,
+      sessionStartedAt: next.startedAt,
+    };
+  }
+
+  const lastActivity = new Date(existing.lastActivityAt);
+  const isStale =
+    !Number.isFinite(lastActivity.getTime()) ||
+    now.getTime() - lastActivity.getTime() > SESSION_TIMEOUT_MS;
+
+  if (isStale) {
+    if (visitorId) {
+      closeSessionOnServer(existing, visitorId);
+    }
+    const next: ClientClickSession = {
+      sessionId: createRandomId(),
+      startedAt: nowIso,
+      lastActivityAt: nowIso,
+    };
+    writeSession(next);
+    registerSessionCloseListener();
+    return {
+      visitorId,
+      sessionId: next.sessionId,
+      sessionStartedAt: next.startedAt,
+    };
+  }
+
+  const nextExisting: ClientClickSession = {
+    ...existing,
+    lastActivityAt: nowIso,
+  };
+  writeSession(nextExisting);
+  registerSessionCloseListener();
+  return {
+    visitorId,
+    sessionId: nextExisting.sessionId,
+    sessionStartedAt: nextExisting.startedAt,
+  };
+}
+
+export function initClickSessionTracking() {
+  getOrCreateSessionContext();
+}
 
 function inferSourceFromReferrer(referrer: string) {
   if (!referrer) {
@@ -153,6 +307,7 @@ export function trackProductClick({
   });
 
   const trackingContext = getClickTrackingContext();
+  const sessionContext = getOrCreateSessionContext();
 
   void fetch("/api/priority-refresh", {
     method: "POST",
@@ -163,6 +318,7 @@ export function trackProductClick({
       asin: normalizedAsin,
       reason: "click",
       ...trackingContext,
+      ...sessionContext,
     }),
     keepalive: true,
   }).catch(() => {

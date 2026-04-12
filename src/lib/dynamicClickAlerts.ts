@@ -165,3 +165,88 @@ export async function sendDynamicClickAlertEmail(params: {
     console.error("Erro ao enviar email de clique:", error);
   }
 }
+
+export async function sendDynamicClickSessionAlertEmail(params: {
+  visitorId: string;
+  sessionId: string;
+  startedAt: Date;
+  endedAt: Date;
+  source?: string | null;
+  totalClicks: number;
+  uniqueProducts: number;
+  products: Array<{
+    asin: string;
+    productName: string;
+    clickCount: number;
+    sourceBreakdown: Array<{ source: string; clickCount: number }>;
+  }>;
+}) {
+  const config = await getDynamicClickAlertConfig();
+  const apiKey = process.env.RESEND_API_KEY;
+  const to = config.clickAlertEmailTo;
+
+  if (!config.clickEmailAlertsEnabled || !apiKey || !to) {
+    return false;
+  }
+
+  const from =
+    process.env.CLICK_ALERT_EMAIL_FROM ??
+    process.env.FALLBACK_ALERT_EMAIL_FROM ??
+    "onboarding@resend.dev";
+
+  const sessionDurationMinutes = Math.max(
+    0,
+    Math.round((params.endedAt.getTime() - params.startedAt.getTime()) / 60000)
+  );
+  const visitorShort = params.visitorId.slice(0, 8).toUpperCase();
+  const sessionShort = params.sessionId.slice(0, 8).toUpperCase();
+
+  const subject = `[amazonpicks] Sessão ${sessionShort}: ${params.totalClicks} cliques`;
+  const productLines = params.products.slice(0, 30).map((product) => {
+    const sources = product.sourceBreakdown
+      .map((source) => `${source.clickCount} ${source.source}`)
+      .join(" / ");
+    return `- ${product.productName} (${product.asin}): ${product.clickCount} clique(s)${sources ? ` | ${sources}` : ""}`;
+  });
+
+  const lines = [
+    `Visitante: ${visitorShort}`,
+    `Sessão: ${sessionShort}`,
+    `Origem principal: ${params.source ?? "direto"}`,
+    `Início: ${formatClickAlertTimestamp(params.startedAt)} (${CLICK_ALERT_TIME_ZONE})`,
+    `Fim: ${formatClickAlertTimestamp(params.endedAt)} (${CLICK_ALERT_TIME_ZONE})`,
+    `Duração: ${sessionDurationMinutes} minuto(s)`,
+    `Cliques totais: ${params.totalClicks}`,
+    `Produtos únicos: ${params.uniqueProducts}`,
+    "",
+    "Produtos clicados:",
+    ...(productLines.length > 0 ? productLines : ["- Sem produtos"]),
+  ];
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: to.split(",").map((value) => value.trim()).filter(Boolean),
+        subject,
+        text: lines.join("\n"),
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Falha ao enviar resumo de sessão de clique:", errorText);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Erro ao enviar resumo de sessão de clique:", error);
+    return false;
+  }
+}

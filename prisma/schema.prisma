@@ -296,6 +296,9 @@ model DynamicProductClickEvent {
   id             String         @id @default(cuid())
   productId      String
   product        DynamicProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  visitorId      String?
+  sessionId      String?
+  session        DynamicClickSession? @relation(fields: [sessionId], references: [sessionId], onDelete: SetNull)
   utmSource      String?
   utmMedium      String?
   utmCampaign    String?
@@ -304,8 +307,30 @@ model DynamicProductClickEvent {
   referrer       String?
   createdAt      DateTime       @default(now())
 
+  @@index([sessionId, createdAt(sort: Desc)])
   @@index([productId, createdAt(sort: Desc)])
   @@index([createdAt(sort: Desc)])
+}
+
+model DynamicClickSession {
+  id                String                    @id @default(cuid())
+  visitorId         String
+  sessionId         String                    @unique
+  source            String?
+  firstPagePath     String?
+  startedAt         DateTime
+  lastActivityAt    DateTime
+  endedAt           DateTime?
+  summaryEmailSentAt DateTime?
+  totalClicks       Int                       @default(0)
+  uniqueProducts    Int                       @default(0)
+  clickEvents       DynamicProductClickEvent[]
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  @@index([visitorId, startedAt(sort: Desc)])
+  @@index([startedAt(sort: Desc)])
+  @@index([endedAt])
 }
 
 model PriorityRefreshRun {

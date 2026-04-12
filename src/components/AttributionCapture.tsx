@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { normalizeAttributionSource } from "@/lib/attributionSource";
+import { initClickSessionTracking } from "@/lib/client/productClickTracking";
 
 type ClickTrackingContext = {
   utmSource?: string;
@@ -98,6 +99,8 @@ function removeUtmParamsFromCurrentUrl() {
 
 export function AttributionCapture() {
   useEffect(() => {
+    initClickSessionTracking();
+
     const url = new URL(window.location.href);
     const utmSource = url.searchParams.get("utm_source")?.trim() || "";
     const utmMedium = url.searchParams.get("utm_medium")?.trim() || "";
