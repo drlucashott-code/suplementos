@@ -4,6 +4,13 @@ import { prisma } from "@/lib/prisma";
 const DYNAMIC_SITE_CONFIG_KEY = "global";
 const DEFAULT_MAX_AGE_HOURS = 24;
 const DEFAULT_AUTO_FAILED_PRODUCTS_THRESHOLD = 20;
+const AUTO_FAILURE_RATE_THRESHOLD = (() => {
+  const parsed = Number(
+    process.env.DYNAMIC_FALLBACK_AUTO_FAILURE_RATE_THRESHOLD ?? "0.6"
+  );
+  if (!Number.isFinite(parsed)) return 0.6;
+  return Math.min(Math.max(parsed, 0.1), 1);
+})();
 
 type DynamicSiteConfigRow = {
   fallbackEnabled: boolean;
@@ -18,7 +25,10 @@ type DynamicSiteConfigRow = {
 
 type GlobalRefreshRunRow = {
   status: string;
+  totalOffers: number;
+  updatedOffers: number;
   failedOffers: number;
+  outOfStockOffers: number;
   maxConsecutiveFailedOffers: number;
 };
 
@@ -172,7 +182,13 @@ async function sendDynamicFallbackAlert(params: {
 
 async function getAutoFallbackDecision(threshold: number) {
   const latestRuns = await prisma.$queryRaw<GlobalRefreshRunRow[]>(Prisma.sql`
-    SELECT "status", "failedOffers", "maxConsecutiveFailedOffers"
+    SELECT
+      "status",
+      "totalOffers",
+      "updatedOffers",
+      "failedOffers",
+      "outOfStockOffers",
+      "maxConsecutiveFailedOffers"
     FROM "GlobalPriceRefreshRun"
     ORDER BY "startedAt" DESC
     LIMIT 1
@@ -184,18 +200,46 @@ async function getAutoFallbackDecision(threshold: number) {
     return { active: false, reason: null };
   }
 
-  const active =
-    Number(latestRun.maxConsecutiveFailedOffers ?? 0) >= normalizedThreshold;
+  const totalOffers = Number(latestRun.totalOffers ?? 0);
+  const updatedOffers = Number(latestRun.updatedOffers ?? 0);
+  const failedOffers = Number(latestRun.failedOffers ?? 0);
+  const outOfStockOffers = Number(latestRun.outOfStockOffers ?? 0);
+  const maxConsecutiveFailedOffers = Number(
+    latestRun.maxConsecutiveFailedOffers ?? 0
+  );
+  const failedRate = totalOffers > 0 ? failedOffers / totalOffers : 0;
+
+  const activeByStatus = latestRun.status === "error";
+  const activeByStreak = maxConsecutiveFailedOffers >= normalizedThreshold;
+  const activeByFailureRate =
+    totalOffers > 0 &&
+    failedRate >= AUTO_FAILURE_RATE_THRESHOLD &&
+    failedOffers >= normalizedThreshold;
+  const active = activeByStatus || activeByStreak || activeByFailureRate;
 
   if (!active) {
     return { active: false, reason: null };
   }
 
+  if (activeByStatus) {
+    return {
+      active: true,
+      reason: `Falha geral detectada: update global terminou com status=error (atualizados ${updatedOffers}/${totalOffers}, falhas ${failedOffers}, sem estoque ${outOfStockOffers}).`,
+    };
+  }
+
+  if (activeByStreak) {
+    return {
+      active: true,
+      reason: `Falha geral detectada: update global registrou streak de ${maxConsecutiveFailedOffers} falhas consecutivas (atualizados ${updatedOffers}/${totalOffers}, falhas ${failedOffers}, sem estoque ${outOfStockOffers}).`,
+    };
+  }
+
   return {
     active: true,
-    reason: `Falha geral detectada: update global registrou streak de ${Number(
-      latestRun.maxConsecutiveFailedOffers ?? 0
-    )} falhas consecutivas.`,
+    reason: `Falha geral detectada: taxa de falha ${Math.round(
+      failedRate * 100
+    )}% no update global (atualizados ${updatedOffers}/${totalOffers}, falhas ${failedOffers}, sem estoque ${outOfStockOffers}).`,
   };
 }
 
@@ -292,13 +336,21 @@ export function shouldUseDynamicFallbackPrice(params: {
 
   if (
     !fallbackState.lastValidPrice ||
-    fallbackState.lastValidPrice <= 0 ||
-    !fallbackState.lastValidPriceAt
+    fallbackState.lastValidPrice <= 0
   ) {
     return false;
   }
 
   if ((fallbackState.availabilityStatus ?? "UNKNOWN") === "OUT_OF_STOCK") {
+    return false;
+  }
+
+  const isAutomaticCrashFallback = config.fallbackSource === "automatic";
+  if (isAutomaticCrashFallback) {
+    return true;
+  }
+
+  if (!fallbackState.lastValidPriceAt) {
     return false;
   }
 

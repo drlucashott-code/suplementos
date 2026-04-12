@@ -83,11 +83,8 @@ async function fetchAmazonPricesBatch(
     itemIds: asins,
     resources: [
       "Offers.Listings.Price",
-      "OffersV2.Listings.Price",
       "Offers.Listings.Type",
-      "OffersV2.Listings.Type",
       "Offers.Listings.MerchantInfo",
-      "OffersV2.Listings.MerchantInfo",
     ],
   });
 
@@ -134,12 +131,18 @@ async function persistDynamicUpdate(
   ) {
     nextAttributesBase.precoProgramaPoupe = Number(result.programAndSavePrice.toFixed(2));
   }
+  const priceForDerivedMetrics =
+    result?.status === "OK"
+      ? result.price
+      : result?.status === "OUT_OF_STOCK" || result?.status === "EXCLUDED"
+        ? 0
+        : product.totalPrice;
   const nextAttributes = product.category
     ? enrichDynamicAttributesForCategory({
         category: product.category,
         rawDisplayConfig: product.category.displayConfig,
         productName: product.name,
-        totalPrice: result?.status === "OK" ? result.price : 0,
+        totalPrice: priceForDerivedMetrics,
         attributes: nextAttributesBase,
       })
     : nextAttributesBase;
@@ -150,6 +153,9 @@ async function persistDynamicUpdate(
       where: { id: product.id },
       data: {
         totalPrice: result.price,
+        availabilityStatus: "IN_STOCK",
+        lastValidPrice: result.price,
+        lastValidPriceAt: new Date(),
         attributes: nextAttributes as Prisma.InputJsonValue,
       },
     });
@@ -190,7 +196,16 @@ async function persistDynamicUpdate(
   await prisma.dynamicProduct.update({
     where: { id: product.id },
     data: {
-      totalPrice: 0,
+      ...(result?.status === "OUT_OF_STOCK"
+        ? {
+            totalPrice: 0,
+            availabilityStatus: "OUT_OF_STOCK",
+          }
+        : result?.status === "EXCLUDED"
+          ? {
+              totalPrice: 0,
+            }
+          : {}),
       attributes: nextAttributes as Prisma.InputJsonValue,
     },
   });
@@ -286,6 +301,18 @@ async function updateAmazonPrices() {
   `;
 
   try {
+    await prisma.$executeRaw`
+      UPDATE "DynamicProduct"
+      SET
+        "lastValidPrice" = "totalPrice",
+        "lastValidPriceAt" = COALESCE("lastValidPriceAt", NOW()),
+        "availabilityStatus" = COALESCE("availabilityStatus", 'IN_STOCK'),
+        "updatedAt" = NOW()
+      WHERE
+        "totalPrice" > 0
+        AND ("lastValidPrice" IS NULL OR "lastValidPrice" <= 0)
+    `;
+
     const dynamicProducts = await prisma.dynamicProduct.findMany({
       where:
         groupFilter || slugFilter

@@ -83,12 +83,6 @@ export default async function DynamicCategoryPage({
             <p className="mb-2 px-1 text-[13px] font-medium text-zinc-800">
               {catalog.totalProducts} produtos encontrados em {catalog.categoryName}
             </p>
-            {catalog.fallbackEnabled ? (
-              <p className="mb-2 px-1 text-[12px] text-amber-700">
-                Fallback de precos ativo. Produtos elegiveis podem usar o ultimo preco
-                valido de ate {catalog.fallbackMaxAgeHours}h.
-              </p>
-            ) : null}
             {((search.order as string) ?? catalog.defaultOrder) === "best_value" &&
             catalog.bestValueHelperText ? (
               <p className="mb-3 px-1 text-[12px] text-zinc-600">
