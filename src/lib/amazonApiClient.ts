@@ -83,6 +83,10 @@ export type AmazonListingSummary = {
 
 type AmazonApiProvider = "paapi" | "creators";
 
+const AMAZON_DISABLE_PAAPI_FALLBACK = ["1", "true", "yes"].includes(
+  (process.env.AMAZON_DISABLE_PAAPI_FALLBACK ?? "").trim().toLowerCase()
+);
+
 type CreatorsSdkModule = {
   ApiClient: new () => {
     credentialId?: string;
@@ -862,6 +866,9 @@ export async function getAmazonItems(input: GetAmazonItemsInput): Promise<Amazon
     try {
       return await getItemsViaCreators(input);
     } catch (error) {
+      if (AMAZON_DISABLE_PAAPI_FALLBACK) {
+        throw error;
+      }
       console.warn(
         `[amazon] Creators API indisponivel para GetItems, fallback para PA-API: ${
           getUnknownErrorMessage(error)
@@ -888,6 +895,9 @@ export async function searchAmazonItems(
     try {
       return await searchItemsViaCreators(input);
     } catch (error) {
+      if (AMAZON_DISABLE_PAAPI_FALLBACK) {
+        throw error;
+      }
       console.warn(
         `[amazon] Creators API indisponivel para SearchItems, fallback para PA-API: ${
           getUnknownErrorMessage(error)

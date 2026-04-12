@@ -24,6 +24,36 @@ const BATCH_SIZE = Math.min(
 );
 const VARIATION_THRESHOLD = 0.2;
 
+function getFirstEnvValue(...keys: string[]) {
+  for (const key of keys) {
+    const value = process.env[key]?.trim();
+    if (value) return value;
+  }
+  return "";
+}
+
+function assertCreatorsModeForGlobalUpdate() {
+  process.env.AMAZON_API_PROVIDER = "creators";
+  process.env.AMAZON_DISABLE_PAAPI_FALLBACK = "1";
+
+  const credentialId = getFirstEnvValue(
+    "AMAZON_CREATORS_CREDENTIAL_ID",
+    "CREATORS_API_CREDENTIAL_ID",
+    "AMAZON_CREATORS_CLIENT_ID"
+  );
+  const credentialSecret = getFirstEnvValue(
+    "AMAZON_CREATORS_CREDENTIAL_SECRET",
+    "CREATORS_API_CREDENTIAL_SECRET",
+    "AMAZON_CREATORS_CLIENT_SECRET"
+  );
+
+  if (!credentialId || !credentialSecret) {
+    throw new Error(
+      "Credenciais da Creators API nao configuradas no ambiente deste job (AMAZON_CREATORS_CREDENTIAL_ID/SECRET ou CREATORS_API_CREDENTIAL_ID/SECRET)."
+    );
+  }
+}
+
 function parseFlagValue(flag: string) {
   const withEquals = process.argv.find((arg) => arg.startsWith(`${flag}=`));
   if (withEquals) return withEquals.split("=").slice(1).join("=");
@@ -248,6 +278,7 @@ async function finalizeGlobalRun(params: {
 }
 
 async function updateAmazonPrices() {
+  assertCreatorsModeForGlobalUpdate();
   console.log("Iniciando update global do sistema dinamico");
   const groupFilter = parseFlagValue("--group").trim().toLowerCase();
   const slugFilter = parseFlagValue("--slug").trim().toLowerCase();

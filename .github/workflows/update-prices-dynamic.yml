@@ -43,6 +43,7 @@ jobs:
           AMAZON_REGION: "us-east-1"
           AMAZON_HOST: "webservices.amazon.com.br"
           AMAZON_API_PROVIDER: "creators"
+          AMAZON_DISABLE_PAAPI_FALLBACK: "1"
           AMAZON_CREATORS_CREDENTIAL_ID: ${{ secrets.AMAZON_CREATORS_CREDENTIAL_ID }}
           AMAZON_CREATORS_CREDENTIAL_SECRET: ${{ secrets.AMAZON_CREATORS_CREDENTIAL_SECRET }}
           AMAZON_CREATORS_VERSION: ${{ secrets.AMAZON_CREATORS_VERSION }}
