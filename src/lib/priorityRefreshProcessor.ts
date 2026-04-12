@@ -428,11 +428,13 @@ export async function processPriorityRefreshQueue() {
       }
     }
 
-    summary.updatedCategoryRefs = dedupeDynamicCatalogCategoryRefs([
-      ...updatedCategoryRefs.values(),
-    ]);
+      summary.updatedCategoryRefs = dedupeDynamicCatalogCategoryRefs([
+        ...updatedCategoryRefs.values(),
+      ]);
+      summary.updatedAsins = Array.from(new Set(summary.updatedAsins));
+      summary.updatedProducts = summary.updatedAsins.length;
 
-    await prisma.$executeRaw`
+      await prisma.$executeRaw`
       UPDATE "PriorityRefreshRun"
       SET
         "status" = 'success',
