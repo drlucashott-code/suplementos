@@ -12,6 +12,10 @@ on:
 jobs:
   update-prices-dynamic:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
+    concurrency:
+      group: update-prices-dynamic
+      cancel-in-progress: false
 
     steps:
       - name: Checkout repository
@@ -38,3 +42,7 @@ jobs:
           AMAZON_PARTNER_TAG: ${{ secrets.AMAZON_PARTNER_TAG }}
           AMAZON_REGION: "us-east-1"
           AMAZON_HOST: "webservices.amazon.com.br"
+          AMAZON_API_PROVIDER: ${{ secrets.AMAZON_API_PROVIDER }}
+          AMAZON_CREATORS_CREDENTIAL_ID: ${{ secrets.AMAZON_CREATORS_CREDENTIAL_ID }}
+          AMAZON_CREATORS_CREDENTIAL_SECRET: ${{ secrets.AMAZON_CREATORS_CREDENTIAL_SECRET }}
+          AMAZON_CREATORS_VERSION: ${{ secrets.AMAZON_CREATORS_VERSION }}
