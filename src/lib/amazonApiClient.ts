@@ -86,6 +86,9 @@ type AmazonApiProvider = "paapi" | "creators";
 const AMAZON_DISABLE_PAAPI_FALLBACK = ["1", "true", "yes"].includes(
   (process.env.AMAZON_DISABLE_PAAPI_FALLBACK ?? "").trim().toLowerCase()
 );
+const AMAZON_PAAPI_DEBUG = ["1", "true", "yes"].includes(
+  (process.env.AMAZON_PAAPI_DEBUG ?? "").trim().toLowerCase()
+);
 
 type CreatorsSdkModule = {
   ApiClient: new () => {
@@ -240,6 +243,50 @@ function getSignatureKey(
 function getConfiguredProvider(): AmazonApiProvider {
   const raw = (process.env.AMAZON_API_PROVIDER ?? "paapi").trim().toLowerCase();
   return raw === "creators" ? "creators" : "paapi";
+}
+
+const PAAPI_RESOURCE_ALLOWLIST = new Set([
+  "ItemInfo.Title",
+  "ItemInfo.ByLineInfo",
+  "ItemInfo.Features",
+  "ItemInfo.ProductInfo",
+  "ItemInfo.Classifications",
+  "BrowseNodeInfo.BrowseNodes",
+  "BrowseNodeInfo.BrowseNodes.SalesRank",
+  "CustomerReviews.Count",
+  "CustomerReviews.StarRating",
+  "Images.Primary.Large",
+  "Images.Primary.Medium",
+  "Images.Primary.Small",
+  "Images.Variants.Large",
+  "Images.Variants.Medium",
+  "Images.Variants.Small",
+  "Offers.Listings.Price",
+  "Offers.Listings.Savings",
+  "Offers.Listings.SavingBasis",
+  "Offers.Listings.Availability",
+  "Offers.Listings.Condition",
+  "Offers.Listings.IsBuyBoxWinner",
+  "Offers.Listings.DeliveryInfo",
+  "Offers.Listings.LoyaltyPoints",
+]);
+
+function normalizePaapiResources(resources: string[]) {
+  const unique = Array.from(new Set(resources.map((r) => r.trim()).filter(Boolean)));
+  const filtered = unique.filter((resource) => PAAPI_RESOURCE_ALLOWLIST.has(resource));
+
+  if (AMAZON_PAAPI_DEBUG) {
+    const dropped = unique.filter((resource) => !PAAPI_RESOURCE_ALLOWLIST.has(resource));
+    if (dropped.length > 0) {
+      console.warn(`[paapi] recursos descartados: ${dropped.join(", ")}`);
+    }
+  }
+
+  if (filtered.length === 0) {
+    return ["Offers.Listings.Price"];
+  }
+
+  return filtered;
 }
 
 function toCreatorsResourceName(resource: string) {
@@ -684,6 +731,9 @@ async function requestPaapi<T>(
   payload: string
 ): Promise<T | null> {
   assertPaapiEnv();
+  const debugPaapi = ["1", "true", "yes"].includes(
+    (process.env.AMAZON_PAAPI_DEBUG ?? "").trim().toLowerCase()
+  );
 
   const now = new Date();
   const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
@@ -727,24 +777,43 @@ async function requestPaapi<T>(
       let data = "";
       res.on("data", (chunk) => (data += chunk));
       res.on("end", () => {
+        if (debugPaapi) {
+          const bodyPreview = data.length > 1000 ? `${data.slice(0, 1000)}...` : data;
+          console.log(
+            `[paapi] ${res.statusCode ?? "-"} ${target} response: ${bodyPreview}`
+          );
+        }
         try {
           resolve(JSON.parse(data) as T);
         } catch {
+          if (debugPaapi) {
+            console.warn("[paapi] falha ao parsear JSON da resposta.");
+          }
           resolve(null);
         }
       });
     });
 
-    req.on("error", () => resolve(null));
+    req.on("error", (error) => {
+      if (debugPaapi) {
+        console.warn(
+          `[paapi] erro de rede: ${
+            error instanceof Error ? error.message : "erro desconhecido"
+          }`
+        );
+      }
+      resolve(null);
+    });
     req.write(payload);
     req.end();
   });
 }
 
 async function getItemsViaPaapi(input: GetAmazonItemsInput): Promise<AmazonItem[]> {
+  const resources = normalizePaapiResources(input.resources);
   const payload = JSON.stringify({
     ItemIds: input.itemIds,
-    Resources: input.resources,
+    Resources: resources,
     PartnerTag: AMAZON_PARTNER_TAG,
     PartnerType: "Associates",
     Marketplace: input.marketplace ?? DEFAULT_MARKETPLACE,
@@ -762,9 +831,10 @@ async function getItemsViaPaapi(input: GetAmazonItemsInput): Promise<AmazonItem[
 export async function getAmazonItemsRaw(
   input: GetAmazonItemsInput
 ): Promise<{ items: AmazonItem[]; raw: unknown }> {
+  const resources = normalizePaapiResources(input.resources);
   const payload = JSON.stringify({
     ItemIds: input.itemIds,
-    Resources: input.resources,
+    Resources: resources,
     PartnerTag: AMAZON_PARTNER_TAG,
     PartnerType: "Associates",
     Marketplace: input.marketplace ?? DEFAULT_MARKETPLACE,
@@ -783,6 +853,7 @@ export async function getAmazonItemsRaw(
 }
 
 async function searchItemsViaPaapi(input: SearchAmazonItemsInput): Promise<AmazonItem[]> {
+  const resources = normalizePaapiResources(input.resources);
   const payload = JSON.stringify({
     Keywords: input.keywords,
     ...(input.brand ? { Brand: input.brand } : {}),
@@ -795,7 +866,7 @@ async function searchItemsViaPaapi(input: SearchAmazonItemsInput): Promise<Amazo
           MaxPrice: input.range.max * 100,
         }
       : {}),
-    Resources: input.resources,
+    Resources: resources,
     PartnerTag: AMAZON_PARTNER_TAG,
     PartnerType: "Associates",
     Marketplace: input.marketplace ?? DEFAULT_MARKETPLACE,

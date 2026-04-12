@@ -43,6 +43,7 @@ function getFirstEnvValue(...keys: string[]) {
 
 function assertCreatorsModeForPriorityRefresh() {
   process.env.AMAZON_API_PROVIDER = "creators";
+  process.env.AMAZON_DISABLE_PAAPI_FALLBACK = "1";
 
   const credentialId = getFirstEnvValue(
     "AMAZON_CREATORS_CREDENTIAL_ID",
@@ -56,8 +57,8 @@ function assertCreatorsModeForPriorityRefresh() {
   );
 
   if (!credentialId || !credentialSecret) {
-    console.warn(
-      "[priority] Credenciais da Creators API ausentes. Permitindo fallback para PA-API."
+    throw new Error(
+      "Priority refresh sem credenciais da Creators API (AMAZON_CREATORS_CREDENTIAL_ID/SECRET)."
     );
   }
 }

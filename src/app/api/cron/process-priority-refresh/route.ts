@@ -21,17 +21,34 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const envSnapshot = {
+      provider: process.env.AMAZON_API_PROVIDER ?? null,
+      hasCreatorsId: Boolean(process.env.AMAZON_CREATORS_CREDENTIAL_ID),
+      hasCreatorsSecret: Boolean(process.env.AMAZON_CREATORS_CREDENTIAL_SECRET),
+      hasQueueUrl: Boolean(
+        process.env.AWS_PRIORITY_QUEUE_URL || process.env.AWS_QUEUE_URL
+      ),
+      region: process.env.AWS_REGION ?? null,
+    };
+    console.log("[priority-cron] env", envSnapshot);
+
     const summary = await processPriorityRefreshQueue();
     revalidateDynamicCatalogCategoryRefs(summary.updatedCategoryRefs);
+    const includeDebug = request.nextUrl.searchParams.get("debug") === "1";
     return NextResponse.json({
       ok: true,
       summary,
+      ...(includeDebug ? { env: envSnapshot } : {}),
     });
   } catch (error) {
     console.error("Erro ao processar cron de fila prioritaria:", error);
 
     return NextResponse.json(
-      { ok: false, error: "priority_refresh_failed" },
+      {
+        ok: false,
+        error: "priority_refresh_failed",
+        detail: error instanceof Error ? error.message : "erro desconhecido",
+      },
       { status: 500 }
     );
   }
