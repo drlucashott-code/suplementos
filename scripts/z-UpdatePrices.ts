@@ -24,6 +24,14 @@ const BATCH_SIZE = Math.min(
 );
 const VARIATION_THRESHOLD = 0.2;
 
+function parseFlagValue(flag: string) {
+  const withEquals = process.argv.find((arg) => arg.startsWith(`${flag}=`));
+  if (withEquals) return withEquals.split("=").slice(1).join("=");
+  const index = process.argv.indexOf(flag);
+  if (index >= 0 && process.argv[index + 1]) return process.argv[index + 1];
+  return "";
+}
+
 type ApiStatus = "OK" | "OUT_OF_STOCK" | "EXCLUDED" | "ERROR";
 
 type PriceResult = {
@@ -226,6 +234,15 @@ async function finalizeGlobalRun(params: {
 
 async function updateAmazonPrices() {
   console.log("Iniciando update global do sistema dinamico");
+  const groupFilter = parseFlagValue("--group").trim().toLowerCase();
+  const slugFilter = parseFlagValue("--slug").trim().toLowerCase();
+  if (groupFilter || slugFilter) {
+    console.log(
+      `Filtro ativo: ${groupFilter ? `group=${groupFilter}` : ""}${
+        groupFilter && slugFilter ? " | " : ""
+      }${slugFilter ? `slug=${slugFilter}` : ""}`
+    );
+  }
 
   const runId = crypto.randomUUID();
   const counters: RunCounters = {
@@ -270,6 +287,15 @@ async function updateAmazonPrices() {
 
   try {
     const dynamicProducts = await prisma.dynamicProduct.findMany({
+      where:
+        groupFilter || slugFilter
+          ? {
+              category: {
+                ...(groupFilter ? { group: groupFilter } : {}),
+                ...(slugFilter ? { slug: slugFilter } : {}),
+              },
+            }
+          : undefined,
       select: {
         id: true,
         asin: true,
