@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Image from "next/image";
-import { AlertTriangle, Bookmark, ShoppingCart, X } from "lucide-react";
+import { AlertTriangle, Bookmark, RefreshCw, ShoppingCart, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { trackProductClick } from "@/lib/client/productClickTracking";
 import type { SaveableDeal } from "@/lib/client/savedDeals";
@@ -734,22 +734,29 @@ export function MobileProductCard({
                 ) : null}
 
                 {programAndSavePrice && programAndSaveParts ? (
-                  <div className="mt-1.5 inline-flex w-fit flex-col rounded-md border border-[#d5d9d9] bg-[#f7f8f8] px-2 py-1">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0F1111]">
-                      Programa e Poupe
+                  <div className="mt-1 inline-flex w-fit flex-col rounded-md border border-[#d5d9d9] bg-[#f3f4f6] px-2 py-1">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0F1111]">
+                      Programe e Poupe
                       <span
-                        className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#f2c200] text-[#6b4f00]"
+                        className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center align-middle"
                         aria-hidden="true"
                       >
-                        <ShoppingCart className="h-2.5 w-2.5" />
+                        <RefreshCw
+                          className="absolute left-1/2 top-1/2 h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 text-[#f59e0b]"
+                          strokeWidth={2.2}
+                        />
+                        <ShoppingCart
+                          className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 text-[#111111]"
+                          strokeWidth={2.2}
+                        />
                       </span>
                     </span>
-                    <div className="mt-0.5 flex items-end gap-0.5 leading-none">
-                      <span className="pb-[1px] text-[11px] text-[#0F1111]">R$</span>
-                      <span className="text-[28px] font-medium text-[#0F1111]">
+                    <div className="mt-0.5 flex items-start leading-none">
+                      <span className="mt-1 text-[9px] font-medium text-[#0F1111]">R$</span>
+                      <span className="text-[21px] font-medium leading-none tracking-tight text-[#0F1111]">
                         {programAndSaveParts.whole}
                       </span>
-                      <span className="pb-[10px] text-[11px] text-[#0F1111]">
+                      <span className="mt-[2px] text-[10px] font-medium leading-none text-[#0F1111]">
                         {programAndSaveParts.cents}
                       </span>
                     </div>
