@@ -8,10 +8,7 @@ import {
 import { refreshDynamicProductPriceStatsBulk } from "../src/lib/dynamicPriceStats";
 import { getPriceHistoryCanonicalDate } from "../src/lib/dynamicPriceHistory";
 import {
-  getAmazonItemMerchantName,
-  getAmazonItemPrice,
-  getAmazonItemProgramAndSavePrice,
-  getAmazonItems,
+  fetchAmazonPriceSnapshots,
 } from "../src/lib/amazonApiClient";
 
 const prisma = new PrismaClient();
@@ -109,23 +106,12 @@ async function fetchAmazonPricesBatch(
 ): Promise<Record<string, PriceResult>> {
   if (asins.length === 0) return {};
 
-  const items = await getAmazonItems({
-    itemIds: asins,
-    resources: [
-      "Offers.Listings.Price",
-      "Offers.Listings.Type",
-      "Offers.Listings.MerchantInfo",
-    ],
-  });
-
+  const snapshots = await fetchAmazonPriceSnapshots(asins);
   const results: Record<string, PriceResult> = {};
 
-  for (const item of items) {
-    const asin = item.ASIN;
-    if (!asin) continue;
-
-    let price = getAmazonItemPrice(item);
-    const merchantName = getAmazonItemMerchantName(item) || "Desconhecido";
+  for (const snapshot of Object.values(snapshots)) {
+    let price = snapshot.price;
+    const merchantName = snapshot.merchantName || "Desconhecido";
     let status: ApiStatus = price > 0 ? "OK" : "OUT_OF_STOCK";
 
     if (merchantName === "Loja Suplemento") {
@@ -133,10 +119,10 @@ async function fetchAmazonPricesBatch(
       price = 0;
     }
 
-    results[asin] = {
+    results[snapshot.asin] = {
       price,
       merchantName,
-      programAndSavePrice: getAmazonItemProgramAndSavePrice(item),
+      programAndSavePrice: snapshot.programAndSavePrice,
       status,
     };
   }

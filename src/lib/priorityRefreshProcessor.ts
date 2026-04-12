@@ -6,10 +6,7 @@ import {
 } from "@aws-sdk/client-sqs";
 import {
   getAmazonItemAffiliateUrl,
-  getAmazonItemMerchantName,
-  getAmazonItemPrice,
-  getAmazonItemProgramAndSavePrice,
-  getAmazonItems,
+  fetchAmazonPriceSnapshots,
   type AmazonItem,
 } from "@/lib/amazonApiClient";
 import {
@@ -71,7 +68,7 @@ type PriceResult = {
   affiliateUrl: string;
   ratingAverage: number | null;
   ratingCount: number | null;
-  status: "OK" | "OUT_OF_STOCK";
+  status: "OK" | "OUT_OF_STOCK" | "NO_DATA";
 };
 
 export type PriorityRefreshRunSummary = {
@@ -95,37 +92,27 @@ async function fetchAmazonPricesBatch(
 ): Promise<Record<string, PriceResult>> {
   if (asins.length === 0) return {};
 
-  const items = await getAmazonItems({
-    itemIds: asins,
-    resources: [
-      "Offers.Listings.Price",
-      "Offers.Listings.Type",
-      "Offers.Listings.MerchantInfo",
-      "CustomerReviews.Count",
-      "CustomerReviews.StarRating",
-    ],
-  });
-
+  const snapshots = await fetchAmazonPriceSnapshots(asins);
   const results: Record<string, PriceResult> = {};
 
-  for (const item of items) {
-    const asin = item.ASIN || "";
-    if (!asin) continue;
-
-    const price = getAmazonItemPrice(item);
-    const merchantName = getAmazonItemMerchantName(item);
+  for (const snapshot of Object.values(snapshots)) {
+    const asin = snapshot.asin;
+    const price = snapshot.price;
+    const hasListings = snapshot.listingSummary.totalListings > 0;
+    const status: PriceResult["status"] =
+      !hasListings || price <= 0 ? "NO_DATA" : "OK";
 
     results[asin] = {
       asin,
       price,
-      programAndSavePrice: getAmazonItemProgramAndSavePrice(item),
-      merchantName,
+      programAndSavePrice: snapshot.programAndSavePrice,
+      merchantName: snapshot.merchantName,
       affiliateUrl:
-        getAmazonItemAffiliateUrl(item) ||
+        snapshot.affiliateUrl ||
         `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG}`,
-      ratingAverage: item.CustomerReviews?.StarRating?.Value ?? null,
-      ratingCount: item.CustomerReviews?.Count ?? null,
-      status: price > 0 ? "OK" : "OUT_OF_STOCK",
+      ratingAverage: null,
+      ratingCount: null,
+      status,
     };
   }
 
@@ -387,6 +374,12 @@ export async function processPriorityRefreshQueue() {
         if (!result) {
           const reason = "API nao retornou item/preco (mantido na fila para retry)";
           console.warn(`[priority] ASIN ${asin} adiado: ${reason}`);
+          continue;
+        }
+        if (result.status === "NO_DATA") {
+          console.warn(
+            `[priority] ASIN ${asin} adiado: sem listings na resposta (mantido na fila)`
+          );
           continue;
         }
 

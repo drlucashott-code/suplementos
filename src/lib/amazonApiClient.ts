@@ -81,6 +81,15 @@ export type AmazonListingSummary = {
   hasAnyBuyBoxWinner: boolean;
 };
 
+export type AmazonPriceSnapshot = {
+  asin: string;
+  price: number;
+  programAndSavePrice: number | null;
+  merchantName: string | null;
+  affiliateUrl: string;
+  listingSummary: AmazonListingSummary;
+};
+
 type AmazonApiProvider = "paapi" | "creators";
 
 const AMAZON_DISABLE_PAAPI_FALLBACK = ["1", "true", "yes"].includes(
@@ -721,6 +730,42 @@ export function summarizeAmazonListings(groups: AmazonListingGroup[]): AmazonLis
     ),
     hasAnyBuyBoxWinner: allListings.some((listing) => listing.IsBuyBoxWinner === true),
   };
+}
+
+export async function fetchAmazonPriceSnapshots(
+  asins: string[]
+): Promise<Record<string, AmazonPriceSnapshot>> {
+  if (asins.length === 0) return {};
+
+  const items = await getAmazonItems({
+    itemIds: asins,
+    resources: [
+      "Offers.Listings.Price",
+      "Offers.Listings.MerchantInfo",
+      "Offers.Listings.IsBuyBoxWinner",
+      "Offers.Listings.DeliveryInfo",
+    ],
+  });
+
+  const results: Record<string, AmazonPriceSnapshot> = {};
+
+  for (const item of items) {
+    const asin = item.ASIN;
+    if (!asin) continue;
+
+    const listingSummary = summarizeAmazonListings(getAmazonListingGroups(item));
+
+    results[asin] = {
+      asin,
+      price: getAmazonItemPrice(item),
+      programAndSavePrice: getAmazonItemProgramAndSavePrice(item),
+      merchantName: getAmazonItemMerchantName(item),
+      affiliateUrl: getAmazonItemAffiliateUrl(item),
+      listingSummary,
+    };
+  }
+
+  return results;
 }
 
 async function requestPaapi<T>(
