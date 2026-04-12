@@ -29,7 +29,16 @@ type SessionProductRow = {
 
 async function sendSessionSummaryEmailAndMark(sessionId: string) {
   const [summary] = await prisma.$queryRaw<SessionSummaryRow[]>`
-    SELECT
+    UPDATE "DynamicClickSession" s
+    SET
+      "summaryEmailSentAt" = NOW(),
+      "updatedAt" = NOW()
+    WHERE
+      s."sessionId" = ${sessionId}
+      AND s."summaryEmailSentAt" IS NULL
+      AND s."endedAt" IS NOT NULL
+      AND s."totalClicks" > 0
+    RETURNING
       s."visitorId",
       s."sessionId",
       s."startedAt",
@@ -38,12 +47,9 @@ async function sendSessionSummaryEmailAndMark(sessionId: string) {
       s."totalClicks",
       s."uniqueProducts",
       s."summaryEmailSentAt"
-    FROM "DynamicClickSession" s
-    WHERE s."sessionId" = ${sessionId}
-    LIMIT 1
   `;
 
-  if (!summary || summary.summaryEmailSentAt || summary.totalClicks <= 0 || !summary.endedAt) {
+  if (!summary || !summary.endedAt) {
     return;
   }
 
@@ -100,7 +106,7 @@ async function sendSessionSummaryEmailAndMark(sessionId: string) {
     });
   }
 
-  const sent = await sendDynamicClickSessionAlertEmail({
+  await sendDynamicClickSessionAlertEmail({
     visitorId: summary.visitorId,
     sessionId: summary.sessionId,
     startedAt: summary.startedAt,
@@ -113,15 +119,7 @@ async function sendSessionSummaryEmailAndMark(sessionId: string) {
     ),
   });
 
-  if (!sent) return;
-
-  await prisma.$executeRaw`
-    UPDATE "DynamicClickSession"
-    SET
-      "summaryEmailSentAt" = NOW(),
-      "updatedAt" = NOW()
-    WHERE "sessionId" = ${sessionId}
-  `;
+  // summaryEmailSentAt ja foi preenchido de forma atomica para evitar duplicidade.
 }
 
 export async function POST(request: NextRequest) {

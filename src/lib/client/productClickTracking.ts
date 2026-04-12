@@ -105,7 +105,6 @@ function registerSessionCloseListener() {
   };
 
   window.addEventListener("pagehide", handler);
-  window.addEventListener("beforeunload", handler);
   sessionCloseListenerRegistered = true;
 }
 
