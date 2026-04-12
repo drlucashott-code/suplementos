@@ -27,6 +27,41 @@ const queueUrl =
 
 const AMAZON_PARTNER_TAG = process.env.AMAZON_PARTNER_TAG;
 const BATCH_SIZE = 10;
+const RETRY_MISSING_ASINS_DELAY_MS = 500;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getFirstEnvValue(...keys: string[]) {
+  for (const key of keys) {
+    const value = process.env[key]?.trim();
+    if (value) return value;
+  }
+  return "";
+}
+
+function assertCreatorsModeForPriorityRefresh() {
+  process.env.AMAZON_API_PROVIDER = "creators";
+  process.env.AMAZON_DISABLE_PAAPI_FALLBACK = "1";
+
+  const credentialId = getFirstEnvValue(
+    "AMAZON_CREATORS_CREDENTIAL_ID",
+    "CREATORS_API_CREDENTIAL_ID",
+    "AMAZON_CREATORS_CLIENT_ID"
+  );
+  const credentialSecret = getFirstEnvValue(
+    "AMAZON_CREATORS_CREDENTIAL_SECRET",
+    "CREATORS_API_CREDENTIAL_SECRET",
+    "AMAZON_CREATORS_CLIENT_SECRET"
+  );
+
+  if (!credentialId || !credentialSecret) {
+    throw new Error(
+      "Priority refresh sem credenciais da Creators API (AMAZON_CREATORS_CREDENTIAL_ID/SECRET)."
+    );
+  }
+}
 
 type PriceResult = {
   asin: string;
@@ -95,6 +130,30 @@ async function fetchAmazonPricesBatch(
   }
 
   return results;
+}
+
+async function refetchMissingAsins(
+  missingAsins: string[]
+): Promise<Record<string, PriceResult>> {
+  const recovered: Record<string, PriceResult> = {};
+
+  for (const asin of missingAsins) {
+    try {
+      const single = await fetchAmazonPricesBatch([asin]);
+      if (single[asin]) {
+        recovered[asin] = single[asin];
+      }
+    } catch (error) {
+      console.warn(
+        `[priority] falha ao reconsultar ASIN ${asin}: ${
+          error instanceof Error ? error.message : "erro desconhecido"
+        }`
+      );
+    }
+    await sleep(RETRY_MISSING_ASINS_DELAY_MS);
+  }
+
+  return recovered;
 }
 
 function extractAsinFromMessage(message: Message) {
@@ -207,6 +266,7 @@ async function persistDynamicUpdate(productId: string, result: PriceResult) {
 
 export async function processPriorityRefreshQueue() {
   assertEnv();
+  assertCreatorsModeForPriorityRefresh();
 
   const runId = crypto.randomUUID();
 
@@ -265,8 +325,17 @@ export async function processPriorityRefreshQueue() {
 
       summary.processedMessages += messages.length;
 
+      const messageAsins = messages.map((message) => ({
+        message,
+        asin: extractAsinFromMessage(message),
+      }));
+      const invalidMessages = messageAsins.filter((entry) => !entry.asin);
+      if (invalidMessages.length > 0) {
+        summary.skippedProducts += invalidMessages.length;
+      }
+
       const uniqueAsins = Array.from(
-        new Set(messages.map(extractAsinFromMessage).filter(Boolean))
+        new Set(messageAsins.map((entry) => entry.asin).filter(Boolean))
       ) as string[];
 
       summary.uniqueAsins += uniqueAsins.length;
@@ -293,17 +362,31 @@ export async function processPriorityRefreshQueue() {
       const productMap = new Map(products.map((product) => [product.asin, product]));
       const results = await fetchAmazonPricesBatch(uniqueAsins);
       const successfullyUpdatedAsins = new Set<string>();
+      const terminalSkippedAsins = new Set<string>();
+
+      const missingAsins = uniqueAsins.filter((asin) => !results[asin]);
+      if (missingAsins.length > 0) {
+        const recovered = await refetchMissingAsins(missingAsins);
+        for (const [asin, value] of Object.entries(recovered)) {
+          results[asin] = value;
+        }
+      }
 
       for (const asin of uniqueAsins) {
         const product = productMap.get(asin);
         const result = results[asin];
 
-        if (!product || !result) {
-          const reason = !product
-            ? "produto nao encontrado no banco"
-            : "API nao retornou item/preco";
+        if (!product) {
+          const reason = "produto nao encontrado no banco";
           console.warn(`[priority] ASIN ${asin} pulado: ${reason}`);
           summary.skippedProducts += 1;
+          terminalSkippedAsins.add(asin);
+          continue;
+        }
+
+        if (!result) {
+          const reason = "API nao retornou item/preco (mantido na fila para retry)";
+          console.warn(`[priority] ASIN ${asin} adiado: ${reason}`);
           continue;
         }
 
@@ -326,7 +409,11 @@ export async function processPriorityRefreshQueue() {
       const deletableMessages = messages.filter((message) => {
         if (!message.ReceiptHandle) return false;
         const asin = extractAsinFromMessage(message);
-        return Boolean(asin && successfullyUpdatedAsins.has(asin));
+        if (!asin) return true;
+        return (
+          successfullyUpdatedAsins.has(asin) ||
+          terminalSkippedAsins.has(asin)
+        );
       });
       if (deletableMessages.length > 0) {
         await sqsClient.send(
