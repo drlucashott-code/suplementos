@@ -1,12 +1,16 @@
 import "dotenv/config";
 import { PrismaClient, type Prisma } from "@prisma/client";
 import { reconcileDynamicFallbackState } from "../src/lib/dynamicFallback";
-import { enrichDynamicAttributesForCategory } from "../src/lib/dynamicCategoryMetrics";
+import {
+  enrichDynamicAttributesForCategory,
+  type DynamicAttributesMap,
+} from "../src/lib/dynamicCategoryMetrics";
 import { refreshDynamicProductPriceStatsBulk } from "../src/lib/dynamicPriceStats";
 import { getPriceHistoryCanonicalDate } from "../src/lib/dynamicPriceHistory";
 import {
   getAmazonItemMerchantName,
   getAmazonItemPrice,
+  getAmazonItemProgramAndSavePrice,
   getAmazonItems,
 } from "../src/lib/amazonApiClient";
 
@@ -25,6 +29,7 @@ type ApiStatus = "OK" | "OUT_OF_STOCK" | "EXCLUDED" | "ERROR";
 type PriceResult = {
   price: number;
   merchantName: string;
+  programAndSavePrice: number | null;
   status: ApiStatus;
 };
 
@@ -71,6 +76,8 @@ async function fetchAmazonPricesBatch(
     resources: [
       "Offers.Listings.Price",
       "OffersV2.Listings.Price",
+      "Offers.Listings.Type",
+      "OffersV2.Listings.Type",
       "Offers.Listings.MerchantInfo",
       "OffersV2.Listings.MerchantInfo",
     ],
@@ -91,7 +98,12 @@ async function fetchAmazonPricesBatch(
       price = 0;
     }
 
-    results[asin] = { price, merchantName, status };
+    results[asin] = {
+      price,
+      merchantName,
+      programAndSavePrice: getAmazonItemProgramAndSavePrice(item),
+      status,
+    };
   }
 
   return results;
@@ -101,11 +113,19 @@ async function persistDynamicUpdate(
   product: DynamicProductLite,
   result?: PriceResult
 ): Promise<PersistDynamicUpdateResult> {
-  const currentAttrs = (product.attributes as Record<string, unknown>) || {};
-  const nextAttributesBase = {
-    ...currentAttrs,
-    vendedor: result?.merchantName || "Indisponivel",
-  };
+  const currentAttrs = (product.attributes as DynamicAttributesMap) || {};
+  const nextAttributesBase: DynamicAttributesMap = { ...currentAttrs };
+  delete nextAttributesBase.precoProgramaPoupe;
+  delete nextAttributesBase.precoAssinatura;
+  delete nextAttributesBase.precoSubscribeAndSave;
+  nextAttributesBase.vendedor = result?.merchantName || "Indisponivel";
+  if (
+    result?.status === "OK" &&
+    typeof result.programAndSavePrice === "number" &&
+    result.programAndSavePrice > 0
+  ) {
+    nextAttributesBase.precoProgramaPoupe = Number(result.programAndSavePrice.toFixed(2));
+  }
   const nextAttributes = product.category
     ? enrichDynamicAttributesForCategory({
         category: product.category,

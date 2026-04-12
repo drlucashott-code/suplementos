@@ -640,7 +640,12 @@ const getDerivedAttributeMetric = (
     getNumericAttribute(attrs, "quantidade");
   const numberOfDoses =
     getNumericAttribute(attrs, "numberOfDoses") || getNumericAttribute(attrs, "doses");
-  const totalProteinInGrams = getNumericAttribute(attrs, "totalProteinInGrams");
+  const proteinPerDoseInGrams = getNumericAttribute(attrs, "proteinPerDoseInGrams");
+  const totalProteinInGrams =
+    getNumericAttribute(attrs, "totalProteinInGrams") ||
+    (proteinPerDoseInGrams > 0 && numberOfDoses > 0
+      ? proteinPerDoseInGrams * numberOfDoses
+      : 0);
   const cafeinaTotalMg = getNumericAttribute(attrs, "cafeinaTotalMg");
   const creatinaPorDose = getNumericAttribute(attrs, "creatinaPorDose");
 

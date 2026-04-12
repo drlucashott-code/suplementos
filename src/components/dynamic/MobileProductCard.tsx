@@ -198,6 +198,24 @@ function formatPriceParts(value: number) {
   return { whole, cents };
 }
 
+function ProgramAndSaveIcon() {
+  return (
+    <span
+      className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center align-middle"
+      aria-hidden="true"
+    >
+      <RefreshCw
+        className="absolute left-1/2 top-1/2 h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 text-[#f59e0b]"
+        strokeWidth={2.2}
+      />
+      <ShoppingCart
+        className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 text-[#111111]"
+        strokeWidth={2.2}
+      />
+    </span>
+  );
+}
+
 function getProgramAndSavePrice(
   attributes: Record<string, string | number | undefined>
 ) {
@@ -737,19 +755,7 @@ export function MobileProductCard({
                   <div className="mt-1 inline-flex w-fit flex-col rounded-md border border-[#d5d9d9] bg-[#f3f4f6] px-2 py-1">
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0F1111]">
                       Programe e Poupe
-                      <span
-                        className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center align-middle"
-                        aria-hidden="true"
-                      >
-                        <RefreshCw
-                          className="absolute left-1/2 top-1/2 h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 text-[#f59e0b]"
-                          strokeWidth={2.2}
-                        />
-                        <ShoppingCart
-                          className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 text-[#111111]"
-                          strokeWidth={2.2}
-                        />
-                      </span>
+                      <ProgramAndSaveIcon />
                     </span>
                     <div className="mt-0.5 flex items-start leading-none">
                       <span className="mt-1 text-[9px] font-medium text-[#0F1111]">R$</span>

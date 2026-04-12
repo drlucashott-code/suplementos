@@ -45,3 +45,14 @@ a {
   white-space: nowrap;
   border-width: 0;
 }
+
+/* Evita cursor de texto piscando em conteudo nao editavel */
+*:not(input):not(textarea):not([contenteditable="true"]) {
+  caret-color: transparent;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  caret-color: auto;
+}
