@@ -62,6 +62,40 @@ const houseCategoryFallbackMap = Object.fromEntries(
 
 export const revalidate = 600;
 
+async function getSupplementCategories(): Promise<CategoryItem[]> {
+  try {
+    const dynamicCategoryReader =
+      prisma.dynamicCategory as unknown as DynamicCategoryWithImageReader;
+
+    const categories = await dynamicCategoryReader.findMany({
+      where: { group: "suplementos" },
+      orderBy: { name: "asc" },
+      select: {
+        name: true,
+        slug: true,
+        imageUrl: true,
+        displayConfig: true,
+      },
+    });
+
+    return categories
+      .filter((category) => {
+        const settings =
+          normalizeDynamicDisplayConfig(category.displayConfig).settings ?? {};
+        return !settings.hideFromHome;
+      })
+      .map((category) => ({
+        title: category.name,
+        imageSrc:
+          category.imageUrl ||
+          "https://m.media-amazon.com/images/I/51lOuKbCawL._AC_SL1000_.jpg",
+        path: `/suplementos/${category.slug}`,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 async function getHouseCategories(): Promise<CategoryItem[]> {
   try {
     const dynamicCategoryReader =
@@ -133,7 +167,8 @@ async function getPetCategories(): Promise<CategoryItem[]> {
 }
 
 export default async function HomePage() {
-  const [houseCategories, petCategories, bestDeals] = await Promise.all([
+  const [supplementCategories, houseCategories, petCategories, bestDeals] = await Promise.all([
+    getSupplementCategories(),
     getHouseCategories(),
     getPetCategories(),
     getBestDeals(6),
@@ -141,6 +176,7 @@ export default async function HomePage() {
 
   return (
     <HomePageClient
+      supplementCategories={supplementCategories}
       houseCategories={houseCategories}
       petCategories={petCategories}
       bestDeals={bestDeals}

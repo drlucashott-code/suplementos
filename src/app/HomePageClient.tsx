@@ -35,7 +35,7 @@ type QuickCategoryItem = CategoryItem & {
   subtitle: string;
 };
 
-const supplementsCategories: CategoryItem[] = [
+const supplementsCategoriesFallback: CategoryItem[] = [
   {
     title: "Barra de proteína",
     imageSrc: "https://m.media-amazon.com/images/I/61RDMRO3uCL._AC_SL1200_.jpg",
@@ -126,8 +126,11 @@ function sortCategories(items: CategoryItem[]) {
   return [...active, ...disabled];
 }
 
-function buildQuickHeroCategories(houseCategories: CategoryItem[]): QuickCategoryItem[] {
-  const supplements = sortCategories(supplementsCategories).map((item) => ({
+function buildQuickHeroCategories(
+  supplementCategories: CategoryItem[],
+  houseCategories: CategoryItem[]
+): QuickCategoryItem[] {
+  const supplements = sortCategories(supplementCategories).map((item) => ({
     ...item,
     subtitle: supplementQuickSubtitles[item.path] ?? "Preço por unidade",
   }));
@@ -181,10 +184,12 @@ function chunkQuickHeroCategories(items: QuickCategoryItem[], size: number) {
 }
 
 export default function HomePageClient({
+  supplementCategories,
   houseCategories,
   petCategories,
   bestDeals,
 }: {
+  supplementCategories: CategoryItem[];
   houseCategories: CategoryItem[];
   petCategories: CategoryItem[];
   bestDeals: BestDeal[];
@@ -192,23 +197,31 @@ export default function HomePageClient({
   const router = useRouter();
   const [selectedHub, setSelectedHub] = useState<HubKey>("suplementos");
 
+  const effectiveSupplementCategories = useMemo(
+    () =>
+      supplementCategories.length > 0
+        ? supplementCategories
+        : supplementsCategoriesFallback,
+    [supplementCategories]
+  );
+
   const headerCategories = useMemo(
-    () => [...houseCategories, ...petCategories],
-    [houseCategories, petCategories]
+    () => [...effectiveSupplementCategories, ...houseCategories, ...petCategories],
+    [effectiveSupplementCategories, houseCategories, petCategories]
   );
 
   const categoryGroups = useMemo<Record<HubKey, CategoryItem[]>>(
     () => ({
-      suplementos: sortCategories(supplementsCategories),
+      suplementos: sortCategories(effectiveSupplementCategories),
       casa: sortCategories(houseCategories),
       pets: sortCategories(petCategories),
     }),
-    [houseCategories, petCategories]
+    [effectiveSupplementCategories, houseCategories, petCategories]
   );
 
   const quickHeroCategories = useMemo(
-    () => buildQuickHeroCategories(houseCategories),
-    [houseCategories]
+    () => buildQuickHeroCategories(effectiveSupplementCategories, houseCategories),
+    [effectiveSupplementCategories, houseCategories]
   );
 
   const quickHeroPages = useMemo(

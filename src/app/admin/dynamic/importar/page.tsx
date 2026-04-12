@@ -1,6 +1,7 @@
 ﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { normalizeDynamicDisplayConfig } from '@/lib/dynamicCategoryMetrics';
 import { getHomeCategories } from '../nova-categoria/actions';
 import {
   cancelDynamicDiscovery,
@@ -20,6 +21,7 @@ import {
 interface Category {
   id: string;
   name: string;
+  displayConfig?: unknown;
 }
 
 interface ImportRunState {
@@ -109,6 +111,30 @@ export default function ImportadorDynamicAPI() {
   const [attributeListRaw, setAttributeListRaw] = useState('');
   const [attributeApplyResult, setAttributeApplyResult] = useState<string>('');
 
+  const selectedCategory = useMemo(
+    () => categories.find((category) => category.id === selectedCat) ?? null,
+    [categories, selectedCat]
+  );
+
+  const categoryAttributeOptions = useMemo(() => {
+    if (!selectedCategory?.displayConfig) return [];
+
+    const normalized = normalizeDynamicDisplayConfig(selectedCategory.displayConfig);
+    const deduped = new Map<string, string>();
+
+    for (const field of normalized.fields ?? []) {
+      const key = (field?.key ?? '').trim();
+      if (!key) continue;
+      const label = (field?.label ?? key).trim() || key;
+
+      if (!deduped.has(key)) {
+        deduped.set(key, label);
+      }
+    }
+
+    return Array.from(deduped.entries()).map(([key, label]) => ({ key, label }));
+  }, [selectedCategory]);
+
   useEffect(() => {
     getHomeCategories().then((data) => setCategories(data as unknown as Category[]));
   }, []);
@@ -185,6 +211,18 @@ export default function ImportadorDynamicAPI() {
     const interval = setInterval(poll, 10000);
     return () => clearInterval(interval);
   }, [activeRunId]);
+
+  useEffect(() => {
+    if (categoryAttributeOptions.length === 0) {
+      setAttributeKey('');
+      return;
+    }
+
+    const stillExists = categoryAttributeOptions.some((option) => option.key === attributeKey);
+    if (!stillExists) {
+      setAttributeKey(categoryAttributeOptions[0].key);
+    }
+  }, [attributeKey, categoryAttributeOptions]);
 
   const handleImport = async () => {
     if (!asins || !selectedCat) {
@@ -303,7 +341,7 @@ export default function ImportadorDynamicAPI() {
 
   const handleApplyAttributeList = async () => {
     if (!attributeKey.trim()) {
-      alert('Informe a chave do atributo.');
+      alert('Selecione o atributo.');
       return;
     }
 
@@ -687,18 +725,30 @@ export default function ImportadorDynamicAPI() {
                   Aplicar lista externa de atributos
                 </div>
                 <div className="text-xs font-semibold text-gray-500">
-                  Cole linhas no formato: <span className="font-mono">ASIN - valor</span>. Ex:
+                  Selecione o atributo da categoria e cole linhas no formato:{' '}
+                  <span className="font-mono">ASIN - valor</span>. Ex:
                   <span className="font-mono"> B0DDRJGQFP - 10</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto]">
-                <input
+                <select
                   value={attributeKey}
                   onChange={(e) => setAttributeKey(e.target.value)}
-                  placeholder="Chave do atributo (ex: capsules, unidades)"
+                  disabled={!selectedCat || categoryAttributeOptions.length === 0}
                   className="w-full rounded-xl border border-gray-200 bg-white p-3 font-semibold outline-none transition-all focus:ring-2 focus:ring-yellow-400"
-                />
+                >
+                  {!selectedCat ? (
+                    <option value="">Selecione a categoria primeiro</option>
+                  ) : categoryAttributeOptions.length === 0 ? (
+                    <option value="">Categoria sem atributos configurados</option>
+                  ) : null}
+                  {categoryAttributeOptions.map((option) => (
+                    <option key={option.key} value={option.key}>
+                      {option.label} ({option.key})
+                    </option>
+                  ))}
+                </select>
                 <button
                   onClick={handleApplyAttributeList}
                   className="rounded-xl bg-black px-5 py-3 font-black text-white transition-all hover:bg-gray-800"
