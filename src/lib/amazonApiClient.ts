@@ -407,14 +407,21 @@ function loadCreatorsSdk(): CreatorsSdkModule {
 function buildCreatorsApi() {
   assertCreatorsEnv();
 
+  if ((process.env.AMAZON_CREATORS_BASE_PATH ?? "").trim() === "") {
+    delete process.env.AMAZON_CREATORS_BASE_PATH;
+  }
+  if ((process.env.CREATORS_API_BASE_PATH ?? "").trim() === "") {
+    delete process.env.CREATORS_API_BASE_PATH;
+  }
+
   const sdk = loadCreatorsSdk();
   const apiClient = new sdk.ApiClient();
   apiClient.credentialId = AMAZON_CREATORS_CREDENTIAL_ID;
   apiClient.credentialSecret = AMAZON_CREATORS_CREDENTIAL_SECRET;
   apiClient.version = AMAZON_CREATORS_VERSION;
   const creatorsBasePath = (AMAZON_CREATORS_BASE_PATH ?? "").trim();
-  apiClient.basePath =
-    creatorsBasePath || "https://api.creators.amazon.com";
+  const resolvedBasePath = creatorsBasePath || "https://api.creators.amazon.com";
+  apiClient.basePath = resolvedBasePath;
 
   return {
     sdk,
