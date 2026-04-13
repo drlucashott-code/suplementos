@@ -201,12 +201,16 @@ async function persistDynamicUpdate(productId: string, result: PriceResult) {
     nextAttributesBase.precoProgramaPoupe = Number(result.programAndSavePrice.toFixed(2));
   }
 
+  const fallbackTotalPrice =
+    typeof currentAttributes.totalPrice === "number"
+      ? currentAttributes.totalPrice
+      : Number(currentAttributes.totalPrice ?? 0) || 0;
   const priceForDerivedMetrics =
     result.status === "OK"
       ? result.price
       : result.status === "OUT_OF_STOCK" || result.status === "EXCLUDED"
         ? 0
-        : currentAttributes.totalPrice ?? 0;
+        : fallbackTotalPrice;
   const attributes = current.category
     ? (enrichDynamicAttributesForCategory({
         category: current.category,
