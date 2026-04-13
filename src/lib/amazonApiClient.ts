@@ -766,6 +766,19 @@ export async function fetchAmazonPriceSnapshots(
     provider === "creators"
       ? ["ItemInfo.Title", "Offers.Listings.Type", ...baseResources]
       : baseResources;
+  const debugCreators = ["1", "true", "yes"].includes(
+    (process.env.AMAZON_CREATORS_DEBUG ?? "").trim().toLowerCase()
+  );
+  if (debugCreators) {
+    lastCreatorsDebug = {
+      request: {
+        stage: "fetchAmazonPriceSnapshots",
+        provider,
+        asins,
+        resources: initialResources,
+      },
+    };
+  }
 
   let items = await getAmazonItems({
     itemIds: asins,
