@@ -78,6 +78,11 @@ export type PriorityRefreshRunSummary = {
   skippedProducts: number;
   updatedAsins: string[];
   updatedCategoryRefs: DynamicCatalogCategoryRef[];
+  debug?: {
+    batchAsins: string[];
+    missingAsins: string[];
+    resultsCount: number;
+  };
   runId?: string;
 };
 
@@ -280,7 +285,7 @@ async function persistDynamicUpdate(productId: string, result: PriceResult) {
   return true;
 }
 
-export async function processPriorityRefreshQueue() {
+export async function processPriorityRefreshQueue(params?: { debug?: boolean }) {
   assertEnv();
   assertCreatorsModeForPriorityRefresh();
 
@@ -386,6 +391,13 @@ export async function processPriorityRefreshQueue() {
         for (const [asin, value] of Object.entries(recovered)) {
           results[asin] = value;
         }
+      }
+      if (params?.debug) {
+        summary.debug = {
+          batchAsins: uniqueAsins,
+          missingAsins: uniqueAsins.filter((asin) => !results[asin]),
+          resultsCount: Object.keys(results).length,
+        };
       }
 
       for (const asin of uniqueAsins) {

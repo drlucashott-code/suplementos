@@ -32,9 +32,9 @@ export async function POST(request: NextRequest) {
     };
     console.log("[priority-cron] env", envSnapshot);
 
-    const summary = await processPriorityRefreshQueue();
-    revalidateDynamicCatalogCategoryRefs(summary.updatedCategoryRefs);
     const includeDebug = request.nextUrl.searchParams.get("debug") === "1";
+    const summary = await processPriorityRefreshQueue({ debug: includeDebug });
+    revalidateDynamicCatalogCategoryRefs(summary.updatedCategoryRefs);
     return NextResponse.json({
       ok: true,
       summary,

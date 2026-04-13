@@ -743,10 +743,15 @@ export async function fetchAmazonPriceSnapshots(
     "Offers.Listings.IsBuyBoxWinner",
     "Offers.Listings.DeliveryInfo",
   ];
+  const provider = getConfiguredProvider();
+  const initialResources =
+    provider === "creators"
+      ? ["ItemInfo.Title", "Offers.Listings.Type", ...baseResources]
+      : baseResources;
 
   let items = await getAmazonItems({
     itemIds: asins,
-    resources: baseResources,
+    resources: initialResources,
   });
 
   if (items.length === 0) {
