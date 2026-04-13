@@ -331,7 +331,7 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
           "Offers.Listings.Price",
           "Offers.Listings.MerchantInfo",
           "Offers.Listings.IsBuyBoxWinner",
-          "Offers.Listings.DeliveryInfo",
+          "Offers.Listings.Availability",
         ],
       });
 

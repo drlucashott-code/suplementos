@@ -412,13 +412,8 @@ function buildCreatorsApi() {
   apiClient.credentialId = AMAZON_CREATORS_CREDENTIAL_ID;
   apiClient.credentialSecret = AMAZON_CREATORS_CREDENTIAL_SECRET;
   apiClient.version = AMAZON_CREATORS_VERSION;
-  if (!apiClient.basePath) {
-    apiClient.basePath = "https://api.creators.amazon.com";
-  }
-
-  if (AMAZON_CREATORS_BASE_PATH) {
-    apiClient.basePath = AMAZON_CREATORS_BASE_PATH;
-  }
+  apiClient.basePath =
+    AMAZON_CREATORS_BASE_PATH ?? "https://api.creators.amazon.com";
 
   return {
     sdk,
@@ -776,7 +771,7 @@ export async function fetchAmazonPriceSnapshots(
   const provider = getConfiguredProvider();
   const initialResources =
     provider === "creators"
-      ? ["ItemInfo.Title", "Offers.Listings.Type", ...baseResources]
+      ? ["ItemInfo.Title", "Offers.Listings.Type", "Offers.Listings.Availability", ...baseResources.filter((r) => r !== "Offers.Listings.DeliveryInfo")]
       : baseResources;
   const debugCreators =
     creatorsDebugEnabled ||
