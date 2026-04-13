@@ -131,6 +131,10 @@ export function getLastCreatorsDebugSnapshot() {
   return lastCreatorsDebug;
 }
 
+export function resetCreatorsDebugSnapshot() {
+  lastCreatorsDebug = null;
+}
+
 type GetAmazonItemsInput = {
   itemIds: string[];
   resources: string[];
@@ -960,6 +964,9 @@ async function getItemsViaCreators(input: GetAmazonItemsInput): Promise<AmazonIt
   const debugCreators = ["1", "true", "yes"].includes(
     (process.env.AMAZON_CREATORS_DEBUG ?? "").trim().toLowerCase()
   );
+  if (debugCreators) {
+    lastCreatorsDebug = { request: { stage: "init" } };
+  }
 
   request.partnerTag = AMAZON_PARTNER_TAG;
   request.itemIds = input.itemIds;
