@@ -68,7 +68,7 @@ type PriceResult = {
   affiliateUrl: string;
   ratingAverage: number | null;
   ratingCount: number | null;
-  status: "OK" | "OUT_OF_STOCK" | "NO_DATA";
+  status: "OK" | "OUT_OF_STOCK" | "EXCLUDED";
 };
 
 export type PriorityRefreshRunSummary = {
@@ -97,10 +97,13 @@ async function fetchAmazonPricesBatch(
 
   for (const snapshot of Object.values(snapshots)) {
     const asin = snapshot.asin;
-    const price = snapshot.price;
-    const hasListings = snapshot.listingSummary.totalListings > 0;
-    const status: PriceResult["status"] =
-      !hasListings || price <= 0 ? "NO_DATA" : "OK";
+    let price = snapshot.price;
+    let status: PriceResult["status"] = price > 0 ? "OK" : "OUT_OF_STOCK";
+
+    if (snapshot.merchantName === "Loja Suplemento") {
+      status = "EXCLUDED";
+      price = 0;
+    }
 
     results[asin] = {
       asin,
@@ -175,24 +178,36 @@ async function persistDynamicUpdate(productId: string, result: PriceResult) {
     return false;
   }
 
-  const nextAttributesBase = {
-    ...(current.attributes as Record<string, string | number | boolean | undefined>),
-    seller:
-      result.status === "OUT_OF_STOCK"
-        ? "Indisponivel"
-        : (result.merchantName ?? undefined),
-    precoProgramaPoupe:
-      typeof result.programAndSavePrice === "number" && result.programAndSavePrice > 0
-        ? Number(result.programAndSavePrice.toFixed(2))
-        : undefined,
-    asin: result.asin,
+  const currentAttributes =
+    (current.attributes as Record<string, string | number | boolean | undefined>) || {};
+  const nextAttributesBase: Record<string, string | number | boolean | undefined> = {
+    ...currentAttributes,
   };
+  delete nextAttributesBase.precoProgramaPoupe;
+  delete nextAttributesBase.precoAssinatura;
+  delete nextAttributesBase.precoSubscribeAndSave;
+
+  nextAttributesBase.vendedor = result.merchantName ?? "Indisponivel";
+  if (
+    result.status === "OK" &&
+    typeof result.programAndSavePrice === "number" &&
+    result.programAndSavePrice > 0
+  ) {
+    nextAttributesBase.precoProgramaPoupe = Number(result.programAndSavePrice.toFixed(2));
+  }
+
+  const priceForDerivedMetrics =
+    result.status === "OK"
+      ? result.price
+      : result.status === "OUT_OF_STOCK" || result.status === "EXCLUDED"
+        ? 0
+        : currentAttributes.totalPrice ?? 0;
   const attributes = current.category
     ? (enrichDynamicAttributesForCategory({
         category: current.category,
         rawDisplayConfig: current.category.displayConfig,
         productName: current.name,
-        totalPrice: result.price,
+        totalPrice: priceForDerivedMetrics,
         attributes: nextAttributesBase,
       }) as Record<string, string | number | boolean | undefined>)
     : nextAttributesBase;
@@ -200,7 +215,11 @@ async function persistDynamicUpdate(productId: string, result: PriceResult) {
   await prisma.dynamicProduct.update({
     where: { id: productId },
     data: {
-      totalPrice: result.price,
+      ...(result.status === "OK"
+        ? { totalPrice: result.price }
+        : result.status === "OUT_OF_STOCK" || result.status === "EXCLUDED"
+          ? { totalPrice: 0 }
+          : {}),
       url: result.affiliateUrl,
       attributes,
     },
@@ -217,7 +236,7 @@ async function persistDynamicUpdate(productId: string, result: PriceResult) {
         "updatedAt" = NOW()
       WHERE "id" = ${productId}
     `;
-  } else {
+  } else if (result.status === "OUT_OF_STOCK") {
     await prisma.$executeRaw`
       UPDATE "DynamicProduct"
       SET
@@ -226,27 +245,37 @@ async function persistDynamicUpdate(productId: string, result: PriceResult) {
         "updatedAt" = NOW()
       WHERE "id" = ${productId}
     `;
+  } else {
+    await prisma.$executeRaw`
+      UPDATE "DynamicProduct"
+      SET
+        "lastAvailabilityCheckedAt" = ${now},
+        "updatedAt" = NOW()
+      WHERE "id" = ${productId}
+    `;
   }
 
-  await prisma.dynamicPriceHistory.upsert({
-    where: {
-      productId_date: {
+  if (result.status === "OK") {
+    await prisma.dynamicPriceHistory.upsert({
+      where: {
+        productId_date: {
+          productId,
+          date: historyDate,
+        },
+      },
+      update: {
+        price: result.price,
+        updateCount: { increment: 1 },
+      },
+      create: {
         productId,
+        price: result.price,
         date: historyDate,
       },
-    },
-    update: {
-      price: result.price,
-      updateCount: { increment: 1 },
-    },
-    create: {
-      productId,
-      price: result.price,
-      date: historyDate,
-    },
-  });
+    });
 
-  await refreshDynamicProductPriceStats(productId);
+    await refreshDynamicProductPriceStats(productId);
+  }
 
   return true;
 }
@@ -376,13 +405,6 @@ export async function processPriorityRefreshQueue() {
           console.warn(`[priority] ASIN ${asin} adiado: ${reason}`);
           continue;
         }
-        if (result.status === "NO_DATA") {
-          console.warn(
-            `[priority] ASIN ${asin} adiado: sem listings na resposta (mantido na fila)`
-          );
-          continue;
-        }
-
         const updated = await persistDynamicUpdate(product.id, result);
         if (updated) {
           summary.updatedProducts += 1;
