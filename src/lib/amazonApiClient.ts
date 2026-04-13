@@ -787,10 +787,33 @@ export async function fetchAmazonPriceSnapshots(
     };
   }
 
-  let items = await getAmazonItems({
-    itemIds: asins,
-    resources: initialResources,
-  });
+  let items: AmazonItem[] = [];
+  try {
+    items = await getAmazonItems({
+      itemIds: asins,
+      resources: initialResources,
+    });
+  } catch (error) {
+    if (debugCreators) {
+      lastCreatorsDebug = {
+        ...(lastCreatorsDebug ?? {}),
+        response: {
+          stage: "fetchAmazonPriceSnapshots",
+          error: error instanceof Error ? error.message : "erro desconhecido",
+        },
+      };
+    }
+    throw error;
+  }
+  if (debugCreators) {
+    lastCreatorsDebug = {
+      ...(lastCreatorsDebug ?? {}),
+      response: {
+        stage: "fetchAmazonPriceSnapshots",
+        items: items.length,
+      },
+    };
+  }
 
   if (items.length === 0) {
     items = await getAmazonItems({
