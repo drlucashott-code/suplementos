@@ -1121,6 +1121,10 @@ async function getItemsViaCreators(input: GetAmazonItemsInput): Promise<AmazonIt
   return items.map(normalizeCreatorsItem);
 }
 
+export async function getAmazonItemsViaCreators(input: GetAmazonItemsInput): Promise<AmazonItem[]> {
+  return getItemsViaCreators(input);
+}
+
 async function searchItemsViaCreators(
   input: SearchAmazonItemsInput
 ): Promise<AmazonItem[]> {

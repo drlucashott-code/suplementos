@@ -4,7 +4,15 @@ import {
   SQSClient,
   type Message,
 } from "@aws-sdk/client-sqs";
-import { fetchAmazonPriceSnapshots } from "@/lib/amazonApiClient";
+import {
+  getAmazonItemsViaCreators,
+  getAmazonItemAffiliateUrl,
+  getAmazonItemMerchantName,
+  getAmazonItemPrice,
+  getAmazonItemProgramAndSavePrice,
+  summarizeAmazonListings,
+  getAmazonListingGroups,
+} from "@/lib/amazonApiClient";
 import {
   dedupeDynamicCatalogCategoryRefs,
   type DynamicCatalogCategoryRef,
@@ -315,7 +323,43 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
       });
 
       const productMap = new Map(products.map((product) => [product.asin, product]));
-      const snapshots = await fetchAmazonPriceSnapshots(uniqueAsins);
+      const items = await getAmazonItemsViaCreators({
+        itemIds: uniqueAsins,
+        resources: [
+          "ItemInfo.Title",
+          "Offers.Listings.Type",
+          "Offers.Listings.Price",
+          "Offers.Listings.MerchantInfo",
+          "Offers.Listings.IsBuyBoxWinner",
+          "Offers.Listings.DeliveryInfo",
+        ],
+      });
+
+      const snapshots: Record<
+        string,
+        {
+          asin: string;
+          price: number;
+          programAndSavePrice: number | null;
+          merchantName: string | null;
+          affiliateUrl: string;
+          listingSummary: { totalListings: number };
+        }
+      > = {};
+
+      for (const item of items) {
+        const asin = item.ASIN;
+        if (!asin) continue;
+        const listingSummary = summarizeAmazonListings(getAmazonListingGroups(item));
+        snapshots[asin] = {
+          asin,
+          price: getAmazonItemPrice(item),
+          programAndSavePrice: getAmazonItemProgramAndSavePrice(item),
+          merchantName: getAmazonItemMerchantName(item),
+          affiliateUrl: getAmazonItemAffiliateUrl(item),
+          listingSummary: { totalListings: listingSummary.totalListings },
+        };
+      }
 
       if (params?.debug) {
         summary.debug = {
