@@ -737,15 +737,24 @@ export async function fetchAmazonPriceSnapshots(
 ): Promise<Record<string, AmazonPriceSnapshot>> {
   if (asins.length === 0) return {};
 
-  const items = await getAmazonItems({
+  const baseResources = [
+    "Offers.Listings.Price",
+    "Offers.Listings.MerchantInfo",
+    "Offers.Listings.IsBuyBoxWinner",
+    "Offers.Listings.DeliveryInfo",
+  ];
+
+  let items = await getAmazonItems({
     itemIds: asins,
-    resources: [
-      "Offers.Listings.Price",
-      "Offers.Listings.MerchantInfo",
-      "Offers.Listings.IsBuyBoxWinner",
-      "Offers.Listings.DeliveryInfo",
-    ],
+    resources: baseResources,
   });
+
+  if (items.length === 0) {
+    items = await getAmazonItems({
+      itemIds: asins,
+      resources: ["ItemInfo.Title", ...baseResources],
+    });
+  }
 
   const results: Record<string, AmazonPriceSnapshot> = {};
 
