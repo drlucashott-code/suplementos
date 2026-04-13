@@ -967,17 +967,23 @@ async function getItemsViaCreators(input: GetAmazonItemsInput): Promise<AmazonIt
 
   const primaryMarketplace = input.marketplace ?? DEFAULT_MARKETPLACE;
   if (debugCreators) {
+    const itemIds = Array.isArray((request as { itemIds?: unknown }).itemIds)
+      ? ((request as { itemIds: string[] }).itemIds ?? [])
+      : [];
+    const resources = Array.isArray((request as { resources?: unknown }).resources)
+      ? ((request as { resources: string[] }).resources ?? [])
+      : [];
     console.log("[creators] getItems request", {
       marketplace: primaryMarketplace,
-      itemCount: request.itemIds?.length ?? 0,
-      resources: request.resources,
+      itemCount: itemIds.length,
+      resources,
       basePath: (api as { apiClient?: { basePath?: string } }).apiClient?.basePath,
     });
     lastCreatorsDebug = {
       request: {
         marketplace: primaryMarketplace,
-        itemCount: request.itemIds?.length ?? 0,
-        resources: request.resources,
+        itemCount: itemIds.length,
+        resources,
         basePath: (api as { apiClient?: { basePath?: string } }).apiClient?.basePath,
       },
     };
