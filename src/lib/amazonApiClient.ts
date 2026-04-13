@@ -420,7 +420,7 @@ function buildCreatorsApi() {
   apiClient.credentialSecret = AMAZON_CREATORS_CREDENTIAL_SECRET;
   apiClient.version = AMAZON_CREATORS_VERSION;
   const creatorsBasePath = (AMAZON_CREATORS_BASE_PATH ?? "").trim();
-  const resolvedBasePath = creatorsBasePath || "https://api.creators.amazon.com";
+  const resolvedBasePath = creatorsBasePath || "https://creatorsapi.amazon";
   apiClient.basePath = resolvedBasePath;
 
   return {
