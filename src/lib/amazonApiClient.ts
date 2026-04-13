@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import creatorsSdkBundled from "../../vendor/creatorsapi-nodejs-sdk/dist/index.js";
+import * as creatorsSdkBundled from "../../vendor/creatorsapi-nodejs-sdk/dist/index.js";
 
 export type AmazonListing = {
   IsBuyBoxWinner?: boolean;
