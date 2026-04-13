@@ -61,7 +61,7 @@ export default async function AdminDynamicExecutionsPage() {
       "updatedAsins"
     FROM "PriorityRefreshRun"
     ORDER BY "startedAt" DESC
-    LIMIT 100
+    LIMIT 30
   `;
 
   const totalRuns = runs.length;
@@ -134,7 +134,7 @@ export default async function AdminDynamicExecutionsPage() {
 
         <div className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-xl shadow-gray-200/50">
           <div className="overflow-x-auto">
-            <table className="min-w-[1200px] w-full border-collapse text-left">
+            <table className="min-w-[900px] w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50 text-[10px] font-black uppercase tracking-widest text-gray-400">
                   <th className="w-44 p-4 text-black">Início</th>
@@ -144,7 +144,6 @@ export default async function AdminDynamicExecutionsPage() {
                   <th className="w-28 p-4 text-center text-black">ASINs</th>
                   <th className="w-32 p-4 text-center text-black">Atualizados</th>
                   <th className="w-28 p-4 text-center text-black">Pulados</th>
-                  <th className="p-4 text-black">ASINs atualizados</th>
                 </tr>
               </thead>
 
@@ -152,7 +151,7 @@ export default async function AdminDynamicExecutionsPage() {
                 {runs.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={7}
                       className="p-10 text-center text-sm font-semibold text-gray-400"
                     >
                       Nenhuma execução registrada ainda.
@@ -161,15 +160,6 @@ export default async function AdminDynamicExecutionsPage() {
                 ) : (
                   runs.map((run: ExecutionRow) => {
                     const duration = getDurationInSeconds(run.startedAt, run.finishedAt);
-                    const updatedAsins = Array.isArray(run.updatedAsins)
-                      ? Array.from(
-                          new Set(
-                            run.updatedAsins
-                              .map((asin) => String(asin).trim().toUpperCase())
-                              .filter((asin) => /^[A-Z0-9]{10}$/.test(asin))
-                          )
-                        )
-                      : [];
 
                     return (
                       <tr key={run.id} className="transition-colors hover:bg-gray-50/50">
@@ -180,11 +170,6 @@ export default async function AdminDynamicExecutionsPage() {
                           <div className="mt-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">
                             {run.source}
                           </div>
-                          {run.errorMessage ? (
-                            <div className="mt-2 text-[11px] font-semibold text-red-600">
-                              {run.errorMessage}
-                            </div>
-                          ) : null}
                         </td>
 
                         <td className="p-4 text-center">
@@ -213,33 +198,6 @@ export default async function AdminDynamicExecutionsPage() {
 
                         <td className="p-4 text-center text-lg font-black text-gray-600">
                           {run.skippedProducts}
-                        </td>
-
-                        <td className="p-4">
-                          {updatedAsins.length > 0 ? (
-                            <div className="flex flex-wrap gap-2">
-                              {updatedAsins.slice(0, 8).map((asin, index) => (
-                                <a
-                                  key={`${String(asin)}-${index}`}
-                                  href={`https://www.amazon.com.br/dp/${asin}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="rounded-full bg-blue-50 px-2 py-1 font-mono text-[10px] font-black uppercase text-blue-600"
-                                >
-                                  {String(asin)}
-                                </a>
-                              ))}
-                              {updatedAsins.length > 8 ? (
-                                <span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-black uppercase text-gray-500">
-                                  +{updatedAsins.length - 8}
-                                </span>
-                              ) : null}
-                            </div>
-                          ) : (
-                            <span className="text-[11px] font-semibold text-gray-400">
-                              Nenhum
-                            </span>
-                          )}
                         </td>
                       </tr>
                     );
