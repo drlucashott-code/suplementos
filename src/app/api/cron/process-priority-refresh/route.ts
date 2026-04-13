@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLastCreatorsDebugSnapshot, resetCreatorsDebugSnapshot } from "@/lib/amazonApiClient";
-import { processPriorityRefreshQueue } from "@/lib/priorityRefreshProcessor";
+import { processPriorityRefreshQueueV2 } from "@/lib/priorityRefreshProcessorV2";
 import { revalidateDynamicCatalogCategoryRefs } from "@/lib/dynamicCatalogRevalidation";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       process.env.AMAZON_CREATORS_DEBUG = "1";
       resetCreatorsDebugSnapshot();
     }
-    const summary = await processPriorityRefreshQueue({ debug: includeDebug });
+    const summary = await processPriorityRefreshQueueV2({ debug: includeDebug });
     revalidateDynamicCatalogCategoryRefs(summary.updatedCategoryRefs);
     return NextResponse.json({
       ok: true,
