@@ -948,8 +948,15 @@ async function getItemsViaCreators(input: GetAmazonItemsInput): Promise<AmazonIt
   request.itemIds = input.itemIds;
   request.resources = normalizeCreatorsResources(input.resources);
 
-  const response = await api.getItems(input.marketplace ?? DEFAULT_MARKETPLACE, request);
-  const items = Array.isArray(response?.itemsResult?.items) ? response.itemsResult.items : [];
+  const primaryMarketplace = input.marketplace ?? DEFAULT_MARKETPLACE;
+  let response = await api.getItems(primaryMarketplace, request);
+  let items = Array.isArray(response?.itemsResult?.items) ? response.itemsResult.items : [];
+
+  if (items.length === 0 && primaryMarketplace.startsWith("www.")) {
+    const fallbackMarketplace = primaryMarketplace.replace(/^www\./, "");
+    response = await api.getItems(fallbackMarketplace, request);
+    items = Array.isArray(response?.itemsResult?.items) ? response.itemsResult.items : [];
+  }
 
   if (items.length === 0 && response?.errors?.length) {
     throw new Error(extractCreatorsErrorMessage(response.errors));
