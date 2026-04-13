@@ -60,12 +60,32 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Erro ao processar cron de fila prioritaria:", error);
+    const includeDebug = request.nextUrl.searchParams.get("debug") === "1";
 
     return NextResponse.json(
       {
         ok: false,
         error: "priority_refresh_failed",
-        detail: error instanceof Error ? error.message : "erro desconhecido",
+        detail:
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : JSON.stringify(error),
+        ...(includeDebug
+          ? {
+              env: {
+                provider: process.env.AMAZON_API_PROVIDER ?? null,
+                hasCreatorsId: Boolean(process.env.AMAZON_CREATORS_CREDENTIAL_ID),
+                hasCreatorsSecret: Boolean(process.env.AMAZON_CREATORS_CREDENTIAL_SECRET),
+                hasQueueUrl: Boolean(
+                  process.env.AWS_PRIORITY_QUEUE_URL || process.env.AWS_QUEUE_URL
+                ),
+                region: process.env.AWS_REGION ?? null,
+              },
+              creatorsDebug: getLastCreatorsDebugSnapshot(),
+            }
+          : {}),
       },
       { status: 500 }
     );

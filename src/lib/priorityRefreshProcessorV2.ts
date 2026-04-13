@@ -464,7 +464,11 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
     return summary;
   } catch (error) {
     const errorMessage =
-      error instanceof Error ? error.message : "Erro desconhecido no processamento";
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : JSON.stringify(error);
 
     await prisma.$executeRaw`
       UPDATE "PriorityRefreshRun"
@@ -481,6 +485,9 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
       WHERE "id" = ${runId}
     `;
 
-    throw error;
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error(errorMessage);
   }
 }
