@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getLastCreatorsDebugSnapshot,
-  resetCreatorsDebugSnapshot,
-  setCreatorsDebugEnabled,
-} from "@/lib/amazonApiClient";
+// debug helpers removed
 import { processPriorityRefreshQueueV2 } from "@/lib/priorityRefreshProcessorV2";
 import { revalidateDynamicCatalogCategoryRefs } from "@/lib/dynamicCatalogRevalidation";
 
@@ -38,25 +34,12 @@ export async function POST(request: NextRequest) {
     console.log("[priority-cron] env", envSnapshot);
 
     const includeDebug = request.nextUrl.searchParams.get("debug") === "1";
-    if (includeDebug) {
-      process.env.AMAZON_CREATORS_DEBUG = "1";
-      setCreatorsDebugEnabled(true);
-      resetCreatorsDebugSnapshot();
-    } else {
-      setCreatorsDebugEnabled(false);
-    }
     const summary = await processPriorityRefreshQueueV2({ debug: includeDebug });
     revalidateDynamicCatalogCategoryRefs(summary.updatedCategoryRefs);
     return NextResponse.json({
       ok: true,
       summary,
-      ...(includeDebug
-        ? {
-            env: envSnapshot,
-            debug: summary.debug ?? null,
-            creatorsDebug: getLastCreatorsDebugSnapshot(),
-          }
-        : {}),
+      ...(includeDebug ? { env: envSnapshot, debug: summary.debug ?? null } : {}),
     });
   } catch (error) {
     console.error("Erro ao processar cron de fila prioritaria:", error);
@@ -83,7 +66,6 @@ export async function POST(request: NextRequest) {
                 ),
                 region: process.env.AWS_REGION ?? null,
               },
-              creatorsDebug: getLastCreatorsDebugSnapshot(),
             }
           : {}),
       },
