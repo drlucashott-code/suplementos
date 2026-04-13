@@ -412,8 +412,9 @@ function buildCreatorsApi() {
   apiClient.credentialId = AMAZON_CREATORS_CREDENTIAL_ID;
   apiClient.credentialSecret = AMAZON_CREATORS_CREDENTIAL_SECRET;
   apiClient.version = AMAZON_CREATORS_VERSION;
+  const creatorsBasePath = (AMAZON_CREATORS_BASE_PATH ?? "").trim();
   apiClient.basePath =
-    AMAZON_CREATORS_BASE_PATH ?? "https://api.creators.amazon.com";
+    creatorsBasePath || "https://api.creators.amazon.com";
 
   return {
     sdk,
