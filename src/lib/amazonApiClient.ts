@@ -809,8 +809,10 @@ export async function fetchAmazonPriceSnapshots(
     lastCreatorsDebug = {
       ...(lastCreatorsDebug ?? {}),
       response: {
-        stage: "fetchAmazonPriceSnapshots",
-        items: items.length,
+        ...(lastCreatorsDebug?.response ?? {}),
+        snapshots: {
+          items: items.length,
+        },
       },
     };
   }
@@ -1030,11 +1032,15 @@ async function getItemsViaCreators(input: GetAmazonItemsInput): Promise<AmazonIt
       basePath: (api as { apiClient?: { basePath?: string } }).apiClient?.basePath,
     });
     lastCreatorsDebug = {
+      ...(lastCreatorsDebug ?? {}),
       request: {
-        marketplace: primaryMarketplace,
-        itemCount: itemIds.length,
-        resources,
-        basePath: (api as { apiClient?: { basePath?: string } }).apiClient?.basePath,
+        ...(lastCreatorsDebug?.request ?? {}),
+        getItems: {
+          marketplace: primaryMarketplace,
+          itemCount: itemIds.length,
+          resources,
+          basePath: (api as { apiClient?: { basePath?: string } }).apiClient?.basePath,
+        },
       },
     };
   }
@@ -1047,8 +1053,11 @@ async function getItemsViaCreators(input: GetAmazonItemsInput): Promise<AmazonIt
       lastCreatorsDebug = {
         ...(lastCreatorsDebug ?? {}),
         response: {
-          marketplace: primaryMarketplace,
-          error: error instanceof Error ? error.message : "erro desconhecido",
+          ...(lastCreatorsDebug?.response ?? {}),
+          getItems: {
+            marketplace: primaryMarketplace,
+            error: error instanceof Error ? error.message : "erro desconhecido",
+          },
         },
       };
     }
@@ -1064,9 +1073,12 @@ async function getItemsViaCreators(input: GetAmazonItemsInput): Promise<AmazonIt
     lastCreatorsDebug = {
       ...(lastCreatorsDebug ?? {}),
       response: {
-        marketplace: primaryMarketplace,
-        items: items.length,
-        errors: response?.errors ?? null,
+        ...(lastCreatorsDebug?.response ?? {}),
+        getItems: {
+          marketplace: primaryMarketplace,
+          items: items.length,
+          errors: response?.errors ?? null,
+        },
       },
     };
   }
@@ -1087,9 +1099,12 @@ async function getItemsViaCreators(input: GetAmazonItemsInput): Promise<AmazonIt
       lastCreatorsDebug = {
         ...(lastCreatorsDebug ?? {}),
         response: {
-          marketplace: fallbackMarketplace,
-          items: items.length,
-          errors: response?.errors ?? null,
+          ...(lastCreatorsDebug?.response ?? {}),
+          getItems: {
+            marketplace: fallbackMarketplace,
+            items: items.length,
+            errors: response?.errors ?? null,
+          },
         },
       };
     }
