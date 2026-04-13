@@ -120,6 +120,17 @@ type CreatorsSdkModule = {
   SearchItemsRequestContent: new () => Record<string, unknown>;
 };
 
+type CreatorsDebugSnapshot = {
+  request?: Record<string, unknown>;
+  response?: Record<string, unknown>;
+};
+
+let lastCreatorsDebug: CreatorsDebugSnapshot | null = null;
+
+export function getLastCreatorsDebugSnapshot() {
+  return lastCreatorsDebug;
+}
+
 type GetAmazonItemsInput = {
   itemIds: string[];
   resources: string[];
@@ -962,6 +973,14 @@ async function getItemsViaCreators(input: GetAmazonItemsInput): Promise<AmazonIt
       resources: request.resources,
       basePath: (api as { apiClient?: { basePath?: string } }).apiClient?.basePath,
     });
+    lastCreatorsDebug = {
+      request: {
+        marketplace: primaryMarketplace,
+        itemCount: request.itemIds?.length ?? 0,
+        resources: request.resources,
+        basePath: (api as { apiClient?: { basePath?: string } }).apiClient?.basePath,
+      },
+    };
   }
 
   let response = await api.getItems(primaryMarketplace, request);
@@ -972,6 +991,14 @@ async function getItemsViaCreators(input: GetAmazonItemsInput): Promise<AmazonIt
       items: items.length,
       errors: response?.errors ?? null,
     });
+    lastCreatorsDebug = {
+      ...(lastCreatorsDebug ?? {}),
+      response: {
+        marketplace: primaryMarketplace,
+        items: items.length,
+        errors: response?.errors ?? null,
+      },
+    };
   }
 
   if (items.length === 0 && primaryMarketplace.startsWith("www.")) {
@@ -987,6 +1014,14 @@ async function getItemsViaCreators(input: GetAmazonItemsInput): Promise<AmazonIt
         items: items.length,
         errors: response?.errors ?? null,
       });
+      lastCreatorsDebug = {
+        ...(lastCreatorsDebug ?? {}),
+        response: {
+          marketplace: fallbackMarketplace,
+          items: items.length,
+          errors: response?.errors ?? null,
+        },
+      };
     }
   }
 

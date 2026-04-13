@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getLastCreatorsDebugSnapshot } from "@/lib/amazonApiClient";
 import { processPriorityRefreshQueue } from "@/lib/priorityRefreshProcessor";
 import { revalidateDynamicCatalogCategoryRefs } from "@/lib/dynamicCatalogRevalidation";
 
@@ -41,7 +42,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       summary,
-      ...(includeDebug ? { env: envSnapshot, debug: summary.debug ?? null } : {}),
+      ...(includeDebug
+        ? {
+            env: envSnapshot,
+            debug: summary.debug ?? null,
+            creatorsDebug: getLastCreatorsDebugSnapshot(),
+          }
+        : {}),
     });
   } catch (error) {
     console.error("Erro ao processar cron de fila prioritaria:", error);
