@@ -778,11 +778,15 @@ export async function fetchAmazonPriceSnapshots(
     );
   if (debugCreators) {
     lastCreatorsDebug = {
+      ...(lastCreatorsDebug ?? {}),
       request: {
-        stage: "fetchAmazonPriceSnapshots",
-        provider,
-        asins,
-        resources: initialResources,
+        ...(lastCreatorsDebug?.request ?? {}),
+        snapshots: {
+          stage: "fetchAmazonPriceSnapshots",
+          provider,
+          asins,
+          resources: initialResources,
+        },
       },
     };
   }
