@@ -21,6 +21,8 @@ export interface AmazonImportResult {
   error?: string;
 }
 
+const AMAZON_LINK_TAG = process.env.AMAZON_LINK_TAG ?? process.env.AMAZON_PARTNER_TAG ?? "";
+
 export async function getHomeCategories() {
   return await prisma.dynamicCategory.findMany({
     orderBy: { name: 'asc' },
@@ -36,7 +38,7 @@ export async function fetchAmazonProductData(
       name: `Produto Amazon ${asin}`,
       totalPrice: 0,
       imageUrl: `https://m.media-amazon.com/images/I/${asin}.jpg`,
-      url: `https://www.amazon.com.br/dp/${asin}?tag=lucas-picks-20`,
+      url: `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_LINK_TAG}`,
     };
   } catch (err) {
     console.error('Erro ao buscar dados da Amazon:', err);

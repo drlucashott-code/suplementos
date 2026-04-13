@@ -47,6 +47,8 @@ export interface AmazonImportResult {
   error?: string;
 }
 
+const AMAZON_LINK_TAG = process.env.AMAZON_LINK_TAG ?? process.env.AMAZON_PARTNER_TAG ?? "";
+
 export async function getProductById(id: string) {
   try {
     return await prisma.dynamicProduct.findUnique({
@@ -71,7 +73,7 @@ export async function fetchAmazonProductData(
       totalPrice: 63.99,
       brand: 'Marca Amazon',
       imageUrl: `https://m.media-amazon.com/images/I/${asin}.jpg`,
-      url: `https://www.amazon.com.br/dp/${asin}?tag=lucas-picks-20`,
+      url: `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_LINK_TAG}`,
     };
   } catch (err) {
     console.error('Erro ao buscar dados da Amazon:', err);

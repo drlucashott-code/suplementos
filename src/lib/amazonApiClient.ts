@@ -160,6 +160,7 @@ type SearchAmazonItemsInput = {
 const AMAZON_ACCESS_KEY = process.env.AMAZON_ACCESS_KEY;
 const AMAZON_SECRET_KEY = process.env.AMAZON_SECRET_KEY;
 const AMAZON_PARTNER_TAG = process.env.AMAZON_PARTNER_TAG;
+const AMAZON_LINK_TAG = process.env.AMAZON_LINK_TAG ?? AMAZON_PARTNER_TAG;
 const AMAZON_HOST = process.env.AMAZON_HOST ?? "webservices.amazon.com.br";
 const AMAZON_REGION = process.env.AMAZON_REGION ?? "us-east-1";
 const AMAZON_SERVICE = "ProductAdvertisingAPI";
@@ -599,14 +600,31 @@ function getListingDisplayAmount(listing?: AmazonListing | null): string {
 
 function buildAffiliateUrl(asin?: string, detailPageUrl?: string) {
   if (detailPageUrl) {
-    return detailPageUrl;
+    if (!AMAZON_LINK_TAG) {
+      return detailPageUrl;
+    }
+    try {
+      const parsed = new URL(detailPageUrl);
+      parsed.searchParams.set("tag", AMAZON_LINK_TAG);
+      return parsed.toString();
+    } catch {
+      const hasTag = /[?&]tag=/.test(detailPageUrl);
+      if (hasTag) {
+        return detailPageUrl.replace(
+          /([?&]tag=)[^&]+/,
+          `$1${AMAZON_LINK_TAG}`
+        );
+      }
+      const joiner = detailPageUrl.includes("?") ? "&" : "?";
+      return `${detailPageUrl}${joiner}tag=${AMAZON_LINK_TAG}`;
+    }
   }
 
   if (!asin) {
     return "";
   }
 
-  return `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG ?? ""}`;
+  return `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_LINK_TAG ?? ""}`;
 }
 
 function getPreferredListing(

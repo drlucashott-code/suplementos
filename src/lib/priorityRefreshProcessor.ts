@@ -23,6 +23,7 @@ const queueUrl =
   process.env.AWS_PRIORITY_QUEUE_URL || process.env.AWS_QUEUE_URL || "";
 
 const AMAZON_PARTNER_TAG = process.env.AMAZON_PARTNER_TAG;
+const AMAZON_LINK_TAG = process.env.AMAZON_LINK_TAG ?? AMAZON_PARTNER_TAG;
 const BATCH_SIZE = 10;
 const RETRY_MISSING_ASINS_DELAY_MS = 500;
 
@@ -117,7 +118,7 @@ async function fetchAmazonPricesBatch(
       merchantName: snapshot.merchantName,
       affiliateUrl:
         snapshot.affiliateUrl ||
-        `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG}`,
+        `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_LINK_TAG}`,
       ratingAverage: null,
       ratingCount: null,
       status,

@@ -26,6 +26,7 @@ const sqsClient = new SQSClient({ region: process.env.AWS_REGION || "us-east-2" 
 const queueUrl =
   process.env.AWS_PRIORITY_QUEUE_URL || process.env.AWS_QUEUE_URL || "";
 const AMAZON_PARTNER_TAG = process.env.AMAZON_PARTNER_TAG;
+const AMAZON_LINK_TAG = process.env.AMAZON_LINK_TAG ?? AMAZON_PARTNER_TAG;
 const BATCH_SIZE = 10;
 
 function getFirstEnvValue(...keys: string[]) {
@@ -385,7 +386,7 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
           product,
           affiliateUrl:
             snapshot.affiliateUrl ||
-            `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG ?? ""}`,
+            `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_LINK_TAG ?? ""}`,
           result: {
             price,
             merchantName,
