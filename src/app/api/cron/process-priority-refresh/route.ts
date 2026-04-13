@@ -33,6 +33,9 @@ export async function POST(request: NextRequest) {
     console.log("[priority-cron] env", envSnapshot);
 
     const includeDebug = request.nextUrl.searchParams.get("debug") === "1";
+    if (includeDebug) {
+      process.env.AMAZON_CREATORS_DEBUG = "1";
+    }
     const summary = await processPriorityRefreshQueue({ debug: includeDebug });
     revalidateDynamicCatalogCategoryRefs(summary.updatedCategoryRefs);
     return NextResponse.json({

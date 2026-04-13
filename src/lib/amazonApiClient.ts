@@ -946,19 +946,48 @@ async function searchItemsViaPaapi(input: SearchAmazonItemsInput): Promise<Amazo
 async function getItemsViaCreators(input: GetAmazonItemsInput): Promise<AmazonItem[]> {
   const { sdk, api } = buildCreatorsApi();
   const request = new sdk.GetItemsRequestContent();
+  const debugCreators = ["1", "true", "yes"].includes(
+    (process.env.AMAZON_CREATORS_DEBUG ?? "").trim().toLowerCase()
+  );
 
   request.partnerTag = AMAZON_PARTNER_TAG;
   request.itemIds = input.itemIds;
   request.resources = normalizeCreatorsResources(input.resources);
 
   const primaryMarketplace = input.marketplace ?? DEFAULT_MARKETPLACE;
+  if (debugCreators) {
+    console.log("[creators] getItems request", {
+      marketplace: primaryMarketplace,
+      itemCount: request.itemIds?.length ?? 0,
+      resources: request.resources,
+      basePath: (api as { apiClient?: { basePath?: string } }).apiClient?.basePath,
+    });
+  }
+
   let response = await api.getItems(primaryMarketplace, request);
   let items = Array.isArray(response?.itemsResult?.items) ? response.itemsResult.items : [];
+  if (debugCreators) {
+    console.log("[creators] getItems response", {
+      marketplace: primaryMarketplace,
+      items: items.length,
+      errors: response?.errors ?? null,
+    });
+  }
 
   if (items.length === 0 && primaryMarketplace.startsWith("www.")) {
     const fallbackMarketplace = primaryMarketplace.replace(/^www\./, "");
+    if (debugCreators) {
+      console.log("[creators] retry marketplace", fallbackMarketplace);
+    }
     response = await api.getItems(fallbackMarketplace, request);
     items = Array.isArray(response?.itemsResult?.items) ? response.itemsResult.items : [];
+    if (debugCreators) {
+      console.log("[creators] retry response", {
+        marketplace: fallbackMarketplace,
+        items: items.length,
+        errors: response?.errors ?? null,
+      });
+    }
   }
 
   if (items.length === 0 && response?.errors?.length) {
