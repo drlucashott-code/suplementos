@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       summary,
-      ...(includeDebug ? { env: envSnapshot } : {}),
+      ...(includeDebug ? { env: envSnapshot, debug: summary.debug ?? null } : {}),
     });
   } catch (error) {
     console.error("Erro ao processar cron de fila prioritaria:", error);
