@@ -126,6 +126,7 @@ type CreatorsDebugSnapshot = {
 };
 
 let lastCreatorsDebug: CreatorsDebugSnapshot | null = null;
+let creatorsDebugEnabled = false;
 
 export function getLastCreatorsDebugSnapshot() {
   return lastCreatorsDebug;
@@ -133,6 +134,10 @@ export function getLastCreatorsDebugSnapshot() {
 
 export function resetCreatorsDebugSnapshot() {
   lastCreatorsDebug = null;
+}
+
+export function setCreatorsDebugEnabled(value: boolean) {
+  creatorsDebugEnabled = value;
 }
 
 type GetAmazonItemsInput = {
@@ -766,9 +771,11 @@ export async function fetchAmazonPriceSnapshots(
     provider === "creators"
       ? ["ItemInfo.Title", "Offers.Listings.Type", ...baseResources]
       : baseResources;
-  const debugCreators = ["1", "true", "yes"].includes(
-    (process.env.AMAZON_CREATORS_DEBUG ?? "").trim().toLowerCase()
-  );
+  const debugCreators =
+    creatorsDebugEnabled ||
+    ["1", "true", "yes"].includes(
+      (process.env.AMAZON_CREATORS_DEBUG ?? "").trim().toLowerCase()
+    );
   if (debugCreators) {
     lastCreatorsDebug = {
       request: {
@@ -1009,7 +1016,21 @@ async function getItemsViaCreators(input: GetAmazonItemsInput): Promise<AmazonIt
     };
   }
 
-  let response = await api.getItems(primaryMarketplace, request);
+  let response: { itemsResult?: { items?: unknown[] }; errors?: unknown[] } | null = null;
+  try {
+    response = await api.getItems(primaryMarketplace, request);
+  } catch (error) {
+    if (debugCreators) {
+      lastCreatorsDebug = {
+        ...(lastCreatorsDebug ?? {}),
+        response: {
+          marketplace: primaryMarketplace,
+          error: error instanceof Error ? error.message : "erro desconhecido",
+        },
+      };
+    }
+    throw error;
+  }
   let items = Array.isArray(response?.itemsResult?.items) ? response.itemsResult.items : [];
   if (debugCreators) {
     console.log("[creators] getItems response", {

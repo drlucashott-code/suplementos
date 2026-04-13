@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLastCreatorsDebugSnapshot, resetCreatorsDebugSnapshot } from "@/lib/amazonApiClient";
+import {
+  getLastCreatorsDebugSnapshot,
+  resetCreatorsDebugSnapshot,
+  setCreatorsDebugEnabled,
+} from "@/lib/amazonApiClient";
 import { processPriorityRefreshQueueV2 } from "@/lib/priorityRefreshProcessorV2";
 import { revalidateDynamicCatalogCategoryRefs } from "@/lib/dynamicCatalogRevalidation";
 
@@ -36,7 +40,10 @@ export async function POST(request: NextRequest) {
     const includeDebug = request.nextUrl.searchParams.get("debug") === "1";
     if (includeDebug) {
       process.env.AMAZON_CREATORS_DEBUG = "1";
+      setCreatorsDebugEnabled(true);
       resetCreatorsDebugSnapshot();
+    } else {
+      setCreatorsDebugEnabled(false);
     }
     const summary = await processPriorityRefreshQueueV2({ debug: includeDebug });
     revalidateDynamicCatalogCategoryRefs(summary.updatedCategoryRefs);
