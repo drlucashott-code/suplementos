@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import creatorsSdkBundled from "../../vendor/creatorsapi-nodejs-sdk/dist/index.js";
 
 export type AmazonListing = {
   IsBuyBoxWinner?: boolean;
@@ -349,6 +350,12 @@ function normalizeCreatorsPriceFilter(value: number) {
 
 function loadCreatorsSdk(): CreatorsSdkModule {
   if (creatorsSdkCache) {
+    return creatorsSdkCache;
+  }
+
+  const bundled = creatorsSdkBundled as Partial<CreatorsSdkModule>;
+  if (isCreatorsSdkModule(bundled)) {
+    creatorsSdkCache = bundled as CreatorsSdkModule;
     return creatorsSdkCache;
   }
 
