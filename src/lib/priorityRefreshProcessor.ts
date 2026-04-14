@@ -296,32 +296,18 @@ export async function processPriorityRefreshQueue(params?: { debug?: boolean }) 
 
   const runId = crypto.randomUUID();
 
-  await prisma.$executeRaw`
-    INSERT INTO "PriorityRefreshRun" (
-      "id",
-      "source",
-      "status",
-      "startedAt",
-      "createdAt",
-      "updatedAt",
-      "processedMessages",
-      "uniqueAsins",
-      "updatedProducts",
-      "skippedProducts"
-    )
-    VALUES (
-      ${runId},
-      'sqs_priority',
-      'running',
-      NOW(),
-      NOW(),
-      NOW(),
-      0,
-      0,
-      0,
-      0
-    )
-  `;
+  await prisma.priorityRefreshRun.create({
+    data: {
+      id: runId,
+      source: "sqs_priority",
+      status: "running",
+      startedAt: new Date(),
+      processedMessages: 0,
+      uniqueAsins: 0,
+      updatedProducts: 0,
+      skippedProducts: 0,
+    },
+  });
 
   const summary: PriorityRefreshRunSummary = {
     processedMessages: 0,
@@ -466,39 +452,37 @@ export async function processPriorityRefreshQueue(params?: { debug?: boolean }) 
       summary.updatedAsins = Array.from(new Set(summary.updatedAsins));
       summary.updatedProducts = summary.updatedAsins.length;
 
-      await prisma.$executeRaw`
-      UPDATE "PriorityRefreshRun"
-      SET
-        "status" = 'success',
-        "finishedAt" = NOW(),
-        "processedMessages" = ${summary.processedMessages},
-        "uniqueAsins" = ${summary.uniqueAsins},
-        "updatedProducts" = ${summary.updatedProducts},
-        "skippedProducts" = ${summary.skippedProducts},
-        "updatedAsins" = ${JSON.stringify(summary.updatedAsins)}::jsonb,
-        "updatedAt" = NOW()
-      WHERE "id" = ${runId}
-    `;
+    await prisma.priorityRefreshRun.update({
+      where: { id: runId },
+      data: {
+        status: "success",
+        finishedAt: new Date(),
+        processedMessages: summary.processedMessages,
+        uniqueAsins: summary.uniqueAsins,
+        updatedProducts: summary.updatedProducts,
+        skippedProducts: summary.skippedProducts,
+        updatedAsins: summary.updatedAsins,
+      },
+    });
 
     return summary;
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Erro desconhecido no processamento";
 
-    await prisma.$executeRaw`
-      UPDATE "PriorityRefreshRun"
-      SET
-        "status" = 'error',
-        "finishedAt" = NOW(),
-        "processedMessages" = ${summary.processedMessages},
-        "uniqueAsins" = ${summary.uniqueAsins},
-        "updatedProducts" = ${summary.updatedProducts},
-        "skippedProducts" = ${summary.skippedProducts},
-        "updatedAsins" = ${JSON.stringify(summary.updatedAsins)}::jsonb,
-        "errorMessage" = ${errorMessage},
-        "updatedAt" = NOW()
-      WHERE "id" = ${runId}
-    `;
+    await prisma.priorityRefreshRun.update({
+      where: { id: runId },
+      data: {
+        status: "error",
+        finishedAt: new Date(),
+        processedMessages: summary.processedMessages,
+        uniqueAsins: summary.uniqueAsins,
+        updatedProducts: summary.updatedProducts,
+        skippedProducts: summary.skippedProducts,
+        updatedAsins: summary.updatedAsins,
+        errorMessage,
+      },
+    });
 
     throw error;
   }
