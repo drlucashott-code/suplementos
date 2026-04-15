@@ -62,7 +62,9 @@ function getDerivedMetricValue(
   attributes: Record<string, string | number | undefined>,
   totalPrice: number
 ) {
-  const shouldBypassExplicitMetric = key === "precoPor100g";
+  const normalizedMetricKey = key.toLowerCase();
+  const shouldBypassExplicitMetric =
+    normalizedMetricKey === "precopor100g" || normalizedMetricKey === "precopor100ml";
   const explicitValue = getNumericAttribute(attributes, key);
   if (!shouldBypassExplicitMetric && explicitValue > 0) return explicitValue;
   if (totalPrice <= 0) return 0;
@@ -83,46 +85,50 @@ function getDerivedMetricValue(
     "gramasCreatinaPuraNoPote"
   );
 
-  switch (key) {
-    case "precoPorBarra":
+  switch (normalizedMetricKey) {
+    case "precoporbarra":
       return unitsPerBox > 0 ? totalPrice / unitsPerBox : 0;
-    case "precoPorUnidade":
+    case "precoporunidade":
       return unitsPerPack > 0
         ? totalPrice / unitsPerPack
         : units > 0
           ? totalPrice / units
           : 0;
-    case "precoPorDose":
+    case "precopordose":
       return numberOfDoses > 0 ? totalPrice / numberOfDoses : 0;
-    case "precoPorMl":
+    case "precoporml":
       return getNumericAttribute(attributes, "volumeMl") > 0
         ? totalPrice / getNumericAttribute(attributes, "volumeMl")
         : 0;
-    case "precoPorGrama":
+    case "precopor100ml":
+      return getNumericAttribute(attributes, "volumeMl") > 0
+        ? (totalPrice / getNumericAttribute(attributes, "volumeMl")) * 100
+        : 0;
+    case "precoporgrama":
       return getNumericAttribute(attributes, "weightGrams") > 0
         ? totalPrice / getNumericAttribute(attributes, "weightGrams")
         : 0;
-    case "precoPor100g":
+    case "precopor100g":
       return getNumericAttribute(attributes, "weightGrams") > 0
         ? (totalPrice / getNumericAttribute(attributes, "weightGrams")) * 100
         : 0;
-    case "precoPorMetro":
+    case "precopormetro":
       return getNumericAttribute(attributes, "meters") > 0
         ? totalPrice / getNumericAttribute(attributes, "meters")
         : 0;
-    case "precoPorLavagem":
+    case "precoporlavagem":
       return getNumericAttribute(attributes, "washes") > 0
         ? totalPrice / getNumericAttribute(attributes, "washes")
         : 0;
-    case "precoPorCapsula":
+    case "precoporcapsula":
       return getNumericAttribute(attributes, "capsules") > 0
         ? totalPrice / getNumericAttribute(attributes, "capsules")
         : 0;
-    case "precoPorGramaProteina":
+    case "precoporgramaproteina":
       return totalProteinInGrams > 0 ? totalPrice / totalProteinInGrams : 0;
-    case "precoPor100MgCafeina":
+    case "precopor100mgcafeina":
       return cafeinaTotalMg > 0 ? (totalPrice / cafeinaTotalMg) * 100 : 0;
-    case "precoPorGramaCreatina": {
+    case "precoporgramacreatina": {
       const creatinaPorDose = getNumericAttribute(attributes, "creatinaPorDose");
       const explicitPricePerDose = getNumericAttribute(attributes, "precoPorDose");
       const derivedPricePerDose =

@@ -14,6 +14,7 @@ import {
   getDynamicImportRunProgress,
   getLatestDynamicImportRun,
   applyDynamicAttributesFromList,
+  downloadDynamicRawSnapshot,
   startDynamicDiscovery,
   startDynamicImportViaAPI,
 } from './actions';
@@ -93,7 +94,7 @@ export default function ImportadorDynamicAPI() {
   const [requiredTitleRaw, setRequiredTitleRaw] = useState('');
   const [forbiddenTitleRaw, setForbiddenTitleRaw] = useState('');
   const [enableImportValidation, setEnableImportValidation] = useState(false);
-  const [saveRawData, setSaveRawData] = useState(false);
+  const [downloadingRaw, setDownloadingRaw] = useState(false);
   const [autoFillAttributes, setAutoFillAttributes] = useState(false);
   const [discoveryKeywordsRaw, setDiscoveryKeywordsRaw] = useState('');
   const [discoveryBrandsRaw, setDiscoveryBrandsRaw] = useState('');
@@ -239,7 +240,6 @@ export default function ImportadorDynamicAPI() {
       requiredTitleRaw,
       forbiddenTitleRaw,
       enableImportValidation,
-      saveRawData,
       autoFillAttributes,
       discoveredItems,
     });
@@ -265,6 +265,35 @@ export default function ImportadorDynamicAPI() {
     if (res.error) {
       alert(res.error);
     }
+  };
+
+  const handleDownloadRawSnapshot = async () => {
+    if (!asins.trim()) {
+      alert('Cole ao menos um ASIN para baixar o JSON completo.');
+      return;
+    }
+
+    setDownloadingRaw(true);
+    setLogs((previous) => ['Baixando JSON completo da Amazon...', ...previous]);
+
+    const res = await downloadDynamicRawSnapshot({
+      asinsRaw: asins,
+    });
+
+    if (!('success' in res) || !res.success) {
+      const message = 'error' in res && res.error ? res.error : 'Falha ao baixar JSON completo.';
+      alert(message);
+      setLogs((previous) => [message, ...previous]);
+      setDownloadingRaw(false);
+      return;
+    }
+
+    const lines = [
+      `JSON completo salvo em ${res.outputPaths.join(' | ')}`,
+      `JSON completo: ${res.returned}/${res.requested} itens. Faltando: ${res.missing}`,
+    ];
+    setLogs((previous) => [...lines, ...previous]);
+    setDownloadingRaw(false);
   };
 
   const handleDiscover = async () => {
@@ -663,30 +692,6 @@ export default function ImportadorDynamicAPI() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="text-sm font-black text-gray-900">
-                    Baixar dados completos (JSON)
-                  </div>
-                  <div className="text-xs font-semibold text-gray-500">
-                    Salva um JSON bruto da Amazon para revisÃ£o posterior.
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSaveRawData((current) => !current)}
-                  className={`rounded-xl px-4 py-2 text-xs font-black transition-all ${
-                    saveRawData
-                      ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  {saveRawData ? 'Ativado' : 'Desativado'}
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="text-sm font-black text-gray-900">
                     Preenchimento automatico de atributos
                   </div>
                   <div className="text-xs font-semibold text-gray-500">
@@ -717,6 +722,16 @@ export default function ImportadorDynamicAPI() {
                 value={asins}
                 onChange={(e) => setAsins(e.target.value)}
               />
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleDownloadRawSnapshot}
+                  disabled={downloadingRaw || running}
+                  className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-black text-blue-700 transition-all hover:bg-blue-100 disabled:opacity-50"
+                >
+                  {downloadingRaw ? 'Baixando JSON...' : 'Baixar JSON completo'}
+                </button>
+              </div>
             </div>
 
             <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">

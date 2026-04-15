@@ -9,6 +9,7 @@ import {
   getAmazonItemAffiliateUrl,
   getAmazonItemMerchantName,
   getAmazonItemPrice,
+  getAmazonItemProgramAndSavePrice,
   getAmazonItems,
   getAmazonItemsRaw,
   searchAmazonItems as searchAmazonCatalogItems,
@@ -30,6 +31,7 @@ const IMPORT_DEFAULT_VISIBILITY = 'pending' as const;
 
 type PriceResult = {
   price: number;
+  programAndSavePrice: number | null;
   merchantName: string;
   item?: AmazonItem;
 };
@@ -1040,6 +1042,10 @@ async function fetchAmazonPrice(
       "ItemInfo.Title",
       "ItemInfo.ByLineInfo",
       "Images.Primary.Large",
+      "Offers.Listings.Type",
+      "OffersV2.Listings.Type",
+      "Offers.Listings.IsBuyBoxWinner",
+      "OffersV2.Listings.IsBuyBoxWinner",
       "Offers.Listings.Price",
       "OffersV2.Listings.Price",
       "Offers.Listings.MerchantInfo",
@@ -1054,6 +1060,7 @@ async function fetchAmazonPrice(
 
   return {
     price: getAmazonItemPrice(item),
+    programAndSavePrice: getAmazonItemProgramAndSavePrice(item),
     merchantName: getAmazonItemMerchantName(item) ?? "Desconhecido",
     item,
   };
@@ -1118,6 +1125,7 @@ function hasTooManyRequestsError(raw: unknown) {
 const RAW_BATCH_DELAY_MS = Number(process.env.AMAZON_RAW_BATCH_DELAY_MS ?? 600);
 const RAW_RETRY_LIMIT = Number(process.env.AMAZON_RAW_RETRY_LIMIT ?? 3);
 const RAW_RETRY_DELAY_MS = Number(process.env.AMAZON_RAW_RETRY_DELAY_MS ?? 1500);
+const IMPORT_PRICE_DELAY_MS = Number(process.env.AMAZON_IMPORT_PRICE_DELAY_MS ?? 250);
 
 async function fetchRawItemsForAsins(asins: string[]) {
   let attempt = 0;
@@ -1255,6 +1263,26 @@ async function persistRawImportSnapshot(asins: string[], runId: string) {
   };
 }
 
+export async function downloadDynamicRawSnapshot(input: { asinsRaw: string }) {
+  const asinList = input.asinsRaw
+    .split(/[\s,]+/)
+    .map((a) => a.trim().toUpperCase())
+    .filter(Boolean);
+
+  if (asinList.length === 0) {
+    return { error: "Cole ao menos um ASIN para baixar o JSON completo." };
+  }
+
+  const runId = crypto.randomUUID();
+  const snapshot = await persistRawImportSnapshot(asinList, runId);
+
+  return {
+    success: true,
+    runId,
+    ...snapshot,
+  };
+}
+
 async function searchAmazonItems(
   keyword: string,
   page: number,
@@ -1323,25 +1351,6 @@ async function runDynamicImportJob(
   let skippedItems = 0;
   let errorItems = 0;
   const errorAsins: string[] = [];
-
-  if (filters.saveRawData) {
-    try {
-      logs.push("Baixando JSON completo da Amazon...");
-      await updateImportRun(runId, { logs });
-      const snapshot = await persistRawImportSnapshot(asinList, runId);
-      logs.push(
-        `JSON completo salvo em ${snapshot.outputPaths.join(" | ")}`
-      );
-      logs.push(
-        `JSON completo: ${snapshot.returned}/${snapshot.requested} itens. Faltando: ${snapshot.missing}`
-      );
-      await updateImportRun(runId, { logs });
-    } catch (error) {
-      console.error(error);
-      logs.push("Falha ao salvar JSON completo. Importacao continua.");
-      await updateImportRun(runId, { logs });
-    }
-  }
 
   await updateImportRun(runId, { logs });
 
@@ -1422,7 +1431,9 @@ async function runDynamicImportJob(
     }
 
     try {
-      await delay(2000);
+      if (IMPORT_PRICE_DELAY_MS > 0) {
+        await delay(IMPORT_PRICE_DELAY_MS);
+      }
 
       const previousDecision = decisionMap.get(asin);
 
@@ -1497,7 +1508,7 @@ async function runDynamicImportJob(
         continue;
       }
 
-      const { price, merchantName, item } = result;
+      const { price, programAndSavePrice, merchantName, item } = result;
 
       if (merchantName === "Loja Suplemento") {
         await upsertCategoryAsinDecision({
@@ -1580,6 +1591,13 @@ async function runDynamicImportJob(
         seller: merchantName,
         asin,
       };
+      if (
+        typeof programAndSavePrice === "number" &&
+        Number.isFinite(programAndSavePrice) &&
+        programAndSavePrice > 0
+      ) {
+        baseAttributes.precoProgramaPoupe = Number(programAndSavePrice.toFixed(2));
+      }
       const attributes =
         filters.autoFillAttributes === false
           ? baseAttributes
@@ -1621,6 +1639,14 @@ async function runDynamicImportJob(
       processedItems += 1;
       if (price === 0) {
         logs.push(`! ${asin}: Importado sem preco`);
+      } else if (
+        typeof programAndSavePrice === "number" &&
+        Number.isFinite(programAndSavePrice) &&
+        programAndSavePrice > 0
+      ) {
+        logs.push(
+          `OK R$ ${price.toFixed(2)} | P&P R$ ${programAndSavePrice.toFixed(2)} | ${asin} | ${merchantName}`
+        );
       } else {
         logs.push(`OK R$ ${price.toFixed(2)} | ${asin} | ${merchantName}`);
       }

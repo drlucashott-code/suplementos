@@ -203,6 +203,64 @@ const formatPetTypeValue = (value: string) => {
   return value;
 };
 
+const getPetTypeTokens = (value: string) => {
+  const normalized = removeAccents(value).toLowerCase().replace(/\s+/g, "");
+
+  if (
+    normalized === "cachorro/gato" ||
+    normalized === "cachorroegato" ||
+    normalized === "cachorro,gato" ||
+    normalized === "cao/gato" ||
+    normalized === "caoegato"
+  ) {
+    return ["cao", "gato"];
+  }
+
+  if (normalized === "cachorro" || normalized === "cao") return ["cao"];
+  if (normalized === "gato") return ["gato"];
+
+  return normalized ? [normalized] : [];
+};
+
+const USO_LABEL_MAP: Record<string, string> = {
+  corpo: "Corpo",
+  maos: "Mãos",
+  rosto: "Rosto",
+  infantil: "Infantil",
+  intimo: "Íntimo",
+};
+
+const normalizeUsoToken = (value: string) => {
+  return removeAccents(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+};
+
+const formatUsoTokenLabel = (token: string) => {
+  const normalized = normalizeUsoToken(token).replace(/\s+/g, "");
+  if (!normalized) return token;
+  if (USO_LABEL_MAP[normalized]) return USO_LABEL_MAP[normalized];
+  return token.charAt(0).toLocaleUpperCase("pt-BR") + token.slice(1).toLocaleLowerCase("pt-BR");
+};
+
+const getUsoTokens = (value: string) => {
+  const normalized = removeAccents(value)
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) return [];
+
+  const parts = normalized
+    .split(/\/|,|\se\s/)
+    .map((item) => normalizeUsoToken(item))
+    .filter(Boolean);
+
+  return Array.from(new Set(parts));
+};
+
 const FLAVOR_LABEL_WORD_MAP: Record<string, string> = {
   limao: "limão",
   maca: "maçã",
@@ -289,6 +347,10 @@ const pickBestFlavorVariant = (variants: string[]) => {
 const formatPublicFilterValue = (value: string, config: DisplayConfigField) => {
   if (config.key === "tipo_pet") {
     return formatPetTypeValue(value);
+  }
+
+  if (config.key === "uso") {
+    return formatUsoTokenLabel(value);
   }
 
   if (config.type === "text" && isFlavorFilterField(config)) {
@@ -559,6 +621,31 @@ const buildBucketedFilterOptions = ({
       .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
   }
 
+  if (config.key === "tipo_pet") {
+    const petTokens = Array.from(new Set(values.flatMap((value) => getPetTypeTokens(value))))
+      .filter((value) => value === "cao" || value === "gato")
+      .sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+    if (petTokens.length > 0) {
+      return petTokens.map((value) => ({
+        value,
+        label: formatPublicFilterValue(value, config),
+      }));
+    }
+  }
+
+  if (config.key === "uso") {
+    const usoTokens = Array.from(new Set(values.flatMap((value) => getUsoTokens(value))))
+      .sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+    if (usoTokens.length > 0) {
+      return usoTokens.map((value) => ({
+        value,
+        label: formatPublicFilterValue(value, config),
+      }));
+    }
+  }
+
   if (config.type !== "number" || !bucketConfig || numericValues.length <= 6) {
     return sortFilterValues(values, config.type).map((value) => ({
       value,
@@ -621,8 +708,11 @@ const getDerivedAttributeMetric = (
   key: string,
   totalPrice: number
 ) => {
+  const normalizedMetricKey = key.toLowerCase();
   const shouldBypassExplicitMetric =
-    key === "precoPorGramaCreatina" || key === "precoPor100g";
+    normalizedMetricKey === "precoporgramacreatina" ||
+    normalizedMetricKey === "precopor100g" ||
+    normalizedMetricKey === "precopor100ml";
   const explicitValue = getNumericAttribute(attrs, key);
   if (!shouldBypassExplicitMetric && explicitValue > 0) {
     return explicitValue;
@@ -649,46 +739,50 @@ const getDerivedAttributeMetric = (
   const cafeinaTotalMg = getNumericAttribute(attrs, "cafeinaTotalMg");
   const creatinaPorDose = getNumericAttribute(attrs, "creatinaPorDose");
 
-  switch (key) {
-    case "precoPorBarra":
+  switch (normalizedMetricKey) {
+    case "precoporbarra":
       return unitsPerBox > 0 ? totalPrice / unitsPerBox : 0;
-    case "precoPorUnidade":
+    case "precoporunidade":
       return unitsPerPack > 0
         ? totalPrice / unitsPerPack
         : units > 0
           ? totalPrice / units
           : 0;
-    case "precoPorDose":
+    case "precopordose":
       return numberOfDoses > 0 ? totalPrice / numberOfDoses : 0;
-    case "precoPorMl":
+    case "precoporml":
       return getNumericAttribute(attrs, "volumeMl") > 0
         ? totalPrice / getNumericAttribute(attrs, "volumeMl")
         : 0;
-    case "precoPorGrama":
+    case "precopor100ml":
+      return getNumericAttribute(attrs, "volumeMl") > 0
+        ? (totalPrice / getNumericAttribute(attrs, "volumeMl")) * 100
+        : 0;
+    case "precoporgrama":
       return getNumericAttribute(attrs, "weightGrams") > 0
         ? totalPrice / getNumericAttribute(attrs, "weightGrams")
         : 0;
-    case "precoPor100g":
+    case "precopor100g":
       return getNumericAttribute(attrs, "weightGrams") > 0
         ? (totalPrice / getNumericAttribute(attrs, "weightGrams")) * 100
         : 0;
-    case "precoPorMetro":
+    case "precopormetro":
       return getNumericAttribute(attrs, "meters") > 0
         ? totalPrice / getNumericAttribute(attrs, "meters")
         : 0;
-    case "precoPorLavagem":
+    case "precoporlavagem":
       return getNumericAttribute(attrs, "washes") > 0
         ? totalPrice / getNumericAttribute(attrs, "washes")
         : 0;
-    case "precoPorCapsula":
+    case "precoporcapsula":
       return getNumericAttribute(attrs, "capsules") > 0
         ? totalPrice / getNumericAttribute(attrs, "capsules")
         : 0;
-    case "precoPorGramaProteina":
+    case "precoporgramaproteina":
       return totalProteinInGrams > 0 ? totalPrice / totalProteinInGrams : 0;
-    case "precoPor100MgCafeina":
+    case "precopor100mgcafeina":
       return cafeinaTotalMg > 0 ? (totalPrice / cafeinaTotalMg) * 100 : 0;
-    case "precoPorGramaCreatina": {
+    case "precoporgramacreatina": {
       const explicitPricePerDose = getNumericAttribute(attrs, "precoPorDose");
       const derivedPricePerDose =
         explicitPricePerDose > 0
@@ -754,30 +848,32 @@ const normalizeDisplayConfig = (rawConfig: unknown): DisplayConfigPayload => {
 };
 
 const getBestValueHelperText = (attributeKey?: string) => {
-  switch (attributeKey) {
-    case "precoPorGramaProteina":
+  switch ((attributeKey ?? "").toLowerCase()) {
+    case "precoporgramaproteina":
       return "Baseado em R$/g de proteina";
-    case "precoPor100MgCafeina":
+    case "precopor100mgcafeina":
       return "Baseado em R$/100mg de cafeina";
-    case "precoPorGramaCreatina":
+    case "precoporgramacreatina":
       return "Baseado em R$/g de creatina";
-    case "precoPorDose":
+    case "precopordose":
       return "Baseado em R$/dose";
-    case "precoPorMl":
+    case "precoporml":
       return "Baseado em R$/ml";
-    case "precoPorGrama":
+    case "precoporgrama":
       return "Baseado em R$/g";
-    case "precoPor100g":
+    case "precopor100g":
       return "Baseado em R$/100g";
-    case "precoPorMetro":
+    case "precopor100ml":
+      return "Baseado em R$/100ml";
+    case "precopormetro":
       return "Baseado em R$/metro";
-    case "precoPorLavagem":
+    case "precoporlavagem":
       return "Baseado em R$/lavagem";
-    case "precoPorCapsula":
+    case "precoporcapsula":
       return "Baseado em R$/capsula";
-    case "precoPorBarra":
+    case "precoporbarra":
       return "Baseado em R$/barra";
-    case "precoPorUnidade":
+    case "precoporunidade":
       return "Baseado em R$/unidade";
     default:
       return "";
@@ -1167,6 +1263,8 @@ export async function getDynamicCatalogData({
       const rawValue = String(attrs[config.key] || "").trim();
       const normalizedValue = rawValue.toLowerCase();
       const normalizedFlavorValue = normalizeFlavorFilterValue(rawValue);
+      const productPetTokens = config.key === "tipo_pet" ? getPetTypeTokens(rawValue) : [];
+      const productUsoTokens = config.key === "uso" ? getUsoTokens(rawValue) : [];
 
       const matchesAnySelected = selectedDynamic.some((selectedValue) => {
         const parsedRange = parseRangeFilterToken(selectedValue);
@@ -1180,6 +1278,16 @@ export async function getDynamicCatalogData({
 
         if (config.type === "text" && isFlavorFilterField(config)) {
           return normalizeFlavorFilterValue(selectedValue) === normalizedFlavorValue;
+        }
+
+        if (config.key === "tipo_pet") {
+          const selectedPetTokens = getPetTypeTokens(selectedValue);
+          return selectedPetTokens.some((token) => productPetTokens.includes(token));
+        }
+
+        if (config.key === "uso") {
+          const selectedUsoTokens = getUsoTokens(selectedValue);
+          return selectedUsoTokens.some((token) => productUsoTokens.includes(token));
         }
 
         return selectedValue === normalizedValue;
