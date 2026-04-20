@@ -4,18 +4,26 @@ on:
   workflow_dispatch:
 
 jobs:
-  run-sql:
+  revert-affiliate:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout do repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Instalar PostgreSQL client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
 
-      - name: Rodar script SQL
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Run revert script
+        run: npx tsx scripts/revertAffiliateTag.ts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: |
-          psql "$DATABASE_URL" -f scripts/revert_affiliate_tag.sql
