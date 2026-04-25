@@ -19,6 +19,7 @@ import {
 import { getDynamicVisibilityBoolean } from '@/lib/dynamicVisibility';
 import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { revalidateDynamicCatalogCategoryRefs } from '@/lib/dynamicCatalogRevalidation';
 import { dedupeDynamicCatalogCategoryRefs, type DynamicCatalogCategoryRef } from '@/lib/dynamicCatalogCache';
 
@@ -1729,13 +1730,31 @@ export async function startDynamicImportViaAPI(input: {
       logs: ["Fila criada. Preparando importacao..."],
     });
 
-  void runDynamicImportJob(run.id, input.asinsRaw, input.categoryId, {
-    requiredTitleRaw: input.requiredTitleRaw ?? "",
-    forbiddenTitleRaw: input.forbiddenTitleRaw ?? "",
-    enableImportValidation: input.enableImportValidation === true,
-    saveRawData: input.saveRawData === true,
-    autoFillAttributes: input.autoFillAttributes === true,
-  }, input.discoveredItems ?? []);
+  after(async () => {
+    try {
+      await runDynamicImportJob(run.id, input.asinsRaw, input.categoryId, {
+        requiredTitleRaw: input.requiredTitleRaw ?? "",
+        forbiddenTitleRaw: input.forbiddenTitleRaw ?? "",
+        enableImportValidation: input.enableImportValidation === true,
+        saveRawData: input.saveRawData === true,
+        autoFillAttributes: input.autoFillAttributes === true,
+      }, input.discoveredItems ?? []);
+    } catch (error) {
+      console.error('[dynamic-import] background job failed', {
+        runId: run.id,
+        error,
+      });
+      await updateImportRun(run.id, {
+        status: "failed",
+        finishedAt: new Date(),
+        logs: [
+          "Fila criada. Preparando importacao...",
+          "Falha critica ao executar a importacao em background.",
+          error instanceof Error ? error.message : String(error),
+        ],
+      });
+    }
+  });
 
   return { success: true, runId: run.id };
 }
@@ -2201,12 +2220,30 @@ export async function startDynamicDiscovery(input: {
     logs: ["Fila criada. Preparando descoberta de ASINs..."],
   });
 
-  void runDynamicDiscoveryJob({
-    keywordsRaw: input.keywordsRaw,
-    brandsRaw: input.brandsRaw,
-    maxPages,
-    priceRangesRaw: input.priceRangesRaw,
-    runId: run.id,
+  after(async () => {
+    try {
+      await runDynamicDiscoveryJob({
+        keywordsRaw: input.keywordsRaw,
+        brandsRaw: input.brandsRaw,
+        maxPages,
+        priceRangesRaw: input.priceRangesRaw,
+        runId: run.id,
+      });
+    } catch (error) {
+      console.error('[dynamic-discovery] background job failed', {
+        runId: run.id,
+        error,
+      });
+      await updateDiscoveryRun(run.id, {
+        status: "failed",
+        finishedAt: new Date(),
+        logs: [
+          "Fila criada. Preparando descoberta de ASINs...",
+          "Falha critica ao executar a descoberta em background.",
+          error instanceof Error ? error.message : String(error),
+        ],
+      });
+    }
   });
 
   return { success: true, runId: run.id };
