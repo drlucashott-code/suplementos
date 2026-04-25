@@ -6,6 +6,7 @@ import { getHomeCategories } from '../nova-categoria/actions';
 import {
   cancelDynamicDiscovery,
   cancelDynamicImport,
+  forceStopDynamicImport,
   forceStopDynamicDiscovery,
   getDynamicDiscoveryRun,
   getDynamicDiscoveryRunProgress,
@@ -265,6 +266,22 @@ export default function ImportadorDynamicAPI() {
     if (res.error) {
       alert(res.error);
     }
+  };
+
+  const handleForceStopImport = async () => {
+    if (!activeRunId) return;
+    const res = await forceStopDynamicImport(activeRunId);
+    if (res.error) {
+      alert(res.error);
+      return;
+    }
+
+    const run = await getDynamicImportRun(activeRunId);
+    if (run) {
+      setActiveRun(run as ImportRunState);
+      setLogs(run.logs);
+    }
+    setActiveRunId(null);
   };
 
   const handleDownloadRawSnapshot = async () => {
@@ -798,17 +815,25 @@ export default function ImportadorDynamicAPI() {
                     {activeRun.errorItems} erros
                   </div>
                   {running && (
-                    <button
-                      onClick={handleCancel}
-                      className="rounded-xl bg-red-600 px-4 py-2 text-xs font-black text-white transition-all hover:bg-red-700"
-                    >
-                      Cancelar importacao
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleCancel}
+                        className="rounded-xl bg-red-600 px-4 py-2 text-xs font-black text-white transition-all hover:bg-red-700"
+                      >
+                        Cancelar importacao
+                      </button>
+                      <button
+                        onClick={handleForceStopImport}
+                        className="rounded-xl border border-red-200 bg-white px-4 py-2 text-xs font-black text-red-700 transition-all hover:bg-red-50"
+                      >
+                        Forcar encerramento
+                      </button>
+                    </div>
                   )}
                 </div>
                 {running && (
                   <p className="mt-2 text-[11px] font-semibold text-gray-500">
-                    O cancelamento e avaliado a cada 50 itens processados.
+                    O cancelamento agora e avaliado item a item. Use forcar encerramento se a execucao travar.
                   </p>
                 )}
               </div>

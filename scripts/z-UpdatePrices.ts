@@ -20,6 +20,14 @@ const BATCH_SIZE = Math.min(
   10
 );
 const VARIATION_THRESHOLD = 0.2;
+const DB_RETRY_LIMIT = Math.max(
+  1,
+  Number(process.env.AMAZON_GLOBAL_DB_RETRY_LIMIT ?? 4)
+);
+const DB_RETRY_DELAY_MS = Math.max(
+  250,
+  Number(process.env.AMAZON_GLOBAL_DB_RETRY_DELAY_MS ?? 3000)
+);
 
 function getFirstEnvValue(...keys: string[]) {
   for (const key of keys) {
@@ -101,6 +109,59 @@ type PersistDynamicUpdateResult = {
   shouldRefreshPriceStats: boolean;
 };
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableDatabaseError(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? String((error as { code?: unknown }).code ?? "").toLowerCase()
+      : "";
+
+  return (
+    message.includes("can't reach database server") ||
+    message.includes("connection") ||
+    message.includes("timeout") ||
+    message.includes("timed out") ||
+    message.includes("socket") ||
+    message.includes("econnreset") ||
+    message.includes("econnrefused") ||
+    message.includes("enotfound") ||
+    message.includes("pooler") ||
+    code === "p1001"
+  );
+}
+
+async function withDatabaseRetry<T>(label: string, operation: () => Promise<T>): Promise<T> {
+  let attempt = 0;
+  let lastError: unknown;
+
+  while (attempt < DB_RETRY_LIMIT) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      attempt += 1;
+
+      if (!isRetryableDatabaseError(error) || attempt >= DB_RETRY_LIMIT) {
+        throw error;
+      }
+
+      const delayMs = DB_RETRY_DELAY_MS * attempt;
+      console.warn(
+        `[db-retry] ${label} falhou (tentativa ${attempt}/${DB_RETRY_LIMIT}). Nova tentativa em ${Math.round(
+          delayMs / 1000
+        )}s. Motivo: ${error instanceof Error ? error.message : String(error)}`
+      );
+      await sleep(delayMs);
+    }
+  }
+
+  throw lastError;
+}
+
 async function fetchAmazonPricesBatch(
   asins: string[]
 ): Promise<Record<string, PriceResult>> {
@@ -165,31 +226,35 @@ async function persistDynamicUpdate(
   const today = getPriceHistoryCanonicalDate();
 
   if (result && result.status === "OK") {
-    await prisma.dynamicProduct.update({
-      where: { id: product.id },
-      data: {
-        totalPrice: result.price,
-        availabilityStatus: "IN_STOCK",
-        lastValidPrice: result.price,
-        lastValidPriceAt: new Date(),
-        attributes: nextAttributes as Prisma.InputJsonValue,
-      },
-    });
+    await withDatabaseRetry(`dynamicProduct.update:${product.id}`, async () =>
+      prisma.dynamicProduct.update({
+        where: { id: product.id },
+        data: {
+          totalPrice: result.price,
+          availabilityStatus: "IN_STOCK",
+          lastValidPrice: result.price,
+          lastValidPriceAt: new Date(),
+          attributes: nextAttributes as Prisma.InputJsonValue,
+        },
+      })
+    );
 
-    await prisma.dynamicPriceHistory.upsert({
-      where: {
-        productId_date: { productId: product.id, date: today },
-      },
-      update: {
-        price: result.price,
-        updateCount: { increment: 1 },
-      },
-      create: {
-        productId: product.id,
-        date: today,
-        price: result.price,
-      },
-    });
+    await withDatabaseRetry(`dynamicPriceHistory.upsert:${product.id}`, async () =>
+      prisma.dynamicPriceHistory.upsert({
+        where: {
+          productId_date: { productId: product.id, date: today },
+        },
+        update: {
+          price: result.price,
+          updateCount: { increment: 1 },
+        },
+        create: {
+          productId: product.id,
+          date: today,
+          price: result.price,
+        },
+      })
+    );
 
     return {
       logStatus: `OK R$ ${result.price.toFixed(2)}`,
@@ -209,22 +274,24 @@ async function persistDynamicUpdate(
     outcome = "OUT_OF_STOCK";
   }
 
-  await prisma.dynamicProduct.update({
-    where: { id: product.id },
-    data: {
-      ...(result?.status === "OUT_OF_STOCK"
-        ? {
-            totalPrice: 0,
-            availabilityStatus: "OUT_OF_STOCK",
-          }
-        : result?.status === "EXCLUDED"
+  await withDatabaseRetry(`dynamicProduct.update:${product.id}`, async () =>
+    prisma.dynamicProduct.update({
+      where: { id: product.id },
+      data: {
+        ...(result?.status === "OUT_OF_STOCK"
           ? {
               totalPrice: 0,
+              availabilityStatus: "OUT_OF_STOCK",
             }
-          : {}),
-      attributes: nextAttributes as Prisma.InputJsonValue,
-    },
-  });
+          : result?.status === "EXCLUDED"
+            ? {
+                totalPrice: 0,
+              }
+            : {}),
+        attributes: nextAttributes as Prisma.InputJsonValue,
+      },
+    })
+  );
 
   return {
     logStatus,
@@ -246,21 +313,23 @@ async function finalizeGlobalRun(params: {
   counters: RunCounters;
   errorMessage?: string | null;
 }) {
-  await prisma.$executeRaw`
-    UPDATE "GlobalPriceRefreshRun"
-    SET
-      "status" = ${params.status},
-      "finishedAt" = NOW(),
-      "totalOffers" = ${params.counters.totalOffers},
-      "updatedOffers" = ${params.counters.updatedOffers},
-      "failedOffers" = ${params.counters.failedOffers},
-      "maxConsecutiveFailedOffers" = ${params.counters.maxConsecutiveFailedOffers},
-      "outOfStockOffers" = ${params.counters.outOfStockOffers},
-      "excludedOffers" = ${params.counters.excludedOffers},
-      "errorMessage" = ${params.errorMessage ?? null},
-      "updatedAt" = NOW()
-    WHERE "id" = ${params.runId}
-  `;
+  await withDatabaseRetry(`finalizeGlobalRun:${params.runId}`, async () =>
+    prisma.$executeRaw`
+      UPDATE "GlobalPriceRefreshRun"
+      SET
+        "status" = ${params.status},
+        "finishedAt" = NOW(),
+        "totalOffers" = ${params.counters.totalOffers},
+        "updatedOffers" = ${params.counters.updatedOffers},
+        "failedOffers" = ${params.counters.failedOffers},
+        "maxConsecutiveFailedOffers" = ${params.counters.maxConsecutiveFailedOffers},
+        "outOfStockOffers" = ${params.counters.outOfStockOffers},
+        "excludedOffers" = ${params.counters.excludedOffers},
+        "errorMessage" = ${params.errorMessage ?? null},
+        "updatedAt" = NOW()
+      WHERE "id" = ${params.runId}
+    `
+  );
 }
 
 async function updateAmazonPrices() {
@@ -288,85 +357,93 @@ async function updateAmazonPrices() {
   let currentFailedStreak = 0;
   const statsRefreshProductIds = new Set<string>();
 
-  await prisma.$executeRaw`
-    INSERT INTO "GlobalPriceRefreshRun" (
-      "id",
-      "status",
-      "startedAt",
-      "totalOffers",
-      "updatedOffers",
-      "failedOffers",
-      "maxConsecutiveFailedOffers",
-      "outOfStockOffers",
-      "excludedOffers",
-      "createdAt",
-      "updatedAt"
-    )
-    VALUES (
-      ${runId},
-      'running',
-      NOW(),
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      NOW(),
-      NOW()
-    )
-  `;
+  await withDatabaseRetry(`GlobalPriceRefreshRun.insert:${runId}`, async () =>
+    prisma.$executeRaw`
+      INSERT INTO "GlobalPriceRefreshRun" (
+        "id",
+        "status",
+        "startedAt",
+        "totalOffers",
+        "updatedOffers",
+        "failedOffers",
+        "maxConsecutiveFailedOffers",
+        "outOfStockOffers",
+        "excludedOffers",
+        "createdAt",
+        "updatedAt"
+      )
+      VALUES (
+        ${runId},
+        'running',
+        NOW(),
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        NOW(),
+        NOW()
+      )
+    `
+  );
 
   try {
-    await prisma.$executeRaw`
-      UPDATE "DynamicProduct"
-      SET
-        "lastValidPrice" = "totalPrice",
-        "lastValidPriceAt" = COALESCE("lastValidPriceAt", NOW()),
-        "availabilityStatus" = COALESCE("availabilityStatus", 'IN_STOCK'),
-        "updatedAt" = NOW()
-      WHERE
-        "totalPrice" > 0
-        AND ("lastValidPrice" IS NULL OR "lastValidPrice" <= 0)
-    `;
+    await withDatabaseRetry("DynamicProduct.bootstrapLastValidPrice", async () =>
+      prisma.$executeRaw`
+        UPDATE "DynamicProduct"
+        SET
+          "lastValidPrice" = "totalPrice",
+          "lastValidPriceAt" = COALESCE("lastValidPriceAt", NOW()),
+          "availabilityStatus" = COALESCE("availabilityStatus", 'IN_STOCK'),
+          "updatedAt" = NOW()
+        WHERE
+          "totalPrice" > 0
+          AND ("lastValidPrice" IS NULL OR "lastValidPrice" <= 0)
+      `
+    );
 
-    const dynamicProducts = await prisma.dynamicProduct.findMany({
-      where:
-        groupFilter || slugFilter
-          ? {
-              category: {
-                ...(groupFilter ? { group: groupFilter } : {}),
-                ...(slugFilter ? { slug: slugFilter } : {}),
-              },
-            }
-          : undefined,
-      select: {
-        id: true,
-        asin: true,
-        totalPrice: true,
-        name: true,
-        attributes: true,
-        category: {
-          select: {
-            group: true,
-            name: true,
-            slug: true,
-            displayConfig: true,
+    const dynamicProducts = await withDatabaseRetry("dynamicProduct.findMany", async () =>
+      prisma.dynamicProduct.findMany({
+        where:
+          groupFilter || slugFilter
+            ? {
+                category: {
+                  ...(groupFilter ? { group: groupFilter } : {}),
+                  ...(slugFilter ? { slug: slugFilter } : {}),
+                },
+              }
+            : undefined,
+        select: {
+          id: true,
+          asin: true,
+          totalPrice: true,
+          name: true,
+          attributes: true,
+          category: {
+            select: {
+              group: true,
+              name: true,
+              slug: true,
+              displayConfig: true,
+            },
           },
         },
-      },
-      orderBy: { name: "asc" },
-    });
+        orderBy: { name: "asc" },
+      })
+    );
 
     counters.totalOffers = dynamicProducts.length;
 
-    await prisma.$executeRaw`
-      UPDATE "GlobalPriceRefreshRun"
-      SET
-        "totalOffers" = ${counters.totalOffers},
-        "updatedAt" = NOW()
-      WHERE "id" = ${runId}
-    `;
+    await withDatabaseRetry(`GlobalPriceRefreshRun.totalOffers:${runId}`, async () =>
+      prisma.$executeRaw`
+        UPDATE "GlobalPriceRefreshRun"
+        SET
+          "totalOffers" = ${counters.totalOffers},
+          "updatedAt" = NOW()
+        WHERE "id" = ${runId}
+      `
+    );
 
     console.log(
       `Processando ${dynamicProducts.length} produtos em lotes de ${BATCH_SIZE}`
@@ -512,7 +589,9 @@ async function updateAmazonPrices() {
       console.log(
         `Atualizando estatisticas de preco para ${statsRefreshProductIds.size} produtos`
       );
-      await refreshDynamicProductPriceStatsBulk([...statsRefreshProductIds]);
+      await withDatabaseRetry("refreshDynamicProductPriceStatsBulk", async () =>
+        refreshDynamicProductPriceStatsBulk([...statsRefreshProductIds])
+      );
     }
 
     await finalizeGlobalRun({
@@ -521,7 +600,9 @@ async function updateAmazonPrices() {
       counters,
     });
 
-    await reconcileDynamicFallbackState();
+    await withDatabaseRetry("reconcileDynamicFallbackState:success", async () =>
+      reconcileDynamicFallbackState()
+    );
     console.log("Atualizacao finalizada com sucesso");
   } catch (error) {
     const errorMessage =
@@ -534,7 +615,9 @@ async function updateAmazonPrices() {
       errorMessage,
     });
 
-    await reconcileDynamicFallbackState();
+    await withDatabaseRetry("reconcileDynamicFallbackState:error", async () =>
+      reconcileDynamicFallbackState()
+    );
     throw error;
   }
 }

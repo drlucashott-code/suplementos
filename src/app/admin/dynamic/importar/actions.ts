@@ -1410,24 +1410,22 @@ async function runDynamicImportJob(
   const decisionMap = new Map(existingDecisions.map((decision) => [decision.asin, decision]));
 
   for (const asin of asinList) {
-    if (processedItems > 0 && processedItems % 50 === 0) {
-      const runState = await findDynamicImportRunById(runId);
+    const runState = await findDynamicImportRunById(runId);
 
-      if (runState?.cancelRequested) {
-        logs.push("Importacao interrompida pelo usuario.");
-        await updateImportRun(runId, {
-          status: "cancelled",
-          processedItems,
-          importedItems,
-          skippedItems,
-          errorItems,
-          finishedAt: new Date(),
-          logs,
-        });
-        revalidatePath("/admin/dynamic/produtos");
-        revalidatePath("/admin/dynamic/rejeitados");
-        return;
-      }
+    if (runState?.cancelRequested) {
+      logs.push("Importacao interrompida pelo usuario.");
+      await updateImportRun(runId, {
+        status: "cancelled",
+        processedItems,
+        importedItems,
+        skippedItems,
+        errorItems,
+        finishedAt: new Date(),
+        logs,
+      });
+      revalidatePath("/admin/dynamic/produtos");
+      revalidatePath("/admin/dynamic/rejeitados");
+      return;
     }
 
     try {
@@ -1878,6 +1876,36 @@ export async function cancelDynamicImport(runId: string) {
   await updateImportRun(runId, {
     cancelRequested: true,
   });
+
+  return { success: true };
+}
+
+export async function forceStopDynamicImport(runId: string) {
+  const run = await findDynamicImportRunById(runId);
+
+  if (!run) {
+    return { error: "Importacao nao encontrada." };
+  }
+
+  if (run.status !== "running") {
+    return { error: "Essa importacao ja nao esta em andamento." };
+  }
+
+  const normalizedRun = normalizeImportRun(run);
+  const logs = [
+    ...normalizedRun.logs,
+    "Importacao encerrada manualmente para destravar a fila.",
+  ];
+
+  await updateImportRun(runId, {
+    status: "failed",
+    cancelRequested: false,
+    finishedAt: new Date(),
+    logs,
+  });
+
+  revalidatePath("/admin/dynamic/produtos");
+  revalidatePath("/admin/dynamic/rejeitados");
 
   return { success: true };
 }
