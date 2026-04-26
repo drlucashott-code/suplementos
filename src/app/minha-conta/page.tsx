@@ -2,10 +2,50 @@ import Header from "@/app/Header";
 import { Prisma } from "@prisma/client";
 import SiteAccountWorkspace from "@/components/SiteAccountWorkspace";
 import { prisma } from "@/lib/prisma";
+import { isMissingRelationError } from "@/lib/prismaSchemaCompat";
 import { requireCurrentSiteUser } from "@/lib/siteAuth";
 
 export default async function MyAccountPage() {
   const user = await requireCurrentSiteUser();
+
+  const savedListsPromise = prisma
+    .$queryRaw<
+      Array<{
+        id: string;
+        slug: string;
+        title: string;
+        description: string | null;
+        isPublic: boolean;
+        ownerDisplayName: string;
+        ownerUsername: string | null;
+        itemsCount: number;
+      }>
+    >(Prisma.sql`
+      SELECT
+        l."id",
+        l."slug",
+        l."title",
+        l."description",
+        l."isPublic",
+        owner."displayName" AS "ownerDisplayName",
+        owner."username" AS "ownerUsername",
+        COUNT(i."id")::int AS "itemsCount",
+        MAX(s."createdAt") AS "savedAt"
+      FROM "SiteUserSavedList" s
+      INNER JOIN "SiteUserList" l ON l."id" = s."listId"
+      INNER JOIN "SiteUser" owner ON owner."id" = l."userId"
+      LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
+      WHERE s."userId" = ${user.id}
+      GROUP BY l."id", owner."displayName", owner."username"
+      ORDER BY "savedAt" DESC
+    `)
+    .catch((error) => {
+      if (isMissingRelationError(error, "SiteUserSavedList")) {
+        return [];
+      }
+
+      throw error;
+    });
 
   const [favorites, lists, savedLists, profileStats] = await Promise.all([
     prisma.$queryRaw<
@@ -74,35 +114,7 @@ export default async function MyAccountPage() {
       GROUP BY l."id"
       ORDER BY l."updatedAt" DESC
     `),
-    prisma.$queryRaw<
-      Array<{
-        id: string;
-        slug: string;
-        title: string;
-        description: string | null;
-        isPublic: boolean;
-        ownerDisplayName: string;
-        ownerUsername: string | null;
-        itemsCount: number;
-      }>
-    >(Prisma.sql`
-      SELECT
-        l."id",
-        l."slug",
-        l."title",
-        l."description",
-        l."isPublic",
-        owner."displayName" AS "ownerDisplayName",
-        owner."username" AS "ownerUsername",
-        COUNT(i."id")::int AS "itemsCount"
-      FROM "SiteUserSavedList" s
-      INNER JOIN "SiteUserList" l ON l."id" = s."listId"
-      INNER JOIN "SiteUser" owner ON owner."id" = l."userId"
-      LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
-      WHERE s."userId" = ${user.id}
-      GROUP BY l."id", owner."displayName", owner."username"
-      ORDER BY s."createdAt" DESC
-    `),
+    savedListsPromise,
     prisma.$queryRaw<
       Array<{
         createdAt: Date;

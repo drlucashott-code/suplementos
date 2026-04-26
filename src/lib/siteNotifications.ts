@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { isMissingColumnError, isMissingRelationError } from "@/lib/prismaSchemaCompat";
 
 export type SiteNotificationItem = {
   id: string;
@@ -20,35 +21,55 @@ export async function createSiteNotification(input: {
   href?: string | null;
   metadata?: Prisma.InputJsonValue;
 }) {
-  await prisma.siteUserNotification.create({
-    data: {
-      id: randomUUID(),
-      userId: input.userId,
-      type: input.type,
-      title: input.title,
-      body: input.body ?? null,
-      href: input.href ?? null,
-      metadata: input.metadata,
-    },
-  });
+  try {
+    await prisma.siteUserNotification.create({
+      data: {
+        id: randomUUID(),
+        userId: input.userId,
+        type: input.type,
+        title: input.title,
+        body: input.body ?? null,
+        href: input.href ?? null,
+        metadata: input.metadata,
+      },
+    });
+  } catch (error) {
+    if (isMissingRelationError(error, "SiteUserNotification")) {
+      return;
+    }
+
+    throw error;
+  }
 }
 
 export async function syncFavoriteNotifications(userId: string) {
-  const favorites = await prisma.siteUserFavorite.findMany({
-    where: { userId },
-    include: {
-      product: {
-        include: {
-          category: {
-            select: {
-              group: true,
-              slug: true,
+  let favorites;
+  try {
+    favorites = await prisma.siteUserFavorite.findMany({
+      where: { userId },
+      include: {
+        product: {
+          include: {
+            category: {
+              select: {
+                group: true,
+                slug: true,
+              },
             },
           },
         },
       },
-    },
-  });
+    });
+  } catch (error) {
+    if (
+      isMissingColumnError(error, "lastTrackedPrice") ||
+      isMissingColumnError(error, "lastTrackedAvailability")
+    ) {
+      return;
+    }
+
+    throw error;
+  }
 
   for (const favorite of favorites) {
     const currentPrice = favorite.product.totalPrice > 0 ? favorite.product.totalPrice : null;
@@ -116,11 +137,20 @@ export async function syncFavoriteNotifications(userId: string) {
 }
 
 export async function getSiteNotifications(userId: string) {
-  const rows = await prisma.siteUserNotification.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-  });
+  let rows;
+  try {
+    rows = await prisma.siteUserNotification.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+  } catch (error) {
+    if (isMissingRelationError(error, "SiteUserNotification")) {
+      return [];
+    }
+
+    throw error;
+  }
 
   return rows.map<SiteNotificationItem>((row) => ({
     id: row.id,
@@ -134,8 +164,16 @@ export async function getSiteNotifications(userId: string) {
 }
 
 export async function markAllNotificationsRead(userId: string) {
-  await prisma.siteUserNotification.updateMany({
-    where: { userId, isRead: false },
-    data: { isRead: true, readAt: new Date() },
-  });
+  try {
+    await prisma.siteUserNotification.updateMany({
+      where: { userId, isRead: false },
+      data: { isRead: true, readAt: new Date() },
+    });
+  } catch (error) {
+    if (isMissingRelationError(error, "SiteUserNotification")) {
+      return;
+    }
+
+    throw error;
+  }
 }
