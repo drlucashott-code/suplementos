@@ -3,12 +3,19 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isMissingRelationError } from "@/lib/prismaSchemaCompat";
-import { getCurrentSiteUser } from "@/lib/siteAuth";
+import {
+  getCurrentSiteUser,
+  isSiteUserVerified,
+  verificationRequiredResponse,
+} from "@/lib/siteAuth";
 
 export async function GET() {
   const user = await getCurrentSiteUser();
   if (!user) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  if (!isSiteUserVerified(user)) {
+    return verificationRequiredResponse();
   }
 
   const rows = await prisma
@@ -57,6 +64,9 @@ export async function POST(request: Request) {
   const user = await getCurrentSiteUser();
   if (!user) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  if (!isSiteUserVerified(user)) {
+    return verificationRequiredResponse();
   }
 
   const body = (await request.json()) as { listId?: string };
@@ -110,6 +120,9 @@ export async function DELETE(request: Request) {
   const user = await getCurrentSiteUser();
   if (!user) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  if (!isSiteUserVerified(user)) {
+    return verificationRequiredResponse();
   }
 
   const body = (await request.json()) as { listId?: string };

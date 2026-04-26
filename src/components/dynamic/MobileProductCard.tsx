@@ -55,6 +55,9 @@ const REPORT_REASONS = [
   "Outro",
 ] as const;
 
+const UNVERIFIED_ACCOUNT_MESSAGE =
+  "Para ativarmos a sua conta na Amazonpicks, precisamos que você confirme o seu endereço de email.";
+
 function getNumericAttribute(
   attributes: Record<string, string | number | undefined>,
   key: string
@@ -390,6 +393,7 @@ export function MobileProductCard({
   analysisTitleTemplate?: string;
 }) {
   const [saved, setSaved] = useState(false);
+  const [accountAlert, setAccountAlert] = useState<null | "unverified">(null);
   const [commentCount, setCommentCount] = useState(product.commentCount ?? 0);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState<(typeof REPORT_REASONS)[number]>(
@@ -581,6 +585,10 @@ export function MobileProductCard({
                 void toggleAccountFavorite(product.id, nextSaved).then((result) => {
                   if (result.unauthorized) {
                     router.push("/entrar");
+                    return;
+                  }
+                  if ("unverified" in result && result.unverified) {
+                    setAccountAlert("unverified");
                     return;
                   }
                   if (result.ok) {
@@ -908,6 +916,38 @@ export function MobileProductCard({
                   {reportState === "submitting" ? "Enviando..." : "Enviar"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {accountAlert ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 px-4"
+          onClick={() => setAccountAlert(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h4 className="text-lg font-black text-[#0F1111]">Confirmação pendente</h4>
+            <p className="mt-3 text-sm leading-6 text-[#565959]">{UNVERIFIED_ACCOUNT_MESSAGE}</p>
+
+            <div className="mt-5 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setAccountAlert(null)}
+                className="rounded-xl px-4 py-2 text-sm font-semibold text-[#2162A1] hover:text-[#174e87]"
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/minha-conta")}
+                className="inline-flex items-center rounded-xl bg-[#FFD814] px-4 py-2 text-sm font-bold text-[#0F1111] transition hover:bg-[#F7CA00]"
+              >
+                Ir para minha conta
+              </button>
             </div>
           </div>
         </div>

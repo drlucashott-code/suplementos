@@ -1052,8 +1052,12 @@ export default function SiteAccountWorkspace({
                   Confirmacao pendente
                 </p>
                 <p className="mt-2 text-sm font-medium text-[#7A2E0E]">
-                  Sua conta ja esta ativa, mas voce precisa confirmar o link enviado para{" "}
-                  <span className="font-bold">{currentUser.email}</span>.
+                  Para ativarmos a sua conta na Amazonpicks, precisamos que voce confirme o seu
+                  endereco de email em <span className="font-bold">{currentUser.email}</span>.
+                </p>
+                <p className="mt-2 text-sm text-[#7A2E0E]">
+                  Enquanto essa confirmação não for feita, favoritos, listas, comentários e outras
+                  interações ficam bloqueadas.
                 </p>
                 {verificationMessage ? (
                   <p className="mt-2 text-sm font-semibold text-[#B54708]">{verificationMessage}</p>

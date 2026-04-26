@@ -1,9 +1,8 @@
-'use server';
-
 import { randomBytes, scryptSync, timingSafeEqual, createHash, randomUUID } from "node:crypto";
 import { cache } from "react";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
@@ -30,6 +29,24 @@ export type AuthenticatedSiteUser = {
   role: string;
   isEmailVerified: boolean;
 };
+
+export function isSiteUserVerified(
+  user: Pick<AuthenticatedSiteUser, "isEmailVerified"> | null | undefined
+) {
+  return user?.isEmailVerified === true;
+}
+
+export function verificationRequiredResponse() {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "email_verification_required",
+      message:
+        "Para ativarmos a sua conta na Amazonpicks, precisamos que você confirme o seu endereço de email.",
+    },
+    { status: 403 }
+  );
+}
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();

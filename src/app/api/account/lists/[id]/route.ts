@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getCurrentSiteUser } from "@/lib/siteAuth";
+import {
+  getCurrentSiteUser,
+  isSiteUserVerified,
+  verificationRequiredResponse,
+} from "@/lib/siteAuth";
 
 export async function GET(
   _request: Request,
@@ -11,6 +15,9 @@ export async function GET(
 
   if (!user) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  if (!isSiteUserVerified(user)) {
+    return verificationRequiredResponse();
   }
 
   const { id } = await context.params;
@@ -110,6 +117,9 @@ export async function PATCH(
   if (!user) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  if (!isSiteUserVerified(user)) {
+    return verificationRequiredResponse();
+  }
 
   const { id } = await context.params;
 
@@ -163,6 +173,9 @@ export async function DELETE(
 
   if (!user) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  if (!isSiteUserVerified(user)) {
+    return verificationRequiredResponse();
   }
 
   const { id } = await context.params;

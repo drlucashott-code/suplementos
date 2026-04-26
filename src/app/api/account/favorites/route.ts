@@ -2,13 +2,20 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getCurrentSiteUser } from "@/lib/siteAuth";
+import {
+  getCurrentSiteUser,
+  isSiteUserVerified,
+  verificationRequiredResponse,
+} from "@/lib/siteAuth";
 
 export async function GET() {
   const user = await getCurrentSiteUser();
 
   if (!user) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  if (!isSiteUserVerified(user)) {
+    return verificationRequiredResponse();
   }
 
   const favorites = await prisma.$queryRaw<
@@ -78,6 +85,9 @@ export async function POST(request: Request) {
 
   if (!user) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  if (!isSiteUserVerified(user)) {
+    return verificationRequiredResponse();
   }
 
   try {

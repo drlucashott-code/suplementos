@@ -35,7 +35,7 @@ function emitFavoritesChange() {
 
 type SessionState = {
   authenticated?: boolean;
-  user?: { id: string; email: string; displayName: string } | null;
+  user?: { id: string; email: string; displayName: string; isEmailVerified?: boolean } | null;
 };
 
 let sessionCache:
@@ -103,7 +103,7 @@ export async function getCurrentSessionState() {
 
 export async function fetchAccountFavorites() {
   const session = await getCurrentSessionState();
-  if (!session.authenticated) {
+  if (!session.authenticated || session.user?.isEmailVerified === false) {
     favoritesCache = {
       value: [],
       expiresAt: Date.now() + FAVORITES_CACHE_TTL_MS,
@@ -170,6 +170,9 @@ export async function toggleAccountFavorite(productId: string, nextSaved: boolea
   if (!session.authenticated) {
     return { ok: false as const, unauthorized: true as const };
   }
+  if (session.user?.isEmailVerified === false) {
+    return { ok: false as const, unauthorized: false as const, unverified: true as const };
+  }
 
   const response = await fetch("/api/account/favorites", {
     method: nextSaved ? "POST" : "DELETE",
@@ -185,7 +188,10 @@ export async function toggleAccountFavorite(productId: string, nextSaved: boolea
       clearFavoritesCaches();
       return { ok: false as const, unauthorized: true as const };
     }
-    return { ok: false as const, unauthorized: false as const };
+    if (response.status === 403 || data.error === "email_verification_required") {
+      return { ok: false as const, unauthorized: false as const, unverified: true as const };
+    }
+    return { ok: false as const, unauthorized: false as const, unverified: false as const };
   }
 
   if (favoritesCache && !nextSaved) {
@@ -204,5 +210,5 @@ export async function toggleAccountFavorite(productId: string, nextSaved: boolea
   }
 
   emitFavoritesChange();
-  return { ok: true as const, unauthorized: false as const };
+  return { ok: true as const, unauthorized: false as const, unverified: false as const };
 }

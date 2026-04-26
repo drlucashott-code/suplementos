@@ -104,43 +104,34 @@ export default async function ProductDetailPage({
       <AmazonHeader />
 
       <div className="mx-auto max-w-[1500px] px-3 py-4 md:px-5">
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-[#565959]">
+          <Link
+            href={`/${row.categoryGroup}/${row.categorySlug}`}
+            className="font-semibold text-[#2162A1] hover:text-[#174e87]"
+          >
+            Voltar para {row.categoryName}
+          </Link>
+          <span>•</span>
+          <span>Produto individual</span>
+        </div>
+
         <section className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm md:p-5">
-          <div className="mb-5 flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-2 text-sm text-[#565959]">
-              <Link
-                href={`/${row.categoryGroup}/${row.categorySlug}`}
-                className="font-semibold text-[#2162A1] hover:text-[#174e87]"
-              >
-                Voltar para {row.categoryName}
-              </Link>
-              <span>•</span>
-              <span>Produto individual</span>
-            </div>
+          <h1 className="sr-only">{row.name}</h1>
 
-            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-              <div>
-                <h1 className="text-[24px] font-bold text-[#0F1111]">{row.name}</h1>
-                <p className="mt-1 text-[13px] text-[#565959]">
-                  Abra os comentários, respostas e interações deste produto em um lugar só.
-                </p>
-              </div>
-
-              <div id="comentarios" className="flex items-center gap-3">
-                <ProductCommentsSheet
-                  productId={row.id}
-                  productName={row.name}
-                  initialCount={row.commentsCount}
-                  initialOpen={openComments}
-                  hideTrigger
-                  inline
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="max-w-[360px]">
+          <div className="mx-auto max-w-[360px]">
             <BestDealProductCard item={item} category="produto_detalhe" />
           </div>
+        </section>
+
+        <section id="comentarios" className="mt-4">
+          <ProductCommentsSheet
+            productId={row.id}
+            productName={row.name}
+            initialCount={row.commentsCount}
+            initialOpen={openComments}
+            hideTrigger
+            inline
+          />
         </section>
       </div>
     </main>

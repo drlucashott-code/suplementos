@@ -38,6 +38,9 @@ type LoadCommentsResponse = {
   currentUserId?: string | null;
 };
 
+const UNVERIFIED_ACCOUNT_MESSAGE =
+  "Para ativarmos a sua conta na Amazonpicks, precisamos que você confirme o seu endereço de email.";
+
 function formatRelativeTime(value: string) {
   const date = new Date(value);
   const diffSeconds = Math.max(1, Math.floor((Date.now() - date.getTime()) / 1000));
@@ -115,9 +118,10 @@ export function ProductCommentsSheet({
   const [replyParentId, setReplyParentId] = useState<string | null>(null);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [showLoginAlert, setShowLoginAlert] = useState(false);
-  const [status, setStatus] = useState<"idle" | "loading" | "submitting" | "unauthorized" | "error">(
-    "idle"
-  );
+  const [showVerificationAlert, setShowVerificationAlert] = useState(false);
+  const [status, setStatus] = useState<
+    "idle" | "loading" | "submitting" | "unauthorized" | "verificationRequired" | "error"
+  >("idle");
 
   const replyingTo = useMemo(() => {
     if (!replyParentId) return null;
@@ -135,6 +139,11 @@ export function ProductCommentsSheet({
   function handleUnauthorizedState() {
     setStatus("unauthorized");
     setShowLoginAlert(true);
+  }
+
+  function handleVerificationRequiredState() {
+    setStatus("verificationRequired");
+    setShowVerificationAlert(true);
   }
 
   async function loadComments() {
@@ -193,6 +202,10 @@ export function ProductCommentsSheet({
           handleUnauthorizedState();
           return;
         }
+        if (response.status === 403 || data.error === "email_verification_required") {
+          handleVerificationRequiredState();
+          return;
+        }
 
         if (!response.ok || !data.ok) {
           throw new Error(data.error || "comment_update_failed");
@@ -210,6 +223,10 @@ export function ProductCommentsSheet({
 
         if (response.status === 401 || data.error === "unauthorized") {
           handleUnauthorizedState();
+          return;
+        }
+        if (response.status === 403 || data.error === "email_verification_required") {
+          handleVerificationRequiredState();
           return;
         }
 
@@ -238,6 +255,10 @@ export function ProductCommentsSheet({
       handleUnauthorizedState();
       return;
     }
+    if (response.status === 403 || data.error === "email_verification_required") {
+      handleVerificationRequiredState();
+      return;
+    }
 
     if (!response.ok || !data.ok) {
       setStatus("error");
@@ -252,6 +273,11 @@ export function ProductCommentsSheet({
       method: "DELETE",
     });
     const data = (await response.json()) as { ok?: boolean; error?: string };
+
+    if (response.status === 403 || data.error === "email_verification_required") {
+      handleVerificationRequiredState();
+      return;
+    }
 
     if (!response.ok || !data.ok) {
       setStatus("error");
@@ -385,6 +411,7 @@ export function ProductCommentsSheet({
         ) : null}
       </div>
 
+      <div className="flex flex-col-reverse">
       <div className={inline ? "bg-white py-5" : "border-b border-gray-100 bg-[#F8FAFA] px-5 py-4"}>
         <div className="rounded-2xl border border-[#D0D5DD] bg-white p-4">
           <div className="flex items-start gap-3">
@@ -477,6 +504,7 @@ export function ProductCommentsSheet({
           <div className="space-y-4">{comments.map((comment) => renderComment(comment))}</div>
         )}
       </div>
+      </div>
     </>
   );
 
@@ -540,6 +568,37 @@ export function ProductCommentsSheet({
                 className="inline-flex items-center rounded-xl bg-[#0EA5E9] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#0284C7]"
               >
                 Entrar agora
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {open && showVerificationAlert ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 px-4"
+          onClick={() => setShowVerificationAlert(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h4 className="text-lg font-black text-[#0F1111]">Confirmação pendente</h4>
+            <p className="mt-3 text-sm leading-6 text-[#565959]">{UNVERIFIED_ACCOUNT_MESSAGE}</p>
+
+            <div className="mt-5 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowVerificationAlert(false)}
+                className="rounded-xl px-4 py-2 text-sm font-semibold text-[#2162A1] hover:text-[#174e87]"
+              >
+                Fechar
+              </button>
+              <Link
+                href="/minha-conta"
+                className="inline-flex items-center rounded-xl bg-[#0EA5E9] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#0284C7]"
+              >
+                Ir para minha conta
               </Link>
             </div>
           </div>
