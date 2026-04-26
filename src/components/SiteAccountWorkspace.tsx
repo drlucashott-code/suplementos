@@ -256,6 +256,8 @@ export default function SiteAccountWorkspace({
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cropPreviewRef = useRef<HTMLImageElement | null>(null);
+  const trackedLongPressTimeoutRef = useRef<number | null>(null);
+  const trackedLongPressTriggeredRef = useRef(false);
 
   const [favorites, setFavorites] = useState(initialFavorites);
   const [monitoredProducts, setMonitoredProducts] = useState(initialMonitoredProducts);
@@ -292,6 +294,7 @@ export default function SiteAccountWorkspace({
   const [selectedListId, setSelectedListId] = useState<string | null>(initialLists[0]?.id ?? null);
   const [selectedTrackedKeys, setSelectedTrackedKeys] = useState<string[]>([]);
   const [listPickerOpen, setListPickerOpen] = useState(false);
+  const [trackedReorderMode, setTrackedReorderMode] = useState(false);
   const [monitoredProductUrl, setMonitoredProductUrl] = useState("");
   const [addingMonitoredProduct, setAddingMonitoredProduct] = useState(false);
   const [comparatorPrompt, setComparatorPrompt] = useState<ComparatorPromptState | null>(null);
@@ -1053,35 +1056,8 @@ export default function SiteAccountWorkspace({
     }
   }
 
-  function handleTrackedProductDragStart(trackedKey: string) {
-    setDraggingTrackedProductKey(trackedKey);
-    setDragOverTrackedProductKey(null);
-  }
-
-  function handleTrackedProductDragEnd() {
-    setDraggingTrackedProductKey(null);
-    setDragOverTrackedProductKey(null);
-  }
-
-  function handleTrackedProductDragEnter(trackedKey: string) {
-    if (!draggingTrackedProductKey || draggingTrackedProductKey === trackedKey) return;
-    setDragOverTrackedProductKey(trackedKey);
-  }
-
-  async function handleDropOnTrackedProduct(
-    event: React.DragEvent<HTMLDivElement>,
-    targetTrackedKey: string
-  ) {
-    event.preventDefault();
-    event.stopPropagation();
-    if (!draggingTrackedProductKey || draggingTrackedProductKey === targetTrackedKey) {
-      setDragOverTrackedProductKey(null);
-      return;
-    }
-
-    const fromIndex = trackedProductCards.findIndex((item) => item.key === draggingTrackedProductKey);
-    const toIndex = trackedProductCards.findIndex((item) => item.key === targetTrackedKey);
-    if (fromIndex < 0 || toIndex < 0) return;
+  async function reorderTrackedProductsByIndex(fromIndex: number, toIndex: number) {
+    if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
 
     const reorderedTrackedItems = moveItem(trackedProductCards, fromIndex, toIndex).map((item, index) => ({
       ...item,
@@ -1118,6 +1094,103 @@ export default function SiteAccountWorkspace({
         id: item.entryId,
       }))
     );
+  }
+
+  function handleTrackedProductDragStart(trackedKey: string) {
+    setDraggingTrackedProductKey(trackedKey);
+    setDragOverTrackedProductKey(null);
+  }
+
+  function handleTrackedProductDragEnd() {
+    setDraggingTrackedProductKey(null);
+    setDragOverTrackedProductKey(null);
+  }
+
+  function handleTrackedProductDragEnter(trackedKey: string) {
+    if (!draggingTrackedProductKey || draggingTrackedProductKey === trackedKey) return;
+    setDragOverTrackedProductKey(trackedKey);
+  }
+
+  async function handleDropOnTrackedProduct(
+    event: React.DragEvent<HTMLDivElement>,
+    targetTrackedKey: string
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!draggingTrackedProductKey || draggingTrackedProductKey === targetTrackedKey) {
+      setDragOverTrackedProductKey(null);
+      return;
+    }
+
+    const fromIndex = trackedProductCards.findIndex((item) => item.key === draggingTrackedProductKey);
+    const toIndex = trackedProductCards.findIndex((item) => item.key === targetTrackedKey);
+    if (fromIndex < 0 || toIndex < 0) return;
+    await reorderTrackedProductsByIndex(fromIndex, toIndex);
+  }
+
+  function clearTrackedLongPress() {
+    if (trackedLongPressTimeoutRef.current) {
+      window.clearTimeout(trackedLongPressTimeoutRef.current);
+      trackedLongPressTimeoutRef.current = null;
+    }
+  }
+
+  function handleTrackedPointerDown(trackedKey: string) {
+    if (listPickerOpen || trackedReorderMode) return;
+    trackedLongPressTriggeredRef.current = false;
+    clearTrackedLongPress();
+    trackedLongPressTimeoutRef.current = window.setTimeout(() => {
+      trackedLongPressTriggeredRef.current = true;
+      setTrackedReorderMode(true);
+      setDraggingTrackedProductKey(trackedKey);
+      setDragOverTrackedProductKey(null);
+    }, 420);
+  }
+
+  function handleTrackedPointerUp() {
+    clearTrackedLongPress();
+  }
+
+  function handleTrackedCardClickCapture(event: React.MouseEvent<HTMLDivElement>) {
+    if (trackedLongPressTriggeredRef.current) {
+      event.preventDefault();
+      event.stopPropagation();
+      trackedLongPressTriggeredRef.current = false;
+    }
+  }
+
+  function handleTrackedTouchMove(event: React.TouchEvent<HTMLDivElement>) {
+    if (!trackedReorderMode || !draggingTrackedProductKey) return;
+    const touch = event.touches[0];
+    if (!touch) return;
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    const trackedContainer = target?.closest?.("[data-tracked-key]") as HTMLElement | null;
+    const nextTrackedKey = trackedContainer?.dataset.trackedKey ?? null;
+    if (nextTrackedKey && nextTrackedKey !== draggingTrackedProductKey) {
+      setDragOverTrackedProductKey(nextTrackedKey);
+    }
+  }
+
+  async function handleTrackedTouchEnd() {
+    clearTrackedLongPress();
+    if (trackedLongPressTriggeredRef.current) {
+      trackedLongPressTriggeredRef.current = false;
+      return;
+    }
+
+    if (!trackedReorderMode || !draggingTrackedProductKey) return;
+
+    if (dragOverTrackedProductKey && dragOverTrackedProductKey !== draggingTrackedProductKey) {
+      const fromIndex = trackedProductCards.findIndex((item) => item.key === draggingTrackedProductKey);
+      const toIndex = trackedProductCards.findIndex((item) => item.key === dragOverTrackedProductKey);
+      if (fromIndex >= 0 && toIndex >= 0) {
+        await reorderTrackedProductsByIndex(fromIndex, toIndex);
+        return;
+      }
+    }
+
+    setDraggingTrackedProductKey(null);
+    setDragOverTrackedProductKey(null);
   }
 
   async function suggestComparatorForPrompt() {
@@ -1304,7 +1377,7 @@ export default function SiteAccountWorkspace({
               </div>
 
               <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#FFD37A] sm:text-xs">
+                <p className="text-[11px] font-bold text-[#FFD37A] sm:text-xs sm:uppercase sm:tracking-[0.22em]">
                   Minha conta
                 </p>
                 <h2 className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl md:mt-3 md:text-4xl">
@@ -1323,7 +1396,10 @@ export default function SiteAccountWorkspace({
                 className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 text-sm font-bold text-white transition hover:bg-white/15 sm:h-12 sm:px-5"
               >
                 <PencilLine className="h-4 w-4" />
-                {showProfileEditor ? "Fechar edicao" : "Editar perfil"}
+                <span className="sm:hidden">{showProfileEditor ? "Fechar" : "Editar"}</span>
+                <span className="hidden sm:inline">
+                  {showProfileEditor ? "Fechar edicao" : "Editar perfil"}
+                </span>
               </button>
             </div>
           </div>
@@ -1333,8 +1409,9 @@ export default function SiteAccountWorkspace({
               <div className="flex items-center gap-2 sm:gap-3">
                 <CalendarDays className="h-4 w-4 shrink-0 text-[#FFD37A] sm:h-5 sm:w-5" />
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/60 sm:text-xs">
-                    Membro desde
+                  <p className="text-[10px] font-bold text-white/60 sm:text-xs sm:uppercase sm:tracking-[0.16em]">
+                    <span className="sm:hidden">Desde</span>
+                    <span className="hidden sm:inline">Membro desde</span>
                   </p>
                   <p className="mt-1 text-sm font-black text-white sm:text-lg">
                     {formatDate(profileStats.memberSince)}
@@ -1351,8 +1428,8 @@ export default function SiteAccountWorkspace({
               <div className="flex items-center gap-2 sm:gap-3">
                 <MessageCircle className="h-4 w-4 shrink-0 text-[#FFD37A] sm:h-5 sm:w-5" />
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/60 sm:text-xs">
-                    Comentarios
+                  <p className="text-[10px] font-bold text-white/60 sm:text-xs sm:uppercase sm:tracking-[0.16em]">
+                    Comentários
                   </p>
                   <p className="mt-1 text-sm font-black text-white sm:text-lg">
                     {profileStats.commentsCount}
@@ -1369,8 +1446,9 @@ export default function SiteAccountWorkspace({
               <div className="flex items-center gap-2 sm:gap-3">
                 <Heart className="h-4 w-4 shrink-0 text-[#FFD37A] sm:h-5 sm:w-5" />
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/60 sm:text-xs">
-                    Reacoes a comentarios
+                  <p className="text-[10px] font-bold text-white/60 sm:text-xs sm:uppercase sm:tracking-[0.16em]">
+                    <span className="sm:hidden">Reações</span>
+                    <span className="hidden sm:inline">Reações a comentários</span>
                   </p>
                   <p className="mt-1 text-sm font-black text-white sm:text-lg">
                     {profileStats.commentReactionsCount}
@@ -1506,136 +1584,30 @@ export default function SiteAccountWorkspace({
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setListPickerOpen((current) => !current);
-                setSelectedTrackedKeys([]);
-              }}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#0F1111] px-4 text-sm font-bold text-[#0F1111] transition hover:bg-[#F8FAFA]"
-            >
-              <ListPlus className="h-4 w-4" />
-              {listPickerOpen ? "Fechar listas" : "Adicionar a lista"}
-            </button>
+            {trackedReorderMode ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setTrackedReorderMode(false);
+                  setDraggingTrackedProductKey(null);
+                  setDragOverTrackedProductKey(null);
+                }}
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-[#16A34A] bg-[#ECFDF3] px-4 text-sm font-bold text-[#166534] transition hover:bg-[#DCFCE7]"
+              >
+                Concluir organização
+              </button>
+            ) : null}
+
           </div>
         </div>
-
-        <form
-          onSubmit={addMonitoredProduct}
-          className="mt-6 rounded-[28px] border border-[#E4E7EC] bg-[#F8FAFA] p-5"
-        >
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
-            <label className="block flex-1">
-              <span className="mb-2 block text-sm font-bold uppercase tracking-[0.14em] text-[#475467]">
-                Adicionar link da Amazon
-              </span>
-              <input
-                type="url"
-                value={monitoredProductUrl}
-                onChange={(event) => setMonitoredProductUrl(event.target.value)}
-                placeholder="Cole aqui o link do produto da Amazon"
-                className="h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm text-[#0F1111] outline-none transition focus:border-[#F3A847]"
-              />
-            </label>
-
-            <button
-              type="submit"
-              disabled={addingMonitoredProduct}
-              className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#FFD814] px-5 text-sm font-black text-[#0F1111] transition hover:bg-[#F7CA00] disabled:opacity-70"
-            >
-              {addingMonitoredProduct ? "Adicionando..." : "Adicionar ao monitoramento"}
-            </button>
-          </div>
-          <p className="mt-3 text-sm text-[#565959]">
-            Cole um link da Amazon para acompanhar preco, estoque e ofertas junto com o update global do site.
-          </p>
-        </form>
-
-        {comparatorPrompt ? (
-          <div className="mt-6 rounded-[28px] border border-[#F3D6A3] bg-[#FFF9E8] p-5">
-            <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#B54708]">
-              Adicionar ao comparador?
-            </p>
-            <p className="mt-2 text-sm text-[#7A271A]">
-              Esse produto ainda nao faz parte do comparador da Amazonpicks. Se voce quiser, podemos registrar sua sugestao para avaliacao sem duplicar itens ja existentes.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={suggestComparatorForPrompt}
-                disabled={pendingAction === `suggest:${comparatorPrompt.asin}`}
-                className="inline-flex h-10 items-center justify-center rounded-full bg-[#FF8F1F] px-4 text-sm font-bold text-white transition hover:bg-[#E07A13] disabled:opacity-60"
-              >
-                {pendingAction === `suggest:${comparatorPrompt.asin}`
-                  ? "Enviando..."
-                  : "Adicionar ao comparador"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setComparatorPrompt(null)}
-                className="inline-flex h-10 items-center justify-center rounded-full border border-[#F3D6A3] bg-white px-4 text-sm font-bold text-[#7A271A] transition hover:bg-[#FFF3D1]"
-              >
-                Agora nao
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {listPickerOpen ? (
-          <div className="mt-6 rounded-[28px] border border-[#E4E7EC] bg-[#FFF9E8] p-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#B54708]">
-                  Adicionar favoritos a uma lista
-                </p>
-                <p className="mt-2 text-sm text-[#7A271A]">
-                  Escolha uma lista e clique nos produtos que voce quer incluir.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {lists.map((list) => (
-                  <button
-                    key={list.id}
-                    type="button"
-                    onClick={() => setSelectedListId(list.id)}
-                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                      selectedListId === list.id
-                        ? "bg-[#FF8F1F] text-white"
-                        : "border border-[#F3D6A3] bg-white text-[#7A271A]"
-                    }`}
-                  >
-                    {list.title}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <div className="rounded-full border border-[#F3D6A3] bg-white px-4 py-2 text-sm text-[#7A271A]">
-                Lista atual: <span className="font-bold">{selectedList?.title ?? "Nenhuma"}</span>
-              </div>
-              <div className="rounded-full border border-[#F3D6A3] bg-white px-4 py-2 text-sm text-[#7A271A]">
-                Selecionados: <span className="font-bold">{selectedTrackedKeys.length}</span>
-              </div>
-              <button
-                type="button"
-                onClick={addSelectedFavoritesToList}
-                disabled={!selectedListId || selectedTrackedKeys.length === 0 || !!pendingAction}
-                className="inline-flex h-10 items-center justify-center rounded-full bg-[#FF8F1F] px-4 text-sm font-bold text-white transition hover:bg-[#E07A13] disabled:opacity-60"
-              >
-                {pendingAction?.startsWith("bulk-add:") ? "Adicionando..." : "Adicionar selecionados"}
-              </button>
-            </div>
-          </div>
-        ) : null}
 
         {trackedProductCards.length === 0 ? (
           <div className="mt-6 rounded-3xl border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-4 py-10 text-center text-sm text-[#565959]">
             Nenhum produto monitorado ainda.
           </div>
         ) : (
-          <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+          <div className="mt-6">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
             {trackedProductCards.map((trackedItem, index) => {
               const favorite = trackedItem.productId
                 ? favorites.find((entry) => entry.product.id === trackedItem.productId) ?? null
@@ -1645,16 +1617,27 @@ export default function SiteAccountWorkspace({
               return (
                 <div
                   key={trackedItem.key}
+                  data-tracked-key={trackedItem.key}
                   className={`space-y-2 rounded-2xl transition ${
-                    dragOverTrackedProductKey === trackedItem.key
-                      ? "bg-[#FFF7D6] ring-2 ring-[#F3A847] ring-offset-2 ring-offset-[#E3E6E6]"
-                      : ""
+                    trackedReorderMode
+                      ? "bg-[#ECFDF3] ring-2 ring-[#16A34A] ring-offset-2 ring-offset-[#E3E6E6]"
+                      : dragOverTrackedProductKey === trackedItem.key
+                        ? "bg-[#DCFCE7] ring-2 ring-[#16A34A] ring-offset-2 ring-offset-[#E3E6E6]"
+                        : ""
                   }`}
-                  draggable
+                  draggable={trackedReorderMode}
+                  onPointerDown={() => handleTrackedPointerDown(trackedItem.key)}
+                  onPointerUp={handleTrackedPointerUp}
+                  onPointerLeave={handleTrackedPointerUp}
+                  onPointerCancel={handleTrackedPointerUp}
+                  onTouchMove={handleTrackedTouchMove}
+                  onTouchEnd={() => void handleTrackedTouchEnd()}
+                  onTouchCancel={() => void handleTrackedTouchEnd()}
                   onDragStart={() => handleTrackedProductDragStart(trackedItem.key)}
                   onDragEnd={handleTrackedProductDragEnd}
                   onDragEnter={() => handleTrackedProductDragEnter(trackedItem.key)}
                   onDragOver={(event) => {
+                    if (!trackedReorderMode) return;
                     event.preventDefault();
                     event.dataTransfer.dropEffect = "move";
                   }}
@@ -1666,6 +1649,7 @@ export default function SiteAccountWorkspace({
                   onDrop={(event) => void handleDropOnTrackedProduct(event, trackedItem.key)}
                 >
                   <div
+                    onClickCapture={handleTrackedCardClickCapture}
                     className={`relative rounded-xl transition ${
                       isSelected ? "ring-2 ring-[#FF8F1F] ring-offset-2 ring-offset-[#E3E6E6]" : ""
                     }`}
@@ -1674,7 +1658,7 @@ export default function SiteAccountWorkspace({
                       item={trackedItem.card}
                       category="produtos_monitorados"
                       showActions={false}
-                      disableNavigation
+                      disableNavigation={trackedReorderMode || listPickerOpen}
                     />
 
                     <div className="pointer-events-none absolute left-2 top-2 z-30">
@@ -1707,6 +1691,12 @@ export default function SiteAccountWorkspace({
                           </div>
                         </div>
                       </>
+                    ) : trackedReorderMode ? (
+                      <div className="pointer-events-none absolute inset-0 z-10 rounded-xl border-2 border-dashed border-[#16A34A] bg-[#DCFCE7]/30" />
+                    ) : null}
+
+                    {trackedReorderMode && dragOverTrackedProductKey === trackedItem.key ? (
+                      <div className="pointer-events-none absolute inset-0 z-20 rounded-xl border-2 border-[#16A34A] shadow-[0_0_0_3px_rgba(34,197,94,0.18)]" />
                     ) : null}
                   </div>
 
@@ -1733,7 +1723,134 @@ export default function SiteAccountWorkspace({
               );
             })}
           </div>
+          </div>
         )}
+
+        <div className="mt-6 space-y-4">
+          <form
+            onSubmit={addMonitoredProduct}
+            className="rounded-[28px] border border-[#E4E7EC] bg-[#F8FAFA] p-5"
+          >
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+              <label className="block flex-1">
+                <span className="mb-2 block text-sm font-bold uppercase tracking-[0.14em] text-[#475467]">
+                  Adicionar link da Amazon
+                </span>
+                <input
+                  type="url"
+                  value={monitoredProductUrl}
+                  onChange={(event) => setMonitoredProductUrl(event.target.value)}
+                  placeholder="Cole aqui o link do produto da Amazon"
+                  className="h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm text-[#0F1111] outline-none transition focus:border-[#F3A847]"
+                />
+              </label>
+
+              <button
+                type="submit"
+                disabled={addingMonitoredProduct}
+                className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#FFD814] px-5 text-sm font-black text-[#0F1111] transition hover:bg-[#F7CA00] disabled:opacity-70"
+              >
+                {addingMonitoredProduct ? "Adicionando..." : "Adicionar ao monitoramento"}
+              </button>
+            </div>
+            <p className="mt-3 text-sm text-[#565959]">
+              Cole um link da Amazon para acompanhar preco, estoque e ofertas junto com o update global do site.
+            </p>
+          </form>
+
+          {comparatorPrompt ? (
+            <div className="rounded-[28px] border border-[#F3D6A3] bg-[#FFF9E8] p-5">
+              <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#B54708]">
+                Adicionar ao comparador?
+              </p>
+              <p className="mt-2 text-sm text-[#7A271A]">
+                Esse produto ainda nao faz parte do comparador da Amazonpicks. Se voce quiser, podemos registrar sua sugestao para avaliacao sem duplicar itens ja existentes.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={suggestComparatorForPrompt}
+                  disabled={pendingAction === `suggest:${comparatorPrompt.asin}`}
+                  className="inline-flex h-10 items-center justify-center rounded-full bg-[#FF8F1F] px-4 text-sm font-bold text-white transition hover:bg-[#E07A13] disabled:opacity-60"
+                >
+                  {pendingAction === `suggest:${comparatorPrompt.asin}`
+                    ? "Enviando..."
+                    : "Adicionar ao comparador"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setComparatorPrompt(null)}
+                  className="inline-flex h-10 items-center justify-center rounded-full border border-[#F3D6A3] bg-white px-4 text-sm font-bold text-[#7A271A] transition hover:bg-[#FFF3D1]"
+                >
+                  Agora nao
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="flex justify-start">
+            <button
+              type="button"
+              onClick={() => {
+                setListPickerOpen((current) => !current);
+                setSelectedTrackedKeys([]);
+              }}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#0F1111] px-4 text-sm font-bold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+            >
+              <ListPlus className="h-4 w-4" />
+              {listPickerOpen ? "Fechar listas" : "Adicionar a lista"}
+            </button>
+          </div>
+
+          {listPickerOpen ? (
+            <div className="rounded-[28px] border border-[#E4E7EC] bg-[#FFF9E8] p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#B54708]">
+                    Adicionar favoritos a uma lista
+                  </p>
+                  <p className="mt-2 text-sm text-[#7A271A]">
+                    Escolha uma lista e clique nos produtos que voce quer incluir.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {lists.map((list) => (
+                    <button
+                      key={list.id}
+                      type="button"
+                      onClick={() => setSelectedListId(list.id)}
+                      className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                        selectedListId === list.id
+                          ? "bg-[#FF8F1F] text-white"
+                          : "border border-[#F3D6A3] bg-white text-[#7A271A]"
+                      }`}
+                    >
+                      {list.title}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <div className="rounded-full border border-[#F3D6A3] bg-white px-4 py-2 text-sm text-[#7A271A]">
+                  Lista atual: <span className="font-bold">{selectedList?.title ?? "Nenhuma"}</span>
+                </div>
+                <div className="rounded-full border border-[#F3D6A3] bg-white px-4 py-2 text-sm text-[#7A271A]">
+                  Selecionados: <span className="font-bold">{selectedTrackedKeys.length}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={addSelectedFavoritesToList}
+                  disabled={!selectedListId || selectedTrackedKeys.length === 0 || !!pendingAction}
+                  className="inline-flex h-10 items-center justify-center rounded-full bg-[#FF8F1F] px-4 text-sm font-bold text-white transition hover:bg-[#E07A13] disabled:opacity-60"
+                >
+                  {pendingAction?.startsWith("bulk-add:") ? "Adicionando..." : "Adicionar selecionados"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
       </section>
 
       <section className="rounded-[32px] border border-[#d5d9d9] bg-white p-6 shadow-sm md:p-8">
