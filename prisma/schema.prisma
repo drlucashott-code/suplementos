@@ -399,6 +399,7 @@ model SiteUser {
   email             String                  @unique
   passwordHash      String
   displayName       String
+  username          String?                 @unique
   avatarUrl         String?
   bio               String?
   role              String                  @default("user")

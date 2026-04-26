@@ -210,11 +210,6 @@ function formatPriceParts(value: number) {
   return { whole, cents };
 }
 
-function formatCommentCount(value?: number) {
-  const safeValue = Number.isFinite(value) ? Math.max(0, Number(value)) : 0;
-  return `${safeValue} ${safeValue === 1 ? "comentário" : "comentários"}`;
-}
-
 function ProgramAndSaveIcon() {
   return (
     <span
@@ -395,6 +390,7 @@ export function MobileProductCard({
   analysisTitleTemplate?: string;
 }) {
   const [saved, setSaved] = useState(false);
+  const [commentCount, setCommentCount] = useState(product.commentCount ?? 0);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState<(typeof REPORT_REASONS)[number]>(
     "Preço desatualizado"
@@ -433,7 +429,10 @@ export function MobileProductCard({
   const programAndSaveParts = programAndSavePrice
     ? formatPriceParts(programAndSavePrice)
     : null;
-  const commentsLabel = formatCommentCount(product.commentCount);
+
+  useEffect(() => {
+    setCommentCount(product.commentCount ?? 0);
+  }, [product.commentCount]);
 
   useEffect(() => {
     let active = true;
@@ -605,7 +604,8 @@ export function MobileProductCard({
             <ProductCommentsSheet
               productId={product.id}
               productName={product.name}
-              triggerLabel={commentsLabel}
+              initialCount={commentCount}
+              onCountChange={setCommentCount}
               triggerClassName="w-full max-w-[126px] justify-center px-2.5 py-1 text-[11px] font-semibold text-gray-600"
             />
           </div>

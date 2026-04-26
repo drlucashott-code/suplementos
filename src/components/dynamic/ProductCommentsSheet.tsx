@@ -26,6 +26,7 @@ type ProductCommentItem = {
   user: {
     id: string;
     displayName: string;
+    username?: string | null;
     avatarUrl?: string | null;
   };
   replies: ProductCommentItem[];
@@ -62,6 +63,14 @@ function formatRelativeTime(value: string) {
   }).format(date);
 }
 
+function countComments(items: ProductCommentItem[]): number {
+  return items.reduce((total, item) => total + 1 + countComments(item.replies), 0);
+}
+
+function formatCommentCountLabel(count: number) {
+  return `${count} ${count === 1 ? "comentário" : "comentários"}`;
+}
+
 function UserAvatar({
   displayName,
   avatarUrl,
@@ -80,16 +89,21 @@ function UserAvatar({
 export function ProductCommentsSheet({
   productId,
   productName,
-  triggerLabel = "Comentários",
+  triggerLabel,
   triggerClassName,
+  initialCount = 0,
+  onCountChange,
 }: {
   productId: string;
   productName: string;
   triggerLabel?: string;
   triggerClassName?: string;
+  initialCount?: number;
+  onCountChange?: (count: number) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [comments, setComments] = useState<ProductCommentItem[]>([]);
+  const [commentCount, setCommentCount] = useState(initialCount);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [replyParentId, setReplyParentId] = useState<string | null>(null);
@@ -98,11 +112,6 @@ export function ProductCommentsSheet({
   const [status, setStatus] = useState<"idle" | "loading" | "submitting" | "unauthorized" | "error">(
     "idle"
   );
-
-  function handleUnauthorizedState() {
-    setStatus("unauthorized");
-    setShowLoginAlert(true);
-  }
 
   const replyingTo = useMemo(() => {
     if (!replyParentId) return null;
@@ -115,6 +124,13 @@ export function ProductCommentsSheet({
     return null;
   }, [comments, replyParentId]);
 
+  const resolvedTriggerLabel = triggerLabel ?? formatCommentCountLabel(commentCount);
+
+  function handleUnauthorizedState() {
+    setStatus("unauthorized");
+    setShowLoginAlert(true);
+  }
+
   async function loadComments() {
     try {
       setStatus("loading");
@@ -125,7 +141,11 @@ export function ProductCommentsSheet({
         throw new Error("comments_load_failed");
       }
 
-      setComments(data.comments ?? []);
+      const nextComments = data.comments ?? [];
+      const nextCount = countComments(nextComments);
+      setComments(nextComments);
+      setCommentCount(nextCount);
+      onCountChange?.(nextCount);
       setCurrentUserId(data.currentUserId ?? null);
       setStatus("idle");
     } catch (error) {
@@ -133,6 +153,10 @@ export function ProductCommentsSheet({
       setStatus("error");
     }
   }
+
+  useEffect(() => {
+    setCommentCount(initialCount);
+  }, [initialCount]);
 
   useEffect(() => {
     if (!open) return;
@@ -247,7 +271,7 @@ export function ProductCommentsSheet({
 
   function renderComment(comment: ProductCommentItem, depth = 0): React.ReactNode {
     return (
-      <div key={comment.id} className={`${depth > 0 ? "ml-5 border-l border-[#E4E7EC] pl-4" : ""}`}>
+      <div key={comment.id} className={depth > 0 ? "ml-5 border-l border-[#E4E7EC] pl-4" : ""}>
         <div className="rounded-2xl border border-[#EAECF0] bg-white p-4">
           <div className="flex items-start gap-3">
             <UserAvatar
@@ -258,6 +282,9 @@ export function ProductCommentsSheet({
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
                 <span className="font-black text-[#344054]">{comment.user.displayName}</span>
+                {comment.user.username ? (
+                  <span className="font-medium text-[#667085]">@{comment.user.username}</span>
+                ) : null}
                 <span className="text-[#667085]">{formatRelativeTime(comment.createdAt)}</span>
                 {comment.isEdited ? (
                   <span className="text-xs font-medium text-[#98A2B3]">(editado)</span>
@@ -335,7 +362,7 @@ export function ProductCommentsSheet({
         }`}
       >
         <MessageCircle className="h-3.5 w-3.5" />
-        {triggerLabel}
+        {resolvedTriggerLabel}
       </button>
 
       {open ? (
@@ -378,7 +405,8 @@ export function ProductCommentsSheet({
 
                     {replyingTo ? (
                       <p className="mt-2 text-xs font-semibold text-[#2162A1]">
-                        Respondendo {replyingTo.user.displayName}.{" "}
+                        Respondendo {replyingTo.user.displayName}
+                        {replyingTo.user.username ? ` @${replyingTo.user.username}` : ""}.{" "}
                         <button type="button" onClick={() => setReplyParentId(null)} className="underline">
                           cancelar
                         </button>

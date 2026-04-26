@@ -31,6 +31,12 @@ type SavedDeal = {
 };
 
 function mapAccountFavoriteToSavedDeal(item: AccountFavoriteCardItem): SavedDeal {
+  const averagePrice30d = item.product.averagePrice30d ?? item.product.totalPrice;
+  const discountPercent =
+    averagePrice30d > item.product.totalPrice
+      ? Math.round(((averagePrice30d - item.product.totalPrice) / averagePrice30d) * 100)
+      : 0;
+
   return {
     id: item.product.id,
     asin: item.product.asin,
@@ -38,8 +44,8 @@ function mapAccountFavoriteToSavedDeal(item: AccountFavoriteCardItem): SavedDeal
     imageUrl: item.product.imageUrl ?? "",
     url: item.product.url,
     totalPrice: item.product.totalPrice,
-    averagePrice30d: item.product.averagePrice30d ?? item.product.totalPrice,
-    discountPercent: 0,
+    averagePrice30d,
+    discountPercent,
     ratingAverage: item.product.ratingAverage,
     ratingCount: item.product.ratingCount,
     likeCount: 0,

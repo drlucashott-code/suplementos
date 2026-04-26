@@ -92,6 +92,7 @@ export default async function MyAccountPage() {
         </section>
 
         <SiteAccountWorkspace
+          currentUser={user}
           favorites={favorites.map((favorite: (typeof favorites)[number]) => ({
             id: favorite.id,
             savedAt: favorite.createdAt.toISOString(),

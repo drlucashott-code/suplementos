@@ -24,6 +24,7 @@ export type AuthenticatedSiteUser = {
   id: string;
   email: string;
   displayName: string;
+  username: string | null;
   avatarUrl: string | null;
   bio: string | null;
   role: string;
@@ -35,6 +36,49 @@ function normalizeEmail(email: string) {
 
 function normalizeDisplayName(displayName: string) {
   return displayName.trim().replace(/\s+/g, " ");
+}
+
+function normalizeUsername(username: string) {
+  return username
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9._]/g, "")
+    .replace(/\.{2,}/g, ".")
+    .replace(/_{2,}/g, "_")
+    .replace(/^[._]+|[._]+$/g, "");
+}
+
+async function isUsernameTaken(username: string, excludeUserId?: string) {
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT "id"
+    FROM "SiteUser"
+    WHERE "username" = ${username}
+      ${excludeUserId ? Prisma.sql`AND "id" <> ${excludeUserId}` : Prisma.empty}
+    LIMIT 1
+  `);
+
+  return Boolean(rows[0]);
+}
+
+async function generateAvailableUsername(baseInput: string, excludeUserId?: string) {
+  const base = normalizeUsername(baseInput) || `usuario${Math.floor(Math.random() * 100000)}`;
+  const trimmedBase = base.slice(0, 24);
+
+  if (!(await isUsernameTaken(trimmedBase, excludeUserId))) {
+    return trimmedBase;
+  }
+
+  for (let attempt = 1; attempt <= 50; attempt += 1) {
+    const suffix = `${Math.floor(100 + Math.random() * 900)}`;
+    const candidate = `${trimmedBase.slice(0, Math.max(3, 24 - suffix.length))}${suffix}`;
+    if (!(await isUsernameTaken(candidate, excludeUserId))) {
+      return candidate;
+    }
+  }
+
+  return `${trimmedBase.slice(0, 18)}${Date.now().toString().slice(-6)}`;
 }
 
 function makePasswordHash(password: string) {
@@ -100,9 +144,11 @@ export async function registerSiteUser(input: {
   email: string;
   password: string;
   displayName: string;
+  username: string;
 }) {
   const email = normalizeEmail(input.email);
   const displayName = normalizeDisplayName(input.displayName);
+  const username = normalizeUsername(input.username);
   const password = input.password.trim();
 
   if (!email || !email.includes("@")) {
@@ -111,6 +157,10 @@ export async function registerSiteUser(input: {
 
   if (displayName.length < 2) {
     return { ok: false as const, error: "Informe um nome com pelo menos 2 caracteres." };
+  }
+
+  if (username.length < 3) {
+    return { ok: false as const, error: "Escolha um username com pelo menos 3 caracteres." };
   }
 
   if (password.length < 6) {
@@ -128,6 +178,10 @@ export async function registerSiteUser(input: {
     return { ok: false as const, error: "Já existe uma conta com este email." };
   }
 
+  if (await isUsernameTaken(username)) {
+    return { ok: false as const, error: "Esse username já está em uso." };
+  }
+
   const verification = makeEmailVerificationToken();
   const userRows = await prisma.$queryRaw<Array<AuthenticatedSiteUser>>(Prisma.sql`
     INSERT INTO "SiteUser" (
@@ -135,6 +189,7 @@ export async function registerSiteUser(input: {
       "email",
       "passwordHash",
       "displayName",
+      "username",
       "role",
       "googleId",
       "emailVerificationTokenHash",
@@ -150,6 +205,7 @@ export async function registerSiteUser(input: {
       ${email},
       ${makePasswordHash(password)},
       ${displayName},
+      ${username},
       'user',
       NULL,
       ${verification.tokenHash},
@@ -160,7 +216,7 @@ export async function registerSiteUser(input: {
       NOW(),
       NOW()
     )
-    RETURNING "id", "email", "displayName", "avatarUrl", "bio", "role"
+    RETURNING "id", "email", "displayName", "username", "avatarUrl", "bio", "role"
   `);
 
   const user = userRows[0]!;
@@ -189,7 +245,7 @@ export async function loginSiteUser(input: { email: string; password: string }) 
       }
     >
   >(Prisma.sql`
-    SELECT "id", "email", "displayName", "avatarUrl", "bio", "role", "passwordHash", "emailVerifiedAt"
+    SELECT "id", "email", "displayName", "username", "avatarUrl", "bio", "role", "passwordHash", "emailVerifiedAt"
     FROM "SiteUser"
     WHERE "email" = ${email}
     LIMIT 1
@@ -223,6 +279,7 @@ export async function loginSiteUser(input: { email: string; password: string }) 
       id: user.id,
       email: user.email,
       displayName: user.displayName,
+      username: user.username,
       avatarUrl: user.avatarUrl,
       bio: user.bio,
       role: user.role,
@@ -391,11 +448,14 @@ export async function loginOrCreateGoogleUser(input: {
 }) {
   const email = normalizeEmail(input.email);
   const displayName = normalizeDisplayName(input.displayName) || "Usuário";
+  const generatedUsername = await generateAvailableUsername(
+    input.email.split("@")[0] || displayName
+  );
 
   const existing = await prisma.$queryRaw<
     Array<AuthenticatedSiteUser & { googleId: string | null; emailVerifiedAt: Date | null }>
   >(Prisma.sql`
-    SELECT "id", "email", "displayName", "avatarUrl", "bio", "role", "googleId", "emailVerifiedAt"
+    SELECT "id", "email", "displayName", "username", "avatarUrl", "bio", "role", "googleId", "emailVerifiedAt"
     FROM "SiteUser"
     WHERE "googleId" = ${input.googleId}
        OR "email" = ${email}
@@ -410,6 +470,7 @@ export async function loginOrCreateGoogleUser(input: {
       SET
         "googleId" = COALESCE("googleId", ${input.googleId}),
         "displayName" = COALESCE(NULLIF(${displayName}, ''), "displayName"),
+        "username" = COALESCE("username", ${generatedUsername}),
         "avatarUrl" = COALESCE(${input.avatarUrl ?? null}, "avatarUrl"),
         "emailVerifiedAt" = CASE
           WHEN ${input.emailVerified === true} THEN COALESCE("emailVerifiedAt", NOW())
@@ -431,6 +492,7 @@ export async function loginOrCreateGoogleUser(input: {
       "email",
       "passwordHash",
       "displayName",
+      "username",
       "avatarUrl",
       "role",
       "googleId",
@@ -444,6 +506,7 @@ export async function loginOrCreateGoogleUser(input: {
       ${email},
       ${makePasswordHash(randomUUID())},
       ${displayName},
+      ${generatedUsername},
       ${input.avatarUrl ?? null},
       'user',
       ${input.googleId},
@@ -456,6 +519,61 @@ export async function loginOrCreateGoogleUser(input: {
 
   await createSiteSession(newUserId);
   return { ok: true as const };
+}
+
+export async function updateSiteUserProfile(input: {
+  userId: string;
+  displayName: string;
+  username: string;
+  email: string;
+  avatarUrl?: string | null;
+}) {
+  const email = normalizeEmail(input.email);
+  const displayName = normalizeDisplayName(input.displayName);
+  const username = normalizeUsername(input.username);
+  const avatarUrl = input.avatarUrl?.trim() ? input.avatarUrl.trim() : null;
+
+  if (!email || !email.includes("@")) {
+    return { ok: false as const, error: "Informe um email válido." };
+  }
+
+  if (displayName.length < 2) {
+    return { ok: false as const, error: "Informe um nome com pelo menos 2 caracteres." };
+  }
+
+  if (username.length < 3) {
+    return { ok: false as const, error: "Escolha um username com pelo menos 3 caracteres." };
+  }
+
+  const emailRows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT "id"
+    FROM "SiteUser"
+    WHERE "email" = ${email}
+      AND "id" <> ${input.userId}
+    LIMIT 1
+  `);
+
+  if (emailRows[0]) {
+    return { ok: false as const, error: "Já existe uma conta com este email." };
+  }
+
+  if (await isUsernameTaken(username, input.userId)) {
+    return { ok: false as const, error: "Esse username já está em uso." };
+  }
+
+  const rows = await prisma.$queryRaw<Array<AuthenticatedSiteUser>>(Prisma.sql`
+    UPDATE "SiteUser"
+    SET
+      "displayName" = ${displayName},
+      "username" = ${username},
+      "email" = ${email},
+      "avatarUrl" = ${avatarUrl},
+      "updatedAt" = NOW()
+    WHERE "id" = ${input.userId}
+    RETURNING "id", "email", "displayName", "username", "avatarUrl", "bio", "role"
+  `);
+
+  return { ok: true as const, user: rows[0]! };
 }
 
 export async function createSiteSession(userId: string) {
@@ -526,6 +644,7 @@ export const getCurrentSiteSession = cache(async () => {
         'id', u."id",
         'email', u."email",
         'displayName', u."displayName",
+        'username', u."username",
         'avatarUrl', u."avatarUrl",
         'bio', u."bio",
         'role', u."role"

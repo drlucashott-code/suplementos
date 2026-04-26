@@ -1,7 +1,9 @@
 import Header from "@/app/Header";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 function formatCurrency(value: number) {
   return value.toLocaleString("pt-BR", {
@@ -98,25 +100,54 @@ export default async function PublicListPage({
           </p>
         </section>
 
-        <section className="mt-6 grid gap-4">
+        <section className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           {list.items.map((item) => (
-            <a
+            <div
               key={item.id}
-              href={item.product.url}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-2xl border border-[#d5d9d9] bg-white p-5 shadow-sm transition hover:border-[#c7cfd0] hover:shadow-md"
+              className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm transition hover:border-[#c7cfd0] hover:shadow-md"
             >
-              <p className="text-lg font-black text-[#0F1111]">{item.product.name}</p>
-              <p className="mt-1 text-sm text-[#565959]">
-                {item.product.category.name} · {formatCurrency(item.product.totalPrice)}
-              </p>
+              <div className="flex gap-4">
+                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-white">
+                  {item.product.imageUrl ? (
+                    <Image
+                      src={getOptimizedAmazonUrl(item.product.imageUrl, 220)}
+                      alt={item.product.name}
+                      fill
+                      sizes="96px"
+                      className="object-contain p-2"
+                      unoptimized
+                    />
+                  ) : null}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-2 text-sm font-black text-[#0F1111]">
+                    {item.product.name}
+                  </p>
+                  <p className="mt-1 text-sm text-[#565959]">{item.product.category.name}</p>
+                  <p className="mt-2 text-lg font-black text-[#0F1111]">
+                    {formatCurrency(item.product.totalPrice)}
+                  </p>
+                </div>
+              </div>
+
               {item.note ? (
                 <p className="mt-3 rounded-xl bg-[#F8FAFA] px-3 py-2 text-sm text-[#344054]">
                   {item.note}
                 </p>
               ) : null}
-            </a>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <a
+                  href={item.product.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[#d5d9d9] px-3 py-2 text-xs font-semibold text-[#0F1111] transition hover:bg-[#F7FAFA]"
+                >
+                  Ver na Amazon
+                </a>
+              </div>
+            </div>
           ))}
         </section>
       </div>

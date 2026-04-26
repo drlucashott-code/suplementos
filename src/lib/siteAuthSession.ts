@@ -9,6 +9,7 @@ export type SiteSessionUser = {
   id: string;
   email: string;
   displayName: string;
+  username: string | null;
   avatarUrl: string | null;
   bio: string | null;
   role: string;
@@ -40,6 +41,7 @@ export const getCurrentSiteSession = cache(async (): Promise<SiteSessionRecord |
         'id', u."id",
         'email', u."email",
         'displayName', u."displayName",
+        'username', u."username",
         'avatarUrl', u."avatarUrl",
         'bio', u."bio",
         'role', u."role"

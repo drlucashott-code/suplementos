@@ -12,6 +12,7 @@ export function SiteAuthForm({ mode }: SiteAuthFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -38,6 +39,7 @@ export function SiteAuthForm({ mode }: SiteAuthFormProps) {
         },
         body: JSON.stringify({
           displayName,
+          username,
           email,
           password,
         }),
@@ -65,6 +67,7 @@ export function SiteAuthForm({ mode }: SiteAuthFormProps) {
             : "Conta criada, mas o email de confirmação não pôde ser enviado agora."
         );
         setDisplayName("");
+        setUsername("");
         setEmail("");
         setPassword("");
         setShowResend(true);
@@ -157,17 +160,31 @@ export function SiteAuthForm({ mode }: SiteAuthFormProps) {
       ) : null}
 
       {isRegister ? (
-        <div>
-          <label className="mb-1.5 block text-sm font-semibold text-gray-700">Nome</label>
-          <input
-            type="text"
-            value={displayName}
-            onChange={(event) => setDisplayName(event.target.value)}
-            placeholder="Como você quer aparecer nos comentários?"
-            className="h-12 w-full rounded-xl border border-gray-200 px-4 text-sm outline-none transition focus:border-[#f3a847]"
-            required
-          />
-        </div>
+        <>
+          <div>
+            <label className="mb-1.5 block text-sm font-semibold text-gray-700">Nome</label>
+            <input
+              type="text"
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+              placeholder="Como você quer aparecer nos comentários?"
+              className="h-12 w-full rounded-xl border border-gray-200 px-4 text-sm outline-none transition focus:border-[#f3a847]"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-semibold text-gray-700">Username</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="@seuusername"
+              className="h-12 w-full rounded-xl border border-gray-200 px-4 text-sm outline-none transition focus:border-[#f3a847]"
+              required
+            />
+          </div>
+        </>
       ) : null}
 
       <div>

@@ -14,6 +14,7 @@ type CommentRow = {
   status: string;
   userId: string;
   userDisplayName: string;
+  username: string | null;
   userAvatarUrl: string | null;
   likeCount: number;
   likedByMe: boolean;
@@ -33,6 +34,7 @@ type CommentNode = {
   user: {
     id: string;
     displayName: string;
+    username: string | null;
     avatarUrl: string | null;
   };
   replies: CommentNode[];
@@ -60,6 +62,7 @@ function buildCommentTree(rows: CommentRow[], currentUserId?: string | null, cur
       user: {
         id: row.userId,
         displayName: row.userDisplayName,
+        username: row.username,
         avatarUrl: row.userAvatarUrl,
       },
       replies: [],
@@ -91,6 +94,7 @@ async function fetchComments(productId: string, currentUserId?: string | null, c
       c."status",
       u."id" AS "userId",
       u."displayName" AS "userDisplayName",
+      u."username" AS "username",
       u."avatarUrl" AS "userAvatarUrl",
       COALESCE((
         SELECT COUNT(*)::int

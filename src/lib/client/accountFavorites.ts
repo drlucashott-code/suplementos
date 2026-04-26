@@ -16,6 +16,8 @@ export type AccountFavoriteCardItem = {
     url: string;
     totalPrice: number;
     averagePrice30d: number | null;
+    lowestPrice30d: number | null;
+    highestPrice30d: number | null;
     ratingAverage: number | null;
     ratingCount: number | null;
     category: {

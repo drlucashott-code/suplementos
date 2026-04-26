@@ -7,12 +7,14 @@ export async function POST(request: Request) {
       email?: string;
       password?: string;
       displayName?: string;
+      username?: string;
     };
 
     const result = await registerSiteUser({
       email: body.email ?? "",
       password: body.password ?? "",
       displayName: body.displayName ?? "",
+      username: body.username ?? "",
     });
 
     if (!result.ok) {
