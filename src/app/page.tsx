@@ -1,3 +1,4 @@
+import Header from "@/app/Header";
 import HomePageClient, { type CategoryItem } from "./HomePageClient";
 import { normalizeDynamicDisplayConfig } from "@/lib/dynamicCategoryMetrics";
 import { prisma } from "@/lib/prisma";
@@ -174,12 +175,21 @@ export default async function HomePage() {
     getBestDeals(6),
   ]);
 
+  const headerCategories = [
+    ...supplementCategories,
+    ...houseCategories,
+    ...petCategories,
+  ];
+
   return (
-    <HomePageClient
-      supplementCategories={supplementCategories}
-      houseCategories={houseCategories}
-      petCategories={petCategories}
-      bestDeals={bestDeals}
-    />
+    <>
+      <Header extraCategories={headerCategories} />
+      <HomePageClient
+        supplementCategories={supplementCategories}
+        houseCategories={houseCategories}
+        petCategories={petCategories}
+        bestDeals={bestDeals}
+      />
+    </>
   );
 }

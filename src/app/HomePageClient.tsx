@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { BarChart3, Dumbbell, Home, ShieldCheck, TrendingUp, PawPrint } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import Header from "./Header";
 import FeedbackModal from "./FeedbackModal";
 import BestDealProductCard from "@/components/BestDealProductCard";
 import type { BestDeal } from "@/lib/bestDeals";
@@ -205,11 +204,6 @@ export default function HomePageClient({
     [supplementCategories]
   );
 
-  const headerCategories = useMemo(
-    () => [...effectiveSupplementCategories, ...houseCategories, ...petCategories],
-    [effectiveSupplementCategories, houseCategories, petCategories]
-  );
-
   const categoryGroups = useMemo<Record<HubKey, CategoryItem[]>>(
     () => ({
       suplementos: sortCategories(effectiveSupplementCategories),
@@ -263,8 +257,6 @@ export default function HomePageClient({
   return (
     <main className="min-h-screen bg-[#E3E6E6] pb-12 font-sans">
       <TrackHomeView />
-
-      <Header extraCategories={headerCategories} />
 
         <div className="bg-[#37475A] px-4 py-2 text-center text-[11px] font-medium text-white">
           <div className="flex items-center justify-center gap-2">

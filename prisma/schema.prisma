@@ -173,6 +173,9 @@ model DynamicProduct {
   clickEvents      DynamicProductClickEvent[]
   issueReports     DynamicProductIssueReport[]
   reactions        DynamicProductReaction[]
+  favorites        SiteUserFavorite[]
+  comments         SiteProductComment[]
+  listItems        SiteUserListItem[]
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
 }
@@ -389,4 +392,145 @@ model DynamicDiscoveryRun {
 
   @@index([status, startedAt(sort: Desc)])
   @@index([startedAt(sort: Desc)])
+}
+
+model SiteUser {
+  id                String                  @id @default(cuid())
+  email             String                  @unique
+  passwordHash      String
+  displayName       String
+  avatarUrl         String?
+  bio               String?
+  role              String                  @default("user")
+  googleId          String?                 @unique
+  emailVerifiedAt   DateTime?
+  emailVerificationTokenHash String?
+  emailVerificationExpiresAt DateTime?
+  passwordResetTokenHash String?
+  passwordResetExpiresAt DateTime?
+  lastLoginAt       DateTime?
+  sessions          SiteSession[]
+  favorites         SiteUserFavorite[]
+  comments          SiteProductComment[]
+  commentReactions  SiteProductCommentReaction[]
+  lists             SiteUserList[]
+  productSuggestions SiteProductSuggestion[]
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@index([createdAt(sort: Desc)])
+}
+
+model SiteSession {
+  id         String   @id @default(cuid())
+  userId     String
+  user       SiteUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  userAgent  String?
+  ipAddress  String?
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+}
+
+model SiteUserFavorite {
+  id         String         @id @default(cuid())
+  userId     String
+  user       SiteUser       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId  String
+  product    DynamicProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  note       String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@unique([userId, productId])
+  @@index([productId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model SiteProductComment {
+  id         String               @id @default(cuid())
+  productId  String
+  product    DynamicProduct       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId     String
+  user       SiteUser             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId   String?
+  parent     SiteProductComment?  @relation("SiteCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies    SiteProductComment[] @relation("SiteCommentReplies")
+  reactions  SiteProductCommentReaction[]
+  body       String
+  status     String               @default("published")
+  isEdited   Boolean              @default(false)
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  @@index([productId, createdAt(sort: Desc)])
+  @@index([parentId, createdAt(sort: Asc)])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model SiteProductCommentReaction {
+  id         String             @id @default(cuid())
+  commentId   String
+  comment     SiteProductComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId      String
+  user        SiteUser           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reaction    String             @default("like")
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([commentId, userId, reaction])
+  @@index([commentId, reaction])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model SiteUserList {
+  id          String            @id @default(cuid())
+  userId      String
+  user        SiteUser          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug        String            @unique
+  title       String
+  description String?
+  isPublic    Boolean           @default(false)
+  items       SiteUserListItem[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([isPublic, updatedAt(sort: Desc)])
+}
+
+model SiteUserListItem {
+  id         String         @id @default(cuid())
+  listId      String
+  list        SiteUserList   @relation(fields: [listId], references: [id], onDelete: Cascade)
+  productId   String
+  product     DynamicProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  note        String?
+  sortOrder   Int            @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([listId, productId])
+  @@index([productId])
+  @@index([listId, sortOrder, createdAt(sort: Desc)])
+}
+
+model SiteProductSuggestion {
+  id           String    @id @default(cuid())
+  userId       String
+  user         SiteUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asin         String?
+  amazonUrl    String?
+  title        String?
+  notes        String?
+  status       String    @default("pending")
+  reviewNotes  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
 }

@@ -78,6 +78,7 @@ type ProductWithStats = DynamicProduct & {
   priceHistoryBadgeWindows: PriceHistoryBadgeWindow[];
   likeCount: number;
   dislikeCount: number;
+  commentCount: number;
 };
 
 type VisibleProductWithStats = ProductWithStats & {
@@ -96,6 +97,7 @@ export type CatalogProduct = {
   ratingCount?: number | null;
   likeCount?: number;
   dislikeCount?: number;
+  commentCount?: number;
   avgPrice?: number | null;
   lowestPrice30d?: number | null;
   highestPrice30d?: number | null;
@@ -145,6 +147,11 @@ type ReactionCountRow = {
   productId: string;
   likeCount: number;
   dislikeCount: number;
+};
+
+type CommentCountRow = {
+  productId: string;
+  commentCount: number;
 };
 
 type HistoryBadgeRow = {
@@ -948,6 +955,20 @@ async function fetchDynamicCatalogBaseData(
             `)
           : [];
 
+      const commentRows =
+        productIds.length > 0
+          ? await prisma.$queryRaw<CommentCountRow[]>(Prisma.sql`
+              SELECT
+                "productId",
+                COUNT(*)::int AS "commentCount"
+              FROM "SiteProductComment"
+              WHERE
+                "productId" IN (${Prisma.join(productIds)})
+                AND "status" = 'published'
+              GROUP BY "productId"
+            `)
+          : [];
+
       const todayKey = getPriceHistoryBusinessDateKey();
       const historySince30 = shiftPriceHistoryDateKey(todayKey, -29);
       const historySince60 = shiftPriceHistoryDateKey(todayKey, -59);
@@ -1066,6 +1087,10 @@ async function fetchDynamicCatalogBaseData(
         ])
       );
 
+      const commentMap = new Map(
+        commentRows.map((row) => [row.productId, row.commentCount])
+      );
+
       const historyBadgeMap = new Map(
         historyBadgeRows.map((row) => [
           row.productId,
@@ -1091,6 +1116,7 @@ async function fetchDynamicCatalogBaseData(
             priceHistoryBadgeWindows: historyBadgeMap.get(row.id) ?? [],
             likeCount: reactionMap.get(row.id)?.likeCount ?? 0,
             dislikeCount: reactionMap.get(row.id)?.dislikeCount ?? 0,
+            commentCount: commentMap.get(row.id) ?? 0,
           },
         ])
       );
@@ -1120,6 +1146,7 @@ async function fetchDynamicCatalogBaseData(
             priceHistoryBadgeWindows: productState?.priceHistoryBadgeWindows ?? [],
             likeCount: productState?.likeCount ?? 0,
             dislikeCount: productState?.dislikeCount ?? 0,
+            commentCount: productState?.commentCount ?? 0,
             displayPrice,
             isFallbackPrice:
               product.totalPrice <= 0 &&
@@ -1447,6 +1474,7 @@ export async function getDynamicCatalogData({
       ratingCount: p.ratingCount,
       likeCount: p.likeCount,
       dislikeCount: p.dislikeCount,
+      commentCount: p.commentCount,
       avgPrice: avgMonthly,
       lowestPrice30d,
       highestPrice30d,

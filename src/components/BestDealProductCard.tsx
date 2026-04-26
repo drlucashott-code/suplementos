@@ -3,10 +3,15 @@
 import Image from "next/image";
 import { AlertTriangle, Bookmark, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import TrackedDealLink from "@/components/TrackedDealLink";
 import { PriceHistoryButton } from "@/components/dynamic/PriceHistoryButton";
 import type { BestDeal } from "@/lib/bestDeals";
-import { SAVED_DEALS_EVENT, isDealSaved, toggleSavedDeal } from "@/lib/client/savedDeals";
+import {
+  ACCOUNT_FAVORITES_EVENT,
+  isAccountFavorite,
+  toggleAccountFavorite,
+} from "@/lib/client/accountFavorites";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 const REPORT_REASONS = [
@@ -79,22 +84,31 @@ export default function BestDealProductCard({
   const [reportState, setReportState] = useState<"idle" | "submitting" | "success" | "error">(
     "idle"
   );
+  const router = useRouter();
 
   useEffect(() => {
-    setSaved(isDealSaved(item.asin));
-  }, [item.asin]);
+    let active = true;
+    void isAccountFavorite(item.id).then((value) => {
+      if (active) setSaved(value);
+    });
+    return () => {
+      active = false;
+    };
+  }, [item.id]);
 
   useEffect(() => {
-    const syncSaved = () => setSaved(isDealSaved(item.asin));
+    const syncSaved = () => {
+      void isAccountFavorite(item.id).then(setSaved);
+    };
 
     window.addEventListener("storage", syncSaved);
-    window.addEventListener(SAVED_DEALS_EVENT, syncSaved);
+    window.addEventListener(ACCOUNT_FAVORITES_EVENT, syncSaved);
 
     return () => {
       window.removeEventListener("storage", syncSaved);
-      window.removeEventListener(SAVED_DEALS_EVENT, syncSaved);
+      window.removeEventListener(ACCOUNT_FAVORITES_EVENT, syncSaved);
     };
-  }, [item.asin]);
+  }, [item.id]);
 
   async function submitReport() {
     if (reportState === "submitting") return;
@@ -155,7 +169,16 @@ export default function BestDealProductCard({
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                setSaved(toggleSavedDeal(item));
+                const nextSaved = !saved;
+                void toggleAccountFavorite(item.id, nextSaved).then((result) => {
+                  if (result.unauthorized) {
+                    router.push("/entrar");
+                    return;
+                  }
+                  if (result.ok) {
+                    setSaved(nextSaved);
+                  }
+                });
               }}
               className={`inline-flex h-8 w-8 items-center justify-center rounded-full border shadow-sm transition ${
                 saved

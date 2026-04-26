@@ -3,10 +3,15 @@
 import Image from "next/image";
 import { AlertTriangle, Bookmark, RefreshCw, ShoppingCart, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { trackProductClick } from "@/lib/client/productClickTracking";
-import type { SaveableDeal } from "@/lib/client/savedDeals";
-import { SAVED_DEALS_EVENT, isDealSaved, toggleSavedDeal } from "@/lib/client/savedDeals";
+import {
+  ACCOUNT_FAVORITES_EVENT,
+  isAccountFavorite,
+  toggleAccountFavorite,
+} from "@/lib/client/accountFavorites";
 import { PriceHistoryButton } from "@/components/dynamic/PriceHistoryButton";
+import { ProductCommentsSheet } from "@/components/dynamic/ProductCommentsSheet";
 import type { PriceHistoryChartRange } from "@/lib/dynamicPriceHistory";
 import type { PriceDecision } from "@/lib/priceDecision";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
@@ -22,6 +27,7 @@ export type DynamicProductType = {
   ratingCount?: number | null;
   likeCount?: number;
   dislikeCount?: number;
+  commentCount?: number;
   avgPrice?: number | null;
   lowestPrice30d?: number | null;
   highestPrice30d?: number | null;
@@ -202,6 +208,11 @@ function formatNumberForDisplay(value: number, useOneDecimal: boolean) {
 function formatPriceParts(value: number) {
   const [whole, cents] = value.toFixed(2).split(".");
   return { whole, cents };
+}
+
+function formatCommentCount(value?: number) {
+  const safeValue = Number.isFinite(value) ? Math.max(0, Number(value)) : 0;
+  return `${safeValue} ${safeValue === 1 ? "comentário" : "comentários"}`;
 }
 
 function ProgramAndSaveIcon() {
@@ -392,6 +403,7 @@ export function MobileProductCard({
   const [reportState, setReportState] = useState<"idle" | "submitting" | "success" | "error">(
     "idle"
   );
+  const router = useRouter();
 
   const hasPrice = typeof product.price === "number" && product.price > 0;
   const intCents = hasPrice ? product.price.toFixed(2).split(".") : null;
@@ -421,25 +433,31 @@ export function MobileProductCard({
   const programAndSaveParts = programAndSavePrice
     ? formatPriceParts(programAndSavePrice)
     : null;
+  const commentsLabel = formatCommentCount(product.commentCount);
 
   useEffect(() => {
-    if (!asin) return;
-    setSaved(isDealSaved(asin));
-  }, [asin]);
+    let active = true;
+    void isAccountFavorite(product.id).then((value) => {
+      if (active) setSaved(value);
+    });
+    return () => {
+      active = false;
+    };
+  }, [product.id]);
 
   useEffect(() => {
-    if (!asin) return;
-
-    const syncSaved = () => setSaved(isDealSaved(asin));
+    const syncSaved = () => {
+      void isAccountFavorite(product.id).then(setSaved);
+    };
 
     window.addEventListener("storage", syncSaved);
-    window.addEventListener(SAVED_DEALS_EVENT, syncSaved);
+    window.addEventListener(ACCOUNT_FAVORITES_EVENT, syncSaved);
 
     return () => {
       window.removeEventListener("storage", syncSaved);
-      window.removeEventListener(SAVED_DEALS_EVENT, syncSaved);
+      window.removeEventListener(ACCOUNT_FAVORITES_EVENT, syncSaved);
     };
-  }, [asin]);
+  }, [product.id]);
 
   const visibleHighlights = highlightConfig
     .map((config) => {
@@ -481,28 +499,6 @@ export function MobileProductCard({
       category: "dinamica",
     });
   };
-
-  function buildSaveableDeal(): SaveableDeal | null {
-    if (!asin) return null;
-
-    return {
-      id: product.id,
-      asin,
-      name: product.name,
-      imageUrl: product.imageUrl,
-      url: product.affiliateUrl,
-      totalPrice: product.price,
-      averagePrice30d: product.avgPrice ?? product.price,
-      discountPercent: product.discountPercent ?? 0,
-      ratingAverage: product.ratingAverage ?? null,
-      ratingCount: product.ratingCount ?? null,
-      likeCount: 0,
-      dislikeCount: 0,
-      categoryName: "Categoria",
-      categoryGroup: "dinamica",
-      categorySlug: "",
-    };
-  }
 
   async function handleSubmitReport() {
     if (!asin || reportState === "submitting") return;
@@ -582,9 +578,16 @@ export function MobileProductCard({
             <button
               type="button"
               onClick={() => {
-                const deal = buildSaveableDeal();
-                if (!deal) return;
-                setSaved(toggleSavedDeal(deal));
+                const nextSaved = !saved;
+                void toggleAccountFavorite(product.id, nextSaved).then((result) => {
+                  if (result.unauthorized) {
+                    router.push("/entrar");
+                    return;
+                  }
+                  if (result.ok) {
+                    setSaved(nextSaved);
+                  }
+                });
               }}
               className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
                 saved
@@ -596,6 +599,15 @@ export function MobileProductCard({
               <Bookmark className={`h-3.5 w-3.5 ${saved ? "fill-current" : ""}`} />
               {saved ? "Salvo" : "Salvar"}
             </button>
+          </div>
+
+          <div className="mt-2 flex w-full justify-center">
+            <ProductCommentsSheet
+              productId={product.id}
+              productName={product.name}
+              triggerLabel={commentsLabel}
+              triggerClassName="w-full max-w-[126px] justify-center px-2.5 py-1 text-[11px] font-semibold text-gray-600"
+            />
           </div>
         </div>
 

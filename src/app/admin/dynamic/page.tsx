@@ -244,6 +244,22 @@ export default async function AdminDynamicDashboard() {
           />
 
           <AdminCard
+            title="Comentários"
+            description="Modere comentários públicos, respostas e interações dos usuários."
+            href="/admin/dynamic/comentarios"
+            icon="M"
+            color="sky"
+          />
+
+          <AdminCard
+            title="Sugestões"
+            description="Revise ideias de produtos enviadas pelos usuários antes de importar."
+            href="/admin/dynamic/sugestoes"
+            icon="U"
+            color="amber"
+          />
+
+          <AdminCard
             title="Expansoes"
             description="Audite ASINs descobertos na expansao e identifique os que faltam importar."
             href="/admin/dynamic/expansoes"
