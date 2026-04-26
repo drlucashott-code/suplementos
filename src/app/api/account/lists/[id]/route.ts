@@ -6,6 +6,7 @@ import {
   isSiteUserVerified,
   verificationRequiredResponse,
 } from "@/lib/siteAuth";
+import { createUniqueListSlug } from "@/lib/siteSocial";
 
 export async function GET(
   _request: Request,
@@ -34,6 +35,7 @@ export async function GET(
       sortOrder: number | null;
       productId: string | null;
       monitoredProductId: string | null;
+      trackedAmazonProductId: string | null;
       productAsin: string | null;
       productName: string | null;
       productImageUrl: string | null;
@@ -57,13 +59,14 @@ export async function GET(
       i."sortOrder",
       p."id" AS "productId",
       mp."id" AS "monitoredProductId",
-      COALESCE(p."asin", mp."asin") AS "productAsin",
-      COALESCE(p."name", mp."name") AS "productName",
-      COALESCE(p."imageUrl", mp."imageUrl") AS "productImageUrl",
-      COALESCE(p."totalPrice", mp."totalPrice") AS "productTotalPrice",
-      COALESCE(p."averagePrice30d", mp."averagePrice30d") AS "productAveragePrice30d",
-      COALESCE(p."url", mp."amazonUrl") AS "productUrl",
-      COALESCE(p."availabilityStatus", mp."availabilityStatus") AS "productAvailabilityStatus",
+      tp."id" AS "trackedAmazonProductId",
+      COALESCE(p."asin", tp."asin", mp."asin") AS "productAsin",
+      COALESCE(p."name", tp."name", mp."name") AS "productName",
+      COALESCE(p."imageUrl", tp."imageUrl", mp."imageUrl") AS "productImageUrl",
+      COALESCE(p."totalPrice", tp."totalPrice", mp."totalPrice") AS "productTotalPrice",
+      COALESCE(p."averagePrice30d", tp."averagePrice30d", mp."averagePrice30d") AS "productAveragePrice30d",
+      COALESCE(p."url", tp."amazonUrl", mp."amazonUrl") AS "productUrl",
+      COALESCE(p."availabilityStatus", tp."availabilityStatus", mp."availabilityStatus") AS "productAvailabilityStatus",
       c."name" AS "categoryName",
       c."group" AS "categoryGroup",
       c."slug" AS "categorySlug"
@@ -71,6 +74,7 @@ export async function GET(
     LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
     LEFT JOIN "DynamicProduct" p ON p."id" = i."productId"
     LEFT JOIN "SiteUserMonitoredProduct" mp ON mp."id" = i."monitoredProductId"
+    LEFT JOIN "SiteTrackedAmazonProduct" tp ON tp."id" = COALESCE(i."trackedAmazonProductId", mp."trackedProductId")
     LEFT JOIN "DynamicCategory" c ON c."id" = p."categoryId"
     WHERE l."id" = ${id}
       AND l."userId" = ${user.id}
@@ -94,7 +98,7 @@ export async function GET(
         note: row.note,
         sortOrder: row.sortOrder ?? 0,
         product: {
-          id: row.productId ?? row.monitoredProductId!,
+          id: row.productId ?? row.trackedAmazonProductId ?? row.monitoredProductId!,
           asin: row.productAsin!,
           name: row.productName!,
           imageUrl: row.productImageUrl,
@@ -140,6 +144,24 @@ export async function PATCH(
     const title = typeof body.title === "string" ? body.title.trim() : undefined;
     const description =
       typeof body.description === "string" ? body.description.trim() || null : undefined;
+    const currentListRows = await prisma.$queryRaw<
+      Array<{ id: string; title: string; slug: string }>
+    >(Prisma.sql`
+      SELECT "id", "title", "slug"
+      FROM "SiteUserList"
+      WHERE "id" = ${id}
+        AND "userId" = ${user.id}
+      LIMIT 1
+    `);
+
+    if (!currentListRows[0]) {
+      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    }
+
+    const nextSlug =
+      title && title !== currentListRows[0].title
+        ? await createUniqueListSlug(user.id, title)
+        : currentListRows[0].slug;
 
     const rows = await prisma.$queryRaw<
       Array<{
@@ -153,6 +175,7 @@ export async function PATCH(
       UPDATE "SiteUserList"
       SET
         "isPublic" = COALESCE(${typeof body.isPublic === "boolean" ? body.isPublic : null}, "isPublic"),
+        "slug" = ${nextSlug},
         "title" = COALESCE(${title ?? null}, "title"),
         "description" = COALESCE(${description ?? null}, "description"),
         "updatedAt" = NOW()
@@ -160,10 +183,6 @@ export async function PATCH(
         AND "userId" = ${user.id}
       RETURNING "id", "slug", "title", "description", "isPublic"
     `);
-
-    if (!rows[0]) {
-      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-    }
 
     return NextResponse.json({ ok: true, list: rows[0] });
   } catch (error) {

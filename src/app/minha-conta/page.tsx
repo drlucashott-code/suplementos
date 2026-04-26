@@ -120,6 +120,7 @@ export default async function MyAccountPage() {
     prisma.$queryRaw<
       Array<{
         id: string;
+        trackedProductId: string | null;
         asin: string;
         amazonUrl: string;
         name: string;
@@ -134,17 +135,19 @@ export default async function MyAccountPage() {
     >(Prisma.sql`
       SELECT
         mp."id",
-        mp."asin",
-        mp."amazonUrl",
-        mp."name",
-        mp."imageUrl",
-        mp."totalPrice",
-        mp."averagePrice30d",
-        mp."availabilityStatus",
-        mp."programAndSavePrice",
+        mp."trackedProductId",
+        COALESCE(tp."asin", mp."asin") AS "asin",
+        COALESCE(tp."amazonUrl", mp."amazonUrl") AS "amazonUrl",
+        COALESCE(tp."name", mp."name") AS "name",
+        COALESCE(tp."imageUrl", mp."imageUrl") AS "imageUrl",
+        COALESCE(tp."totalPrice", mp."totalPrice") AS "totalPrice",
+        COALESCE(tp."averagePrice30d", mp."averagePrice30d") AS "averagePrice30d",
+        COALESCE(tp."availabilityStatus", mp."availabilityStatus") AS "availabilityStatus",
+        COALESCE(tp."programAndSavePrice", mp."programAndSavePrice") AS "programAndSavePrice",
         mp."sortOrder",
         mp."createdAt"
       FROM "SiteUserMonitoredProduct" mp
+      LEFT JOIN "SiteTrackedAmazonProduct" tp ON tp."id" = mp."trackedProductId"
       WHERE mp."userId" = ${user.id}
       ORDER BY mp."sortOrder" ASC, mp."createdAt" DESC
     `)
@@ -226,7 +229,7 @@ export default async function MyAccountPage() {
             savedAt: product.createdAt.toISOString(),
             sortOrder: product.sortOrder,
             product: {
-              id: product.id,
+              id: product.trackedProductId ?? product.id,
               asin: product.asin,
               name: product.name,
               totalPrice: product.totalPrice,

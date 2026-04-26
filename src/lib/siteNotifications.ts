@@ -149,14 +149,15 @@ export async function syncFavoriteNotifications(userId: string) {
   >(Prisma.sql`
     SELECT
       mp."id",
-      mp."asin",
-      mp."amazonUrl",
-      mp."name",
-      mp."totalPrice",
-      mp."availabilityStatus",
+      COALESCE(tp."asin", mp."asin") AS "asin",
+      COALESCE(tp."amazonUrl", mp."amazonUrl") AS "amazonUrl",
+      COALESCE(tp."name", mp."name") AS "name",
+      COALESCE(tp."totalPrice", mp."totalPrice") AS "totalPrice",
+      COALESCE(tp."availabilityStatus", mp."availabilityStatus") AS "availabilityStatus",
       mp."lastTrackedPrice",
       mp."lastTrackedAvailability"
     FROM "SiteUserMonitoredProduct" mp
+    LEFT JOIN "SiteTrackedAmazonProduct" tp ON tp."id" = mp."trackedProductId"
     WHERE mp."userId" = ${userId}
   `).catch((error) => {
     if (isMissingRelationError(error, "SiteUserMonitoredProduct")) {

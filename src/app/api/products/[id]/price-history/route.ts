@@ -66,33 +66,77 @@ export async function GET(
         },
       },
     });
-
-    if (!product) {
-      return NextResponse.json(
-        { ok: false, error: "product_not_found" },
-        { status: 404 }
-      );
-    }
-
-    const fallbackConfig = await getDynamicFallbackConfig();
-    const fallbackState: DynamicProductFallbackState = {
-      lastValidPrice: product.lastValidPrice,
-      lastValidPriceAt: product.lastValidPriceAt,
-      availabilityStatus: product.availabilityStatus,
-    };
-
-    const currentPrice = getDynamicDisplayPrice({
-      currentPrice: product.totalPrice,
-      fallbackState,
-      config: fallbackConfig,
-    });
-
+    let currentPrice = 0;
     const recordedHistoryByDate = new Map<string, number>();
 
-    for (const point of product.priceHistory) {
-      const dateKey = formatDateKey(point.date);
-      const price = roundPrice(point.price) ?? 0;
-      recordedHistoryByDate.set(dateKey, price);
+    if (product) {
+      const fallbackConfig = await getDynamicFallbackConfig();
+      const fallbackState: DynamicProductFallbackState = {
+        lastValidPrice: product.lastValidPrice,
+        lastValidPriceAt: product.lastValidPriceAt,
+        availabilityStatus: product.availabilityStatus,
+      };
+
+      currentPrice = getDynamicDisplayPrice({
+        currentPrice: product.totalPrice,
+        fallbackState,
+        config: fallbackConfig,
+      });
+
+      for (const point of product.priceHistory) {
+        const dateKey = formatDateKey(point.date);
+        const price = roundPrice(point.price) ?? 0;
+        recordedHistoryByDate.set(dateKey, price);
+      }
+    } else {
+      const maxSince = (() => {
+        const date = new Date();
+        date.setHours(0, 0, 0, 0);
+        date.setDate(date.getDate() - 364);
+        return date;
+      })();
+      const trackedProductRows = await prisma.$queryRaw<
+        Array<{
+          id: string;
+          totalPrice: number;
+          availabilityStatus: string | null;
+        }>
+      >`
+        SELECT
+          tp."id",
+          tp."totalPrice",
+          tp."availabilityStatus"
+        FROM "SiteTrackedAmazonProduct" tp
+        WHERE tp."id" = ${id}
+        LIMIT 1
+      `;
+      const trackedProduct = trackedProductRows[0] ?? null;
+
+      if (!trackedProduct) {
+        return NextResponse.json(
+          { ok: false, error: "product_not_found" },
+          { status: 404 }
+        );
+      }
+
+      currentPrice =
+        trackedProduct.availabilityStatus === "OUT_OF_STOCK" ? 0 : trackedProduct.totalPrice;
+
+      const trackedHistory = await prisma.$queryRaw<Array<{ date: Date; price: number }>>`
+        SELECT h."date", h."price"
+        FROM "SiteTrackedAmazonProductPriceHistory" h
+        WHERE
+          h."trackedProductId" = ${id}
+          AND h."date" >= ${maxSince}
+          AND h."price" > 0
+        ORDER BY h."date" ASC
+      `;
+
+      for (const point of trackedHistory) {
+        const dateKey = formatDateKey(point.date);
+        const price = roundPrice(point.price) ?? 0;
+        recordedHistoryByDate.set(dateKey, price);
+      }
     }
 
     const todayKey = getPriceHistoryBusinessDateKey();

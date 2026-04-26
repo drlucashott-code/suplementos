@@ -1,206 +1,31 @@
-import Link from "next/link";
-import BestDealProductCard from "@/components/BestDealProductCard";
-import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
-import SavePublicListButton from "@/components/SavePublicListButton";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getCurrentSiteUser } from "@/lib/siteAuthSession";
+import { buildPublicListPath } from "@/lib/siteSocial";
 
 export const revalidate = 300;
 
-export default async function PublicListPage({
+export default async function LegacyPublicListRedirectPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams?: Promise<{ sort?: string }>;
 }) {
   const { slug } = await params;
-  const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const sortMode = resolvedSearchParams?.sort === "discount" ? "discount" : "author";
 
-  const rows = await prisma.$queryRaw<
-    Array<{
-      listId: string;
-      title: string;
-      description: string | null;
-      ownerDisplayName: string;
-      ownerUsername: string | null;
-      itemId: string | null;
-      note: string | null;
-      productId: string | null;
-      monitoredProductId: string | null;
-      productAsin: string | null;
-      productName: string | null;
-      productImageUrl: string | null;
-      productTotalPrice: number | null;
-      productAveragePrice30d: number | null;
-      productUrl: string | null;
-      productAvailabilityStatus: string | null;
-      productRatingAverage: number | null;
-      productRatingCount: number | null;
-      categoryName: string | null;
-      categoryGroup: string | null;
-      categorySlug: string | null;
-    }>
-  >(Prisma.sql`
+  const rows = await prisma.$queryRaw<Array<{ slug: string; ownerUsername: string | null }>>(Prisma.sql`
     SELECT
-      l."id" AS "listId",
-      l."title",
-      l."description",
-      u."displayName" AS "ownerDisplayName",
-      u."username" AS "ownerUsername",
-      i."id" AS "itemId",
-      i."note",
-      p."id" AS "productId",
-      mp."id" AS "monitoredProductId",
-      COALESCE(p."asin", mp."asin") AS "productAsin",
-      COALESCE(p."name", mp."name") AS "productName",
-      COALESCE(p."imageUrl", mp."imageUrl") AS "productImageUrl",
-      COALESCE(p."totalPrice", mp."totalPrice") AS "productTotalPrice",
-      COALESCE(p."averagePrice30d", mp."averagePrice30d") AS "productAveragePrice30d",
-      COALESCE(p."url", mp."amazonUrl") AS "productUrl",
-      COALESCE(p."availabilityStatus", mp."availabilityStatus") AS "productAvailabilityStatus",
-      p."ratingAverage" AS "productRatingAverage",
-      p."ratingCount" AS "productRatingCount",
-      c."name" AS "categoryName",
-      c."group" AS "categoryGroup",
-      c."slug" AS "categorySlug"
+      l."slug",
+      u."username" AS "ownerUsername"
     FROM "SiteUserList" l
     INNER JOIN "SiteUser" u ON u."id" = l."userId"
-    LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
-    LEFT JOIN "DynamicProduct" p ON p."id" = i."productId"
-    LEFT JOIN "SiteUserMonitoredProduct" mp ON mp."id" = i."monitoredProductId"
-    LEFT JOIN "DynamicCategory" c ON c."id" = p."categoryId"
     WHERE l."slug" = ${slug}
       AND l."isPublic" = true
-    ORDER BY i."sortOrder" ASC NULLS LAST, i."createdAt" DESC NULLS LAST
+    LIMIT 1
   `);
 
-  if (rows.length === 0) return notFound();
-  const currentUser = await getCurrentSiteUser();
-  const savedRows =
-    currentUser
-      ? await prisma.siteUserSavedList.findMany({
-          where: {
-            userId: currentUser.id,
-            listId: rows[0]!.listId,
-          },
-          select: { id: true },
-          take: 1,
-        })
-      : [];
+  const row = rows[0];
+  if (!row) return notFound();
+  if (!row.ownerUsername) return notFound();
 
-  const items = rows
-    .filter((row) => row.productName && row.productUrl && row.productAsin)
-    .map((row) => {
-      const totalPrice = row.productTotalPrice ?? 0;
-      const averagePrice30d = row.productAveragePrice30d ?? totalPrice;
-      const discountPercent =
-        averagePrice30d > totalPrice && totalPrice > 0
-          ? Math.round(((averagePrice30d - totalPrice) / averagePrice30d) * 100)
-          : 0;
-
-      return {
-        id: row.productId ?? row.monitoredProductId!,
-        asin: row.productAsin!,
-        name: row.productName!,
-        imageUrl:
-          row.productImageUrl ||
-          "https://m.media-amazon.com/images/I/61NJbm2a9tL._AC_SL1200_.jpg",
-        url: row.productUrl!,
-        totalPrice,
-        averagePrice30d,
-        discountPercent,
-        ratingAverage: row.productRatingAverage,
-        ratingCount: row.productRatingCount,
-        likeCount: 0,
-        dislikeCount: 0,
-        attributes: {
-          notaLista: row.note ?? "",
-          availabilityStatus: row.productAvailabilityStatus ?? "",
-        },
-        categoryName: row.categoryName ?? "Amazon",
-        categoryGroup: row.categoryGroup ?? "amazon",
-        categorySlug: row.categorySlug ?? "monitorado",
-      };
-    });
-
-  const sortedItems =
-    sortMode === "discount"
-      ? [...items].sort((a, b) => {
-          if (b.discountPercent !== a.discountPercent) {
-            return b.discountPercent - a.discountPercent;
-          }
-          return a.totalPrice - b.totalPrice;
-        })
-      : items;
-
-  const list = {
-    id: rows[0]!.listId,
-    title: rows[0]!.title,
-    description: rows[0]!.description,
-    ownerDisplayName: rows[0]!.ownerDisplayName,
-    ownerUsername: rows[0]!.ownerUsername,
-    items: sortedItems,
-  };
-
-  return (
-    <main className="min-h-screen bg-[#E3E6E6] pb-10">
-      <AmazonHeader />
-
-      <div className="mx-auto max-w-[1500px] px-3 py-4 md:px-5">
-        <section className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm md:p-5">
-          <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h1 className="text-[24px] font-bold text-[#0F1111]">{list.title}</h1>
-              {list.description ? (
-                <p className="mt-1 text-[13px] text-[#565959]">{list.description}</p>
-              ) : null}
-              <p className="mt-1 text-[13px] text-[#565959]">
-                Lista criada por {list.ownerDisplayName}
-                {list.ownerUsername ? ` @${list.ownerUsername}` : ""}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex rounded-full border border-[#D5D9D9] bg-[#F8FAFA] p-1">
-                <Link
-                  href={`/listas/${slug}`}
-                  className={`rounded-full px-4 py-2 text-sm font-bold transition ${
-                    sortMode === "author" ? "bg-white text-[#0F1111] shadow-sm" : "text-[#565959]"
-                  }`}
-                >
-                  Ordem da lista
-                </Link>
-                <Link
-                  href={`/listas/${slug}?sort=discount`}
-                  className={`rounded-full px-4 py-2 text-sm font-bold transition ${
-                    sortMode === "discount" ? "bg-white text-[#0F1111] shadow-sm" : "text-[#565959]"
-                  }`}
-                >
-                  Maior desconto
-                </Link>
-              </div>
-
-              <SavePublicListButton listId={list.id} initialSaved={savedRows.length > 0} />
-            </div>
-          </div>
-
-          {list.items.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[#d5d9d9] bg-[#F8FAFA] px-4 py-12 text-center text-sm text-[#565959]">
-              Essa lista ainda nao tem produtos.
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-              {list.items.map((item) => (
-                <BestDealProductCard key={item.id} item={item} category="lista_publica" />
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
-    </main>
-  );
+  redirect(buildPublicListPath(row.ownerUsername, row.slug));
 }

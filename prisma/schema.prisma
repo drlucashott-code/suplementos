@@ -463,6 +463,8 @@ model SiteUserMonitoredProduct {
   id                    String    @id @default(cuid())
   userId                String
   user                  SiteUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackedProductId      String?
+  trackedProduct        SiteTrackedAmazonProduct? @relation(fields: [trackedProductId], references: [id], onDelete: SetNull)
   listItems             SiteUserListItem[]
   asin                  String
   amazonUrl             String
@@ -480,8 +482,49 @@ model SiteUserMonitoredProduct {
   updatedAt             DateTime  @updatedAt
 
   @@unique([userId, asin])
+  @@unique([userId, trackedProductId])
   @@index([asin])
+  @@index([trackedProductId])
   @@index([userId, createdAt(sort: Desc)])
+}
+
+model SiteTrackedAmazonProduct {
+  id                    String    @id @default(cuid())
+  asin                  String    @unique
+  amazonUrl             String
+  name                  String
+  imageUrl              String?
+  totalPrice            Float     @default(0)
+  averagePrice30d       Float?
+  lowestPrice30d        Float?
+  highestPrice30d       Float?
+  lowestPrice365d       Float?
+  availabilityStatus    String?   @default("UNKNOWN")
+  programAndSavePrice   Float?
+  lastSyncedAt          DateTime?
+  monitorCount          Int       @default(0)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  monitoredBy           SiteUserMonitoredProduct[]
+  listItems             SiteUserListItem[]
+  priceHistory          SiteTrackedAmazonProductPriceHistory[]
+
+  @@index([createdAt(sort: Desc)])
+  @@index([updatedAt(sort: Desc)])
+}
+
+model SiteTrackedAmazonProductPriceHistory {
+  id               String                   @id @default(cuid())
+  trackedProductId String
+  trackedProduct   SiteTrackedAmazonProduct @relation(fields: [trackedProductId], references: [id], onDelete: Cascade)
+  price            Float
+  updateCount      Int                      @default(1)
+  date             DateTime
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  @@unique([trackedProductId, date])
+  @@index([trackedProductId, date])
 }
 
 model SiteProductComment {
@@ -544,6 +587,8 @@ model SiteUserListItem {
   product     DynamicProduct? @relation(fields: [productId], references: [id], onDelete: Cascade)
   monitoredProductId String?
   monitoredProduct   SiteUserMonitoredProduct? @relation(fields: [monitoredProductId], references: [id], onDelete: Cascade)
+  trackedAmazonProductId String?
+  trackedAmazonProduct   SiteTrackedAmazonProduct? @relation(fields: [trackedAmazonProductId], references: [id], onDelete: Cascade)
   note        String?
   sortOrder   Int            @default(0)
   createdAt   DateTime       @default(now())
@@ -551,8 +596,10 @@ model SiteUserListItem {
  
   @@unique([listId, productId])
   @@unique([listId, monitoredProductId])
+  @@unique([listId, trackedAmazonProductId])
   @@index([productId])
   @@index([monitoredProductId])
+  @@index([trackedAmazonProductId])
   @@index([listId, sortOrder, createdAt(sort: Desc)])
 }
 

@@ -11,6 +11,8 @@ import {
   extractAmazonAsin,
   fetchMonitoredAmazonProductSnapshot,
 } from "@/lib/siteMonitoredProducts";
+import { getPriceHistoryCanonicalDate } from "@/lib/dynamicPriceHistory";
+import { refreshTrackedAmazonProductPriceStatsBulk } from "@/lib/siteTrackedAmazonPriceStats";
 
 export async function GET() {
   const user = await getCurrentSiteUser();
@@ -24,6 +26,7 @@ export async function GET() {
   const products = await prisma.$queryRaw<
     Array<{
       id: string;
+      trackedProductId: string | null;
       asin: string;
       amazonUrl: string;
       name: string;
@@ -38,17 +41,19 @@ export async function GET() {
   >(Prisma.sql`
     SELECT
       mp."id",
-      mp."asin",
-      mp."amazonUrl",
-      mp."name",
-      mp."imageUrl",
-      mp."totalPrice",
-      mp."averagePrice30d",
-      mp."availabilityStatus",
-      mp."programAndSavePrice",
+      mp."trackedProductId",
+      COALESCE(tp."asin", mp."asin") AS "asin",
+      COALESCE(tp."amazonUrl", mp."amazonUrl") AS "amazonUrl",
+      COALESCE(tp."name", mp."name") AS "name",
+      COALESCE(tp."imageUrl", mp."imageUrl") AS "imageUrl",
+      COALESCE(tp."totalPrice", mp."totalPrice") AS "totalPrice",
+      COALESCE(tp."averagePrice30d", mp."averagePrice30d") AS "averagePrice30d",
+      COALESCE(tp."availabilityStatus", mp."availabilityStatus") AS "availabilityStatus",
+      COALESCE(tp."programAndSavePrice", mp."programAndSavePrice") AS "programAndSavePrice",
       mp."sortOrder",
       mp."createdAt"
     FROM "SiteUserMonitoredProduct" mp
+    LEFT JOIN "SiteTrackedAmazonProduct" tp ON tp."id" = mp."trackedProductId"
     WHERE mp."userId" = ${user.id}
     ORDER BY mp."sortOrder" ASC, mp."createdAt" DESC
   `);
@@ -56,14 +61,16 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     monitoredProducts: products.map((product) => ({
-      id: product.id,
-      savedAt: product.createdAt.toISOString(),
-      sortOrder: product.sortOrder,
-      product: {
-        asin: product.asin,
-        name: product.name,
-        totalPrice: product.totalPrice,
-        imageUrl: product.imageUrl,
+        id: product.id,
+        trackedProductId: product.trackedProductId,
+        savedAt: product.createdAt.toISOString(),
+        sortOrder: product.sortOrder,
+        product: {
+          id: product.trackedProductId ?? product.id,
+          asin: product.asin,
+          name: product.name,
+          totalPrice: product.totalPrice,
+          imageUrl: product.imageUrl,
         url: product.amazonUrl,
         averagePrice30d: product.averagePrice30d,
         availabilityStatus: product.availabilityStatus,
@@ -183,13 +190,7 @@ export async function POST(request: Request) {
       LIMIT 1
     `);
 
-    const maxSortOrderRows = await prisma.$queryRaw<Array<{ maxSortOrder: number | null }>>(Prisma.sql`
-      SELECT MAX(mp."sortOrder")::int AS "maxSortOrder"
-      FROM "SiteUserMonitoredProduct" mp
-      WHERE mp."userId" = ${user.id}
-    `);
-
-    const monitoredProduct = await prisma.$queryRaw<
+    const trackedProductRows = await prisma.$queryRaw<
       Array<{
         id: string;
         asin: string;
@@ -200,13 +201,10 @@ export async function POST(request: Request) {
         averagePrice30d: number | null;
         availabilityStatus: string | null;
         programAndSavePrice: number | null;
-        sortOrder: number;
-        createdAt: Date;
       }>
     >(Prisma.sql`
-      INSERT INTO "SiteUserMonitoredProduct" (
+      INSERT INTO "SiteTrackedAmazonProduct" (
         "id",
-        "userId",
         "asin",
         "amazonUrl",
         "name",
@@ -214,16 +212,12 @@ export async function POST(request: Request) {
         "totalPrice",
         "availabilityStatus",
         "programAndSavePrice",
-        "sortOrder",
-        "lastTrackedPrice",
-        "lastTrackedAvailability",
         "lastSyncedAt",
         "createdAt",
         "updatedAt"
       )
       VALUES (
         ${randomUUID()},
-        ${user.id},
         ${snapshot.asin},
         ${snapshot.amazonUrl},
         ${snapshot.name},
@@ -231,14 +225,11 @@ export async function POST(request: Request) {
         ${snapshot.totalPrice},
         ${snapshot.availabilityStatus},
         ${snapshot.programAndSavePrice},
-        ${(maxSortOrderRows[0]?.maxSortOrder ?? -1) + 1},
-        ${snapshot.totalPrice > 0 ? snapshot.totalPrice : null},
-        ${snapshot.availabilityStatus},
         NOW(),
         NOW(),
         NOW()
       )
-      ON CONFLICT ("userId", "asin")
+      ON CONFLICT ("asin")
       DO UPDATE SET
         "amazonUrl" = EXCLUDED."amazonUrl",
         "name" = EXCLUDED."name",
@@ -257,6 +248,92 @@ export async function POST(request: Request) {
         "totalPrice",
         "averagePrice30d",
         "availabilityStatus",
+        "programAndSavePrice"
+    `);
+    const trackedProduct = trackedProductRows[0];
+    if (!trackedProduct) {
+      throw new Error("tracked_amazon_product_upsert_failed");
+    }
+
+    const maxSortOrderRows = await prisma.$queryRaw<Array<{ maxSortOrder: number | null }>>(Prisma.sql`
+      SELECT MAX(mp."sortOrder")::int AS "maxSortOrder"
+      FROM "SiteUserMonitoredProduct" mp
+      WHERE mp."userId" = ${user.id}
+    `);
+
+    const monitoredProduct = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        trackedProductId: string | null;
+        asin: string;
+        amazonUrl: string;
+        name: string;
+        imageUrl: string | null;
+        totalPrice: number;
+        averagePrice30d: number | null;
+        availabilityStatus: string | null;
+        programAndSavePrice: number | null;
+        sortOrder: number;
+        createdAt: Date;
+      }>
+    >(Prisma.sql`
+      INSERT INTO "SiteUserMonitoredProduct" (
+        "id",
+        "userId",
+        "trackedProductId",
+        "asin",
+        "amazonUrl",
+        "name",
+        "imageUrl",
+        "totalPrice",
+        "availabilityStatus",
+        "programAndSavePrice",
+        "sortOrder",
+        "lastTrackedPrice",
+        "lastTrackedAvailability",
+        "lastSyncedAt",
+        "createdAt",
+        "updatedAt"
+      )
+      VALUES (
+        ${randomUUID()},
+        ${user.id},
+        ${trackedProduct.id},
+        ${snapshot.asin},
+        ${snapshot.amazonUrl},
+        ${snapshot.name},
+        ${snapshot.imageUrl},
+        ${snapshot.totalPrice},
+        ${snapshot.availabilityStatus},
+        ${snapshot.programAndSavePrice},
+        ${(maxSortOrderRows[0]?.maxSortOrder ?? -1) + 1},
+        ${snapshot.totalPrice > 0 ? snapshot.totalPrice : null},
+        ${snapshot.availabilityStatus},
+        NOW(),
+        NOW(),
+        NOW()
+      )
+      ON CONFLICT ("userId", "asin")
+      DO UPDATE SET
+        "trackedProductId" = EXCLUDED."trackedProductId",
+        "amazonUrl" = EXCLUDED."amazonUrl",
+        "name" = EXCLUDED."name",
+        "imageUrl" = EXCLUDED."imageUrl",
+        "totalPrice" = EXCLUDED."totalPrice",
+        "availabilityStatus" = EXCLUDED."availabilityStatus",
+        "programAndSavePrice" = EXCLUDED."programAndSavePrice",
+        "lastSyncedAt" = NOW(),
+        "updatedAt" = NOW()
+      RETURNING
+        "id",
+        "trackedProductId",
+        "asin",
+        "amazonUrl",
+        "name",
+        "imageUrl",
+        "totalPrice",
+        "averagePrice30d",
+        "availabilityStatus",
         "programAndSavePrice",
         "sortOrder",
         "createdAt"
@@ -266,23 +343,66 @@ export async function POST(request: Request) {
       throw new Error("monitored_product_upsert_failed");
     }
 
+    if (trackedProduct.totalPrice > 0) {
+      const historyDate = getPriceHistoryCanonicalDate();
+      await prisma.$executeRaw(Prisma.sql`
+        INSERT INTO "SiteTrackedAmazonProductPriceHistory" (
+          "id",
+          "trackedProductId",
+          "price",
+          "updateCount",
+          "date",
+          "createdAt",
+          "updatedAt"
+        )
+        VALUES (
+          ${randomUUID()},
+          ${trackedProduct.id},
+          ${trackedProduct.totalPrice},
+          1,
+          ${historyDate},
+          NOW(),
+          NOW()
+        )
+        ON CONFLICT ("trackedProductId", "date")
+        DO UPDATE SET
+          "price" = EXCLUDED."price",
+          "updateCount" = "SiteTrackedAmazonProductPriceHistory"."updateCount" + 1,
+          "updatedAt" = NOW()
+      `);
+
+      await refreshTrackedAmazonProductPriceStatsBulk([trackedProduct.id]);
+    }
+
+    await prisma.$executeRaw`
+      UPDATE "SiteTrackedAmazonProduct"
+      SET "monitorCount" = (
+        SELECT COUNT(*)::int
+        FROM "SiteUserMonitoredProduct"
+        WHERE "trackedProductId" = ${trackedProduct.id}
+      )
+      WHERE "id" = ${trackedProduct.id}
+    `;
+
     return NextResponse.json({
       ok: true,
       source: "amazon",
       canSuggestComparator: suggestionRows.length === 0,
       monitoredProduct: {
         id: row.id,
+        trackedProductId: row.trackedProductId,
         savedAt: row.createdAt.toISOString(),
         sortOrder: row.sortOrder,
         product: {
-          asin: row.asin,
-          name: row.name,
-          totalPrice: row.totalPrice,
-          imageUrl: row.imageUrl,
-          url: row.amazonUrl,
-          averagePrice30d: row.averagePrice30d,
-          availabilityStatus: row.availabilityStatus,
-          programAndSavePrice: row.programAndSavePrice,
+          id: trackedProduct.id,
+          asin: trackedProduct.asin,
+          name: trackedProduct.name,
+          totalPrice: trackedProduct.totalPrice,
+          imageUrl: trackedProduct.imageUrl,
+          url: trackedProduct.amazonUrl,
+          averagePrice30d: trackedProduct.averagePrice30d,
+          availabilityStatus: trackedProduct.availabilityStatus,
+          programAndSavePrice: trackedProduct.programAndSavePrice,
         },
       },
     });
@@ -368,11 +488,25 @@ export async function DELETE(request: Request) {
       );
     }
 
-    await prisma.$executeRaw`
+    const deletedRows = await prisma.$queryRaw<Array<{ trackedProductId: string | null }>>(Prisma.sql`
       DELETE FROM "SiteUserMonitoredProduct"
       WHERE "id" = ${monitoredProductId}
         AND "userId" = ${user.id}
-    `;
+      RETURNING "trackedProductId"
+    `);
+
+    const trackedProductId = deletedRows[0]?.trackedProductId ?? null;
+    if (trackedProductId) {
+      await prisma.$executeRaw`
+        UPDATE "SiteTrackedAmazonProduct"
+        SET "monitorCount" = (
+          SELECT COUNT(*)::int
+          FROM "SiteUserMonitoredProduct"
+          WHERE "trackedProductId" = ${trackedProductId}
+        )
+        WHERE "id" = ${trackedProductId}
+      `;
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {

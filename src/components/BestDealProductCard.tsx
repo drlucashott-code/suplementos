@@ -287,9 +287,7 @@ export default function BestDealProductCard({
                     <p>
                       De: <span className="line-through">{formatCurrency(item.averagePrice30d)}</span>
                     </p>
-                  ) : (
-                    <p className="font-medium text-[#007600]">Em estoque</p>
-                  )}
+                  ) : null}
                   <div
                     onClick={(event) => {
                       event.preventDefault();
@@ -303,7 +301,7 @@ export default function BestDealProductCard({
               </>
             ) : (
               <div className="mt-3 min-h-[58px] rounded-2xl border border-[#FECACA] bg-[#FFF5F5] px-3 py-3 text-sm font-bold text-[#B42318]">
-                Sem estoque no momento
+                Sem estoque
               </div>
             )}
 

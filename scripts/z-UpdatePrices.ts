@@ -7,6 +7,7 @@ import {
 } from "../src/lib/dynamicCategoryMetrics";
 import { refreshDynamicProductPriceStatsBulk } from "../src/lib/dynamicPriceStats";
 import { getPriceHistoryCanonicalDate } from "../src/lib/dynamicPriceHistory";
+import { refreshTrackedAmazonProductPriceStatsBulk } from "../src/lib/siteTrackedAmazonPriceStats";
 import {
   fetchAmazonPriceSnapshots,
 } from "../src/lib/amazonApiClient";
@@ -301,22 +302,24 @@ async function persistDynamicUpdate(
 }
 
 async function refreshMonitoredProducts() {
-  const monitoredProducts = await withDatabaseRetry("siteUserMonitoredProduct.query", async () =>
+  const trackedProducts = await withDatabaseRetry("siteTrackedAmazonProduct.query", async () =>
     prisma.$queryRaw<Array<{ id: string; asin: string }>>(Prisma.sql`
-      SELECT mp."id", mp."asin"
-      FROM "SiteUserMonitoredProduct" mp
-      ORDER BY mp."createdAt" ASC
+      SELECT tp."id", tp."asin"
+      FROM "SiteTrackedAmazonProduct" tp
+      ORDER BY tp."createdAt" ASC
     `)
   );
 
-  if (monitoredProducts.length === 0) {
+  if (trackedProducts.length === 0) {
     return 0;
   }
 
-  console.log(`Atualizando ${monitoredProducts.length} produtos monitorados por usuarios`);
+  console.log(`Atualizando ${trackedProducts.length} produtos Amazon monitorados internamente`);
+  const historyDate = getPriceHistoryCanonicalDate();
+  const trackedProductIdsWithHistory = new Set<string>();
 
-  for (let i = 0; i < monitoredProducts.length; i += BATCH_SIZE) {
-    const chunk = monitoredProducts.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < trackedProducts.length; i += BATCH_SIZE) {
+    const chunk = trackedProducts.slice(i, i + BATCH_SIZE);
     const asins = [...new Set(chunk.map((product) => product.asin).filter((asin) => !!asin))];
     let apiResults: Record<string, PriceResult> = {};
 
@@ -327,8 +330,8 @@ async function refreshMonitoredProducts() {
       continue;
     }
 
-    for (const monitoredProduct of chunk) {
-      const result = apiResults[monitoredProduct.asin];
+    for (const trackedProduct of chunk) {
+      const result = apiResults[trackedProduct.asin];
       const totalPrice = result?.status === "OK" ? result.price : 0;
       const availabilityStatus = result?.status === "OK" ? "IN_STOCK" : "OUT_OF_STOCK";
       const programAndSavePrice =
@@ -336,26 +339,73 @@ async function refreshMonitoredProducts() {
           ? result.programAndSavePrice
           : null;
 
-      await withDatabaseRetry(`siteUserMonitoredProduct.update:${monitoredProduct.id}`, async () =>
+      await withDatabaseRetry(`siteTrackedAmazonProduct.update:${trackedProduct.id}`, async () =>
         prisma.$executeRaw`
-          UPDATE "SiteUserMonitoredProduct"
+          UPDATE "SiteTrackedAmazonProduct"
           SET
             "totalPrice" = ${totalPrice},
             "availabilityStatus" = ${availabilityStatus},
             "programAndSavePrice" = ${programAndSavePrice},
             "lastSyncedAt" = NOW(),
             "updatedAt" = NOW()
-          WHERE "id" = ${monitoredProduct.id}
+          WHERE "id" = ${trackedProduct.id}
+        `
+      );
+
+      if (totalPrice > 0) {
+        trackedProductIdsWithHistory.add(trackedProduct.id);
+        await withDatabaseRetry(`siteTrackedAmazonProductPriceHistory.upsert:${trackedProduct.id}`, async () =>
+          prisma.$executeRaw`
+            INSERT INTO "SiteTrackedAmazonProductPriceHistory" (
+              "id",
+              "trackedProductId",
+              "price",
+              "updateCount",
+              "date",
+              "createdAt",
+              "updatedAt"
+            )
+            VALUES (
+              ${crypto.randomUUID()},
+              ${trackedProduct.id},
+              ${totalPrice},
+              1,
+              ${historyDate},
+              NOW(),
+              NOW()
+            )
+            ON CONFLICT ("trackedProductId", "date")
+            DO UPDATE SET
+              "price" = EXCLUDED."price",
+              "updateCount" = "SiteTrackedAmazonProductPriceHistory"."updateCount" + 1,
+              "updatedAt" = NOW()
+          `
+        );
+      }
+
+      await withDatabaseRetry(`siteUserMonitoredProduct.sync:${trackedProduct.id}`, async () =>
+        prisma.$executeRaw`
+          UPDATE "SiteUserMonitoredProduct"
+          SET
+            "asin" = ${trackedProduct.asin},
+            "totalPrice" = ${totalPrice},
+            "availabilityStatus" = ${availabilityStatus},
+            "programAndSavePrice" = ${programAndSavePrice},
+            "lastSyncedAt" = NOW(),
+            "updatedAt" = NOW()
+          WHERE "trackedProductId" = ${trackedProduct.id}
         `
       );
     }
 
-    if (i + BATCH_SIZE < monitoredProducts.length) {
+    if (i + BATCH_SIZE < trackedProducts.length) {
       await sleep(REQUEST_DELAY_MS);
     }
   }
 
-  return monitoredProducts.length;
+  await refreshTrackedAmazonProductPriceStatsBulk([...trackedProductIdsWithHistory]);
+
+  return trackedProducts.length;
 }
 
 function incrementCounters(counters: RunCounters, outcome: PersistOutcome) {

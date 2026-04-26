@@ -47,9 +47,11 @@ export async function POST(
       return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
     }
 
+    let trackedAmazonProductId: string | null = null;
+
     if (monitoredProductId) {
-      const monitoredProduct = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-        SELECT "id"
+      const monitoredProduct = await prisma.$queryRaw<Array<{ id: string; trackedProductId: string | null }>>(Prisma.sql`
+        SELECT "id", "trackedProductId"
         FROM "SiteUserMonitoredProduct"
         WHERE "id" = ${monitoredProductId}
           AND "userId" = ${user.id}
@@ -59,9 +61,19 @@ export async function POST(
       if (!monitoredProduct[0]) {
         return NextResponse.json({ ok: false, error: "monitored_product_not_found" }, { status: 404 });
       }
+
+      trackedAmazonProductId = monitoredProduct[0].trackedProductId;
     }
 
-    const existingItem = monitoredProductId
+    const existingItem = trackedAmazonProductId
+      ? await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+          SELECT "id"
+          FROM "SiteUserListItem"
+          WHERE "listId" = ${id}
+            AND "trackedAmazonProductId" = ${trackedAmazonProductId}
+          LIMIT 1
+        `)
+      : monitoredProductId
       ? await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
           SELECT "id"
           FROM "SiteUserListItem"
@@ -99,6 +111,7 @@ export async function POST(
         "listId",
         "productId",
         "monitoredProductId",
+        "trackedAmazonProductId",
         "note",
         "sortOrder",
         "createdAt",
@@ -108,7 +121,8 @@ export async function POST(
         ${randomUUID()},
         ${id},
         ${productId || null},
-        ${monitoredProductId || null},
+        ${trackedAmazonProductId ? null : monitoredProductId || null},
+        ${trackedAmazonProductId},
         ${body.note?.trim() || null},
         ${(maxSortOrderRows[0]?.maxSortOrder ?? -1) + 1},
         NOW(),
@@ -158,11 +172,24 @@ export async function DELETE(
       return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
     }
 
+    let trackedAmazonProductId: string | null = null;
+    if (monitoredProductId) {
+      const monitoredProduct = await prisma.$queryRaw<Array<{ trackedProductId: string | null }>>(Prisma.sql`
+        SELECT "trackedProductId"
+        FROM "SiteUserMonitoredProduct"
+        WHERE "id" = ${monitoredProductId}
+          AND "userId" = ${user.id}
+        LIMIT 1
+      `);
+      trackedAmazonProductId = monitoredProduct[0]?.trackedProductId ?? null;
+    }
+
     await prisma.$executeRaw(Prisma.sql`
       DELETE FROM "SiteUserListItem"
       WHERE "listId" = ${id}
         AND (
           (${productId || null} IS NOT NULL AND "productId" = ${productId || null})
+          OR (${trackedAmazonProductId} IS NOT NULL AND "trackedAmazonProductId" = ${trackedAmazonProductId})
           OR (${monitoredProductId || null} IS NOT NULL AND "monitoredProductId" = ${monitoredProductId || null})
         )
     `);

@@ -7,6 +7,7 @@ import Image from "next/image";
 import FeedbackModal from "./FeedbackModal";
 import BestDealProductCard from "@/components/BestDealProductCard";
 import type { BestDeal } from "@/lib/bestDeals";
+import { buildPublicListPath } from "@/lib/siteSocial";
 
 function TrackHomeView() {
   useEffect(() => {
@@ -430,7 +431,13 @@ export default function HomePageClient({
                   {publicLists.map((list) => (
                     <button
                       key={list.slug}
-                      onClick={() => router.push(`/listas/${list.slug}`)}
+                      onClick={() =>
+                        router.push(
+                          list.ownerUsername
+                            ? buildPublicListPath(list.ownerUsername, list.slug)
+                            : `/listas/${list.slug}`
+                        )
+                      }
                       className="rounded-2xl border border-[#d5d9d9] bg-[#FCFCFD] p-4 text-left transition hover:border-[#b8c3c4] hover:bg-white hover:shadow-sm"
                     >
                       <div className="mb-3 flex h-[74px] items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[#F8FAFA] px-3">

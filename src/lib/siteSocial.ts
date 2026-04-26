@@ -33,6 +33,10 @@ export async function createUniqueListSlug(_userId: string, title: string) {
   return slug;
 }
 
-export function buildPublicListPath(slug: string) {
-  return `/listas/${slug}`;
+export function buildPublicUserPath(username: string) {
+  return `/user/${username}`;
+}
+
+export function buildPublicListPath(username: string, slug: string) {
+  return `/user/${username}/${slug}`;
 }

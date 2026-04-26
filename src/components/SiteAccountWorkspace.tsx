@@ -23,6 +23,7 @@ import {
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import BestDealProductCard from "@/components/BestDealProductCard";
+import { buildPublicListPath } from "@/lib/siteSocial";
 
 type FavoriteEntry = {
   id: string;
@@ -316,7 +317,6 @@ export default function SiteAccountWorkspace({
   const [suggestionMessage, setSuggestionMessage] = useState("");
   const [showSuggestionComposer, setShowSuggestionComposer] = useState(false);
 
-  const favoriteCards = useMemo(() => favorites.map(favoriteToCardItem), [favorites]);
   const trackedProductCards = useMemo(() => {
     const favoriteEntries = favorites.map((favorite) => ({
       key: `favorite:${favorite.product.id}`,
@@ -775,6 +775,7 @@ export default function SiteAccountWorkspace({
           list.id === listId
             ? {
                 ...list,
+                slug: data.list!.slug,
                 title: data.list!.title,
                 description: data.list!.description ?? null,
               }
@@ -788,6 +789,7 @@ export default function SiteAccountWorkspace({
           ...current,
           [listId]: {
             ...details,
+            slug: data.list!.slug,
             title: data.list!.title,
             description: data.list!.description ?? null,
           },
@@ -1084,24 +1086,28 @@ export default function SiteAccountWorkspace({
         })
         .sort((left, right) => left.sortOrder - right.sortOrder)
     );
+  }
+
+  function moveTrackedProductUp(trackedKey: string) {
+    const index = trackedProductCards.findIndex((item) => item.key === trackedKey);
+    if (index <= 0) return;
+    void reorderTrackedProductsByIndex(index, index - 1);
+  }
+
+  function moveTrackedProductDown(trackedKey: string) {
+    const index = trackedProductCards.findIndex((item) => item.key === trackedKey);
+    if (index < 0 || index >= trackedProductCards.length - 1) return;
+    void reorderTrackedProductsByIndex(index, index + 1);
+  }
+
+  async function finishTrackedReorder() {
     await saveTrackedProductsOrder(
-      reorderedTrackedItems.map((item) => ({
+      trackedProductCards.map((item) => ({
         source: item.source,
         id: item.entryId,
       }))
     );
-  }
-
-  async function moveTrackedProductUp(trackedKey: string) {
-    const index = trackedProductCards.findIndex((item) => item.key === trackedKey);
-    if (index <= 0) return;
-    await reorderTrackedProductsByIndex(index, index - 1);
-  }
-
-  async function moveTrackedProductDown(trackedKey: string) {
-    const index = trackedProductCards.findIndex((item) => item.key === trackedKey);
-    if (index < 0 || index >= trackedProductCards.length - 1) return;
-    await reorderTrackedProductsByIndex(index, index + 1);
+    setTrackedReorderMode(false);
   }
 
   async function suggestComparatorForPrompt() {
@@ -1213,7 +1219,7 @@ export default function SiteAccountWorkspace({
     }
   }
 
-  async function moveListItemByOffset(listItemId: string, offset: number) {
+  function moveListItemByOffset(listItemId: string, offset: number) {
     if (!openListId) return;
     const currentList = listDetailsMap[openListId];
     if (!currentList) return;
@@ -1234,13 +1240,19 @@ export default function SiteAccountWorkspace({
         items: reorderedItems,
       },
     }));
-    await saveListOrder(
-      openListId,
-      reorderedItems.map((item) => item.id)
-    );
   }
 
-  const isListSaved = (listId: string) => savedLists.some((list) => list.id === listId);
+  async function finishListReorder() {
+    if (!openListId) return;
+    const currentList = listDetailsMap[openListId];
+    if (!currentList) return;
+
+    await saveListOrder(
+      openListId,
+      currentList.items.map((item) => item.id)
+    );
+    setListOrderMode(false);
+  }
 
   return (
     <div className="space-y-6">
@@ -1494,7 +1506,11 @@ export default function SiteAccountWorkspace({
               <button
                 type="button"
                 onClick={() => {
-                  setTrackedReorderMode((current) => !current);
+                  if (trackedReorderMode) {
+                    void finishTrackedReorder();
+                    return;
+                  }
+                  setTrackedReorderMode(true);
                 }}
                 className={`inline-flex h-11 items-center justify-center rounded-2xl border px-4 text-sm font-bold transition ${
                   trackedReorderMode
@@ -1641,7 +1657,7 @@ export default function SiteAccountWorkspace({
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
-                        onClick={() => void moveTrackedProductUp(trackedItem.key)}
+                        onClick={() => moveTrackedProductUp(trackedItem.key)}
                         disabled={index === 0 || pendingAction === "reorder:tracked"}
                         className="inline-flex h-10 items-center justify-center gap-1 rounded-xl border border-[#D0D5DD] bg-white px-3 text-xs font-bold text-[#344054] transition hover:bg-[#F8FAFA] disabled:opacity-40"
                       >
@@ -1649,7 +1665,7 @@ export default function SiteAccountWorkspace({
                       </button>
                       <button
                         type="button"
-                        onClick={() => void moveTrackedProductDown(trackedItem.key)}
+                        onClick={() => moveTrackedProductDown(trackedItem.key)}
                         disabled={index === trackedProductCards.length - 1 || pendingAction === "reorder:tracked"}
                         className="inline-flex h-10 items-center justify-center gap-1 rounded-xl border border-[#D0D5DD] bg-white px-3 text-xs font-bold text-[#344054] transition hover:bg-[#F8FAFA] disabled:opacity-40"
                       >
@@ -1718,7 +1734,7 @@ export default function SiteAccountWorkspace({
               </button>
             </div>
             <p className="mt-3 text-sm text-[#565959]">
-              Cole um link da Amazon para acompanhar preco, estoque e ofertas junto com o update global do site.
+              Cole um link da Amazon para acompanhar variações de preço, estoque e ofertas.
             </p>
           </form>
 
@@ -1973,7 +1989,11 @@ export default function SiteAccountWorkspace({
 
                             {list.isPublic ? (
                               <Link
-                                href={`/listas/${list.slug}`}
+                                href={
+                                  currentUser.username
+                                    ? buildPublicListPath(currentUser.username, list.slug)
+                                    : `/listas/${list.slug}`
+                                }
                                 className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-white"
                               >
                                 <ExternalLink className="h-4 w-4" />
@@ -2025,7 +2045,11 @@ export default function SiteAccountWorkspace({
                       Remover das salvas
                     </button>
                     <Link
-                      href={`/listas/${list.slug}`}
+                      href={
+                        list.ownerUsername
+                          ? buildPublicListPath(list.ownerUsername, list.slug)
+                          : `/listas/${list.slug}`
+                      }
                       className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-white"
                     >
                       <ExternalLink className="h-4 w-4" />
@@ -2054,7 +2078,13 @@ export default function SiteAccountWorkspace({
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => setListOrderMode((current) => !current)}
+                  onClick={() => {
+                    if (listOrderMode) {
+                      void finishListReorder();
+                      return;
+                    }
+                    setListOrderMode(true);
+                  }}
                   className={`inline-flex h-10 items-center justify-center rounded-2xl border px-4 text-sm font-semibold transition ${
                     listOrderMode
                       ? "border-[#16A34A] bg-[#ECFDF3] text-[#166534] hover:bg-[#D1FADF]"
@@ -2139,7 +2169,7 @@ export default function SiteAccountWorkspace({
                         <>
                           <button
                             type="button"
-                            onClick={() => void moveListItemByOffset(item.id, -1)}
+                            onClick={() => moveListItemByOffset(item.id, -1)}
                             disabled={index === 0 || pendingAction === `reorder:${openedList.id}`}
                             className="flex-1 rounded-xl border border-[#D0D5DD] bg-white px-3 py-2 text-xs font-bold text-[#344054] transition hover:bg-[#F8FAFA] disabled:cursor-not-allowed disabled:opacity-50"
                             aria-label="Mover para cima"
@@ -2148,7 +2178,7 @@ export default function SiteAccountWorkspace({
                           </button>
                           <button
                             type="button"
-                            onClick={() => void moveListItemByOffset(item.id, 1)}
+                            onClick={() => moveListItemByOffset(item.id, 1)}
                             disabled={
                               index === openedList.items.length - 1 ||
                               pendingAction === `reorder:${openedList.id}`
