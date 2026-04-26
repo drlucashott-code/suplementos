@@ -70,11 +70,13 @@ export default function BestDealProductCard({
   category,
   compact = false,
   showActions = true,
+  disableNavigation = false,
 }: {
   item: BestDeal;
   category: string;
   compact?: boolean;
   showActions?: boolean;
+  disableNavigation?: boolean;
 }) {
   const hasPrice = item.totalPrice > 0;
   const hasReferencePrice = item.averagePrice30d > item.totalPrice && hasPrice;
@@ -209,6 +211,7 @@ export default function BestDealProductCard({
           productName={item.name}
           value={item.totalPrice}
           category={category}
+          disabled={disableNavigation}
           className="group flex h-full flex-col rounded-xl border border-[#d5d9d9] bg-white p-3 text-left transition hover:border-[#c7cfd0] hover:shadow-sm"
         >
           <div

@@ -12,6 +12,7 @@ interface TrackedDealLinkProps {
   productName?: string;
   value?: number;
   category?: string;
+  disabled?: boolean;
 }
 
 export default function TrackedDealLink({
@@ -23,7 +24,12 @@ export default function TrackedDealLink({
   productName,
   value,
   category,
+  disabled = false,
 }: TrackedDealLinkProps) {
+  if (disabled) {
+    return <div className={className}>{children}</div>;
+  }
+
   return (
     <a
       href={href}

@@ -1274,9 +1274,9 @@ export default function SiteAccountWorkspace({
       />
 
       <section className="overflow-hidden rounded-[32px] border border-[#d5d9d9] bg-white shadow-sm">
-        <div className="bg-[linear-gradient(135deg,#10131A_0%,#253243_52%,#384657_100%)] px-6 py-8 text-white md:px-8">
-          <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+        <div className="bg-[linear-gradient(135deg,#10131A_0%,#253243_52%,#384657_100%)] px-5 py-6 text-white sm:px-6 sm:py-7 md:px-8 md:py-8">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="flex items-center gap-4 sm:gap-5">
               <div className="relative">
                 {profileAvatarUrl ? (
                   <Image
@@ -1284,11 +1284,11 @@ export default function SiteAccountWorkspace({
                     alt={profileDisplayName || "Perfil"}
                     width={112}
                     height={112}
-                    className="h-28 w-28 rounded-full border-4 border-white/15 object-cover"
+                    className="h-20 w-20 rounded-full border-4 border-white/15 object-cover sm:h-24 sm:w-24 md:h-28 md:w-28"
                     unoptimized
                   />
                 ) : (
-                  <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-white/15 bg-[#9F43BF] text-4xl font-black text-white">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white/15 bg-[#9F43BF] text-3xl font-black text-white sm:h-24 sm:w-24 md:h-28 md:w-28 md:text-4xl">
                     {(profileDisplayName || currentUser.email || "U").charAt(0).toUpperCase()}
                   </div>
                 )}
@@ -1296,31 +1296,31 @@ export default function SiteAccountWorkspace({
                 <button
                   type="button"
                   onClick={openAvatarPicker}
-                  className="absolute bottom-1 right-1 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white text-[#FF8F1F] shadow-sm transition hover:scale-[1.02]"
+                  className="absolute bottom-0 right-0 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/70 bg-white text-[#FF8F1F] shadow-sm transition hover:scale-[1.02] sm:h-9 sm:w-9 md:bottom-1 md:right-1 md:h-10 md:w-10"
                   aria-label="Trocar foto"
                 >
                   <Upload className="h-4 w-4" />
                 </button>
               </div>
 
-              <div>
-                <p className="text-sm font-bold uppercase tracking-[0.22em] text-[#FFD37A]">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#FFD37A] sm:text-xs">
                   Minha conta
                 </p>
-                <h2 className="mt-3 text-3xl font-black leading-tight text-white md:text-4xl">
+                <h2 className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl md:mt-3 md:text-4xl">
                   {profileDisplayName}
                 </h2>
-                <p className="mt-2 text-xl font-semibold text-white/85">
+                <p className="mt-1 text-lg font-semibold text-white/85 sm:mt-2 sm:text-xl">
                   @{profileUsername || "sem-username"}
                 </p>
               </div>
             </div>
 
-            <div className="w-full max-w-[320px] space-y-3">
+            <div className="w-full sm:max-w-[320px]">
               <button
                 type="button"
                 onClick={() => setShowProfileEditor((current) => !current)}
-                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full border border-white/25 bg-white/10 px-5 text-sm font-bold text-white transition hover:bg-white/15"
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 text-sm font-bold text-white transition hover:bg-white/15 sm:h-12 sm:px-5"
               >
                 <PencilLine className="h-4 w-4" />
                 {showProfileEditor ? "Fechar edicao" : "Editar perfil"}
@@ -1328,15 +1328,15 @@ export default function SiteAccountWorkspace({
             </div>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            <div className="rounded-3xl border border-white/10 bg-white/8 px-4 py-4 backdrop-blur-sm">
-              <div className="flex items-center gap-3">
-                <CalendarDays className="h-5 w-5 text-[#FFD37A]" />
+          <div className="mt-5 grid grid-cols-3 gap-3 sm:mt-6 md:mt-8">
+            <div className="rounded-3xl border border-white/10 bg-white/8 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-4">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <CalendarDays className="h-4 w-4 shrink-0 text-[#FFD37A] sm:h-5 sm:w-5" />
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/60">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/60 sm:text-xs">
                     Membro desde
                   </p>
-                  <p className="mt-1 text-lg font-black text-white">
+                  <p className="mt-1 text-sm font-black text-white sm:text-lg">
                     {formatDate(profileStats.memberSince)}
                   </p>
                 </div>
@@ -1346,15 +1346,15 @@ export default function SiteAccountWorkspace({
             <button
               type="button"
               onClick={() => void loadActivity("comments")}
-              className="rounded-3xl border border-white/10 bg-white/8 px-4 py-4 text-left backdrop-blur-sm transition hover:bg-white/10"
+              className="rounded-3xl border border-white/10 bg-white/8 px-3 py-3 text-left backdrop-blur-sm transition hover:bg-white/10 sm:px-4 sm:py-4"
             >
-              <div className="flex items-center gap-3">
-                <MessageCircle className="h-5 w-5 text-[#FFD37A]" />
+              <div className="flex items-center gap-2 sm:gap-3">
+                <MessageCircle className="h-4 w-4 shrink-0 text-[#FFD37A] sm:h-5 sm:w-5" />
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/60">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/60 sm:text-xs">
                     Comentarios
                   </p>
-                  <p className="mt-1 text-lg font-black text-white">
+                  <p className="mt-1 text-sm font-black text-white sm:text-lg">
                     {profileStats.commentsCount}
                   </p>
                 </div>
@@ -1364,15 +1364,15 @@ export default function SiteAccountWorkspace({
             <button
               type="button"
               onClick={() => void loadActivity("reactions")}
-              className="rounded-3xl border border-white/10 bg-white/8 px-4 py-4 text-left backdrop-blur-sm transition hover:bg-white/10"
+              className="rounded-3xl border border-white/10 bg-white/8 px-3 py-3 text-left backdrop-blur-sm transition hover:bg-white/10 sm:px-4 sm:py-4"
             >
-              <div className="flex items-center gap-3">
-                <Heart className="h-5 w-5 text-[#FFD37A]" />
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Heart className="h-4 w-4 shrink-0 text-[#FFD37A] sm:h-5 sm:w-5" />
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/60">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/60 sm:text-xs">
                     Reacoes a comentarios
                   </p>
-                  <p className="mt-1 text-lg font-black text-white">
+                  <p className="mt-1 text-sm font-black text-white sm:text-lg">
                     {profileStats.commentReactionsCount}
                   </p>
                 </div>
@@ -1674,6 +1674,7 @@ export default function SiteAccountWorkspace({
                       item={trackedItem.card}
                       category="produtos_monitorados"
                       showActions={false}
+                      disableNavigation
                     />
 
                     <div className="pointer-events-none absolute left-2 top-2 z-30">
@@ -2096,6 +2097,7 @@ export default function SiteAccountWorkspace({
                         }}
                         category="edicao_lista"
                         showActions={false}
+                        disableNavigation
                       />
                       <div className="pointer-events-none absolute left-2 top-2 z-30">
                         <div className="inline-flex items-center gap-1 rounded-full border border-[#D0D5DD] bg-white px-2.5 py-1 text-xs font-bold text-[#344054] shadow-sm">
