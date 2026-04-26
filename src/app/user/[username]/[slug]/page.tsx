@@ -1,6 +1,7 @@
 import Link from "next/link";
 import BestDealProductCard from "@/components/BestDealProductCard";
 import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
+import ListCommentsSheet from "@/components/dynamic/ListCommentsSheet";
 import SavePublicListButton from "@/components/SavePublicListButton";
 import { notFound } from "next/navigation";
 import { Prisma } from "@prisma/client";
@@ -15,11 +16,12 @@ export default async function PublicUserListPage({
   searchParams,
 }: {
   params: Promise<{ username: string; slug: string }>;
-  searchParams?: Promise<{ sort?: string }>;
+  searchParams?: Promise<{ sort?: string; comments?: string }>;
 }) {
   const { username, slug } = await params;
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const sortMode = resolvedSearchParams?.sort === "discount" ? "discount" : "author";
+  const openComments = resolvedSearchParams?.comments === "1";
 
   const rows = await prisma.$queryRaw<
     Array<{
@@ -45,6 +47,7 @@ export default async function PublicUserListPage({
       categoryName: string | null;
       categoryGroup: string | null;
       categorySlug: string | null;
+      commentsCount: number;
     }>
   >(Prisma.sql`
     SELECT
@@ -69,7 +72,15 @@ export default async function PublicUserListPage({
       p."ratingCount" AS "productRatingCount",
       c."name" AS "categoryName",
       c."group" AS "categoryGroup",
-      c."slug" AS "categorySlug"
+      c."slug" AS "categorySlug",
+      (
+        SELECT COUNT(*)::int
+        FROM "SiteUserListComment" lc
+        INNER JOIN "SiteUser" cu ON cu."id" = lc."userId"
+        WHERE lc."listId" = l."id"
+          AND lc."status" = 'published'
+          AND cu."commentsBlocked" = false
+      ) AS "commentsCount"
     FROM "SiteUserList" l
     INNER JOIN "SiteUser" u ON u."id" = l."userId"
     LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
@@ -147,6 +158,7 @@ export default async function PublicUserListPage({
     ownerDisplayName: rows[0]!.ownerDisplayName,
     ownerUsername: rows[0]!.ownerUsername,
     items: sortedItems,
+    commentsCount: rows[0]!.commentsCount,
   };
 
   return (
@@ -209,6 +221,17 @@ export default async function PublicUserListPage({
               ))}
             </div>
           )}
+        </section>
+
+        <section id="comentarios" className="mt-4">
+          <ListCommentsSheet
+            listId={list.id}
+            listTitle={list.title}
+            initialCount={list.commentsCount}
+            initialOpen={openComments}
+            hideTrigger
+            inline
+          />
         </section>
       </div>
     </main>

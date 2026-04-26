@@ -416,6 +416,8 @@ model SiteUser {
   monitoredProducts SiteUserMonitoredProduct[]
   comments          SiteProductComment[]
   commentReactions  SiteProductCommentReaction[]
+  listComments      SiteUserListComment[]
+  listCommentReactions SiteUserListCommentReaction[]
   lists             SiteUserList[]
   savedLists        SiteUserSavedList[]
   notifications     SiteUserNotification[]
@@ -563,6 +565,42 @@ model SiteProductCommentReaction {
   @@index([userId, createdAt(sort: Desc)])
 }
 
+model SiteUserListComment {
+  id         String                @id @default(cuid())
+  listId      String
+  list        SiteUserList          @relation(fields: [listId], references: [id], onDelete: Cascade)
+  userId      String
+  user        SiteUser              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      SiteUserListComment?  @relation("SiteListCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     SiteUserListComment[] @relation("SiteListCommentReplies")
+  reactions   SiteUserListCommentReaction[]
+  body        String
+  status      String                @default("published")
+  isEdited    Boolean               @default(false)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@index([listId, createdAt(sort: Desc)])
+  @@index([parentId, createdAt(sort: Asc)])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model SiteUserListCommentReaction {
+  id         String              @id @default(cuid())
+  commentId   String
+  comment     SiteUserListComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId      String
+  user        SiteUser           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reaction    String             @default("like")
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([commentId, userId, reaction])
+  @@index([commentId, reaction])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
 model SiteUserList {
   id          String            @id @default(cuid())
   userId      String
@@ -572,6 +610,7 @@ model SiteUserList {
   description String?
   isPublic    Boolean           @default(false)
   items       SiteUserListItem[]
+  comments    SiteUserListComment[]
   savedBy     SiteUserSavedList[]
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
