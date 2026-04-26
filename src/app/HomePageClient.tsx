@@ -413,10 +413,10 @@ export default function HomePageClient({
               <div className="mb-4 flex items-end justify-between gap-4">
                 <div>
                   <h3 className="text-[18px] font-bold text-[#0F1111]">
-                    Listas públicas de usuários
+                    Listas públicas da comunidade
                   </h3>
                   <p className="mt-1 text-[12px] text-[#565959]">
-                    Descubra listas recém-criadas pela comunidade e acompanhe seleções compartilhadas.
+                    Descubra listas recém-criadas por outros usuários e acompanhe seleções compartilhadas.
                   </p>
                 </div>
               </div>
