@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentSiteUser } from "@/lib/siteAuth";
+import { createSiteNotification } from "@/lib/siteNotifications";
 
 type CommentRow = {
   id: string;
@@ -184,8 +185,10 @@ export async function POST(
     }
 
     if (parentId) {
-      const parent = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      const parent = await prisma.$queryRaw<Array<{ id: string; userId: string; body: string }>>(Prisma.sql`
         SELECT "id"
+          , "userId"
+          , "body"
         FROM "SiteProductComment"
         WHERE "id" = ${parentId}
           AND "productId" = ${id}
@@ -195,6 +198,33 @@ export async function POST(
 
       if (!parent[0]) {
         return NextResponse.json({ ok: false, error: "invalid_parent" }, { status: 400 });
+      }
+
+      if (parent[0].userId !== user.id) {
+        const productContext = await prisma.$queryRaw<
+          Array<{ categoryGroup: string; categorySlug: string }>
+        >(Prisma.sql`
+          SELECT cat."group" AS "categoryGroup", cat."slug" AS "categorySlug"
+          FROM "DynamicProduct" p
+          INNER JOIN "DynamicCategory" cat ON cat."id" = p."categoryId"
+          WHERE p."id" = ${id}
+          LIMIT 1
+        `);
+
+        const category = productContext[0];
+        if (category) {
+          await createSiteNotification({
+            userId: parent[0].userId,
+            type: "comment_replied",
+            title: "Seu comentario recebeu uma resposta",
+            body: content.slice(0, 120),
+            href: `/${category.categoryGroup}/${category.categorySlug}`,
+            metadata: {
+              parentCommentId: parentId,
+              productId: id,
+            },
+          });
+        }
       }
     }
 

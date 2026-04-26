@@ -4,6 +4,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { ArrowLeft, Search } from "lucide-react";
 import { useState } from "react";
 import SiteUserEntry from "@/components/SiteUserEntry";
+import SiteNotificationsBell from "@/components/SiteNotificationsBell";
 
 export function AmazonHeader() {
   const router = useRouter();
@@ -93,6 +94,7 @@ export function AmazonHeader() {
               enterKeyHint="search"
             />
           </form>
+          <SiteNotificationsBell />
           <SiteUserEntry compact />
         </div>
       </header>

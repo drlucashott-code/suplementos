@@ -5,7 +5,7 @@ function hashToken(token: string) {
 }
 
 function getBaseUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://www.amazonpicks.com.br";
+  return process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
 }
 
 function getEmailFrom() {

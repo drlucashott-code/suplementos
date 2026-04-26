@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import SiteUserEntry, { type SessionUser } from "@/components/SiteUserEntry";
+import SiteNotificationsBell from "@/components/SiteNotificationsBell";
 
 const removeAccents = (str: string) => {
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -164,6 +165,7 @@ export default function HeaderClient({
             ) : null}
           </div>
 
+          {initialUser ? <SiteNotificationsBell /> : null}
           <SiteUserEntry initialUser={initialUser} />
         </div>
       </div>

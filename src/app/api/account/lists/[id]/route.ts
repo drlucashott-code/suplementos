@@ -154,3 +154,34 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "list_update_failed" }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  _request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  const user = await getCurrentSiteUser();
+
+  if (!user) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await context.params;
+
+  try {
+    const deletedRows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      DELETE FROM "SiteUserList"
+      WHERE "id" = ${id}
+        AND "userId" = ${user.id}
+      RETURNING "id"
+    `);
+
+    if (!deletedRows[0]) {
+      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("list_delete_failed", error);
+    return NextResponse.json({ ok: false, error: "list_delete_failed" }, { status: 500 });
+  }
+}

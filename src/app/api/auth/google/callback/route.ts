@@ -17,12 +17,23 @@ type GoogleUserInfo = {
   picture?: string;
 };
 
+function getBaseUrl(request: Request) {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  const requestUrl = new URL(request.url);
+
+  if (process.env.NODE_ENV === "production" && configured) {
+    return configured.replace(/\/$/, "");
+  }
+
+  return requestUrl.origin.replace(/\/$/, "");
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const error = url.searchParams.get("error");
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://www.amazonpicks.com.br";
+  const baseUrl = getBaseUrl(request);
 
   if (error) {
     return NextResponse.redirect(`${baseUrl}/entrar?google=cancelado`);

@@ -1,16 +1,12 @@
-import Header from "@/app/Header";
-import Image from "next/image";
+import BestDealProductCard from "@/components/BestDealProductCard";
+import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
+import SavePublicListButton from "@/components/SavePublicListButton";
 import { notFound } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getOptimizedAmazonUrl } from "@/lib/utils";
+import { getCurrentSiteUser } from "@/lib/siteAuthSession";
 
-function formatCurrency(value: number) {
-  return value.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
-}
+export const revalidate = 300;
 
 export default async function PublicListPage({
   params,
@@ -21,35 +17,47 @@ export default async function PublicListPage({
 
   const rows = await prisma.$queryRaw<
     Array<{
+      listId: string;
       title: string;
       description: string | null;
       ownerDisplayName: string;
+      ownerUsername: string | null;
       itemId: string | null;
       note: string | null;
       productId: string | null;
+      productAsin: string | null;
       productName: string | null;
       productImageUrl: string | null;
       productTotalPrice: number | null;
+      productAveragePrice30d: number | null;
       productUrl: string | null;
+      productRatingAverage: number | null;
+      productRatingCount: number | null;
       categoryName: string | null;
-      sortOrder: number | null;
-      itemCreatedAt: Date | null;
+      categoryGroup: string | null;
+      categorySlug: string | null;
     }>
   >(Prisma.sql`
     SELECT
+      l."id" AS "listId",
       l."title",
       l."description",
       u."displayName" AS "ownerDisplayName",
+      u."username" AS "ownerUsername",
       i."id" AS "itemId",
       i."note",
       p."id" AS "productId",
+      p."asin" AS "productAsin",
       p."name" AS "productName",
       p."imageUrl" AS "productImageUrl",
       p."totalPrice" AS "productTotalPrice",
+      p."averagePrice30d" AS "productAveragePrice30d",
       p."url" AS "productUrl",
+      p."ratingAverage" AS "productRatingAverage",
+      p."ratingCount" AS "productRatingCount",
       c."name" AS "categoryName",
-      i."sortOrder",
-      i."createdAt" AS "itemCreatedAt"
+      c."group" AS "categoryGroup",
+      c."slug" AS "categorySlug"
     FROM "SiteUserList" l
     INNER JOIN "SiteUser" u ON u."id" = l."userId"
     LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
@@ -61,94 +69,92 @@ export default async function PublicListPage({
   `);
 
   if (rows.length === 0) return notFound();
+  const currentUser = await getCurrentSiteUser();
+  const savedRows =
+    currentUser
+      ? await prisma.siteUserSavedList.findMany({
+          where: {
+            userId: currentUser.id,
+            listId: rows[0]!.listId,
+          },
+          select: { id: true },
+          take: 1,
+        })
+      : [];
 
   const list = {
+    id: rows[0]!.listId,
     title: rows[0]!.title,
     description: rows[0]!.description,
     ownerDisplayName: rows[0]!.ownerDisplayName,
+    ownerUsername: rows[0]!.ownerUsername,
     items: rows
-      .filter((row) => row.itemId && row.productId && row.productName && row.productUrl)
-      .map((row) => ({
-        id: row.itemId!,
-        note: row.note,
-        product: {
+      .filter((row) => row.productId && row.productName && row.productUrl && row.productAsin)
+      .map((row) => {
+        const totalPrice = row.productTotalPrice ?? 0;
+        const averagePrice30d = row.productAveragePrice30d ?? totalPrice;
+        const discountPercent =
+          averagePrice30d > totalPrice
+            ? Math.round(((averagePrice30d - totalPrice) / averagePrice30d) * 100)
+            : 0;
+
+        return {
           id: row.productId!,
+          asin: row.productAsin!,
           name: row.productName!,
-          imageUrl: row.productImageUrl,
-          totalPrice: row.productTotalPrice ?? 0,
+          imageUrl:
+            row.productImageUrl ||
+            "https://m.media-amazon.com/images/I/61NJbm2a9tL._AC_SL1200_.jpg",
           url: row.productUrl!,
-          category: {
-            name: row.categoryName ?? "Sem categoria",
+          totalPrice,
+          averagePrice30d,
+          discountPercent,
+          ratingAverage: row.productRatingAverage,
+          ratingCount: row.productRatingCount,
+          likeCount: 0,
+          dislikeCount: 0,
+          attributes: {
+            notaLista: row.note ?? "",
           },
-        },
-      })),
+          categoryName: row.categoryName ?? "Sem categoria",
+          categoryGroup: row.categoryGroup ?? "",
+          categorySlug: row.categorySlug ?? "",
+        };
+      }),
   };
 
   return (
     <main className="min-h-screen bg-[#E3E6E6] pb-10">
-      <Header />
+      <AmazonHeader />
 
-      <div className="mx-auto max-w-[1080px] px-4 py-8">
-        <section className="rounded-3xl border border-[#d5d9d9] bg-white p-6 shadow-sm">
-          <p className="text-sm font-black uppercase tracking-[0.18em] text-[#CC0C39]">
-            Lista pública
-          </p>
-          <h1 className="mt-3 text-3xl font-black text-[#0F1111]">{list.title}</h1>
-          <p className="mt-2 text-sm text-[#565959]">
-            Lista criada por {list.ownerDisplayName}
-            {list.description ? ` · ${list.description}` : ""}
-          </p>
-        </section>
-
-        <section className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-          {list.items.map((item) => (
-            <div
-              key={item.id}
-              className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm transition hover:border-[#c7cfd0] hover:shadow-md"
-            >
-              <div className="flex gap-4">
-                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-white">
-                  {item.product.imageUrl ? (
-                    <Image
-                      src={getOptimizedAmazonUrl(item.product.imageUrl, 220)}
-                      alt={item.product.name}
-                      fill
-                      sizes="96px"
-                      className="object-contain p-2"
-                      unoptimized
-                    />
-                  ) : null}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <p className="line-clamp-2 text-sm font-black text-[#0F1111]">
-                    {item.product.name}
-                  </p>
-                  <p className="mt-1 text-sm text-[#565959]">{item.product.category.name}</p>
-                  <p className="mt-2 text-lg font-black text-[#0F1111]">
-                    {formatCurrency(item.product.totalPrice)}
-                  </p>
-                </div>
-              </div>
-
-              {item.note ? (
-                <p className="mt-3 rounded-xl bg-[#F8FAFA] px-3 py-2 text-sm text-[#344054]">
-                  {item.note}
-                </p>
+      <div className="mx-auto max-w-[1500px] px-3 py-4 md:px-5">
+        <section className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm md:p-5">
+          <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h1 className="text-[24px] font-bold text-[#0F1111]">{list.title}</h1>
+              {list.description ? (
+                <p className="mt-1 text-[13px] text-[#565959]">{list.description}</p>
               ) : null}
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <a
-                  href={item.product.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 rounded-xl border border-[#d5d9d9] px-3 py-2 text-xs font-semibold text-[#0F1111] transition hover:bg-[#F7FAFA]"
-                >
-                  Ver na Amazon
-                </a>
-              </div>
+              <p className="mt-1 text-[13px] text-[#565959]">
+                Lista criada por {list.ownerDisplayName}
+                {list.ownerUsername ? ` @${list.ownerUsername}` : ""}
+              </p>
             </div>
-          ))}
+
+            <SavePublicListButton listId={list.id} initialSaved={savedRows.length > 0} />
+          </div>
+
+          {list.items.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[#d5d9d9] bg-[#F8FAFA] px-4 py-12 text-center text-sm text-[#565959]">
+              Essa lista ainda nao tem produtos.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+              {list.items.map((item) => (
+                <BestDealProductCard key={item.id} item={item} category="lista_publica" />
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </main>

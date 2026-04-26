@@ -7,7 +7,7 @@ import { requireCurrentSiteUser } from "@/lib/siteAuth";
 export default async function MyAccountPage() {
   const user = await requireCurrentSiteUser();
 
-  const [favorites, lists] = await Promise.all([
+  const [favorites, lists, savedLists, profileStats] = await Promise.all([
     prisma.$queryRaw<
       Array<{
         id: string;
@@ -74,25 +74,77 @@ export default async function MyAccountPage() {
       GROUP BY l."id"
       ORDER BY l."updatedAt" DESC
     `),
+    prisma.$queryRaw<
+      Array<{
+        id: string;
+        slug: string;
+        title: string;
+        description: string | null;
+        isPublic: boolean;
+        ownerDisplayName: string;
+        ownerUsername: string | null;
+        itemsCount: number;
+      }>
+    >(Prisma.sql`
+      SELECT
+        l."id",
+        l."slug",
+        l."title",
+        l."description",
+        l."isPublic",
+        owner."displayName" AS "ownerDisplayName",
+        owner."username" AS "ownerUsername",
+        COUNT(i."id")::int AS "itemsCount"
+      FROM "SiteUserSavedList" s
+      INNER JOIN "SiteUserList" l ON l."id" = s."listId"
+      INNER JOIN "SiteUser" owner ON owner."id" = l."userId"
+      LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
+      WHERE s."userId" = ${user.id}
+      GROUP BY l."id", owner."displayName", owner."username"
+      ORDER BY s."createdAt" DESC
+    `),
+    prisma.$queryRaw<
+      Array<{
+        createdAt: Date;
+        commentsCount: number;
+        commentReactionsCount: number;
+      }>
+    >(Prisma.sql`
+      SELECT
+        u."createdAt",
+        (
+          SELECT COUNT(*)::int
+          FROM "SiteProductComment" c
+          WHERE c."userId" = u."id"
+            AND c."status" = 'published'
+        ) AS "commentsCount",
+        (
+          SELECT COUNT(*)::int
+          FROM "SiteProductCommentReaction" r
+          INNER JOIN "SiteProductComment" c ON c."id" = r."commentId"
+          WHERE c."userId" = u."id"
+            AND c."status" = 'published'
+        ) AS "commentReactionsCount"
+      FROM "SiteUser" u
+      WHERE u."id" = ${user.id}
+      LIMIT 1
+    `),
   ]);
+
+  const stats = profileStats[0];
 
   return (
     <main className="min-h-screen bg-[#E3E6E6] pb-10">
       <Header />
 
       <div className="mx-auto max-w-[1280px] px-4 py-8">
-        <section className="mb-6 rounded-3xl border border-[#d5d9d9] bg-white p-6 shadow-sm">
-          <p className="text-sm font-black uppercase tracking-[0.18em] text-[#CC0C39]">
-            Minha conta
-          </p>
-          <h1 className="mt-3 text-3xl font-black text-[#0F1111]">{user.displayName}</h1>
-          <p className="mt-2 text-sm text-[#565959]">
-            Seu espaço para favoritos, comentários, listas e futuras notificações de preço.
-          </p>
-        </section>
-
         <SiteAccountWorkspace
           currentUser={user}
+          profileStats={{
+            memberSince: stats?.createdAt.toISOString() ?? new Date().toISOString(),
+            commentsCount: stats?.commentsCount ?? 0,
+            commentReactionsCount: stats?.commentReactionsCount ?? 0,
+          }}
           favorites={favorites.map((favorite: (typeof favorites)[number]) => ({
             id: favorite.id,
             savedAt: favorite.createdAt.toISOString(),
@@ -105,6 +157,16 @@ export default async function MyAccountPage() {
             description: list.description,
             isPublic: list.isPublic,
             itemsCount: list.itemsCount,
+          }))}
+          savedLists={savedLists.map((list: (typeof savedLists)[number]) => ({
+            id: list.id,
+            slug: list.slug,
+            title: list.title,
+            description: list.description,
+            isPublic: list.isPublic,
+            itemsCount: list.itemsCount,
+            ownerDisplayName: list.ownerDisplayName,
+            ownerUsername: list.ownerUsername,
           }))}
         />
       </div>

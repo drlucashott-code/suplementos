@@ -642,62 +642,64 @@ export function MobileProductCard({
             </div>
           )}
 
-          <div
-            className={`mb-3 grid gap-2 divide-x divide-zinc-200 rounded border border-zinc-200 bg-white p-2 ${
-              rating === 0 && visibleHighlights.length === 0 ? "mt-2" : ""
-            }`}
-            style={{
-              gridTemplateColumns: `repeat(${Math.max(displayConfig.length, 1)}, minmax(0, 1fr))`,
-            }}
-          >
-            {tableHeaderTemplate && (
-              <div
-                className="border-b border-zinc-200 pb-2 text-center text-[11px] font-bold uppercase tracking-wide text-zinc-500"
-                style={{ gridColumn: "1 / -1" }}
-              >
-                {resolveTemplate(tableHeaderTemplate, product.attributes)}
-              </div>
-            )}
-
-            {displayConfig.map((config) => {
-              const rawValue = product.attributes[config.key];
-              let displayValue = rawValue ? String(rawValue) : "-";
-              let valueClass = "text-[#0F1111]";
-
-              if (config.type === "currency") {
-                const numericRaw = getFallbackCurrencyValue(
-                  config.key,
-                  product.attributes,
-                  product.price,
-                  displayConfig
-                );
-
-                displayValue =
-                  !Number.isNaN(numericRaw) && numericRaw > 0
-                    ? formatCurrencyValue(numericRaw)
-                    : "R$ 0,00";
-
-                valueClass = "text-green-700";
-              } else {
-                displayValue = formatDisplayValue(rawValue, config) || "-";
-              }
-
-              return (
-                <div key={config.key} className="flex flex-col overflow-hidden px-1 text-center">
-                  <span className={`mb-1 truncate text-[12px] font-semibold leading-none ${valueClass}`}>
-                    {displayValue}
-                  </span>
-                  <span
-                    className={`truncate text-[9px] font-bold uppercase tracking-wide ${
-                      config.type === "currency" ? "text-green-600" : "text-zinc-400"
-                    }`}
-                  >
-                    {config.label}
-                  </span>
+          {displayConfig.length > 0 ? (
+            <div
+              className={`mb-3 grid gap-2 divide-x divide-zinc-200 rounded border border-zinc-200 bg-white p-2 ${
+                rating === 0 && visibleHighlights.length === 0 ? "mt-2" : ""
+              }`}
+              style={{
+                gridTemplateColumns: `repeat(${Math.max(displayConfig.length, 1)}, minmax(0, 1fr))`,
+              }}
+            >
+              {tableHeaderTemplate && (
+                <div
+                  className="border-b border-zinc-200 pb-2 text-center text-[11px] font-bold uppercase tracking-wide text-zinc-500"
+                  style={{ gridColumn: "1 / -1" }}
+                >
+                  {resolveTemplate(tableHeaderTemplate, product.attributes)}
                 </div>
-              );
-            })}
-          </div>
+              )}
+
+              {displayConfig.map((config) => {
+                const rawValue = product.attributes[config.key];
+                let displayValue = rawValue ? String(rawValue) : "-";
+                let valueClass = "text-[#0F1111]";
+
+                if (config.type === "currency") {
+                  const numericRaw = getFallbackCurrencyValue(
+                    config.key,
+                    product.attributes,
+                    product.price,
+                    displayConfig
+                  );
+
+                  displayValue =
+                    !Number.isNaN(numericRaw) && numericRaw > 0
+                      ? formatCurrencyValue(numericRaw)
+                      : "R$ 0,00";
+
+                  valueClass = "text-green-700";
+                } else {
+                  displayValue = formatDisplayValue(rawValue, config) || "-";
+                }
+
+                return (
+                  <div key={config.key} className="flex flex-col overflow-hidden px-1 text-center">
+                    <span className={`mb-1 truncate text-[12px] font-semibold leading-none ${valueClass}`}>
+                      {displayValue}
+                    </span>
+                    <span
+                      className={`truncate text-[9px] font-bold uppercase tracking-wide ${
+                        config.type === "currency" ? "text-green-600" : "text-zinc-400"
+                      }`}
+                    >
+                      {config.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
 
           <div className="mt-auto flex flex-col">
             {hasPrice && intCents ? (
