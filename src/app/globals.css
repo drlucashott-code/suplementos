@@ -39,6 +39,7 @@ a {
   width: 1px;
   height: 1px;
   padding: 0;
+  overflow-x: hidden;
   margin: -1px;
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
@@ -55,4 +56,12 @@ input,
 textarea,
 [contenteditable="true"] {
   caret-color: auto;
+}
+
+@media (max-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }

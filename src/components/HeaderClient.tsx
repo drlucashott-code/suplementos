@@ -133,7 +133,7 @@ export default function HeaderClient({
                 onChange={handleInputChange}
                 onFocus={() => query.length > 0 && setShowSuggestions(true)}
                 placeholder="O que você está procurando?"
-                className="h-11 w-full rounded-l-md border-none bg-white px-4 text-[15px] text-black outline-none"
+                className="h-11 w-full rounded-l-md border-none bg-white px-4 text-[16px] text-black outline-none"
               />
               <button
                 type="submit"
