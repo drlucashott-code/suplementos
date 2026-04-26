@@ -79,7 +79,8 @@ export default function BestDealProductCard({
   disableNavigation?: boolean;
 }) {
   const hasPrice = item.totalPrice > 0;
-  const hasReferencePrice = item.averagePrice30d > item.totalPrice && hasPrice;
+  const hasReferencePrice =
+    item.averagePrice30d > item.totalPrice && hasPrice && item.discountPercent > 0;
   const price = formatPriceParts(hasPrice ? item.totalPrice : 0);
   const hasRating = (item.ratingAverage || 0) > 0 && (item.ratingCount || 0) > 0;
   const [saved, setSaved] = useState(false);

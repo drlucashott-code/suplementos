@@ -98,28 +98,48 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "invalid_amazon_url" }, { status: 400 });
     }
 
-    const existingProduct = await prisma.$queryRaw<
+    const catalogProducts = await prisma.$queryRaw<
       Array<{
-        favoriteId: string | null;
-        createdAt: Date;
-        product: {
-          id: string;
-          asin: string;
-          name: string;
-          totalPrice: number;
-          imageUrl: string | null;
-          url: string;
-          averagePrice30d: number | null;
-          availabilityStatus: string | null;
-          category: {
-            name: string;
-            group: string;
-            slug: string;
-          };
-        };
+        id: string;
+        asin: string;
+        name: string;
+        totalPrice: number;
+        imageUrl: string | null;
+        url: string;
+        averagePrice30d: number | null;
+        availabilityStatus: string | null;
+        categoryName: string;
+        categoryGroup: string;
+        categorySlug: string;
       }>
     >(Prisma.sql`
-      WITH inserted_favorite AS (
+      SELECT
+        p."id",
+        p."asin",
+        p."name",
+        p."totalPrice",
+        p."imageUrl",
+        p."url",
+        p."averagePrice30d",
+        p."availabilityStatus",
+        c."name" AS "categoryName",
+        c."group" AS "categoryGroup",
+        c."slug" AS "categorySlug"
+      FROM "DynamicProduct" p
+      INNER JOIN "DynamicCategory" c ON c."id" = p."categoryId"
+      WHERE p."asin" = ${asin}
+      LIMIT 1
+    `);
+
+    if (catalogProducts[0]) {
+      const catalogProduct = catalogProducts[0];
+
+      const favoriteRows = await prisma.$queryRaw<
+        Array<{
+          favoriteId: string;
+          createdAt: Date;
+        }>
+      >(Prisma.sql`
         INSERT INTO "SiteUserFavorite" (
           "id",
           "userId",
@@ -127,57 +147,61 @@ export async function POST(request: Request) {
           "createdAt",
           "updatedAt"
         )
-        SELECT
+        VALUES (
           ${randomUUID()},
           ${user.id},
-          p."id",
+          ${catalogProduct.id},
           NOW(),
           NOW()
-        FROM "DynamicProduct" p
-        WHERE p."asin" = ${asin}
+        )
         ON CONFLICT ("userId", "productId")
         DO UPDATE SET "updatedAt" = NOW()
-        RETURNING "productId"
-      )
-      SELECT
-        f."id" AS "favoriteId",
-        f."createdAt",
-        json_build_object(
-          'id', p."id",
-          'asin', p."asin",
-          'name', p."name",
-          'totalPrice', p."totalPrice",
-          'imageUrl', p."imageUrl",
-          'url', p."url",
-          'averagePrice30d', p."averagePrice30d",
-          'availabilityStatus', p."availabilityStatus",
-          'category', json_build_object(
-            'name', c."name",
-            'group', c."group",
-            'slug', c."slug"
-          )
-        ) AS "product"
-      FROM "DynamicProduct" p
-      INNER JOIN "DynamicCategory" c ON c."id" = p."categoryId"
-      INNER JOIN "SiteUserFavorite" f ON f."productId" = p."id" AND f."userId" = ${user.id}
-      WHERE p."asin" = ${asin}
-      LIMIT 1
-    `);
+        RETURNING "id" AS "favoriteId", "createdAt"
+      `);
 
-    if (existingProduct[0]) {
+      const existingFavorite =
+        favoriteRows[0] ??
+        (
+          await prisma.$queryRaw<Array<{ favoriteId: string; createdAt: Date }>>(Prisma.sql`
+            SELECT "id" AS "favoriteId", "createdAt"
+            FROM "SiteUserFavorite"
+            WHERE "userId" = ${user.id}
+              AND "productId" = ${catalogProduct.id}
+            LIMIT 1
+          `)
+        )[0];
+
       await prisma.$executeRaw`
         DELETE FROM "SiteUserMonitoredProduct"
         WHERE "userId" = ${user.id}
           AND "asin" = ${asin}
       `;
-      const favorite = existingProduct[0];
+
+      if (!existingFavorite) {
+        throw new Error("favorite_upsert_failed");
+      }
+
       return NextResponse.json({
         ok: true,
         source: "catalog",
         favorite: {
-          id: favorite.favoriteId,
-          savedAt: favorite.createdAt.toISOString(),
-          product: favorite.product,
+          id: existingFavorite.favoriteId,
+          savedAt: existingFavorite.createdAt.toISOString(),
+          product: {
+            id: catalogProduct.id,
+            asin: catalogProduct.asin,
+            name: catalogProduct.name,
+            totalPrice: catalogProduct.totalPrice,
+            imageUrl: catalogProduct.imageUrl,
+            url: catalogProduct.url,
+            averagePrice30d: catalogProduct.averagePrice30d,
+            availabilityStatus: catalogProduct.availabilityStatus,
+            category: {
+              name: catalogProduct.categoryName,
+              group: catalogProduct.categoryGroup,
+              slug: catalogProduct.categorySlug,
+            },
+          },
         },
       });
     }

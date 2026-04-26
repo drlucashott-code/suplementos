@@ -417,7 +417,7 @@ export default function HomePageClient({
                     Listas públicas da comunidade
                   </h3>
                   <p className="mt-1 text-[12px] text-[#565959]">
-                    Descubra listas recém-criadas por outros usuários e acompanhe seleções compartilhadas.
+                    Descubra listas criadas por outros usuários e acompanhe seleções compartilhadas.
                   </p>
                 </div>
               </div>
