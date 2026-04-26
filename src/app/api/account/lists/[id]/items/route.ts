@@ -23,10 +23,15 @@ export async function POST(
 
   try {
     const { id } = await context.params;
-    const body = (await request.json()) as { productId?: string; note?: string };
+    const body = (await request.json()) as {
+      productId?: string;
+      monitoredProductId?: string;
+      note?: string;
+    };
     const productId = body.productId?.trim() ?? "";
+    const monitoredProductId = body.monitoredProductId?.trim() ?? "";
 
-    if (!productId) {
+    if (!productId && !monitoredProductId) {
       return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
     }
 
@@ -42,13 +47,35 @@ export async function POST(
       return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
     }
 
-    const existingItem = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-      SELECT "id"
-      FROM "SiteUserListItem"
-      WHERE "listId" = ${id}
-        AND "productId" = ${productId}
-      LIMIT 1
-    `);
+    if (monitoredProductId) {
+      const monitoredProduct = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT "id"
+        FROM "SiteUserMonitoredProduct"
+        WHERE "id" = ${monitoredProductId}
+          AND "userId" = ${user.id}
+        LIMIT 1
+      `);
+
+      if (!monitoredProduct[0]) {
+        return NextResponse.json({ ok: false, error: "monitored_product_not_found" }, { status: 404 });
+      }
+    }
+
+    const existingItem = monitoredProductId
+      ? await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+          SELECT "id"
+          FROM "SiteUserListItem"
+          WHERE "listId" = ${id}
+            AND "monitoredProductId" = ${monitoredProductId}
+          LIMIT 1
+        `)
+      : await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+          SELECT "id"
+          FROM "SiteUserListItem"
+          WHERE "listId" = ${id}
+            AND "productId" = ${productId}
+          LIMIT 1
+        `);
 
     if (existingItem[0]) {
       await prisma.$executeRaw(Prisma.sql`
@@ -71,6 +98,7 @@ export async function POST(
         "id",
         "listId",
         "productId",
+        "monitoredProductId",
         "note",
         "sortOrder",
         "createdAt",
@@ -79,7 +107,8 @@ export async function POST(
       VALUES (
         ${randomUUID()},
         ${id},
-        ${productId},
+        ${productId || null},
+        ${monitoredProductId || null},
         ${body.note?.trim() || null},
         ${(maxSortOrderRows[0]?.maxSortOrder ?? -1) + 1},
         NOW(),
@@ -109,10 +138,11 @@ export async function DELETE(
 
   try {
     const { id } = await context.params;
-    const body = (await request.json()) as { productId?: string };
+    const body = (await request.json()) as { productId?: string; monitoredProductId?: string };
     const productId = body.productId?.trim() ?? "";
+    const monitoredProductId = body.monitoredProductId?.trim() ?? "";
 
-    if (!productId) {
+    if (!productId && !monitoredProductId) {
       return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
     }
 
@@ -131,7 +161,10 @@ export async function DELETE(
     await prisma.$executeRaw(Prisma.sql`
       DELETE FROM "SiteUserListItem"
       WHERE "listId" = ${id}
-        AND "productId" = ${productId}
+        AND (
+          (${productId || null} IS NOT NULL AND "productId" = ${productId || null})
+          OR (${monitoredProductId || null} IS NOT NULL AND "monitoredProductId" = ${monitoredProductId || null})
+        )
     `);
 
     return NextResponse.json({ ok: true });
@@ -156,12 +189,12 @@ export async function PATCH(
 
   try {
     const { id } = await context.params;
-    const body = (await request.json()) as { orderedProductIds?: string[] };
-    const orderedProductIds = Array.isArray(body.orderedProductIds)
-      ? body.orderedProductIds.map((value) => value.trim()).filter(Boolean)
+    const body = (await request.json()) as { orderedItemIds?: string[] };
+    const orderedItemIds = Array.isArray(body.orderedItemIds)
+      ? body.orderedItemIds.map((value) => value.trim()).filter(Boolean)
       : [];
 
-    if (orderedProductIds.length === 0) {
+    if (orderedItemIds.length === 0) {
       return NextResponse.json({ ok: false, error: "invalid_order" }, { status: 400 });
     }
 
@@ -177,28 +210,28 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
     }
 
-    const currentItems = await prisma.$queryRaw<Array<{ productId: string }>>(Prisma.sql`
-      SELECT "productId"
+    const currentItems = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT "id"
       FROM "SiteUserListItem"
       WHERE "listId" = ${id}
     `);
 
-    if (currentItems.length !== orderedProductIds.length) {
+    if (currentItems.length !== orderedItemIds.length) {
       return NextResponse.json({ ok: false, error: "invalid_order" }, { status: 400 });
     }
 
-    const currentIds = new Set(currentItems.map((item) => item.productId));
-    const hasInvalidItem = orderedProductIds.some((productId) => !currentIds.has(productId));
+    const currentIds = new Set(currentItems.map((item) => item.id));
+    const hasInvalidItem = orderedItemIds.some((itemId) => !currentIds.has(itemId));
     if (hasInvalidItem) {
       return NextResponse.json({ ok: false, error: "invalid_order" }, { status: 400 });
     }
 
-    for (let index = 0; index < orderedProductIds.length; index += 1) {
+    for (let index = 0; index < orderedItemIds.length; index += 1) {
       await prisma.$executeRaw(Prisma.sql`
         UPDATE "SiteUserListItem"
         SET "sortOrder" = ${index}, "updatedAt" = NOW()
-        WHERE "listId" = ${id}
-          AND "productId" = ${orderedProductIds[index]!}
+        WHERE "id" = ${orderedItemIds[index]!}
+          AND "listId" = ${id}
       `);
     }
 

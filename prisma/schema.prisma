@@ -413,6 +413,7 @@ model SiteUser {
   lastLoginAt       DateTime?
   sessions          SiteSession[]
   favorites         SiteUserFavorite[]
+  monitoredProducts SiteUserMonitoredProduct[]
   comments          SiteProductComment[]
   commentReactions  SiteProductCommentReaction[]
   lists             SiteUserList[]
@@ -447,6 +448,7 @@ model SiteUserFavorite {
   productId  String
   product    DynamicProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
   note       String?
+  sortOrder  Int            @default(0)
   lastTrackedPrice Float?
   lastTrackedAvailability String?
   createdAt  DateTime       @default(now())
@@ -454,6 +456,31 @@ model SiteUserFavorite {
 
   @@unique([userId, productId])
   @@index([productId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model SiteUserMonitoredProduct {
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  SiteUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listItems             SiteUserListItem[]
+  asin                  String
+  amazonUrl             String
+  name                  String
+  imageUrl              String?
+  totalPrice            Float     @default(0)
+  averagePrice30d       Float?
+  availabilityStatus    String?   @default("UNKNOWN")
+  programAndSavePrice   Float?
+  sortOrder             Int       @default(0)
+  lastTrackedPrice      Float?
+  lastTrackedAvailability String?
+  lastSyncedAt          DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([userId, asin])
+  @@index([asin])
   @@index([userId, createdAt(sort: Desc)])
 }
 
@@ -513,15 +540,19 @@ model SiteUserListItem {
   id         String         @id @default(cuid())
   listId      String
   list        SiteUserList   @relation(fields: [listId], references: [id], onDelete: Cascade)
-  productId   String
-  product     DynamicProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     DynamicProduct? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  monitoredProductId String?
+  monitoredProduct   SiteUserMonitoredProduct? @relation(fields: [monitoredProductId], references: [id], onDelete: Cascade)
   note        String?
   sortOrder   Int            @default(0)
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
-
+ 
   @@unique([listId, productId])
+  @@unique([listId, monitoredProductId])
   @@index([productId])
+  @@index([monitoredProductId])
   @@index([listId, sortOrder, createdAt(sort: Desc)])
 }
 

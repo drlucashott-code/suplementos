@@ -76,7 +76,9 @@ export default function BestDealProductCard({
   compact?: boolean;
   showActions?: boolean;
 }) {
-  const price = formatPriceParts(item.totalPrice);
+  const hasPrice = item.totalPrice > 0;
+  const hasReferencePrice = item.averagePrice30d > item.totalPrice && hasPrice;
+  const price = formatPriceParts(hasPrice ? item.totalPrice : 0);
   const hasRating = (item.ratingAverage || 0) > 0 && (item.ratingCount || 0) > 0;
   const [saved, setSaved] = useState(false);
   const [accountAlert, setAccountAlert] = useState<null | "unverified">(null);
@@ -253,36 +255,54 @@ export default function BestDealProductCard({
               ) : null}
             </div>
 
-            <div className="flex min-h-[40px] items-end gap-2">
-              <div className="flex items-end gap-1 font-variant-numeric-tabular">
-                <span className="pb-[4px] text-[12px] font-medium leading-none text-[#CC0C39]">-</span>
-                <span className="text-[18px] font-medium leading-none text-[#CC0C39]">
-                  {item.discountPercent}%
-                </span>
-                <span className="pb-[5px] pl-1 text-[12px] leading-none text-[#565959]">R$</span>
-                <span className="text-[24px] font-normal leading-none text-[#0F1111]">
-                  {price.whole}
-                </span>
-                <span className="pb-[7px] text-[12px] leading-none text-[#0F1111]">
-                  {price.cents}
-                </span>
-              </div>
-            </div>
+            {hasPrice ? (
+              <>
+                <div className="flex min-h-[40px] items-end gap-2">
+                  <div className="flex items-end gap-1 font-variant-numeric-tabular">
+                    {hasReferencePrice ? (
+                      <>
+                        <span className="pb-[4px] text-[12px] font-medium leading-none text-[#CC0C39]">-</span>
+                        <span className="text-[18px] font-medium leading-none text-[#CC0C39]">
+                          {item.discountPercent}%
+                        </span>
+                      </>
+                    ) : null}
+                    <span className={`pb-[5px] text-[12px] leading-none text-[#565959] ${hasReferencePrice ? "pl-1" : ""}`}>
+                      R$
+                    </span>
+                    <span className="text-[24px] font-normal leading-none text-[#0F1111]">
+                      {price.whole}
+                    </span>
+                    <span className="pb-[7px] text-[12px] leading-none text-[#0F1111]">
+                      {price.cents}
+                    </span>
+                  </div>
+                </div>
 
-            <div className="mt-0.5 flex min-h-[18px] items-center gap-1.5 text-[12px] text-[#565959]">
-              <p>
-                De: <span className="line-through">{formatCurrency(item.averagePrice30d)}</span>
-              </p>
-              <div
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                }}
-                className="inline-flex shrink-0"
-              >
-                <PriceHistoryButton productId={item.id} productName={item.name} />
+                <div className="mt-0.5 flex min-h-[18px] items-center gap-1.5 text-[12px] text-[#565959]">
+                  {hasReferencePrice ? (
+                    <p>
+                      De: <span className="line-through">{formatCurrency(item.averagePrice30d)}</span>
+                    </p>
+                  ) : (
+                    <p className="font-medium text-[#007600]">Em estoque</p>
+                  )}
+                  <div
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    className="inline-flex shrink-0"
+                  >
+                    <PriceHistoryButton productId={item.id} productName={item.name} />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="mt-3 min-h-[58px] rounded-2xl border border-[#FECACA] bg-[#FFF5F5] px-3 py-3 text-sm font-bold text-[#B42318]">
+                Sem estoque no momento
               </div>
-            </div>
+            )}
 
           </div>
         </TrackedDealLink>

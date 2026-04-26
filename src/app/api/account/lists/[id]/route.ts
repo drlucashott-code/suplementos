@@ -33,12 +33,14 @@ export async function GET(
       note: string | null;
       sortOrder: number | null;
       productId: string | null;
+      monitoredProductId: string | null;
       productAsin: string | null;
       productName: string | null;
       productImageUrl: string | null;
       productTotalPrice: number | null;
       productAveragePrice30d: number | null;
       productUrl: string | null;
+      productAvailabilityStatus: string | null;
       categoryName: string | null;
       categoryGroup: string | null;
       categorySlug: string | null;
@@ -54,18 +56,21 @@ export async function GET(
       i."note",
       i."sortOrder",
       p."id" AS "productId",
-      p."asin" AS "productAsin",
-      p."name" AS "productName",
-      p."imageUrl" AS "productImageUrl",
-      p."totalPrice" AS "productTotalPrice",
-      p."averagePrice30d" AS "productAveragePrice30d",
-      p."url" AS "productUrl",
+      mp."id" AS "monitoredProductId",
+      COALESCE(p."asin", mp."asin") AS "productAsin",
+      COALESCE(p."name", mp."name") AS "productName",
+      COALESCE(p."imageUrl", mp."imageUrl") AS "productImageUrl",
+      COALESCE(p."totalPrice", mp."totalPrice") AS "productTotalPrice",
+      COALESCE(p."averagePrice30d", mp."averagePrice30d") AS "productAveragePrice30d",
+      COALESCE(p."url", mp."amazonUrl") AS "productUrl",
+      COALESCE(p."availabilityStatus", mp."availabilityStatus") AS "productAvailabilityStatus",
       c."name" AS "categoryName",
       c."group" AS "categoryGroup",
       c."slug" AS "categorySlug"
     FROM "SiteUserList" l
     LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
     LEFT JOIN "DynamicProduct" p ON p."id" = i."productId"
+    LEFT JOIN "SiteUserMonitoredProduct" mp ON mp."id" = i."monitoredProductId"
     LEFT JOIN "DynamicCategory" c ON c."id" = p."categoryId"
     WHERE l."id" = ${id}
       AND l."userId" = ${user.id}
@@ -83,25 +88,27 @@ export async function GET(
     description: rows[0]!.description,
     isPublic: rows[0]!.isPublic,
     items: rows
-      .filter((row) => row.itemId && row.productId && row.productName && row.productUrl)
+      .filter((row) => row.itemId && row.productName && row.productUrl)
       .map((row) => ({
         id: row.itemId!,
         note: row.note,
         sortOrder: row.sortOrder ?? 0,
         product: {
-          id: row.productId!,
+          id: row.productId ?? row.monitoredProductId!,
           asin: row.productAsin!,
           name: row.productName!,
           imageUrl: row.productImageUrl,
           totalPrice: row.productTotalPrice ?? 0,
           averagePrice30d: row.productAveragePrice30d,
           url: row.productUrl!,
+          availabilityStatus: row.productAvailabilityStatus,
           category: {
-            name: row.categoryName ?? "Sem categoria",
-            group: row.categoryGroup ?? "",
-            slug: row.categorySlug ?? "",
+            name: row.categoryName ?? "Amazon",
+            group: row.categoryGroup ?? "amazon",
+            slug: row.categorySlug ?? "monitorado",
           },
         },
+        source: row.productId ? "catalog" : "monitored",
       })),
   };
 

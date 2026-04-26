@@ -1,0 +1,385 @@
+import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
+import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import {
+  getCurrentSiteUser,
+  isSiteUserVerified,
+  verificationRequiredResponse,
+} from "@/lib/siteAuth";
+import {
+  extractAmazonAsin,
+  fetchMonitoredAmazonProductSnapshot,
+} from "@/lib/siteMonitoredProducts";
+
+export async function GET() {
+  const user = await getCurrentSiteUser();
+  if (!user) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  if (!isSiteUserVerified(user)) {
+    return verificationRequiredResponse();
+  }
+
+  const products = await prisma.$queryRaw<
+    Array<{
+      id: string;
+      asin: string;
+      amazonUrl: string;
+      name: string;
+      imageUrl: string | null;
+      totalPrice: number;
+      averagePrice30d: number | null;
+      availabilityStatus: string | null;
+      programAndSavePrice: number | null;
+      sortOrder: number;
+      createdAt: Date;
+    }>
+  >(Prisma.sql`
+    SELECT
+      mp."id",
+      mp."asin",
+      mp."amazonUrl",
+      mp."name",
+      mp."imageUrl",
+      mp."totalPrice",
+      mp."averagePrice30d",
+      mp."availabilityStatus",
+      mp."programAndSavePrice",
+      mp."sortOrder",
+      mp."createdAt"
+    FROM "SiteUserMonitoredProduct" mp
+    WHERE mp."userId" = ${user.id}
+    ORDER BY mp."sortOrder" ASC, mp."createdAt" DESC
+  `);
+
+  return NextResponse.json({
+    ok: true,
+    monitoredProducts: products.map((product) => ({
+      id: product.id,
+      savedAt: product.createdAt.toISOString(),
+      sortOrder: product.sortOrder,
+      product: {
+        asin: product.asin,
+        name: product.name,
+        totalPrice: product.totalPrice,
+        imageUrl: product.imageUrl,
+        url: product.amazonUrl,
+        averagePrice30d: product.averagePrice30d,
+        availabilityStatus: product.availabilityStatus,
+        programAndSavePrice: product.programAndSavePrice,
+      },
+    })),
+  });
+}
+
+export async function POST(request: Request) {
+  const user = await getCurrentSiteUser();
+  if (!user) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  if (!isSiteUserVerified(user)) {
+    return verificationRequiredResponse();
+  }
+
+  try {
+    const body = (await request.json()) as { amazonUrl?: string };
+    const amazonUrl = body.amazonUrl?.trim() ?? "";
+    const asin = extractAmazonAsin(amazonUrl);
+
+    if (!amazonUrl || !asin) {
+      return NextResponse.json({ ok: false, error: "invalid_amazon_url" }, { status: 400 });
+    }
+
+    const existingProduct = await prisma.$queryRaw<
+      Array<{
+        favoriteId: string | null;
+        createdAt: Date;
+        product: {
+          id: string;
+          asin: string;
+          name: string;
+          totalPrice: number;
+          imageUrl: string | null;
+          url: string;
+          averagePrice30d: number | null;
+          availabilityStatus: string | null;
+          category: {
+            name: string;
+            group: string;
+            slug: string;
+          };
+        };
+      }>
+    >(Prisma.sql`
+      WITH inserted_favorite AS (
+        INSERT INTO "SiteUserFavorite" (
+          "id",
+          "userId",
+          "productId",
+          "createdAt",
+          "updatedAt"
+        )
+        SELECT
+          ${randomUUID()},
+          ${user.id},
+          p."id",
+          NOW(),
+          NOW()
+        FROM "DynamicProduct" p
+        WHERE p."asin" = ${asin}
+        ON CONFLICT ("userId", "productId")
+        DO UPDATE SET "updatedAt" = NOW()
+        RETURNING "productId"
+      )
+      SELECT
+        f."id" AS "favoriteId",
+        f."createdAt",
+        json_build_object(
+          'id', p."id",
+          'asin', p."asin",
+          'name', p."name",
+          'totalPrice', p."totalPrice",
+          'imageUrl', p."imageUrl",
+          'url', p."url",
+          'averagePrice30d', p."averagePrice30d",
+          'availabilityStatus', p."availabilityStatus",
+          'category', json_build_object(
+            'name', c."name",
+            'group', c."group",
+            'slug', c."slug"
+          )
+        ) AS "product"
+      FROM "DynamicProduct" p
+      INNER JOIN "DynamicCategory" c ON c."id" = p."categoryId"
+      INNER JOIN "SiteUserFavorite" f ON f."productId" = p."id" AND f."userId" = ${user.id}
+      WHERE p."asin" = ${asin}
+      LIMIT 1
+    `);
+
+    if (existingProduct[0]) {
+      await prisma.$executeRaw`
+        DELETE FROM "SiteUserMonitoredProduct"
+        WHERE "userId" = ${user.id}
+          AND "asin" = ${asin}
+      `;
+      const favorite = existingProduct[0];
+      return NextResponse.json({
+        ok: true,
+        source: "catalog",
+        favorite: {
+          id: favorite.favoriteId,
+          savedAt: favorite.createdAt.toISOString(),
+          product: favorite.product,
+        },
+      });
+    }
+
+    const snapshot = await fetchMonitoredAmazonProductSnapshot(amazonUrl);
+    const suggestionRows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT s."id"
+      FROM "SiteProductSuggestion" s
+      WHERE s."asin" = ${snapshot.asin}
+      LIMIT 1
+    `);
+
+    const maxSortOrderRows = await prisma.$queryRaw<Array<{ maxSortOrder: number | null }>>(Prisma.sql`
+      SELECT MAX(mp."sortOrder")::int AS "maxSortOrder"
+      FROM "SiteUserMonitoredProduct" mp
+      WHERE mp."userId" = ${user.id}
+    `);
+
+    const monitoredProduct = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        asin: string;
+        amazonUrl: string;
+        name: string;
+        imageUrl: string | null;
+        totalPrice: number;
+        averagePrice30d: number | null;
+        availabilityStatus: string | null;
+        programAndSavePrice: number | null;
+        sortOrder: number;
+        createdAt: Date;
+      }>
+    >(Prisma.sql`
+      INSERT INTO "SiteUserMonitoredProduct" (
+        "id",
+        "userId",
+        "asin",
+        "amazonUrl",
+        "name",
+        "imageUrl",
+        "totalPrice",
+        "availabilityStatus",
+        "programAndSavePrice",
+        "sortOrder",
+        "lastTrackedPrice",
+        "lastTrackedAvailability",
+        "lastSyncedAt",
+        "createdAt",
+        "updatedAt"
+      )
+      VALUES (
+        ${randomUUID()},
+        ${user.id},
+        ${snapshot.asin},
+        ${snapshot.amazonUrl},
+        ${snapshot.name},
+        ${snapshot.imageUrl},
+        ${snapshot.totalPrice},
+        ${snapshot.availabilityStatus},
+        ${snapshot.programAndSavePrice},
+        ${(maxSortOrderRows[0]?.maxSortOrder ?? -1) + 1},
+        ${snapshot.totalPrice > 0 ? snapshot.totalPrice : null},
+        ${snapshot.availabilityStatus},
+        NOW(),
+        NOW(),
+        NOW()
+      )
+      ON CONFLICT ("userId", "asin")
+      DO UPDATE SET
+        "amazonUrl" = EXCLUDED."amazonUrl",
+        "name" = EXCLUDED."name",
+        "imageUrl" = EXCLUDED."imageUrl",
+        "totalPrice" = EXCLUDED."totalPrice",
+        "availabilityStatus" = EXCLUDED."availabilityStatus",
+        "programAndSavePrice" = EXCLUDED."programAndSavePrice",
+        "lastSyncedAt" = NOW(),
+        "updatedAt" = NOW()
+      RETURNING
+        "id",
+        "asin",
+        "amazonUrl",
+        "name",
+        "imageUrl",
+        "totalPrice",
+        "averagePrice30d",
+        "availabilityStatus",
+        "programAndSavePrice",
+        "sortOrder",
+        "createdAt"
+    `);
+    const row = monitoredProduct[0];
+    if (!row) {
+      throw new Error("monitored_product_upsert_failed");
+    }
+
+    return NextResponse.json({
+      ok: true,
+      source: "amazon",
+      canSuggestComparator: suggestionRows.length === 0,
+      monitoredProduct: {
+        id: row.id,
+        savedAt: row.createdAt.toISOString(),
+        sortOrder: row.sortOrder,
+        product: {
+          asin: row.asin,
+          name: row.name,
+          totalPrice: row.totalPrice,
+          imageUrl: row.imageUrl,
+          url: row.amazonUrl,
+          averagePrice30d: row.averagePrice30d,
+          availabilityStatus: row.availabilityStatus,
+          programAndSavePrice: row.programAndSavePrice,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("monitored_product_create_failed", error);
+    return NextResponse.json(
+      { ok: false, error: "monitored_product_create_failed" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: Request) {
+  const user = await getCurrentSiteUser();
+  if (!user) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  if (!isSiteUserVerified(user)) {
+    return verificationRequiredResponse();
+  }
+
+  try {
+    const body = (await request.json()) as { orderedIds?: string[] };
+    const orderedIds = Array.isArray(body.orderedIds)
+      ? body.orderedIds.map((value) => value.trim()).filter(Boolean)
+      : [];
+
+    if (orderedIds.length === 0) {
+      return NextResponse.json({ ok: false, error: "invalid_order" }, { status: 400 });
+    }
+
+    const currentItems = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT mp."id"
+      FROM "SiteUserMonitoredProduct" mp
+      WHERE mp."userId" = ${user.id}
+    `);
+
+    if (currentItems.length !== orderedIds.length) {
+      return NextResponse.json({ ok: false, error: "invalid_order" }, { status: 400 });
+    }
+
+    const currentIds = new Set(currentItems.map((item) => item.id));
+    const hasInvalidItem = orderedIds.some((itemId) => !currentIds.has(itemId));
+    if (hasInvalidItem) {
+      return NextResponse.json({ ok: false, error: "invalid_order" }, { status: 400 });
+    }
+
+    for (let index = 0; index < orderedIds.length; index += 1) {
+      await prisma.$executeRaw`
+        UPDATE "SiteUserMonitoredProduct"
+        SET "sortOrder" = ${index}, "updatedAt" = NOW()
+        WHERE "id" = ${orderedIds[index]!}
+          AND "userId" = ${user.id}
+      `;
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("monitored_product_reorder_failed", error);
+    return NextResponse.json(
+      { ok: false, error: "monitored_product_reorder_failed" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  const user = await getCurrentSiteUser();
+  if (!user) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  if (!isSiteUserVerified(user)) {
+    return verificationRequiredResponse();
+  }
+
+  try {
+    const body = (await request.json()) as { monitoredProductId?: string };
+    const monitoredProductId = body.monitoredProductId?.trim() ?? "";
+    if (!monitoredProductId) {
+      return NextResponse.json(
+        { ok: false, error: "invalid_monitored_product" },
+        { status: 400 }
+      );
+    }
+
+    await prisma.$executeRaw`
+      DELETE FROM "SiteUserMonitoredProduct"
+      WHERE "id" = ${monitoredProductId}
+        AND "userId" = ${user.id}
+    `;
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("monitored_product_delete_failed", error);
+    return NextResponse.json(
+      { ok: false, error: "monitored_product_delete_failed" },
+      { status: 500 }
+    );
+  }
+}

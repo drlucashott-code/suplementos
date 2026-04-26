@@ -14,7 +14,6 @@ import {
   MessageCircle,
   PencilLine,
   Plus,
-  Shield,
   Trash2,
   Upload,
   X,
@@ -26,6 +25,7 @@ import BestDealProductCard from "@/components/BestDealProductCard";
 type FavoriteEntry = {
   id: string;
   savedAt: string;
+  sortOrder: number;
   product: {
     id: string;
     asin: string;
@@ -35,6 +35,28 @@ type FavoriteEntry = {
     url: string;
     averagePrice30d: number | null;
     availabilityStatus?: string | null;
+    category: {
+      name: string;
+      group: string;
+      slug: string;
+    };
+  };
+};
+
+type MonitoredProductEntry = {
+  id: string;
+  savedAt: string;
+  sortOrder: number;
+  product: {
+    id: string;
+    asin: string;
+    name: string;
+    totalPrice: number;
+    imageUrl: string | null;
+    url: string;
+    averagePrice30d: number | null;
+    availabilityStatus?: string | null;
+    programAndSavePrice?: number | null;
     category: {
       name: string;
       group: string;
@@ -67,6 +89,7 @@ type ListDetails = {
     id: string;
     note: string | null;
     sortOrder: number;
+    source: "catalog" | "monitored";
     product: {
       id: string;
       asin: string;
@@ -75,6 +98,7 @@ type ListDetails = {
       totalPrice: number;
       averagePrice30d: number | null;
       url: string;
+      availabilityStatus?: string | null;
       category: {
         name: string;
         group: string;
@@ -108,6 +132,7 @@ type SiteAccountWorkspaceProps = {
     commentReactionsCount: number;
   };
   favorites: FavoriteEntry[];
+  monitoredProducts: MonitoredProductEntry[];
   lists: ListEntry[];
   savedLists: SavedListEntry[];
 };
@@ -115,6 +140,12 @@ type SiteAccountWorkspaceProps = {
 type ListFormState = {
   title: string;
   description: string;
+};
+
+type ComparatorPromptState = {
+  asin: string;
+  amazonUrl: string;
+  name: string;
 };
 
 function formatDate(dateIso: string) {
@@ -165,6 +196,38 @@ function favoriteToCardItem(favorite: FavoriteEntry) {
   };
 }
 
+function monitoredProductToCardItem(monitoredProduct: MonitoredProductEntry) {
+  const averagePrice30d =
+    monitoredProduct.product.averagePrice30d && monitoredProduct.product.averagePrice30d > 0
+      ? monitoredProduct.product.averagePrice30d
+      : monitoredProduct.product.totalPrice;
+  const discountPercent =
+    averagePrice30d > monitoredProduct.product.totalPrice && monitoredProduct.product.totalPrice > 0
+      ? Math.round(((averagePrice30d - monitoredProduct.product.totalPrice) / averagePrice30d) * 100)
+      : 0;
+
+  return {
+    id: monitoredProduct.product.id,
+    asin: monitoredProduct.product.asin,
+    name: monitoredProduct.product.name,
+    imageUrl: monitoredProduct.product.imageUrl ?? "",
+    url: monitoredProduct.product.url,
+    totalPrice: monitoredProduct.product.totalPrice,
+    averagePrice30d,
+    discountPercent,
+    ratingAverage: null,
+    ratingCount: null,
+    likeCount: 0,
+    dislikeCount: 0,
+    categoryName: "Amazon",
+    categoryGroup: "amazon",
+    categorySlug: "monitorado",
+    attributes: {
+      availabilityStatus: monitoredProduct.product.availabilityStatus ?? "",
+    },
+  };
+}
+
 function createInitialListForms(lists: ListEntry[]) {
   return lists.reduce<Record<string, ListFormState>>((accumulator, list) => {
     accumulator[list.id] = {
@@ -186,6 +249,7 @@ export default function SiteAccountWorkspace({
   currentUser,
   profileStats,
   favorites: initialFavorites,
+  monitoredProducts: initialMonitoredProducts,
   lists: initialLists,
   savedLists: initialSavedLists,
 }: SiteAccountWorkspaceProps) {
@@ -194,6 +258,7 @@ export default function SiteAccountWorkspace({
   const cropPreviewRef = useRef<HTMLImageElement | null>(null);
 
   const [favorites, setFavorites] = useState(initialFavorites);
+  const [monitoredProducts, setMonitoredProducts] = useState(initialMonitoredProducts);
   const [lists, setLists] = useState(initialLists);
   const [savedLists, setSavedLists] = useState(initialSavedLists);
   const [listDetailsMap, setListDetailsMap] = useState<Record<string, ListDetails>>({});
@@ -225,14 +290,19 @@ export default function SiteAccountWorkspace({
   const [creatingList, setCreatingList] = useState(false);
 
   const [selectedListId, setSelectedListId] = useState<string | null>(initialLists[0]?.id ?? null);
-  const [selectedFavoriteIds, setSelectedFavoriteIds] = useState<string[]>([]);
+  const [selectedTrackedKeys, setSelectedTrackedKeys] = useState<string[]>([]);
   const [listPickerOpen, setListPickerOpen] = useState(false);
+  const [monitoredProductUrl, setMonitoredProductUrl] = useState("");
+  const [addingMonitoredProduct, setAddingMonitoredProduct] = useState(false);
+  const [comparatorPrompt, setComparatorPrompt] = useState<ComparatorPromptState | null>(null);
 
   const [listEditorId, setListEditorId] = useState<string | null>(null);
   const [listForms, setListForms] = useState<Record<string, ListFormState>>(
     createInitialListForms(initialLists)
   );
-  const [draggingProductId, setDraggingProductId] = useState<string | null>(null);
+  const [draggingListItemId, setDraggingListItemId] = useState<string | null>(null);
+  const [draggingTrackedProductKey, setDraggingTrackedProductKey] = useState<string | null>(null);
+  const [dragOverTrackedProductKey, setDragOverTrackedProductKey] = useState<string | null>(null);
   const [listTab, setListTab] = useState<"mine" | "saved">("mine");
 
   const [activityMode, setActivityMode] = useState<"comments" | "reactions" | null>(null);
@@ -243,8 +313,39 @@ export default function SiteAccountWorkspace({
   const [suggestionNotes, setSuggestionNotes] = useState("");
   const [submittingSuggestion, setSubmittingSuggestion] = useState(false);
   const [suggestionMessage, setSuggestionMessage] = useState("");
+  const [showSuggestionComposer, setShowSuggestionComposer] = useState(false);
 
   const favoriteCards = useMemo(() => favorites.map(favoriteToCardItem), [favorites]);
+  const trackedProductCards = useMemo(() => {
+    const favoriteEntries = favorites.map((favorite) => ({
+      key: `favorite:${favorite.product.id}`,
+      source: "favorite" as const,
+      savedAt: favorite.savedAt,
+      entryId: favorite.id,
+      productId: favorite.product.id,
+      monitoredProductId: null,
+      sortOrder: favorite.sortOrder,
+      card: favoriteToCardItem(favorite),
+    }));
+
+    const monitoredEntries = monitoredProducts.map((monitoredProduct) => ({
+      key: `monitored:${monitoredProduct.id}`,
+      source: "monitored" as const,
+      savedAt: monitoredProduct.savedAt,
+      entryId: monitoredProduct.id,
+      productId: null,
+      monitoredProductId: monitoredProduct.id,
+      sortOrder: monitoredProduct.sortOrder,
+      card: monitoredProductToCardItem(monitoredProduct),
+    }));
+
+    return [...favoriteEntries, ...monitoredEntries].sort((left, right) => {
+      if ((left.sortOrder ?? 0) !== (right.sortOrder ?? 0)) {
+        return (left.sortOrder ?? 0) - (right.sortOrder ?? 0);
+      }
+      return new Date(left.savedAt).getTime() - new Date(right.savedAt).getTime();
+    });
+  }, [favorites, monitoredProducts]);
   const openedList = openListId ? listDetailsMap[openListId] ?? null : null;
   const selectedList = selectedListId ? lists.find((list) => list.id === selectedListId) : null;
 
@@ -355,6 +456,77 @@ export default function SiteAccountWorkspace({
       );
     } finally {
       setSubmittingSuggestion(false);
+    }
+  }
+
+  async function addMonitoredProduct(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!monitoredProductUrl.trim()) {
+      setMessage("Cole um link valido da Amazon para adicionar ao monitoramento.");
+      return;
+    }
+
+    setAddingMonitoredProduct(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/account/monitored-products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amazonUrl: monitoredProductUrl.trim() }),
+      });
+      const data = (await response.json()) as {
+        ok?: boolean;
+        error?: string;
+        source?: "catalog" | "amazon";
+        canSuggestComparator?: boolean;
+        favorite?: FavoriteEntry;
+        monitoredProduct?: MonitoredProductEntry;
+      };
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || "monitored_product_create_failed");
+      }
+
+      if (data.source === "catalog" && data.favorite) {
+        setFavorites((current) => {
+          const withoutSameProduct = current.filter(
+            (entry) => entry.product.id !== data.favorite!.product.id
+          );
+          return [data.favorite!, ...withoutSameProduct];
+        });
+        setMonitoredProducts((current) =>
+          current.filter((entry) => entry.product.asin !== data.favorite!.product.asin)
+        );
+        setComparatorPrompt(null);
+        setMessage("Produto ja existe no comparador e foi adicionado aos seus monitorados.");
+      } else if (data.source === "amazon" && data.monitoredProduct) {
+        setMonitoredProducts((current) => {
+          const withoutSameAsin = current.filter(
+            (entry) => entry.product.asin !== data.monitoredProduct!.product.asin
+          );
+          return [data.monitoredProduct!, ...withoutSameAsin];
+        });
+        setComparatorPrompt(
+          data.canSuggestComparator
+            ? {
+                asin: data.monitoredProduct.product.asin,
+                amazonUrl: data.monitoredProduct.product.url,
+                name: data.monitoredProduct.product.name,
+              }
+            : null
+        );
+        setMessage("Produto adicionado ao seu monitoramento pessoal.");
+      } else {
+        throw new Error("monitored_product_create_failed");
+      }
+
+      setMonitoredProductUrl("");
+    } catch (error) {
+      console.error("monitored_product_create_failed", error);
+      setMessage("Nao foi possivel adicionar esse link da Amazon agora.");
+    } finally {
+      setAddingMonitoredProduct(false);
     }
   }
 
@@ -706,11 +878,14 @@ export default function SiteAccountWorkspace({
     }
   }
 
-  async function addFavoriteToList(listId: string, productId: string) {
+  async function addTrackedProductToList(
+    listId: string,
+    input: { productId?: string | null; monitoredProductId?: string | null }
+  ) {
     const response = await fetch(`/api/account/lists/${listId}/items`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productId }),
+      body: JSON.stringify(input),
     });
 
     const data = (await response.json()) as { ok?: boolean; created?: boolean };
@@ -729,8 +904,15 @@ export default function SiteAccountWorkspace({
     setListDetailsMap((current) => {
       const details = current[listId];
       if (!details || !data.created) return current;
-      const favorite = favorites.find((item) => item.product.id === productId);
-      if (!favorite) return current;
+      const favorite = input.productId
+        ? favorites.find((item) => item.product.id === input.productId)
+        : null;
+      const monitoredProduct = input.monitoredProductId
+        ? monitoredProducts.find((item) => item.id === input.monitoredProductId)
+        : null;
+      const source = favorite ? "catalog" : "monitored";
+      const resolvedProduct = favorite?.product ?? monitoredProduct?.product;
+      if (!resolvedProduct) return current;
 
       return {
         ...current,
@@ -739,10 +921,11 @@ export default function SiteAccountWorkspace({
           items: [
             ...details.items,
             {
-              id: `${listId}:${productId}`,
+              id: `${listId}:${input.productId ?? input.monitoredProductId}`,
               note: null,
               sortOrder: details.items.length,
-              product: favorite.product,
+              source,
+              product: resolvedProduct,
             },
           ],
         },
@@ -751,7 +934,7 @@ export default function SiteAccountWorkspace({
   }
 
   async function addSelectedFavoritesToList() {
-    if (!selectedListId || selectedFavoriteIds.length === 0) {
+    if (!selectedListId || selectedTrackedKeys.length === 0) {
       setMessage("Escolha uma lista e selecione pelo menos um produto.");
       return;
     }
@@ -760,10 +943,15 @@ export default function SiteAccountWorkspace({
     setMessage("");
 
     try {
-      for (const productId of selectedFavoriteIds) {
-        await addFavoriteToList(selectedListId, productId);
+      for (const trackedKey of selectedTrackedKeys) {
+        const trackedItem = trackedProductCards.find((item) => item.key === trackedKey);
+        if (!trackedItem) continue;
+        await addTrackedProductToList(selectedListId, {
+          productId: trackedItem.productId,
+          monitoredProductId: trackedItem.monitoredProductId,
+        });
       }
-      setSelectedFavoriteIds([]);
+      setSelectedTrackedKeys([]);
       setListPickerOpen(false);
       setMessage("Produtos adicionados a lista.");
     } catch (error) {
@@ -774,11 +962,11 @@ export default function SiteAccountWorkspace({
     }
   }
 
-  function toggleFavoriteSelection(productId: string) {
-    setSelectedFavoriteIds((current) =>
-      current.includes(productId)
-        ? current.filter((id) => id !== productId)
-        : [...current, productId]
+  function toggleTrackedSelection(trackedKey: string) {
+    setSelectedTrackedKeys((current) =>
+      current.includes(trackedKey)
+        ? current.filter((id) => id !== trackedKey)
+        : [...current, trackedKey]
     );
   }
 
@@ -799,7 +987,7 @@ export default function SiteAccountWorkspace({
       }
 
       setFavorites((current) => current.filter((favorite) => favorite.product.id !== productId));
-      setSelectedFavoriteIds((current) => current.filter((id) => id !== productId));
+      setSelectedTrackedKeys((current) => current.filter((id) => id !== `favorite:${productId}`));
       setMessage("Favorito removido.");
     } catch (error) {
       console.error("favorite_delete_failed", error);
@@ -809,15 +997,181 @@ export default function SiteAccountWorkspace({
     }
   }
 
-  async function removeListItem(listId: string, productId: string) {
-    setPendingAction(`item:${listId}:${productId}`);
+  async function removeMonitoredProduct(monitoredProductId: string) {
+    setPendingAction(`monitored:${monitoredProductId}`);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/account/monitored-products", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ monitoredProductId }),
+      });
+      const data = (await response.json()) as { ok?: boolean };
+
+      if (!response.ok || !data.ok) {
+        throw new Error("monitored_product_delete_failed");
+      }
+
+      setMonitoredProducts((current) => current.filter((item) => item.id !== monitoredProductId));
+      setSelectedTrackedKeys((current) =>
+        current.filter((id) => id !== `monitored:${monitoredProductId}`)
+      );
+      setMessage("Produto removido do monitoramento.");
+    } catch (error) {
+      console.error("monitored_product_delete_failed", error);
+      setMessage("Nao foi possivel remover o produto monitorado.");
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  async function saveTrackedProductsOrder(
+    orderedItems: Array<{ source: "favorite" | "monitored"; id: string }>
+  ) {
+    setPendingAction("reorder:tracked");
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/account/tracked-products/reorder", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderedItems }),
+      });
+      const data = (await response.json()) as { ok?: boolean };
+
+      if (!response.ok || !data.ok) {
+        throw new Error("tracked_product_reorder_failed");
+      }
+
+      setMessage("Ordem dos produtos monitorados atualizada.");
+    } catch (error) {
+      console.error("tracked_product_reorder_failed", error);
+      setMessage("Nao foi possivel salvar a nova ordem dos produtos monitorados.");
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  function handleTrackedProductDragStart(trackedKey: string) {
+    setDraggingTrackedProductKey(trackedKey);
+    setDragOverTrackedProductKey(null);
+  }
+
+  function handleTrackedProductDragEnd() {
+    setDraggingTrackedProductKey(null);
+    setDragOverTrackedProductKey(null);
+  }
+
+  function handleTrackedProductDragEnter(trackedKey: string) {
+    if (!draggingTrackedProductKey || draggingTrackedProductKey === trackedKey) return;
+    setDragOverTrackedProductKey(trackedKey);
+  }
+
+  async function handleDropOnTrackedProduct(
+    event: React.DragEvent<HTMLDivElement>,
+    targetTrackedKey: string
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!draggingTrackedProductKey || draggingTrackedProductKey === targetTrackedKey) {
+      setDragOverTrackedProductKey(null);
+      return;
+    }
+
+    const fromIndex = trackedProductCards.findIndex((item) => item.key === draggingTrackedProductKey);
+    const toIndex = trackedProductCards.findIndex((item) => item.key === targetTrackedKey);
+    if (fromIndex < 0 || toIndex < 0) return;
+
+    const reorderedTrackedItems = moveItem(trackedProductCards, fromIndex, toIndex).map((item, index) => ({
+      ...item,
+      sortOrder: index,
+    }));
+
+    setFavorites((current) =>
+      current
+        .map((favorite) => {
+          const reordered = reorderedTrackedItems.find(
+            (item) => item.source === "favorite" && item.entryId === favorite.id
+          );
+          return reordered ? { ...favorite, sortOrder: reordered.sortOrder ?? favorite.sortOrder } : favorite;
+        })
+        .sort((left, right) => left.sortOrder - right.sortOrder)
+    );
+    setMonitoredProducts((current) =>
+      current
+        .map((monitoredProduct) => {
+          const reordered = reorderedTrackedItems.find(
+            (item) => item.source === "monitored" && item.entryId === monitoredProduct.id
+          );
+          return reordered
+            ? { ...monitoredProduct, sortOrder: reordered.sortOrder ?? monitoredProduct.sortOrder }
+            : monitoredProduct;
+        })
+        .sort((left, right) => left.sortOrder - right.sortOrder)
+    );
+    setDraggingTrackedProductKey(null);
+    setDragOverTrackedProductKey(null);
+    await saveTrackedProductsOrder(
+      reorderedTrackedItems.map((item) => ({
+        source: item.source,
+        id: item.entryId,
+      }))
+    );
+  }
+
+  async function suggestComparatorForPrompt() {
+    if (!comparatorPrompt) return;
+
+    setPendingAction(`suggest:${comparatorPrompt.asin}`);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/account/suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          asin: comparatorPrompt.asin,
+          amazonUrl: comparatorPrompt.amazonUrl,
+          title: comparatorPrompt.name,
+          notes: "Sugestao enviada a partir de produto monitorado pelo usuario.",
+        }),
+      });
+      const data = (await response.json()) as { ok?: boolean; alreadyExists?: boolean; error?: string };
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || "suggestion_create_failed");
+      }
+
+      setComparatorPrompt(null);
+      setMessage(
+        data.alreadyExists
+          ? "Esse produto ja estava sugerido para o comparador."
+          : "Produto enviado para avaliacao de entrada no comparador."
+      );
+    } catch (error) {
+      console.error("suggestion_create_failed", error);
+      setMessage("Nao foi possivel enviar a sugestao para o comparador agora.");
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  async function removeListItem(
+    listId: string,
+    input: { itemId: string; productId?: string | null; monitoredProductId?: string | null }
+  ) {
+    setPendingAction(`item:${listId}:${input.itemId}`);
     setMessage("");
 
     try {
       const response = await fetch(`/api/account/lists/${listId}/items`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId }),
+        body: JSON.stringify({
+          productId: input.productId,
+          monitoredProductId: input.monitoredProductId,
+        }),
       });
       const data = (await response.json()) as { ok?: boolean };
 
@@ -837,7 +1191,7 @@ export default function SiteAccountWorkspace({
           ...current,
           [listId]: {
             ...details,
-            items: details.items.filter((item) => item.product.id !== productId),
+            items: details.items.filter((item) => item.id !== input.itemId),
           },
         };
       });
@@ -850,7 +1204,7 @@ export default function SiteAccountWorkspace({
     }
   }
 
-  async function saveListOrder(listId: string, orderedProductIds: string[]) {
+  async function saveListOrder(listId: string, orderedItemIds: string[]) {
     setPendingAction(`reorder:${listId}`);
     setMessage("");
 
@@ -858,7 +1212,7 @@ export default function SiteAccountWorkspace({
       const response = await fetch(`/api/account/lists/${listId}/items`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderedProductIds }),
+        body: JSON.stringify({ orderedItemIds }),
       });
       const data = (await response.json()) as { ok?: boolean };
 
@@ -875,17 +1229,17 @@ export default function SiteAccountWorkspace({
     }
   }
 
-  function handleDragStart(productId: string) {
-    setDraggingProductId(productId);
+  function handleDragStart(listItemId: string) {
+    setDraggingListItemId(listItemId);
   }
 
-  async function handleDropOnItem(targetProductId: string) {
-    if (!openListId || !draggingProductId || draggingProductId === targetProductId) return;
+  async function handleDropOnItem(targetListItemId: string) {
+    if (!openListId || !draggingListItemId || draggingListItemId === targetListItemId) return;
     const currentList = listDetailsMap[openListId];
     if (!currentList) return;
 
-    const fromIndex = currentList.items.findIndex((item) => item.product.id === draggingProductId);
-    const toIndex = currentList.items.findIndex((item) => item.product.id === targetProductId);
+    const fromIndex = currentList.items.findIndex((item) => item.id === draggingListItemId);
+    const toIndex = currentList.items.findIndex((item) => item.id === targetListItemId);
     if (fromIndex < 0 || toIndex < 0) return;
 
     const reorderedItems = moveItem(currentList.items, fromIndex, toIndex).map((item, index) => ({
@@ -900,10 +1254,10 @@ export default function SiteAccountWorkspace({
         items: reorderedItems,
       },
     }));
-    setDraggingProductId(null);
+    setDraggingListItemId(null);
     await saveListOrder(
       openListId,
-      reorderedItems.map((item) => item.product.id)
+      reorderedItems.map((item) => item.id)
     );
   }
 
@@ -971,23 +1325,6 @@ export default function SiteAccountWorkspace({
                 <PencilLine className="h-4 w-4" />
                 {showProfileEditor ? "Fechar edicao" : "Editar perfil"}
               </button>
-
-              <div className="rounded-[28px] border border-white/10 bg-white/8 p-4 backdrop-blur-sm">
-                <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.16em] text-white/75">
-                  <Shield className="h-4 w-4 text-[#FFD37A]" />
-                  Seguranca
-                </div>
-                <div className="mt-3 space-y-2">
-                  <button
-                    type="button"
-                    onClick={sendPasswordResetLink}
-                    disabled={pendingAction === "security:reset"}
-                    className="inline-flex h-10 w-full items-center justify-center rounded-2xl border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/15 disabled:opacity-60"
-                  >
-                    {pendingAction === "security:reset" ? "Enviando link..." : "Trocar senha"}
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -1129,6 +1466,15 @@ export default function SiteAccountWorkspace({
                 </button>
 
                 <button
+                  type="button"
+                  onClick={sendPasswordResetLink}
+                  disabled={pendingAction === "security:reset"}
+                  className="inline-flex h-11 items-center justify-center rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
+                >
+                  {pendingAction === "security:reset" ? "Enviando link..." : "Trocar senha"}
+                </button>
+
+                <button
                   type="submit"
                   disabled={savingProfile}
                   className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#FFD814] px-5 text-sm font-black text-[#0F1111] transition hover:bg-[#F7CA00] disabled:opacity-70"
@@ -1151,26 +1497,89 @@ export default function SiteAccountWorkspace({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#FF8F1F]">
-              Favoritos
+              Monitoramento
             </p>
-            <h3 className="mt-2 text-3xl font-black text-[#0F1111]">Produtos acompanhados</h3>
+            <h3 className="mt-2 text-3xl font-black text-[#0F1111]">Produtos monitorados</h3>
             <p className="mt-2 max-w-3xl text-sm text-[#565959]">
-              Acompanhe os produtos que voce salvou e organize tudo em listas quando quiser.
+              Acompanhe em um so lugar os produtos salvos no site e tambem os links da Amazon que voce quiser monitorar.
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setListPickerOpen((current) => !current);
-              setSelectedFavoriteIds([]);
-            }}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#0F1111] px-4 text-sm font-bold text-[#0F1111] transition hover:bg-[#F8FAFA]"
-          >
-            <ListPlus className="h-4 w-4" />
-            {listPickerOpen ? "Fechar listas" : "Adicionar a lista"}
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setListPickerOpen((current) => !current);
+                setSelectedTrackedKeys([]);
+              }}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#0F1111] px-4 text-sm font-bold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+            >
+              <ListPlus className="h-4 w-4" />
+              {listPickerOpen ? "Fechar listas" : "Adicionar a lista"}
+            </button>
+          </div>
         </div>
+
+        <form
+          onSubmit={addMonitoredProduct}
+          className="mt-6 rounded-[28px] border border-[#E4E7EC] bg-[#F8FAFA] p-5"
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+            <label className="block flex-1">
+              <span className="mb-2 block text-sm font-bold uppercase tracking-[0.14em] text-[#475467]">
+                Adicionar link da Amazon
+              </span>
+              <input
+                type="url"
+                value={monitoredProductUrl}
+                onChange={(event) => setMonitoredProductUrl(event.target.value)}
+                placeholder="Cole aqui o link do produto da Amazon"
+                className="h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm text-[#0F1111] outline-none transition focus:border-[#F3A847]"
+              />
+            </label>
+
+            <button
+              type="submit"
+              disabled={addingMonitoredProduct}
+              className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#FFD814] px-5 text-sm font-black text-[#0F1111] transition hover:bg-[#F7CA00] disabled:opacity-70"
+            >
+              {addingMonitoredProduct ? "Adicionando..." : "Adicionar ao monitoramento"}
+            </button>
+          </div>
+          <p className="mt-3 text-sm text-[#565959]">
+            Cole um link da Amazon para acompanhar preco, estoque e ofertas junto com o update global do site.
+          </p>
+        </form>
+
+        {comparatorPrompt ? (
+          <div className="mt-6 rounded-[28px] border border-[#F3D6A3] bg-[#FFF9E8] p-5">
+            <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#B54708]">
+              Adicionar ao comparador?
+            </p>
+            <p className="mt-2 text-sm text-[#7A271A]">
+              Esse produto ainda nao faz parte do comparador da Amazonpicks. Se voce quiser, podemos registrar sua sugestao para avaliacao sem duplicar itens ja existentes.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={suggestComparatorForPrompt}
+                disabled={pendingAction === `suggest:${comparatorPrompt.asin}`}
+                className="inline-flex h-10 items-center justify-center rounded-full bg-[#FF8F1F] px-4 text-sm font-bold text-white transition hover:bg-[#E07A13] disabled:opacity-60"
+              >
+                {pendingAction === `suggest:${comparatorPrompt.asin}`
+                  ? "Enviando..."
+                  : "Adicionar ao comparador"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setComparatorPrompt(null)}
+                className="inline-flex h-10 items-center justify-center rounded-full border border-[#F3D6A3] bg-white px-4 text-sm font-bold text-[#7A271A] transition hover:bg-[#FFF3D1]"
+              >
+                Agora nao
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {listPickerOpen ? (
           <div className="mt-6 rounded-[28px] border border-[#E4E7EC] bg-[#FFF9E8] p-5">
@@ -1207,12 +1616,12 @@ export default function SiteAccountWorkspace({
                 Lista atual: <span className="font-bold">{selectedList?.title ?? "Nenhuma"}</span>
               </div>
               <div className="rounded-full border border-[#F3D6A3] bg-white px-4 py-2 text-sm text-[#7A271A]">
-                Selecionados: <span className="font-bold">{selectedFavoriteIds.length}</span>
+                Selecionados: <span className="font-bold">{selectedTrackedKeys.length}</span>
               </div>
               <button
                 type="button"
                 onClick={addSelectedFavoritesToList}
-                disabled={!selectedListId || selectedFavoriteIds.length === 0 || !!pendingAction}
+                disabled={!selectedListId || selectedTrackedKeys.length === 0 || !!pendingAction}
                 className="inline-flex h-10 items-center justify-center rounded-full bg-[#FF8F1F] px-4 text-sm font-bold text-white transition hover:bg-[#E07A13] disabled:opacity-60"
               >
                 {pendingAction?.startsWith("bulk-add:") ? "Adicionando..." : "Adicionar selecionados"}
@@ -1221,32 +1630,68 @@ export default function SiteAccountWorkspace({
           </div>
         ) : null}
 
-        {favorites.length === 0 ? (
+        {trackedProductCards.length === 0 ? (
           <div className="mt-6 rounded-3xl border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-4 py-10 text-center text-sm text-[#565959]">
-            Nenhum favorito salvo na conta ainda.
+            Nenhum produto monitorado ainda.
           </div>
         ) : (
           <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-            {favoriteCards.map((favoriteCard) => {
-              const favorite = favorites.find((entry) => entry.product.id === favoriteCard.id)!;
-              const isSelected = selectedFavoriteIds.includes(favoriteCard.id);
+            {trackedProductCards.map((trackedItem, index) => {
+              const favorite = trackedItem.productId
+                ? favorites.find((entry) => entry.product.id === trackedItem.productId) ?? null
+                : null;
+              const isSelected = selectedTrackedKeys.includes(trackedItem.key);
 
               return (
-                <div key={favoriteCard.asin} className="space-y-2">
+                <div
+                  key={trackedItem.key}
+                  className={`space-y-2 rounded-2xl transition ${
+                    dragOverTrackedProductKey === trackedItem.key
+                      ? "bg-[#FFF7D6] ring-2 ring-[#F3A847] ring-offset-2 ring-offset-[#E3E6E6]"
+                      : ""
+                  }`}
+                  draggable
+                  onDragStart={() => handleTrackedProductDragStart(trackedItem.key)}
+                  onDragEnd={handleTrackedProductDragEnd}
+                  onDragEnter={() => handleTrackedProductDragEnter(trackedItem.key)}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverTrackedProductKey === trackedItem.key) {
+                      setDragOverTrackedProductKey(null);
+                    }
+                  }}
+                  onDrop={(event) => void handleDropOnTrackedProduct(event, trackedItem.key)}
+                >
                   <div
                     className={`relative rounded-xl transition ${
                       isSelected ? "ring-2 ring-[#FF8F1F] ring-offset-2 ring-offset-[#E3E6E6]" : ""
                     }`}
                   >
-                    <BestDealProductCard item={favoriteCard} category="salvos" showActions={false} />
+                    <BestDealProductCard
+                      item={trackedItem.card}
+                      category="produtos_monitorados"
+                      showActions={false}
+                    />
+
+                    <div className="pointer-events-none absolute left-2 top-2 z-30">
+                      <div className="inline-flex items-center gap-1 rounded-full border border-[#D0D5DD] bg-white px-2.5 py-1 text-xs font-bold text-[#344054] shadow-sm">
+                        <GripVertical className="h-3.5 w-3.5" />
+                        {draggingTrackedProductKey === trackedItem.key
+                          ? "Movendo"
+                          : `Pos. ${index + 1}`}
+                      </div>
+                    </div>
 
                     {listPickerOpen ? (
                       <>
                         <button
                           type="button"
-                          onClick={() => toggleFavoriteSelection(favoriteCard.id)}
+                          onClick={() => toggleTrackedSelection(trackedItem.key)}
                           className="absolute inset-0 z-20 rounded-xl"
-                          aria-label={`Selecionar ${favoriteCard.name}`}
+                          aria-label={`Selecionar ${trackedItem.card.name}`}
                         />
                         <div className="pointer-events-none absolute left-2 top-2 z-30">
                           <div
@@ -1264,14 +1709,25 @@ export default function SiteAccountWorkspace({
                     ) : null}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => removeFavorite(favorite.product.id)}
-                    disabled={pendingAction === `favorite:${favorite.product.id}`}
-                    className="w-full rounded-xl border border-[#FECDCA] bg-[#FEF3F2] px-3 py-2 text-xs font-bold text-[#B42318] transition hover:bg-[#FEE4E2] disabled:opacity-60"
-                  >
-                    {pendingAction === `favorite:${favorite.product.id}` ? "Removendo..." : "Remover"}
-                  </button>
+                  {trackedItem.source === "favorite" && favorite ? (
+                    <button
+                      type="button"
+                      onClick={() => removeFavorite(favorite.product.id)}
+                      disabled={pendingAction === `favorite:${favorite.product.id}`}
+                      className="w-full rounded-xl border border-[#FECDCA] bg-[#FEF3F2] px-3 py-2 text-xs font-bold text-[#B42318] transition hover:bg-[#FEE4E2] disabled:opacity-60"
+                    >
+                      {pendingAction === `favorite:${favorite.product.id}` ? "Removendo..." : "Remover"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => removeMonitoredProduct(trackedItem.entryId)}
+                      disabled={pendingAction === `monitored:${trackedItem.entryId}`}
+                      className="w-full rounded-xl border border-[#FECDCA] bg-[#FEF3F2] px-3 py-2 text-xs font-bold text-[#B42318] transition hover:bg-[#FEE4E2] disabled:opacity-60"
+                    >
+                      {pendingAction === `monitored:${trackedItem.entryId}` ? "Removendo..." : "Remover"}
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -1580,7 +2036,7 @@ export default function SiteAccountWorkspace({
                 onClick={() => {
                   setListEditorId(null);
                   setOpenListId(null);
-                  setDraggingProductId(null);
+                  setDraggingListItemId(null);
                 }}
                 className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
               >
@@ -1593,68 +2049,78 @@ export default function SiteAccountWorkspace({
                 Essa lista ainda nao tem produtos.
               </div>
             ) : (
-              <div className="mt-6 space-y-3">
+              <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
                 {openedList.items.map((item, index) => (
                   <div
                     key={item.id}
                     draggable
-                    onDragStart={() => handleDragStart(item.product.id)}
+                    onDragStart={() => handleDragStart(item.id)}
                     onDragOver={(event) => event.preventDefault()}
-                    onDrop={() => void handleDropOnItem(item.product.id)}
-                    className={`flex flex-col gap-4 rounded-[24px] border border-[#D0D5DD] bg-white p-4 shadow-sm lg:flex-row lg:items-center ${
-                      draggingProductId === item.product.id ? "opacity-70" : ""
+                    onDrop={() => void handleDropOnItem(item.id)}
+                    className={`space-y-2 ${
+                      draggingListItemId === item.id ? "opacity-70" : ""
                     }`}
                   >
-                    <div className="flex items-center gap-3 lg:w-[360px]">
-                      <div className="rounded-xl border border-[#EAECF0] bg-[#F8FAFA] p-2 text-[#667085]">
-                        <GripVertical className="h-5 w-5" />
+                    <div className="relative rounded-xl">
+                      <BestDealProductCard
+                        item={{
+                          id: item.product.id,
+                          asin: item.product.asin,
+                          name: item.product.name,
+                          imageUrl: item.product.imageUrl ?? "",
+                          url: item.product.url,
+                          totalPrice: item.product.totalPrice,
+                          averagePrice30d:
+                            item.product.averagePrice30d ?? item.product.totalPrice,
+                          discountPercent:
+                            item.product.totalPrice > 0 &&
+                            (item.product.averagePrice30d ?? item.product.totalPrice) >
+                              item.product.totalPrice
+                              ? Math.round(
+                                  (((item.product.averagePrice30d ?? item.product.totalPrice) -
+                                    item.product.totalPrice) /
+                                    (item.product.averagePrice30d ?? item.product.totalPrice)) *
+                                    100
+                                )
+                              : 0,
+                          ratingAverage: null,
+                          ratingCount: null,
+                          likeCount: 0,
+                          dislikeCount: 0,
+                          categoryName: item.product.category.name,
+                          categoryGroup: item.product.category.group,
+                          categorySlug: item.product.category.slug,
+                          attributes: {
+                            availabilityStatus: item.product.availabilityStatus ?? "",
+                          },
+                        }}
+                        category="edicao_lista"
+                        showActions={false}
+                      />
+                      <div className="pointer-events-none absolute left-2 top-2 z-30">
+                        <div className="inline-flex items-center gap-1 rounded-full border border-[#D0D5DD] bg-white px-2.5 py-1 text-xs font-bold text-[#344054] shadow-sm">
+                          <GripVertical className="h-3.5 w-3.5" />
+                          {draggingListItemId === item.id ? "Movendo" : `Pos. ${index + 1}`}
+                        </div>
                       </div>
-
-                      <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-[#F8FAFA]">
-                        {item.product.imageUrl ? (
-                          <Image
-                            src={item.product.imageUrl}
-                            alt={item.product.name}
-                            width={64}
-                            height={64}
-                            className="h-full w-full object-contain p-2"
-                            unoptimized
-                          />
-                        ) : null}
-                      </div>
-
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#98A2B3]">
-                          Posicao {index + 1}
-                        </p>
-                        <p className="line-clamp-2 text-sm font-bold text-[#0F1111]">
-                          {item.product.name}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex-1">
-                      <p className="text-sm text-[#565959]">{item.product.category.name}</p>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      <a
-                        href={item.product.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-white"
-                      >
-                        Amazon
-                      </a>
                       <button
                         type="button"
-                        onClick={() => removeListItem(openedList.id, item.product.id)}
-                        disabled={pendingAction === `item:${openedList.id}:${item.product.id}`}
-                        className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#FECDCA] bg-[#FEF3F2] px-4 text-sm font-bold text-[#B42318] transition hover:bg-[#FEE4E2] disabled:opacity-60"
+                        onClick={() =>
+                          removeListItem(openedList.id, {
+                            itemId: item.id,
+                            productId: item.source === "catalog" ? item.product.id : null,
+                            monitoredProductId: item.source === "monitored" ? item.product.id : null,
+                          })
+                        }
+                        disabled={pendingAction === `item:${openedList.id}:${item.id}`}
+                        className="w-full rounded-xl border border-[#FECDCA] bg-[#FEF3F2] px-3 py-2 text-xs font-bold text-[#B42318] transition hover:bg-[#FEE4E2] disabled:opacity-60"
                       >
-                        {pendingAction === `item:${openedList.id}:${item.product.id}`
+                        {pendingAction === `item:${openedList.id}:${item.id}`
                           ? "Removendo..."
-                          : "Excluir produto"}
+                          : "Remover"}
                       </button>
                     </div>
                   </div>
@@ -1877,56 +2343,72 @@ export default function SiteAccountWorkspace({
         </div>
       ) : null}
 
-      <section className="rounded-[32px] border border-[#d5d9d9] bg-white p-6 shadow-sm md:p-8">
-        <div className="max-w-3xl">
-          <p className="text-sm font-bold uppercase tracking-[0.22em] text-[#D61F3A]">
-            Sugerir produto
-          </p>
-          <h3 className="mt-3 text-3xl font-black text-[#0F1111]">Nao encontrou um item no site?</h3>
-          <p className="mt-2 text-sm text-[#565959]">
-            Envie o link da Amazon e uma descricao rapida. A gente revisa e decide se vale adicionar ao catalogo.
-          </p>
-        </div>
-
-        <form onSubmit={submitSuggestion} className="mt-6 space-y-4">
-          <div className="grid gap-4">
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[#344054]">Link da Amazon</span>
-              <input
-                type="url"
-                value={suggestionUrl}
-                onChange={(event) => setSuggestionUrl(event.target.value)}
-                placeholder="https://www.amazon.com.br/..."
-                className="h-12 w-full rounded-2xl border border-[#D0D5DD] px-4 text-sm outline-none transition focus:border-[#F3A847]"
+      {false ? (
+        <section className="rounded-[32px] border border-[#d5d9d9] bg-white p-6 shadow-sm md:p-8">
+          <div className="flex justify-start">
+            <button
+              type="button"
+              onClick={() => setShowSuggestionComposer((current) => !current)}
+              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full border border-[#D0D5DD] bg-white px-4 text-sm font-bold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+            >
+              <span>Deseja adicionar um item ao nosso comparador</span>
+              <Plus
+                className={`h-4 w-4 transition-transform ${showSuggestionComposer ? "rotate-45" : ""}`}
               />
-            </label>
+            </button>
           </div>
 
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[#344054]">Por que vale adicionar?</span>
-            <textarea
-              value={suggestionNotes}
-              onChange={(event) => setSuggestionNotes(event.target.value)}
-              placeholder="Conte o que e o produto, em qual categoria ele entraria ou qualquer detalhe util."
-              rows={4}
-              className="w-full rounded-2xl border border-[#D0D5DD] px-4 py-3 text-sm outline-none transition focus:border-[#F3A847]"
-              required
-            />
-          </label>
+          {showSuggestionComposer ? (
+            <form onSubmit={submitSuggestion} className="mt-6 space-y-4">
+              <div className="max-w-3xl">
+                <p className="text-sm text-[#565959]">
+                  Envie o link da Amazon e uma descricao rapida. Vamos revisar e avaliar se esse
+                  item faz sentido no catalogo.
+                </p>
+              </div>
 
-          {suggestionMessage ? (
-            <p className="text-sm font-medium text-[#475467]">{suggestionMessage}</p>
+              <div className="grid gap-4">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-[#344054]">Link da Amazon</span>
+                  <input
+                    type="url"
+                    value={suggestionUrl}
+                    onChange={(event) => setSuggestionUrl(event.target.value)}
+                    placeholder="https://www.amazon.com.br/..."
+                    className="h-12 w-full rounded-2xl border border-[#D0D5DD] px-4 text-sm outline-none transition focus:border-[#F3A847]"
+                  />
+                </label>
+              </div>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-[#344054]">Por que vale adicionar?</span>
+                <textarea
+                  value={suggestionNotes}
+                  onChange={(event) => setSuggestionNotes(event.target.value)}
+                  placeholder="Conte o que e o produto, em qual categoria ele entraria ou qualquer detalhe util."
+                  rows={4}
+                  className="w-full rounded-2xl border border-[#D0D5DD] px-4 py-3 text-sm outline-none transition focus:border-[#F3A847]"
+                  required
+                />
+              </label>
+
+              {suggestionMessage ? (
+                <p className="text-sm font-medium text-[#475467]">{suggestionMessage}</p>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={submittingSuggestion}
+                className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#FFD814] px-5 text-sm font-black text-[#0F1111] transition hover:bg-[#F7CA00] disabled:opacity-60"
+              >
+                {submittingSuggestion ? "Enviando sugestao..." : "Enviar sugestao"}
+              </button>
+            </form>
+          ) : suggestionMessage ? (
+            <p className="mt-6 text-sm font-medium text-[#475467]">{suggestionMessage}</p>
           ) : null}
-
-          <button
-            type="submit"
-            disabled={submittingSuggestion}
-            className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#FFD814] px-5 text-sm font-black text-[#0F1111] transition hover:bg-[#F7CA00] disabled:opacity-60"
-          >
-            {submittingSuggestion ? "Enviando sugestao..." : "Enviar sugestao"}
-          </button>
-        </form>
-      </section>
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -47,11 +47,12 @@ export default async function MyAccountPage() {
       throw error;
     });
 
-  const [favorites, lists, savedLists, profileStats] = await Promise.all([
+  const [favorites, lists, savedLists, monitoredProducts, profileStats] = await Promise.all([
     prisma.$queryRaw<
       Array<{
         id: string;
         createdAt: Date;
+        sortOrder: number;
         product: {
           id: string;
           asin: string;
@@ -71,6 +72,7 @@ export default async function MyAccountPage() {
       SELECT
         f."id",
         f."createdAt",
+        f."sortOrder",
         json_build_object(
           'id', p."id",
           'asin', p."asin",
@@ -89,7 +91,7 @@ export default async function MyAccountPage() {
       INNER JOIN "DynamicProduct" p ON p."id" = f."productId"
       INNER JOIN "DynamicCategory" c ON c."id" = p."categoryId"
       WHERE f."userId" = ${user.id}
-      ORDER BY f."createdAt" DESC
+      ORDER BY f."sortOrder" ASC, f."createdAt" DESC
     `),
     prisma.$queryRaw<
       Array<{
@@ -115,6 +117,44 @@ export default async function MyAccountPage() {
       ORDER BY l."updatedAt" DESC
     `),
     savedListsPromise,
+    prisma.$queryRaw<
+      Array<{
+        id: string;
+        asin: string;
+        amazonUrl: string;
+        name: string;
+        imageUrl: string | null;
+        totalPrice: number;
+        averagePrice30d: number | null;
+        availabilityStatus: string | null;
+        programAndSavePrice: number | null;
+        sortOrder: number;
+        createdAt: Date;
+      }>
+    >(Prisma.sql`
+      SELECT
+        mp."id",
+        mp."asin",
+        mp."amazonUrl",
+        mp."name",
+        mp."imageUrl",
+        mp."totalPrice",
+        mp."averagePrice30d",
+        mp."availabilityStatus",
+        mp."programAndSavePrice",
+        mp."sortOrder",
+        mp."createdAt"
+      FROM "SiteUserMonitoredProduct" mp
+      WHERE mp."userId" = ${user.id}
+      ORDER BY mp."sortOrder" ASC, mp."createdAt" DESC
+    `)
+      .catch((error) => {
+        if (isMissingRelationError(error, "SiteUserMonitoredProduct")) {
+          return [];
+        }
+
+        throw error;
+      }),
     prisma.$queryRaw<
       Array<{
         createdAt: Date;
@@ -160,6 +200,7 @@ export default async function MyAccountPage() {
           favorites={favorites.map((favorite: (typeof favorites)[number]) => ({
             id: favorite.id,
             savedAt: favorite.createdAt.toISOString(),
+            sortOrder: favorite.sortOrder,
             product: favorite.product,
           }))}
           lists={lists.map((list: (typeof lists)[number]) => ({
@@ -179,6 +220,27 @@ export default async function MyAccountPage() {
             itemsCount: list.itemsCount,
             ownerDisplayName: list.ownerDisplayName,
             ownerUsername: list.ownerUsername,
+          }))}
+          monitoredProducts={monitoredProducts.map((product) => ({
+            id: product.id,
+            savedAt: product.createdAt.toISOString(),
+            sortOrder: product.sortOrder,
+            product: {
+              id: product.id,
+              asin: product.asin,
+              name: product.name,
+              totalPrice: product.totalPrice,
+              imageUrl: product.imageUrl,
+              url: product.amazonUrl,
+              averagePrice30d: product.averagePrice30d,
+              availabilityStatus: product.availabilityStatus,
+              programAndSavePrice: product.programAndSavePrice,
+              category: {
+                name: "Amazon",
+                group: "amazon",
+                slug: "monitorado",
+              },
+            },
           }))}
         />
       </div>

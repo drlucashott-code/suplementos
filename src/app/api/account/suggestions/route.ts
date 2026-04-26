@@ -31,6 +31,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "invalid_notes" }, { status: 400 });
     }
 
+    const asin = body.asin?.trim() || null;
+    if (asin) {
+      const existingSuggestion = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT s."id"
+        FROM "SiteProductSuggestion" s
+        WHERE s."asin" = ${asin}
+        LIMIT 1
+      `);
+
+      if (existingSuggestion.length > 0) {
+        return NextResponse.json({ ok: true, alreadyExists: true });
+      }
+    }
+
     await prisma.$executeRaw(Prisma.sql`
       INSERT INTO "SiteProductSuggestion" (
         "id",
@@ -46,7 +60,7 @@ export async function POST(request: Request) {
       VALUES (
         ${randomUUID()},
         ${user.id},
-        ${body.asin?.trim() || null},
+        ${asin},
         ${body.amazonUrl?.trim() || null},
         ${body.title?.trim() || null},
         ${notes},

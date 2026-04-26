@@ -134,6 +134,106 @@ export async function syncFavoriteNotifications(userId: string) {
       },
     });
   }
+
+  const monitoredProducts = await prisma.$queryRaw<
+    Array<{
+      id: string;
+      asin: string;
+      amazonUrl: string;
+      name: string;
+      totalPrice: number;
+      availabilityStatus: string | null;
+      lastTrackedPrice: number | null;
+      lastTrackedAvailability: string | null;
+    }>
+  >(Prisma.sql`
+    SELECT
+      mp."id",
+      mp."asin",
+      mp."amazonUrl",
+      mp."name",
+      mp."totalPrice",
+      mp."availabilityStatus",
+      mp."lastTrackedPrice",
+      mp."lastTrackedAvailability"
+    FROM "SiteUserMonitoredProduct" mp
+    WHERE mp."userId" = ${userId}
+  `).catch((error) => {
+    if (isMissingRelationError(error, "SiteUserMonitoredProduct")) {
+      return [];
+    }
+
+    throw error;
+  });
+
+  for (const monitoredProduct of monitoredProducts) {
+    const currentPrice = monitoredProduct.totalPrice > 0 ? monitoredProduct.totalPrice : null;
+    const currentAvailability = monitoredProduct.availabilityStatus ?? "UNKNOWN";
+    const productPath = monitoredProduct.amazonUrl;
+
+    if (
+      monitoredProduct.lastTrackedPrice == null &&
+      monitoredProduct.lastTrackedAvailability == null
+    ) {
+      await prisma.$executeRaw`
+        UPDATE "SiteUserMonitoredProduct"
+        SET
+          "lastTrackedPrice" = ${currentPrice},
+          "lastTrackedAvailability" = ${currentAvailability},
+          "updatedAt" = NOW()
+        WHERE "id" = ${monitoredProduct.id}
+      `;
+      continue;
+    }
+
+    if (
+      currentPrice != null &&
+      monitoredProduct.lastTrackedPrice != null &&
+      currentPrice < monitoredProduct.lastTrackedPrice
+    ) {
+      await createSiteNotification({
+        userId,
+        type: "monitored_price_drop",
+        title: "Produto monitorado caiu de preco",
+        body: `${monitoredProduct.name} agora está por ${currentPrice.toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        })}.`,
+        href: productPath,
+        metadata: {
+          asin: monitoredProduct.asin,
+          oldPrice: monitoredProduct.lastTrackedPrice,
+          newPrice: currentPrice,
+        },
+      });
+    }
+
+    if (
+      monitoredProduct.lastTrackedAvailability === "OUT_OF_STOCK" &&
+      currentAvailability !== "OUT_OF_STOCK" &&
+      currentPrice != null
+    ) {
+      await createSiteNotification({
+        userId,
+        type: "monitored_back_in_stock",
+        title: "Produto monitorado voltou ao estoque",
+        body: monitoredProduct.name,
+        href: productPath,
+        metadata: {
+          asin: monitoredProduct.asin,
+        },
+      });
+    }
+
+    await prisma.$executeRaw`
+      UPDATE "SiteUserMonitoredProduct"
+      SET
+        "lastTrackedPrice" = ${currentPrice},
+        "lastTrackedAvailability" = ${currentAvailability},
+        "updatedAt" = NOW()
+      WHERE "id" = ${monitoredProduct.id}
+    `;
+  }
 }
 
 export async function getSiteNotifications(userId: string) {

@@ -30,12 +30,14 @@ export default async function PublicListPage({
       itemId: string | null;
       note: string | null;
       productId: string | null;
+      monitoredProductId: string | null;
       productAsin: string | null;
       productName: string | null;
       productImageUrl: string | null;
       productTotalPrice: number | null;
       productAveragePrice30d: number | null;
       productUrl: string | null;
+      productAvailabilityStatus: string | null;
       productRatingAverage: number | null;
       productRatingCount: number | null;
       categoryName: string | null;
@@ -52,12 +54,14 @@ export default async function PublicListPage({
       i."id" AS "itemId",
       i."note",
       p."id" AS "productId",
-      p."asin" AS "productAsin",
-      p."name" AS "productName",
-      p."imageUrl" AS "productImageUrl",
-      p."totalPrice" AS "productTotalPrice",
-      p."averagePrice30d" AS "productAveragePrice30d",
-      p."url" AS "productUrl",
+      mp."id" AS "monitoredProductId",
+      COALESCE(p."asin", mp."asin") AS "productAsin",
+      COALESCE(p."name", mp."name") AS "productName",
+      COALESCE(p."imageUrl", mp."imageUrl") AS "productImageUrl",
+      COALESCE(p."totalPrice", mp."totalPrice") AS "productTotalPrice",
+      COALESCE(p."averagePrice30d", mp."averagePrice30d") AS "productAveragePrice30d",
+      COALESCE(p."url", mp."amazonUrl") AS "productUrl",
+      COALESCE(p."availabilityStatus", mp."availabilityStatus") AS "productAvailabilityStatus",
       p."ratingAverage" AS "productRatingAverage",
       p."ratingCount" AS "productRatingCount",
       c."name" AS "categoryName",
@@ -67,6 +71,7 @@ export default async function PublicListPage({
     INNER JOIN "SiteUser" u ON u."id" = l."userId"
     LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
     LEFT JOIN "DynamicProduct" p ON p."id" = i."productId"
+    LEFT JOIN "SiteUserMonitoredProduct" mp ON mp."id" = i."monitoredProductId"
     LEFT JOIN "DynamicCategory" c ON c."id" = p."categoryId"
     WHERE l."slug" = ${slug}
       AND l."isPublic" = true
@@ -88,7 +93,7 @@ export default async function PublicListPage({
       : [];
 
   const items = rows
-    .filter((row) => row.productId && row.productName && row.productUrl && row.productAsin)
+    .filter((row) => row.productName && row.productUrl && row.productAsin)
     .map((row) => {
       const totalPrice = row.productTotalPrice ?? 0;
       const averagePrice30d = row.productAveragePrice30d ?? totalPrice;
@@ -98,7 +103,7 @@ export default async function PublicListPage({
           : 0;
 
       return {
-        id: row.productId!,
+        id: row.productId ?? row.monitoredProductId!,
         asin: row.productAsin!,
         name: row.productName!,
         imageUrl:
@@ -114,10 +119,11 @@ export default async function PublicListPage({
         dislikeCount: 0,
         attributes: {
           notaLista: row.note ?? "",
+          availabilityStatus: row.productAvailabilityStatus ?? "",
         },
-        categoryName: row.categoryName ?? "Sem categoria",
-        categoryGroup: row.categoryGroup ?? "",
-        categorySlug: row.categorySlug ?? "",
+        categoryName: row.categoryName ?? "Amazon",
+        categoryGroup: row.categoryGroup ?? "amazon",
+        categorySlug: row.categorySlug ?? "monitorado",
       };
     });
 

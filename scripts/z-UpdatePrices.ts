@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { PrismaClient, type Prisma } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { reconcileDynamicFallbackState } from "../src/lib/dynamicFallback";
 import {
   enrichDynamicAttributesForCategory,
@@ -300,6 +300,64 @@ async function persistDynamicUpdate(
   };
 }
 
+async function refreshMonitoredProducts() {
+  const monitoredProducts = await withDatabaseRetry("siteUserMonitoredProduct.query", async () =>
+    prisma.$queryRaw<Array<{ id: string; asin: string }>>(Prisma.sql`
+      SELECT mp."id", mp."asin"
+      FROM "SiteUserMonitoredProduct" mp
+      ORDER BY mp."createdAt" ASC
+    `)
+  );
+
+  if (monitoredProducts.length === 0) {
+    return 0;
+  }
+
+  console.log(`Atualizando ${monitoredProducts.length} produtos monitorados por usuarios`);
+
+  for (let i = 0; i < monitoredProducts.length; i += BATCH_SIZE) {
+    const chunk = monitoredProducts.slice(i, i + BATCH_SIZE);
+    const asins = [...new Set(chunk.map((product) => product.asin).filter((asin) => !!asin))];
+    let apiResults: Record<string, PriceResult> = {};
+
+    try {
+      apiResults = await fetchAmazonPricesBatch(asins);
+    } catch (error) {
+      console.error("Erro ao atualizar lote de produtos monitorados:", error);
+      continue;
+    }
+
+    for (const monitoredProduct of chunk) {
+      const result = apiResults[monitoredProduct.asin];
+      const totalPrice = result?.status === "OK" ? result.price : 0;
+      const availabilityStatus = result?.status === "OK" ? "IN_STOCK" : "OUT_OF_STOCK";
+      const programAndSavePrice =
+        result?.status === "OK" && typeof result.programAndSavePrice === "number"
+          ? result.programAndSavePrice
+          : null;
+
+      await withDatabaseRetry(`siteUserMonitoredProduct.update:${monitoredProduct.id}`, async () =>
+        prisma.$executeRaw`
+          UPDATE "SiteUserMonitoredProduct"
+          SET
+            "totalPrice" = ${totalPrice},
+            "availabilityStatus" = ${availabilityStatus},
+            "programAndSavePrice" = ${programAndSavePrice},
+            "lastSyncedAt" = NOW(),
+            "updatedAt" = NOW()
+          WHERE "id" = ${monitoredProduct.id}
+        `
+      );
+    }
+
+    if (i + BATCH_SIZE < monitoredProducts.length) {
+      await sleep(REQUEST_DELAY_MS);
+    }
+  }
+
+  return monitoredProducts.length;
+}
+
 function incrementCounters(counters: RunCounters, outcome: PersistOutcome) {
   if (outcome === "UPDATED") counters.updatedOffers += 1;
   if (outcome === "FAILED") counters.failedOffers += 1;
@@ -593,6 +651,8 @@ async function updateAmazonPrices() {
         refreshDynamicProductPriceStatsBulk([...statsRefreshProductIds])
       );
     }
+
+    await refreshMonitoredProducts();
 
     await finalizeGlobalRun({
       runId,

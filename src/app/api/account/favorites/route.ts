@@ -19,10 +19,11 @@ export async function GET() {
   }
 
   const favorites = await prisma.$queryRaw<
-    Array<{
-      id: string;
-      createdAt: Date;
-      product: {
+      Array<{
+        id: string;
+        createdAt: Date;
+        sortOrder: number;
+        product: {
         id: string;
         asin: string;
         name: string;
@@ -43,9 +44,10 @@ export async function GET() {
     }>
   >(Prisma.sql`
     SELECT
-      f."id",
-      f."createdAt",
-      json_build_object(
+        f."id",
+        f."createdAt",
+        f."sortOrder",
+        json_build_object(
         'id', p."id",
         'asin', p."asin",
         'name', p."name",
@@ -67,16 +69,17 @@ export async function GET() {
     INNER JOIN "DynamicProduct" p ON p."id" = f."productId"
     INNER JOIN "DynamicCategory" c ON c."id" = p."categoryId"
     WHERE f."userId" = ${user.id}
-    ORDER BY f."createdAt" DESC
+      ORDER BY f."sortOrder" ASC, f."createdAt" DESC
   `);
 
   return NextResponse.json({
     ok: true,
-    favorites: favorites.map((favorite) => ({
-      id: favorite.id,
-      savedAt: favorite.createdAt,
-      product: favorite.product,
-    })),
+      favorites: favorites.map((favorite) => ({
+        id: favorite.id,
+        savedAt: favorite.createdAt,
+        sortOrder: favorite.sortOrder,
+        product: favorite.product,
+      })),
   });
 }
 
@@ -98,12 +101,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
     }
 
+    const maxSortOrderRows = await prisma.$queryRaw<Array<{ maxSortOrder: number | null }>>(Prisma.sql`
+      SELECT MAX("sortOrder")::int AS "maxSortOrder"
+      FROM (
+        SELECT f."sortOrder"
+        FROM "SiteUserFavorite" f
+        WHERE f."userId" = ${user.id}
+        UNION ALL
+        SELECT mp."sortOrder"
+        FROM "SiteUserMonitoredProduct" mp
+        WHERE mp."userId" = ${user.id}
+      ) combined
+    `);
+
     await prisma.$executeRaw(Prisma.sql`
       INSERT INTO "SiteUserFavorite" (
         "id",
         "userId",
         "productId",
         "note",
+        "sortOrder",
         "createdAt",
         "updatedAt"
       )
@@ -112,6 +129,7 @@ export async function POST(request: Request) {
         ${user.id},
         ${productId},
         ${body.note?.trim() || null},
+        ${(maxSortOrderRows[0]?.maxSortOrder ?? -1) + 1},
         NOW(),
         NOW()
       )
