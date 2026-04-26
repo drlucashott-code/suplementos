@@ -5,6 +5,8 @@ import Link from "next/link";
 import {
   CalendarDays,
   Check,
+  ChevronDown,
+  ChevronUp,
   ExternalLink,
   Globe,
   GripVertical,
@@ -12,7 +14,7 @@ import {
   ListPlus,
   Lock,
   MessageCircle,
-  PencilLine,
+  Pencil,
   Plus,
   Trash2,
   Upload,
@@ -256,8 +258,6 @@ export default function SiteAccountWorkspace({
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cropPreviewRef = useRef<HTMLImageElement | null>(null);
-  const trackedLongPressTimeoutRef = useRef<number | null>(null);
-  const trackedLongPressTriggeredRef = useRef(false);
 
   const [favorites, setFavorites] = useState(initialFavorites);
   const [monitoredProducts, setMonitoredProducts] = useState(initialMonitoredProducts);
@@ -303,9 +303,7 @@ export default function SiteAccountWorkspace({
   const [listForms, setListForms] = useState<Record<string, ListFormState>>(
     createInitialListForms(initialLists)
   );
-  const [draggingListItemId, setDraggingListItemId] = useState<string | null>(null);
-  const [draggingTrackedProductKey, setDraggingTrackedProductKey] = useState<string | null>(null);
-  const [dragOverTrackedProductKey, setDragOverTrackedProductKey] = useState<string | null>(null);
+  const [listOrderMode, setListOrderMode] = useState(false);
   const [listTab, setListTab] = useState<"mine" | "saved">("mine");
 
   const [activityMode, setActivityMode] = useState<"comments" | "reactions" | null>(null);
@@ -1086,8 +1084,6 @@ export default function SiteAccountWorkspace({
         })
         .sort((left, right) => left.sortOrder - right.sortOrder)
     );
-    setDraggingTrackedProductKey(null);
-    setDragOverTrackedProductKey(null);
     await saveTrackedProductsOrder(
       reorderedTrackedItems.map((item) => ({
         source: item.source,
@@ -1096,101 +1092,16 @@ export default function SiteAccountWorkspace({
     );
   }
 
-  function handleTrackedProductDragStart(trackedKey: string) {
-    setDraggingTrackedProductKey(trackedKey);
-    setDragOverTrackedProductKey(null);
+  async function moveTrackedProductUp(trackedKey: string) {
+    const index = trackedProductCards.findIndex((item) => item.key === trackedKey);
+    if (index <= 0) return;
+    await reorderTrackedProductsByIndex(index, index - 1);
   }
 
-  function handleTrackedProductDragEnd() {
-    setDraggingTrackedProductKey(null);
-    setDragOverTrackedProductKey(null);
-  }
-
-  function handleTrackedProductDragEnter(trackedKey: string) {
-    if (!draggingTrackedProductKey || draggingTrackedProductKey === trackedKey) return;
-    setDragOverTrackedProductKey(trackedKey);
-  }
-
-  async function handleDropOnTrackedProduct(
-    event: React.DragEvent<HTMLDivElement>,
-    targetTrackedKey: string
-  ) {
-    event.preventDefault();
-    event.stopPropagation();
-    if (!draggingTrackedProductKey || draggingTrackedProductKey === targetTrackedKey) {
-      setDragOverTrackedProductKey(null);
-      return;
-    }
-
-    const fromIndex = trackedProductCards.findIndex((item) => item.key === draggingTrackedProductKey);
-    const toIndex = trackedProductCards.findIndex((item) => item.key === targetTrackedKey);
-    if (fromIndex < 0 || toIndex < 0) return;
-    await reorderTrackedProductsByIndex(fromIndex, toIndex);
-  }
-
-  function clearTrackedLongPress() {
-    if (trackedLongPressTimeoutRef.current) {
-      window.clearTimeout(trackedLongPressTimeoutRef.current);
-      trackedLongPressTimeoutRef.current = null;
-    }
-  }
-
-  function handleTrackedPointerDown(trackedKey: string) {
-    if (listPickerOpen || trackedReorderMode) return;
-    trackedLongPressTriggeredRef.current = false;
-    clearTrackedLongPress();
-    trackedLongPressTimeoutRef.current = window.setTimeout(() => {
-      trackedLongPressTriggeredRef.current = true;
-      setTrackedReorderMode(true);
-      setDraggingTrackedProductKey(trackedKey);
-      setDragOverTrackedProductKey(null);
-    }, 420);
-  }
-
-  function handleTrackedPointerUp() {
-    clearTrackedLongPress();
-  }
-
-  function handleTrackedCardClickCapture(event: React.MouseEvent<HTMLDivElement>) {
-    if (trackedLongPressTriggeredRef.current) {
-      event.preventDefault();
-      event.stopPropagation();
-      trackedLongPressTriggeredRef.current = false;
-    }
-  }
-
-  function handleTrackedTouchMove(event: React.TouchEvent<HTMLDivElement>) {
-    if (!trackedReorderMode || !draggingTrackedProductKey) return;
-    const touch = event.touches[0];
-    if (!touch) return;
-    const target = document.elementFromPoint(touch.clientX, touch.clientY);
-    const trackedContainer = target?.closest?.("[data-tracked-key]") as HTMLElement | null;
-    const nextTrackedKey = trackedContainer?.dataset.trackedKey ?? null;
-    if (nextTrackedKey && nextTrackedKey !== draggingTrackedProductKey) {
-      setDragOverTrackedProductKey(nextTrackedKey);
-    }
-  }
-
-  async function handleTrackedTouchEnd() {
-    clearTrackedLongPress();
-    if (trackedLongPressTriggeredRef.current) {
-      trackedLongPressTriggeredRef.current = false;
-      return;
-    }
-
-    if (!trackedReorderMode || !draggingTrackedProductKey) return;
-
-    if (dragOverTrackedProductKey && dragOverTrackedProductKey !== draggingTrackedProductKey) {
-      const fromIndex = trackedProductCards.findIndex((item) => item.key === draggingTrackedProductKey);
-      const toIndex = trackedProductCards.findIndex((item) => item.key === dragOverTrackedProductKey);
-      if (fromIndex >= 0 && toIndex >= 0) {
-        await reorderTrackedProductsByIndex(fromIndex, toIndex);
-        return;
-      }
-    }
-
-    setDraggingTrackedProductKey(null);
-    setDragOverTrackedProductKey(null);
+  async function moveTrackedProductDown(trackedKey: string) {
+    const index = trackedProductCards.findIndex((item) => item.key === trackedKey);
+    if (index < 0 || index >= trackedProductCards.length - 1) return;
+    await reorderTrackedProductsByIndex(index, index + 1);
   }
 
   async function suggestComparatorForPrompt() {
@@ -1302,18 +1213,14 @@ export default function SiteAccountWorkspace({
     }
   }
 
-  function handleDragStart(listItemId: string) {
-    setDraggingListItemId(listItemId);
-  }
-
-  async function handleDropOnItem(targetListItemId: string) {
-    if (!openListId || !draggingListItemId || draggingListItemId === targetListItemId) return;
+  async function moveListItemByOffset(listItemId: string, offset: number) {
+    if (!openListId) return;
     const currentList = listDetailsMap[openListId];
     if (!currentList) return;
 
-    const fromIndex = currentList.items.findIndex((item) => item.id === draggingListItemId);
-    const toIndex = currentList.items.findIndex((item) => item.id === targetListItemId);
-    if (fromIndex < 0 || toIndex < 0) return;
+    const fromIndex = currentList.items.findIndex((item) => item.id === listItemId);
+    const toIndex = fromIndex + offset;
+    if (fromIndex < 0 || toIndex < 0 || toIndex >= currentList.items.length) return;
 
     const reorderedItems = moveItem(currentList.items, fromIndex, toIndex).map((item, index) => ({
       ...item,
@@ -1327,7 +1234,6 @@ export default function SiteAccountWorkspace({
         items: reorderedItems,
       },
     }));
-    setDraggingListItemId(null);
     await saveListOrder(
       openListId,
       reorderedItems.map((item) => item.id)
@@ -1395,7 +1301,7 @@ export default function SiteAccountWorkspace({
                 onClick={() => setShowProfileEditor((current) => !current)}
                 className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 text-sm font-bold text-white transition hover:bg-white/15 sm:h-12 sm:px-5"
               >
-                <PencilLine className="h-4 w-4" />
+                <Pencil className="h-4 w-4" />
                 <span className="sm:hidden">{showProfileEditor ? "Fechar" : "Editar"}</span>
                 <span className="hidden sm:inline">
                   {showProfileEditor ? "Fechar edicao" : "Editar perfil"}
@@ -1584,22 +1490,84 @@ export default function SiteAccountWorkspace({
           </div>
 
           <div className="flex flex-wrap gap-3">
-            {trackedReorderMode ? (
+            {trackedProductCards.length > 1 ? (
               <button
                 type="button"
                 onClick={() => {
-                  setTrackedReorderMode(false);
-                  setDraggingTrackedProductKey(null);
-                  setDragOverTrackedProductKey(null);
+                  setTrackedReorderMode((current) => !current);
                 }}
-                className="inline-flex h-11 items-center justify-center rounded-2xl border border-[#16A34A] bg-[#ECFDF3] px-4 text-sm font-bold text-[#166534] transition hover:bg-[#DCFCE7]"
+                className={`inline-flex h-11 items-center justify-center rounded-2xl border px-4 text-sm font-bold transition ${
+                  trackedReorderMode
+                    ? "border-[#16A34A] bg-[#ECFDF3] text-[#166534] hover:bg-[#DCFCE7]"
+                    : "border-[#D0D5DD] bg-white text-[#0F1111] hover:bg-[#F8FAFA]"
+                }`}
               >
-                Concluir organização
+                {trackedReorderMode ? "Concluir organização" : "Personalizar ordem"}
               </button>
             ) : null}
 
+            <button
+              type="button"
+              onClick={() => {
+                setListPickerOpen((current) => !current);
+                setSelectedTrackedKeys([]);
+              }}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#0F1111] px-4 text-sm font-bold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+            >
+              <ListPlus className="h-4 w-4" />
+              {listPickerOpen ? "Fechar listas" : "Adicionar a lista"}
+            </button>
           </div>
         </div>
+
+        {listPickerOpen ? (
+          <div className="mt-6 rounded-[28px] border border-[#E4E7EC] bg-[#FFF9E8] p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#B54708]">
+                  Adicionar favoritos a uma lista
+                </p>
+                <p className="mt-2 text-sm text-[#7A271A]">
+                  Escolha uma lista e clique nos produtos que voce quer incluir.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {lists.map((list) => (
+                  <button
+                    key={list.id}
+                    type="button"
+                    onClick={() => setSelectedListId(list.id)}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                      selectedListId === list.id
+                        ? "bg-[#FF8F1F] text-white"
+                        : "border border-[#F3D6A3] bg-white text-[#7A271A]"
+                    }`}
+                  >
+                    {list.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <div className="rounded-full border border-[#F3D6A3] bg-white px-4 py-2 text-sm text-[#7A271A]">
+                Lista atual: <span className="font-bold">{selectedList?.title ?? "Nenhuma"}</span>
+              </div>
+              <div className="rounded-full border border-[#F3D6A3] bg-white px-4 py-2 text-sm text-[#7A271A]">
+                Selecionados: <span className="font-bold">{selectedTrackedKeys.length}</span>
+              </div>
+              <button
+                type="button"
+                onClick={addSelectedFavoritesToList}
+                disabled={!selectedListId || selectedTrackedKeys.length === 0 || !!pendingAction}
+                className="inline-flex h-10 items-center justify-center rounded-full bg-[#FF8F1F] px-4 text-sm font-bold text-white transition hover:bg-[#E07A13] disabled:opacity-60"
+              >
+                {pendingAction?.startsWith("bulk-add:") ? "Adicionando..." : "Adicionar selecionados"}
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {trackedProductCards.length === 0 ? (
           <div className="mt-6 rounded-3xl border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-4 py-10 text-center text-sm text-[#565959]">
@@ -1621,35 +1589,10 @@ export default function SiteAccountWorkspace({
                   className={`space-y-2 rounded-2xl transition ${
                     trackedReorderMode
                       ? "bg-[#ECFDF3] ring-2 ring-[#16A34A] ring-offset-2 ring-offset-[#E3E6E6]"
-                      : dragOverTrackedProductKey === trackedItem.key
-                        ? "bg-[#DCFCE7] ring-2 ring-[#16A34A] ring-offset-2 ring-offset-[#E3E6E6]"
-                        : ""
+                      : ""
                   }`}
-                  draggable={trackedReorderMode}
-                  onPointerDown={() => handleTrackedPointerDown(trackedItem.key)}
-                  onPointerUp={handleTrackedPointerUp}
-                  onPointerLeave={handleTrackedPointerUp}
-                  onPointerCancel={handleTrackedPointerUp}
-                  onTouchMove={handleTrackedTouchMove}
-                  onTouchEnd={() => void handleTrackedTouchEnd()}
-                  onTouchCancel={() => void handleTrackedTouchEnd()}
-                  onDragStart={() => handleTrackedProductDragStart(trackedItem.key)}
-                  onDragEnd={handleTrackedProductDragEnd}
-                  onDragEnter={() => handleTrackedProductDragEnter(trackedItem.key)}
-                  onDragOver={(event) => {
-                    if (!trackedReorderMode) return;
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = "move";
-                  }}
-                  onDragLeave={() => {
-                    if (dragOverTrackedProductKey === trackedItem.key) {
-                      setDragOverTrackedProductKey(null);
-                    }
-                  }}
-                  onDrop={(event) => void handleDropOnTrackedProduct(event, trackedItem.key)}
                 >
                   <div
-                    onClickCapture={handleTrackedCardClickCapture}
                     className={`relative rounded-xl transition ${
                       isSelected ? "ring-2 ring-[#FF8F1F] ring-offset-2 ring-offset-[#E3E6E6]" : ""
                     }`}
@@ -1664,9 +1607,7 @@ export default function SiteAccountWorkspace({
                     <div className="pointer-events-none absolute left-2 top-2 z-30">
                       <div className="inline-flex items-center gap-1 rounded-full border border-[#D0D5DD] bg-white px-2.5 py-1 text-xs font-bold text-[#344054] shadow-sm">
                         <GripVertical className="h-3.5 w-3.5" />
-                        {draggingTrackedProductKey === trackedItem.key
-                          ? "Movendo"
-                          : `Pos. ${index + 1}`}
+                        {`Pos. ${index + 1}`}
                       </div>
                     </div>
 
@@ -1694,31 +1635,54 @@ export default function SiteAccountWorkspace({
                     ) : trackedReorderMode ? (
                       <div className="pointer-events-none absolute inset-0 z-10 rounded-xl border-2 border-dashed border-[#16A34A] bg-[#DCFCE7]/30" />
                     ) : null}
-
-                    {trackedReorderMode && dragOverTrackedProductKey === trackedItem.key ? (
-                      <div className="pointer-events-none absolute inset-0 z-20 rounded-xl border-2 border-[#16A34A] shadow-[0_0_0_3px_rgba(34,197,94,0.18)]" />
-                    ) : null}
                   </div>
 
-                  {trackedItem.source === "favorite" && favorite ? (
-                    <button
-                      type="button"
-                      onClick={() => removeFavorite(favorite.product.id)}
-                      disabled={pendingAction === `favorite:${favorite.product.id}`}
-                      className="w-full rounded-xl border border-[#FECDCA] bg-[#FEF3F2] px-3 py-2 text-xs font-bold text-[#B42318] transition hover:bg-[#FEE4E2] disabled:opacity-60"
-                    >
-                      {pendingAction === `favorite:${favorite.product.id}` ? "Removendo..." : "Remover"}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => removeMonitoredProduct(trackedItem.entryId)}
-                      disabled={pendingAction === `monitored:${trackedItem.entryId}`}
-                      className="w-full rounded-xl border border-[#FECDCA] bg-[#FEF3F2] px-3 py-2 text-xs font-bold text-[#B42318] transition hover:bg-[#FEE4E2] disabled:opacity-60"
-                    >
-                      {pendingAction === `monitored:${trackedItem.entryId}` ? "Removendo..." : "Remover"}
-                    </button>
-                  )}
+                  {trackedReorderMode ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void moveTrackedProductUp(trackedItem.key)}
+                        disabled={index === 0 || pendingAction === "reorder:tracked"}
+                        className="inline-flex h-10 items-center justify-center gap-1 rounded-xl border border-[#D0D5DD] bg-white px-3 text-xs font-bold text-[#344054] transition hover:bg-[#F8FAFA] disabled:opacity-40"
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void moveTrackedProductDown(trackedItem.key)}
+                        disabled={index === trackedProductCards.length - 1 || pendingAction === "reorder:tracked"}
+                        className="inline-flex h-10 items-center justify-center gap-1 rounded-xl border border-[#D0D5DD] bg-white px-3 text-xs font-bold text-[#344054] transition hover:bg-[#F8FAFA] disabled:opacity-40"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {!trackedReorderMode ? (
+                    trackedItem.source === "favorite" && favorite ? (
+                      <button
+                        type="button"
+                        onClick={() => removeFavorite(favorite.product.id)}
+                        disabled={pendingAction === `favorite:${favorite.product.id}`}
+                        className="w-full rounded-xl border border-[#FECDCA] bg-[#FEF3F2] px-3 py-2 text-xs font-bold text-[#B42318] transition hover:bg-[#FEE4E2] disabled:opacity-60"
+                      >
+                        {pendingAction === `favorite:${favorite.product.id}`
+                          ? "Removendo..."
+                          : "Remover"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => removeMonitoredProduct(trackedItem.entryId)}
+                        disabled={pendingAction === `monitored:${trackedItem.entryId}`}
+                        className="w-full rounded-xl border border-[#FECDCA] bg-[#FEF3F2] px-3 py-2 text-xs font-bold text-[#B42318] transition hover:bg-[#FEE4E2] disabled:opacity-60"
+                      >
+                        {pendingAction === `monitored:${trackedItem.entryId}`
+                          ? "Removendo..."
+                          : "Remover"}
+                      </button>
+                    )
+                  ) : null}
                 </div>
               );
             })}
@@ -1788,68 +1752,6 @@ export default function SiteAccountWorkspace({
             </div>
           ) : null}
 
-          <div className="flex justify-start">
-            <button
-              type="button"
-              onClick={() => {
-                setListPickerOpen((current) => !current);
-                setSelectedTrackedKeys([]);
-              }}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#0F1111] px-4 text-sm font-bold text-[#0F1111] transition hover:bg-[#F8FAFA]"
-            >
-              <ListPlus className="h-4 w-4" />
-              {listPickerOpen ? "Fechar listas" : "Adicionar a lista"}
-            </button>
-          </div>
-
-          {listPickerOpen ? (
-            <div className="rounded-[28px] border border-[#E4E7EC] bg-[#FFF9E8] p-5">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#B54708]">
-                    Adicionar favoritos a uma lista
-                  </p>
-                  <p className="mt-2 text-sm text-[#7A271A]">
-                    Escolha uma lista e clique nos produtos que voce quer incluir.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {lists.map((list) => (
-                    <button
-                      key={list.id}
-                      type="button"
-                      onClick={() => setSelectedListId(list.id)}
-                      className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                        selectedListId === list.id
-                          ? "bg-[#FF8F1F] text-white"
-                          : "border border-[#F3D6A3] bg-white text-[#7A271A]"
-                      }`}
-                    >
-                      {list.title}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <div className="rounded-full border border-[#F3D6A3] bg-white px-4 py-2 text-sm text-[#7A271A]">
-                  Lista atual: <span className="font-bold">{selectedList?.title ?? "Nenhuma"}</span>
-                </div>
-                <div className="rounded-full border border-[#F3D6A3] bg-white px-4 py-2 text-sm text-[#7A271A]">
-                  Selecionados: <span className="font-bold">{selectedTrackedKeys.length}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={addSelectedFavoritesToList}
-                  disabled={!selectedListId || selectedTrackedKeys.length === 0 || !!pendingAction}
-                  className="inline-flex h-10 items-center justify-center rounded-full bg-[#FF8F1F] px-4 text-sm font-bold text-white transition hover:bg-[#E07A13] disabled:opacity-60"
-                >
-                  {pendingAction?.startsWith("bulk-add:") ? "Adicionando..." : "Adicionar selecionados"}
-                </button>
-              </div>
-            </div>
-          ) : null}
         </div>
       </section>
 
@@ -2045,7 +1947,7 @@ export default function SiteAccountWorkspace({
                               disabled={loadingListId === list.id}
                               className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-white disabled:opacity-60"
                             >
-                              <PencilLine className="h-4 w-4" />
+                              <Pencil className="h-4 w-4" />
                               {loadingListId === list.id ? "Abrindo..." : "Editar"}
                             </button>
 
@@ -2145,21 +2047,35 @@ export default function SiteAccountWorkspace({
                 </p>
                 <h4 className="mt-2 text-2xl font-black text-[#0F1111]">{openedList.title}</h4>
                 <p className="mt-1 text-sm text-[#565959]">
-                  Arraste os produtos para alterar a ordem em que aparecem na lista publica.
+                  Organize os produtos na ordem em que eles devem aparecer na lista publica.
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setListEditorId(null);
-                  setOpenListId(null);
-                  setDraggingListItemId(null);
-                }}
-                className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
-              >
-                Fechar edicao
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setListOrderMode((current) => !current)}
+                  className={`inline-flex h-10 items-center justify-center rounded-2xl border px-4 text-sm font-semibold transition ${
+                    listOrderMode
+                      ? "border-[#16A34A] bg-[#ECFDF3] text-[#166534] hover:bg-[#D1FADF]"
+                      : "border-[#D0D5DD] text-[#344054] hover:bg-white"
+                  }`}
+                >
+                  {listOrderMode ? "Concluir ordem" : "Personalizar ordem"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setListEditorId(null);
+                    setOpenListId(null);
+                    setListOrderMode(false);
+                  }}
+                  className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
+                >
+                  Fechar edicao
+                </button>
+              </div>
             </div>
 
             {openedList.items.length === 0 ? (
@@ -2171,13 +2087,7 @@ export default function SiteAccountWorkspace({
                 {openedList.items.map((item, index) => (
                   <div
                     key={item.id}
-                    draggable
-                    onDragStart={() => handleDragStart(item.id)}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={() => void handleDropOnItem(item.id)}
-                    className={`space-y-2 ${
-                      draggingListItemId === item.id ? "opacity-70" : ""
-                    }`}
+                    className={`space-y-2 ${listOrderMode ? "rounded-[22px] border-2 border-[#16A34A] bg-[#F0FDF4] p-2" : ""}`}
                   >
                     <div className="relative rounded-xl">
                       <BestDealProductCard
@@ -2219,28 +2129,55 @@ export default function SiteAccountWorkspace({
                       <div className="pointer-events-none absolute left-2 top-2 z-30">
                         <div className="inline-flex items-center gap-1 rounded-full border border-[#D0D5DD] bg-white px-2.5 py-1 text-xs font-bold text-[#344054] shadow-sm">
                           <GripVertical className="h-3.5 w-3.5" />
-                          {draggingListItemId === item.id ? "Movendo" : `Pos. ${index + 1}`}
+                          {`Pos. ${index + 1}`}
                         </div>
                       </div>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          removeListItem(openedList.id, {
-                            itemId: item.id,
-                            productId: item.source === "catalog" ? item.product.id : null,
-                            monitoredProductId: item.source === "monitored" ? item.product.id : null,
-                          })
-                        }
-                        disabled={pendingAction === `item:${openedList.id}:${item.id}`}
-                        className="w-full rounded-xl border border-[#FECDCA] bg-[#FEF3F2] px-3 py-2 text-xs font-bold text-[#B42318] transition hover:bg-[#FEE4E2] disabled:opacity-60"
-                      >
-                        {pendingAction === `item:${openedList.id}:${item.id}`
-                          ? "Removendo..."
-                          : "Remover"}
-                      </button>
+                      {listOrderMode ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void moveListItemByOffset(item.id, -1)}
+                            disabled={index === 0 || pendingAction === `reorder:${openedList.id}`}
+                            className="flex-1 rounded-xl border border-[#D0D5DD] bg-white px-3 py-2 text-xs font-bold text-[#344054] transition hover:bg-[#F8FAFA] disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label="Mover para cima"
+                          >
+                            <ChevronUp className="mx-auto h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void moveListItemByOffset(item.id, 1)}
+                            disabled={
+                              index === openedList.items.length - 1 ||
+                              pendingAction === `reorder:${openedList.id}`
+                            }
+                            className="flex-1 rounded-xl border border-[#D0D5DD] bg-white px-3 py-2 text-xs font-bold text-[#344054] transition hover:bg-[#F8FAFA] disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label="Mover para baixo"
+                          >
+                            <ChevronDown className="mx-auto h-4 w-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeListItem(openedList.id, {
+                              itemId: item.id,
+                              productId: item.source === "catalog" ? item.product.id : null,
+                              monitoredProductId:
+                                item.source === "monitored" ? item.product.id : null,
+                            })
+                          }
+                          disabled={pendingAction === `item:${openedList.id}:${item.id}`}
+                          className="w-full rounded-xl border border-[#FECDCA] bg-[#FEF3F2] px-3 py-2 text-xs font-bold text-[#B42318] transition hover:bg-[#FEE4E2] disabled:opacity-60"
+                        >
+                          {pendingAction === `item:${openedList.id}:${item.id}`
+                            ? "Removendo..."
+                            : "Remover"}
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
