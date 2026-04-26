@@ -28,6 +28,7 @@ export type AuthenticatedSiteUser = {
   avatarUrl: string | null;
   bio: string | null;
   role: string;
+  isEmailVerified: boolean;
 };
 
 function normalizeEmail(email: string) {
@@ -216,7 +217,15 @@ export async function registerSiteUser(input: {
       NOW(),
       NOW()
     )
-    RETURNING "id", "email", "displayName", "username", "avatarUrl", "bio", "role"
+    RETURNING
+      "id",
+      "email",
+      "displayName",
+      "username",
+      "avatarUrl",
+      "bio",
+      "role",
+      false AS "isEmailVerified"
   `);
 
   const user = userRows[0]!;
@@ -245,7 +254,17 @@ export async function loginSiteUser(input: { email: string; password: string }) 
       }
     >
   >(Prisma.sql`
-    SELECT "id", "email", "displayName", "username", "avatarUrl", "bio", "role", "passwordHash", "emailVerifiedAt"
+    SELECT
+      "id",
+      "email",
+      "displayName",
+      "username",
+      "avatarUrl",
+      "bio",
+      "role",
+      CASE WHEN "emailVerifiedAt" IS NOT NULL THEN true ELSE false END AS "isEmailVerified",
+      "passwordHash",
+      "emailVerifiedAt"
     FROM "SiteUser"
     WHERE "email" = ${email}
     LIMIT 1
@@ -255,14 +274,6 @@ export async function loginSiteUser(input: { email: string; password: string }) 
 
   if (!user || !verifyPasswordHash(password, user.passwordHash)) {
     return { ok: false as const, error: "Email ou senha inválidos." };
-  }
-
-  if (!user.emailVerifiedAt) {
-    return {
-      ok: false as const,
-      error: "Confirme seu email antes de entrar na conta.",
-      needsVerification: true as const,
-    };
   }
 
   await prisma.$executeRaw(Prisma.sql`
@@ -275,6 +286,7 @@ export async function loginSiteUser(input: { email: string; password: string }) 
 
   return {
     ok: true as const,
+    pendingVerification: !user.emailVerifiedAt,
     user: {
       id: user.id,
       email: user.email,
@@ -283,6 +295,7 @@ export async function loginSiteUser(input: { email: string; password: string }) 
       avatarUrl: user.avatarUrl,
       bio: user.bio,
       role: user.role,
+      isEmailVerified: user.isEmailVerified,
     },
   };
 }
@@ -455,7 +468,17 @@ export async function loginOrCreateGoogleUser(input: {
   const existing = await prisma.$queryRaw<
     Array<AuthenticatedSiteUser & { googleId: string | null; emailVerifiedAt: Date | null }>
   >(Prisma.sql`
-    SELECT "id", "email", "displayName", "username", "avatarUrl", "bio", "role", "googleId", "emailVerifiedAt"
+    SELECT
+      "id",
+      "email",
+      "displayName",
+      "username",
+      "avatarUrl",
+      "bio",
+      "role",
+      CASE WHEN "emailVerifiedAt" IS NOT NULL THEN true ELSE false END AS "isEmailVerified",
+      "googleId",
+      "emailVerifiedAt"
     FROM "SiteUser"
     WHERE "googleId" = ${input.googleId}
        OR "email" = ${email}
@@ -570,7 +593,15 @@ export async function updateSiteUserProfile(input: {
       "avatarUrl" = ${avatarUrl},
       "updatedAt" = NOW()
     WHERE "id" = ${input.userId}
-    RETURNING "id", "email", "displayName", "username", "avatarUrl", "bio", "role"
+    RETURNING
+      "id",
+      "email",
+      "displayName",
+      "username",
+      "avatarUrl",
+      "bio",
+      "role",
+      CASE WHEN "emailVerifiedAt" IS NOT NULL THEN true ELSE false END AS "isEmailVerified"
   `);
 
   return { ok: true as const, user: rows[0]! };
@@ -647,7 +678,8 @@ export const getCurrentSiteSession = cache(async () => {
         'username', u."username",
         'avatarUrl', u."avatarUrl",
         'bio', u."bio",
-        'role', u."role"
+        'role', u."role",
+        'isEmailVerified', CASE WHEN u."emailVerifiedAt" IS NOT NULL THEN true ELSE false END
       ) AS "user"
     FROM "SiteSession" s
     INNER JOIN "SiteUser" u ON u."id" = s."userId"

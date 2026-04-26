@@ -959,13 +959,15 @@ async function fetchDynamicCatalogBaseData(
         productIds.length > 0
           ? await prisma.$queryRaw<CommentCountRow[]>(Prisma.sql`
               SELECT
-                "productId",
+                c."productId",
                 COUNT(*)::int AS "commentCount"
-              FROM "SiteProductComment"
+              FROM "SiteProductComment" c
+              INNER JOIN "SiteUser" u ON u."id" = c."userId"
               WHERE
-                "productId" IN (${Prisma.join(productIds)})
-                AND "status" = 'published'
-              GROUP BY "productId"
+                c."productId" IN (${Prisma.join(productIds)})
+                AND c."status" = 'published'
+                AND u."commentsBlocked" = false
+              GROUP BY c."productId"
             `)
           : [];
 

@@ -74,7 +74,7 @@ export async function syncFavoriteNotifications(userId: string) {
   for (const favorite of favorites) {
     const currentPrice = favorite.product.totalPrice > 0 ? favorite.product.totalPrice : null;
     const currentAvailability = favorite.product.availabilityStatus ?? "UNKNOWN";
-    const productPath = `/${favorite.product.category.group}/${favorite.product.category.slug}`;
+    const productPath = `/produto/${favorite.productId}`;
 
     if (favorite.lastTrackedPrice == null && favorite.lastTrackedAvailability == null) {
       await prisma.siteUserFavorite.update({

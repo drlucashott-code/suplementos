@@ -116,6 +116,11 @@ async function fetchComments(productId: string, currentUserId?: string | null, c
     INNER JOIN "SiteUser" u ON u."id" = c."userId"
     WHERE c."productId" = ${productId}
       AND c."status" = 'published'
+      AND (
+        u."commentsBlocked" = false
+        OR c."userId" = ${currentUserId ?? ""}
+        OR ${canModerate(currentUserRole)}
+      )
     ORDER BY c."createdAt" ASC
   `);
 
@@ -184,6 +189,15 @@ export async function POST(
       return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
     }
 
+    const userRows = await prisma.$queryRaw<Array<{ commentsBlocked: boolean }>>(Prisma.sql`
+      SELECT "commentsBlocked"
+      FROM "SiteUser"
+      WHERE "id" = ${user.id}
+      LIMIT 1
+    `);
+
+    const isCommentsBlocked = userRows[0]?.commentsBlocked === true;
+
     if (parentId) {
       const parent = await prisma.$queryRaw<Array<{ id: string; userId: string; body: string }>>(Prisma.sql`
         SELECT "id"
@@ -201,30 +215,17 @@ export async function POST(
       }
 
       if (parent[0].userId !== user.id) {
-        const productContext = await prisma.$queryRaw<
-          Array<{ categoryGroup: string; categorySlug: string }>
-        >(Prisma.sql`
-          SELECT cat."group" AS "categoryGroup", cat."slug" AS "categorySlug"
-          FROM "DynamicProduct" p
-          INNER JOIN "DynamicCategory" cat ON cat."id" = p."categoryId"
-          WHERE p."id" = ${id}
-          LIMIT 1
-        `);
-
-        const category = productContext[0];
-        if (category) {
-          await createSiteNotification({
-            userId: parent[0].userId,
-            type: "comment_replied",
-            title: "Seu comentario recebeu uma resposta",
-            body: content.slice(0, 120),
-            href: `/${category.categoryGroup}/${category.categorySlug}`,
-            metadata: {
-              parentCommentId: parentId,
-              productId: id,
-            },
-          });
-        }
+        await createSiteNotification({
+          userId: parent[0].userId,
+          type: "comment_replied",
+          title: "Seu comentario recebeu uma resposta",
+          body: content.slice(0, 120),
+          href: `/produto/${id}?comments=1`,
+          metadata: {
+            parentCommentId: parentId,
+            productId: id,
+          },
+        });
       }
     }
 
@@ -254,7 +255,7 @@ export async function POST(
     `);
 
     const comments = await fetchComments(id, user.id, user.role);
-    return NextResponse.json({ ok: true, comments });
+    return NextResponse.json({ ok: true, comments, shadowBlocked: isCommentsBlocked });
   } catch (error) {
     console.error("product_comment_create_failed", error);
     return NextResponse.json(

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import BestDealProductCard from "@/components/BestDealProductCard";
 import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
 import SavePublicListButton from "@/components/SavePublicListButton";
@@ -10,10 +11,14 @@ export const revalidate = 300;
 
 export default async function PublicListPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ sort?: string }>;
 }) {
   const { slug } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const sortMode = resolvedSearchParams?.sort === "discount" ? "discount" : "author";
 
   const rows = await prisma.$queryRaw<
     Array<{
@@ -82,45 +87,57 @@ export default async function PublicListPage({
         })
       : [];
 
+  const items = rows
+    .filter((row) => row.productId && row.productName && row.productUrl && row.productAsin)
+    .map((row) => {
+      const totalPrice = row.productTotalPrice ?? 0;
+      const averagePrice30d = row.productAveragePrice30d ?? totalPrice;
+      const discountPercent =
+        averagePrice30d > totalPrice && totalPrice > 0
+          ? Math.round(((averagePrice30d - totalPrice) / averagePrice30d) * 100)
+          : 0;
+
+      return {
+        id: row.productId!,
+        asin: row.productAsin!,
+        name: row.productName!,
+        imageUrl:
+          row.productImageUrl ||
+          "https://m.media-amazon.com/images/I/61NJbm2a9tL._AC_SL1200_.jpg",
+        url: row.productUrl!,
+        totalPrice,
+        averagePrice30d,
+        discountPercent,
+        ratingAverage: row.productRatingAverage,
+        ratingCount: row.productRatingCount,
+        likeCount: 0,
+        dislikeCount: 0,
+        attributes: {
+          notaLista: row.note ?? "",
+        },
+        categoryName: row.categoryName ?? "Sem categoria",
+        categoryGroup: row.categoryGroup ?? "",
+        categorySlug: row.categorySlug ?? "",
+      };
+    });
+
+  const sortedItems =
+    sortMode === "discount"
+      ? [...items].sort((a, b) => {
+          if (b.discountPercent !== a.discountPercent) {
+            return b.discountPercent - a.discountPercent;
+          }
+          return a.totalPrice - b.totalPrice;
+        })
+      : items;
+
   const list = {
     id: rows[0]!.listId,
     title: rows[0]!.title,
     description: rows[0]!.description,
     ownerDisplayName: rows[0]!.ownerDisplayName,
     ownerUsername: rows[0]!.ownerUsername,
-    items: rows
-      .filter((row) => row.productId && row.productName && row.productUrl && row.productAsin)
-      .map((row) => {
-        const totalPrice = row.productTotalPrice ?? 0;
-        const averagePrice30d = row.productAveragePrice30d ?? totalPrice;
-        const discountPercent =
-          averagePrice30d > totalPrice
-            ? Math.round(((averagePrice30d - totalPrice) / averagePrice30d) * 100)
-            : 0;
-
-        return {
-          id: row.productId!,
-          asin: row.productAsin!,
-          name: row.productName!,
-          imageUrl:
-            row.productImageUrl ||
-            "https://m.media-amazon.com/images/I/61NJbm2a9tL._AC_SL1200_.jpg",
-          url: row.productUrl!,
-          totalPrice,
-          averagePrice30d,
-          discountPercent,
-          ratingAverage: row.productRatingAverage,
-          ratingCount: row.productRatingCount,
-          likeCount: 0,
-          dislikeCount: 0,
-          attributes: {
-            notaLista: row.note ?? "",
-          },
-          categoryName: row.categoryName ?? "Sem categoria",
-          categoryGroup: row.categoryGroup ?? "",
-          categorySlug: row.categorySlug ?? "",
-        };
-      }),
+    items: sortedItems,
   };
 
   return (
@@ -141,7 +158,28 @@ export default async function PublicListPage({
               </p>
             </div>
 
-            <SavePublicListButton listId={list.id} initialSaved={savedRows.length > 0} />
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex rounded-full border border-[#D5D9D9] bg-[#F8FAFA] p-1">
+                <Link
+                  href={`/listas/${slug}`}
+                  className={`rounded-full px-4 py-2 text-sm font-bold transition ${
+                    sortMode === "author" ? "bg-white text-[#0F1111] shadow-sm" : "text-[#565959]"
+                  }`}
+                >
+                  Ordem da lista
+                </Link>
+                <Link
+                  href={`/listas/${slug}?sort=discount`}
+                  className={`rounded-full px-4 py-2 text-sm font-bold transition ${
+                    sortMode === "discount" ? "bg-white text-[#0F1111] shadow-sm" : "text-[#565959]"
+                  }`}
+                >
+                  Maior desconto
+                </Link>
+              </div>
+
+              <SavePublicListButton listId={list.id} initialSaved={savedRows.length > 0} />
+            </div>
           </div>
 
           {list.items.length === 0 ? (

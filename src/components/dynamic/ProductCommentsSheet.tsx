@@ -93,6 +93,9 @@ export function ProductCommentsSheet({
   triggerClassName,
   initialCount = 0,
   onCountChange,
+  initialOpen = false,
+  hideTrigger = false,
+  inline = false,
 }: {
   productId: string;
   productName: string;
@@ -100,11 +103,14 @@ export function ProductCommentsSheet({
   triggerClassName?: string;
   initialCount?: number;
   onCountChange?: (count: number) => void;
+  initialOpen?: boolean;
+  hideTrigger?: boolean;
+  inline?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen || inline);
   const [comments, setComments] = useState<ProductCommentItem[]>([]);
   const [commentCount, setCommentCount] = useState(initialCount);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [, setCurrentUserId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [replyParentId, setReplyParentId] = useState<string | null>(null);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
@@ -157,6 +163,12 @@ export function ProductCommentsSheet({
   useEffect(() => {
     setCommentCount(initialCount);
   }, [initialCount]);
+
+  useEffect(() => {
+    if (initialOpen || inline) {
+      setOpen(true);
+    }
+  }, [initialOpen, inline]);
 
   useEffect(() => {
     if (!open) return;
@@ -274,10 +286,7 @@ export function ProductCommentsSheet({
       <div key={comment.id} className={depth > 0 ? "ml-5 border-l border-[#E4E7EC] pl-4" : ""}>
         <div className="rounded-2xl border border-[#EAECF0] bg-white p-4">
           <div className="flex items-start gap-3">
-            <UserAvatar
-              displayName={comment.user.displayName}
-              avatarUrl={comment.user.avatarUrl}
-            />
+            <UserAvatar displayName={comment.user.displayName} avatarUrl={comment.user.avatarUrl} />
 
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
@@ -352,20 +361,141 @@ export function ProductCommentsSheet({
     );
   }
 
+  const commentsBody = (
+    <>
+      <div className={inline ? "border-b border-gray-100 pb-5" : "flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4"}>
+        <div>
+          <h3 className={`${inline ? "text-2xl" : "text-lg"} font-black text-[#0F1111]`}>Comentários</h3>
+          <p className="mt-1 text-sm text-[#565959]">
+            {inline
+              ? "Participe da conversa sobre este produto, responda outros usuários e acompanhe as interações."
+              : productName}
+          </p>
+        </div>
+
+        {!inline ? (
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+            aria-label="Fechar"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
+
+      <div className={inline ? "bg-white py-5" : "border-b border-gray-100 bg-[#F8FAFA] px-5 py-4"}>
+        <div className="rounded-2xl border border-[#D0D5DD] bg-white p-4">
+          <div className="flex items-start gap-3">
+            <UserCircle2 className="h-10 w-10 text-[#98A2B3]" />
+            <div className="flex-1">
+              <textarea
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                rows={3}
+                placeholder="Digite o seu comentário."
+                className="w-full rounded-xl bg-[#F2F4F7] px-4 py-3 text-sm outline-none transition focus:bg-white focus:ring-2 focus:ring-[#B9E6FE]"
+              />
+
+              {replyingTo ? (
+                <p className="mt-2 text-xs font-semibold text-[#2162A1]">
+                  Respondendo {replyingTo.user.displayName}
+                  {replyingTo.user.username ? ` @${replyingTo.user.username}` : ""}.{" "}
+                  <button type="button" onClick={() => setReplyParentId(null)} className="underline">
+                    cancelar
+                  </button>
+                </p>
+              ) : null}
+
+              {editingCommentId ? (
+                <p className="mt-2 text-xs font-semibold text-[#667085]">
+                  Editando comentário.{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingCommentId(null);
+                      setDraft("");
+                    }}
+                    className="underline"
+                  >
+                    cancelar
+                  </button>
+                </p>
+              ) : null}
+
+              <div className="mt-3 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft("");
+                    setReplyParentId(null);
+                    setEditingCommentId(null);
+                  }}
+                  className="text-sm font-semibold text-[#2162A1] hover:text-[#174e87]"
+                >
+                  cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void submitComment()}
+                  disabled={status === "submitting"}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#0EA5E9] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#0284C7] disabled:opacity-70"
+                >
+                  <Send className="h-4 w-4" />
+                  {editingCommentId ? "salvar" : "comentar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {status === "unauthorized" && !showLoginAlert ? (
+          <p className="mt-3 text-sm text-[#565959]">
+            Para comentar, entre na sua conta.{" "}
+            <Link href="/entrar" className="font-semibold text-[#2162A1] hover:text-[#174e87]">
+              Entrar agora
+            </Link>
+          </p>
+        ) : null}
+
+        {status === "error" ? (
+          <p className="mt-3 text-sm font-medium text-[#B42318]">
+            Não foi possível concluir essa ação agora.
+          </p>
+        ) : null}
+      </div>
+
+      <div className={inline ? "py-1" : "flex-1 overflow-y-auto px-5 py-4"}>
+        {status === "loading" ? (
+          <p className="text-sm text-[#565959]">Carregando comentários...</p>
+        ) : comments.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-200 bg-[#F8FAFA] px-4 py-8 text-center text-sm text-[#565959]">
+            Ainda não há comentários para este produto.
+          </div>
+        ) : (
+          <div className="space-y-4">{comments.map((comment) => renderComment(comment))}</div>
+        )}
+      </div>
+    </>
+  );
+
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={`inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] ${
-          triggerClassName ?? ""
-        }`}
-      >
-        <MessageCircle className="h-3.5 w-3.5" />
-        {resolvedTriggerLabel}
-      </button>
+      {!hideTrigger ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className={`inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] ${
+            triggerClassName ?? ""
+          }`}
+        >
+          <MessageCircle className="h-3.5 w-3.5" />
+          {resolvedTriggerLabel}
+        </button>
+      ) : null}
 
-      {open ? (
+      {open && !inline ? (
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 px-4"
           onClick={() => setOpen(false)}
@@ -374,116 +504,13 @@ export function ProductCommentsSheet({
             className="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
-              <div>
-                <h3 className="text-lg font-black text-[#0F1111]">Comentários</h3>
-                <p className="mt-1 text-sm text-[#565959]">{productName}</p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-                aria-label="Fechar"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="border-b border-gray-100 bg-[#F8FAFA] px-5 py-4">
-              <div className="rounded-2xl border border-[#D0D5DD] bg-white p-4">
-                <div className="flex items-start gap-3">
-                  <UserCircle2 className="h-10 w-10 text-[#98A2B3]" />
-                  <div className="flex-1">
-                    <textarea
-                      value={draft}
-                      onChange={(event) => setDraft(event.target.value)}
-                      rows={3}
-                      placeholder="Digite o seu comentário."
-                      className="w-full rounded-xl bg-[#F2F4F7] px-4 py-3 text-sm outline-none transition focus:bg-white focus:ring-2 focus:ring-[#B9E6FE]"
-                    />
-
-                    {replyingTo ? (
-                      <p className="mt-2 text-xs font-semibold text-[#2162A1]">
-                        Respondendo {replyingTo.user.displayName}
-                        {replyingTo.user.username ? ` @${replyingTo.user.username}` : ""}.{" "}
-                        <button type="button" onClick={() => setReplyParentId(null)} className="underline">
-                          cancelar
-                        </button>
-                      </p>
-                    ) : null}
-
-                    {editingCommentId ? (
-                      <p className="mt-2 text-xs font-semibold text-[#667085]">
-                        Editando comentário.{" "}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingCommentId(null);
-                            setDraft("");
-                          }}
-                          className="underline"
-                        >
-                          cancelar
-                        </button>
-                      </p>
-                    ) : null}
-
-                    <div className="mt-3 flex items-center justify-end gap-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDraft("");
-                          setReplyParentId(null);
-                          setEditingCommentId(null);
-                        }}
-                        className="text-sm font-semibold text-[#2162A1] hover:text-[#174e87]"
-                      >
-                        cancelar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void submitComment()}
-                        disabled={status === "submitting"}
-                        className="inline-flex items-center gap-2 rounded-xl bg-[#0EA5E9] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#0284C7] disabled:opacity-70"
-                      >
-                        <Send className="h-4 w-4" />
-                        {editingCommentId ? "salvar" : "comentar"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {status === "unauthorized" && !showLoginAlert ? (
-                <p className="mt-3 text-sm text-[#565959]">
-                  Para comentar, entre na sua conta.{" "}
-                  <Link href="/entrar" className="font-semibold text-[#2162A1] hover:text-[#174e87]">
-                    Entrar agora
-                  </Link>
-                </p>
-              ) : null}
-
-              {status === "error" ? (
-                <p className="mt-3 text-sm font-medium text-[#B42318]">
-                  Não foi possível concluir essa ação agora.
-                </p>
-              ) : null}
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-5 py-4">
-              {status === "loading" ? (
-                <p className="text-sm text-[#565959]">Carregando comentários...</p>
-              ) : comments.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-gray-200 bg-[#F8FAFA] px-4 py-8 text-center text-sm text-[#565959]">
-                  Ainda não há comentários para este produto.
-                </div>
-              ) : (
-                <div className="space-y-4">{comments.map((comment) => renderComment(comment))}</div>
-              )}
-            </div>
+            {commentsBody}
           </div>
         </div>
+      ) : null}
+
+      {open && inline ? (
+        <div className="rounded-3xl border border-[#EAECF0] bg-white p-6 shadow-sm">{commentsBody}</div>
       ) : null}
 
       {open && showLoginAlert ? (

@@ -403,6 +403,7 @@ model SiteUser {
   avatarUrl         String?
   bio               String?
   role              String                  @default("user")
+  commentsBlocked   Boolean                 @default(false)
   googleId          String?                 @unique
   emailVerifiedAt   DateTime?
   emailVerificationTokenHash String?

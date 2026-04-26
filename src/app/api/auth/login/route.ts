@@ -17,7 +17,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     }
 
-    return NextResponse.json({ ok: true, user: result.user });
+    return NextResponse.json({
+      ok: true,
+      user: result.user,
+      pendingVerification: result.pendingVerification ?? false,
+    });
   } catch (error) {
     console.error("login_failed", error);
     return NextResponse.json({ ok: false, error: "login_failed" }, { status: 500 });

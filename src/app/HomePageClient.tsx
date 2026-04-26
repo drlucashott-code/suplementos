@@ -187,11 +187,20 @@ export default function HomePageClient({
   houseCategories,
   petCategories,
   bestDeals,
+  publicLists,
 }: {
   supplementCategories: CategoryItem[];
   houseCategories: CategoryItem[];
   petCategories: CategoryItem[];
   bestDeals: BestDeal[];
+  publicLists: Array<{
+    slug: string;
+    title: string;
+    ownerDisplayName: string;
+    ownerUsername: string | null;
+    itemsCount: number;
+    previewImages: string[] | null;
+  }>;
 }) {
   const router = useRouter();
   const [selectedHub, setSelectedHub] = useState<HubKey>("suplementos");
@@ -396,6 +405,83 @@ export default function HomePageClient({
                   className="text-[12px] font-bold text-[#007185] hover:underline"
                 >
                   Ver mais
+                </button>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm md:p-5">
+              <div className="mb-4 flex items-end justify-between gap-4">
+                <div>
+                  <h3 className="text-[18px] font-bold text-[#0F1111]">
+                    Listas públicas de usuários
+                  </h3>
+                  <p className="mt-1 text-[12px] text-[#565959]">
+                    Descubra listas recém-criadas pela comunidade e acompanhe seleções compartilhadas.
+                  </p>
+                </div>
+              </div>
+
+              {publicLists.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-[#d5d9d9] bg-[#F8FAFA] px-4 py-10 text-center text-sm text-[#565959]">
+                  Ainda não existem listas públicas.
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {publicLists.map((list) => (
+                    <button
+                      key={list.slug}
+                      onClick={() => router.push(`/listas/${list.slug}`)}
+                      className="rounded-2xl border border-[#d5d9d9] bg-[#FCFCFD] p-4 text-left transition hover:border-[#b8c3c4] hover:bg-white hover:shadow-sm"
+                    >
+                      <div className="mb-3 flex h-[74px] items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[#F8FAFA] px-3">
+                        {(list.previewImages ?? []).length > 0 ? (
+                          (list.previewImages ?? []).slice(0, 3).map((imageSrc, index) => (
+                            <div
+                              key={`${list.slug}-preview-${index}`}
+                              className="relative h-14 w-14 overflow-hidden rounded-xl bg-white shadow-sm"
+                            >
+                              <Image
+                                src={imageSrc}
+                                alt={`${list.title} preview ${index + 1}`}
+                                fill
+                                sizes="56px"
+                                className="object-contain p-1.5"
+                                unoptimized
+                              />
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-[11px] font-semibold text-[#667085]">
+                            Prévia dos produtos
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-[16px] font-bold leading-tight text-[#0F1111]">
+                            {list.title}
+                          </p>
+                          <p className="mt-1 text-[12px] text-[#565959]">
+                            por {list.ownerDisplayName}
+                            {list.ownerUsername ? ` @${list.ownerUsername}` : ""}
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-[#EEF2FF] px-3 py-1 text-[11px] font-bold text-[#374151]">
+                          {list.itemsCount} itens
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-4 flex justify-center">
+                <button
+                  onClick={() => router.push("/listas")}
+                  className="text-[12px] font-bold text-[#007185] hover:underline"
+                >
+                  Ver todas as listas
                 </button>
               </div>
             </section>

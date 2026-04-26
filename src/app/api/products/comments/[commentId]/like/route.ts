@@ -19,18 +19,14 @@ export async function POST(
     Array<{
       userId: string;
       body: string;
-      categoryGroup: string;
-      categorySlug: string;
+      productId: string;
     }>
   >(Prisma.sql`
     SELECT
       c."userId",
       c."body",
-      cat."group" AS "categoryGroup",
-      cat."slug" AS "categorySlug"
+      c."productId"
     FROM "SiteProductComment" c
-    INNER JOIN "DynamicProduct" p ON p."id" = c."productId"
-    INNER JOIN "DynamicCategory" cat ON cat."id" = p."categoryId"
     WHERE c."id" = ${commentId}
     LIMIT 1
   `);
@@ -62,7 +58,7 @@ export async function POST(
       type: "comment_liked",
       title: "Seu comentario recebeu uma curtida",
       body: targetComment.body.slice(0, 120),
-      href: `/${targetComment.categoryGroup}/${targetComment.categorySlug}`,
+      href: `/produto/${targetComment.productId}?comments=1`,
       metadata: {
         commentId,
       },

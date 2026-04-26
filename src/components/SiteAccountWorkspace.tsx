@@ -100,6 +100,7 @@ type SiteAccountWorkspaceProps = {
     displayName: string;
     username: string | null;
     avatarUrl: string | null;
+    isEmailVerified: boolean;
   };
   profileStats: {
     memberSince: string;
@@ -208,6 +209,8 @@ export default function SiteAccountWorkspace({
   const [profileAvatarUrl, setProfileAvatarUrl] = useState(currentUser.avatarUrl ?? "");
   const [profileMessage, setProfileMessage] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState("");
+  const [resendingVerification, setResendingVerification] = useState(false);
 
   const [cropSource, setCropSource] = useState<string | null>(null);
   const [cropZoom, setCropZoom] = useState(1);
@@ -236,6 +239,10 @@ export default function SiteAccountWorkspace({
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityComments, setActivityComments] = useState<ActivityItem[]>([]);
   const [activityReactions, setActivityReactions] = useState<ActivityItem[]>([]);
+  const [suggestionUrl, setSuggestionUrl] = useState("");
+  const [suggestionNotes, setSuggestionNotes] = useState("");
+  const [submittingSuggestion, setSubmittingSuggestion] = useState(false);
+  const [suggestionMessage, setSuggestionMessage] = useState("");
 
   const favoriteCards = useMemo(() => favorites.map(favoriteToCardItem), [favorites]);
   const openedList = openListId ? listDetailsMap[openListId] ?? null : null;
@@ -243,6 +250,49 @@ export default function SiteAccountWorkspace({
 
   function setMessage(message: string) {
     setWorkspaceMessage(message);
+  }
+
+  async function handleResendVerificationEmail() {
+    setVerificationMessage("");
+    setResendingVerification(true);
+
+    try {
+      const response = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: currentUser.email }),
+      });
+
+      const data = (await response.json()) as {
+        ok?: boolean;
+        sent?: boolean;
+        alreadyVerified?: boolean;
+        error?: string;
+      };
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || "resend_failed");
+      }
+
+      if (data.alreadyVerified) {
+        setVerificationMessage("Seu email já foi confirmado. Atualize a página para seguir normalmente.");
+        return;
+      }
+
+      setVerificationMessage(
+        data.sent
+          ? "Enviamos um novo link de confirmação para o seu email."
+          : "Não foi possível reenviar a confirmação agora."
+      );
+    } catch (error) {
+      setVerificationMessage(
+        error instanceof Error && error.message !== "resend_failed"
+          ? error.message
+          : "Não foi possível reenviar a confirmação agora."
+      );
+    } finally {
+      setResendingVerification(false);
+    }
   }
 
   async function loadActivity(mode: "comments" | "reactions") {
@@ -271,6 +321,40 @@ export default function SiteAccountWorkspace({
       setMessage("Nao foi possivel carregar a atividade agora.");
     } finally {
       setActivityLoading(false);
+    }
+  }
+
+  async function submitSuggestion(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmittingSuggestion(true);
+    setSuggestionMessage("");
+
+    try {
+      const response = await fetch("/api/account/suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amazonUrl: suggestionUrl,
+          notes: suggestionNotes,
+        }),
+      });
+
+      const data = (await response.json()) as { ok?: boolean; error?: string };
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || "suggestion_create_failed");
+      }
+
+      setSuggestionUrl("");
+      setSuggestionNotes("");
+      setSuggestionMessage("Sugestao enviada. Vamos revisar antes de adicionar ao site.");
+    } catch (error) {
+      setSuggestionMessage(
+        error instanceof Error && error.message !== "suggestion_create_failed"
+          ? error.message
+          : "Nao foi possivel enviar sua sugestao agora."
+      );
+    } finally {
+      setSubmittingSuggestion(false);
     }
   }
 
@@ -959,6 +1043,34 @@ export default function SiteAccountWorkspace({
             </button>
           </div>
         </div>
+
+        {!currentUser.isEmailVerified ? (
+          <div className="border-t border-[#EAECF0] bg-[#FFF7E6] px-6 py-5 md:px-8">
+            <div className="flex flex-col gap-3 rounded-3xl border border-[#F7B955] bg-white px-5 py-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-sm font-black uppercase tracking-[0.16em] text-[#B54708]">
+                  Confirmacao pendente
+                </p>
+                <p className="mt-2 text-sm font-medium text-[#7A2E0E]">
+                  Sua conta ja esta ativa, mas voce precisa confirmar o link enviado para{" "}
+                  <span className="font-bold">{currentUser.email}</span>.
+                </p>
+                {verificationMessage ? (
+                  <p className="mt-2 text-sm font-semibold text-[#B54708]">{verificationMessage}</p>
+                ) : null}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void handleResendVerificationEmail()}
+                disabled={resendingVerification}
+                className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl border border-[#F7B955] bg-[#FFF1CC] px-4 text-sm font-bold text-[#B54708] transition hover:bg-[#FFE7A3] disabled:opacity-60"
+              >
+                {resendingVerification ? "Reenviando..." : "Reenviar confirmacao"}
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {showProfileEditor ? (
           <div className="border-t border-[#EAECF0] px-6 py-6 md:px-8">
@@ -1760,6 +1872,57 @@ export default function SiteAccountWorkspace({
           </div>
         </div>
       ) : null}
+
+      <section className="rounded-[32px] border border-[#d5d9d9] bg-white p-6 shadow-sm md:p-8">
+        <div className="max-w-3xl">
+          <p className="text-sm font-bold uppercase tracking-[0.22em] text-[#D61F3A]">
+            Sugerir produto
+          </p>
+          <h3 className="mt-3 text-3xl font-black text-[#0F1111]">Nao encontrou um item no site?</h3>
+          <p className="mt-2 text-sm text-[#565959]">
+            Envie o link da Amazon e uma descricao rapida. A gente revisa e decide se vale adicionar ao catalogo.
+          </p>
+        </div>
+
+        <form onSubmit={submitSuggestion} className="mt-6 space-y-4">
+          <div className="grid gap-4">
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-[#344054]">Link da Amazon</span>
+              <input
+                type="url"
+                value={suggestionUrl}
+                onChange={(event) => setSuggestionUrl(event.target.value)}
+                placeholder="https://www.amazon.com.br/..."
+                className="h-12 w-full rounded-2xl border border-[#D0D5DD] px-4 text-sm outline-none transition focus:border-[#F3A847]"
+              />
+            </label>
+          </div>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-[#344054]">Por que vale adicionar?</span>
+            <textarea
+              value={suggestionNotes}
+              onChange={(event) => setSuggestionNotes(event.target.value)}
+              placeholder="Conte o que e o produto, em qual categoria ele entraria ou qualquer detalhe util."
+              rows={4}
+              className="w-full rounded-2xl border border-[#D0D5DD] px-4 py-3 text-sm outline-none transition focus:border-[#F3A847]"
+              required
+            />
+          </label>
+
+          {suggestionMessage ? (
+            <p className="text-sm font-medium text-[#475467]">{suggestionMessage}</p>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={submittingSuggestion}
+            className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#FFD814] px-5 text-sm font-black text-[#0F1111] transition hover:bg-[#F7CA00] disabled:opacity-60"
+          >
+            {submittingSuggestion ? "Enviando sugestao..." : "Enviar sugestao"}
+          </button>
+        </form>
+      </section>
     </div>
   );
 }

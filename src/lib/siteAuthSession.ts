@@ -13,6 +13,7 @@ export type SiteSessionUser = {
   avatarUrl: string | null;
   bio: string | null;
   role: string;
+  isEmailVerified: boolean;
 };
 
 type SiteSessionRecord = {
@@ -44,7 +45,8 @@ export const getCurrentSiteSession = cache(async (): Promise<SiteSessionRecord |
         'username', u."username",
         'avatarUrl', u."avatarUrl",
         'bio', u."bio",
-        'role', u."role"
+        'role', u."role",
+        'isEmailVerified', CASE WHEN u."emailVerifiedAt" IS NOT NULL THEN true ELSE false END
       ) AS "user"
     FROM "SiteSession" s
     INNER JOIN "SiteUser" u ON u."id" = s."userId"

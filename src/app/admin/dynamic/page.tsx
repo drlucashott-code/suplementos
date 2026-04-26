@@ -260,6 +260,14 @@ export default async function AdminDynamicDashboard() {
           />
 
           <AdminCard
+            title="Contas"
+            description="Veja contas criadas, comentarios e aplique bloqueio silencioso ou exclusao."
+            href="/admin/dynamic/contas"
+            icon="A"
+            color="purple"
+          />
+
+          <AdminCard
             title="Expansoes"
             description="Audite ASINs descobertos na expansao e identifique os que faltam importar."
             href="/admin/dynamic/expansoes"

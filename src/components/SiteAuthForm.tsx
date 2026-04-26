@@ -63,12 +63,11 @@ export function SiteAuthForm({ mode }: SiteAuthFormProps) {
       if (isRegister && data.pendingVerification) {
         setSuccess(
           data.emailSent
-            ? "Conta criada. Enviamos um email de confirmação para liberar o acesso."
-            : "Conta criada, mas o email de confirmação não pôde ser enviado agora."
+            ? "Conta criada com sucesso. Enviamos um link de confirmação para o seu email."
+            : "Conta criada com sucesso, mas não foi possível enviar o email de confirmação agora."
         );
         setDisplayName("");
         setUsername("");
-        setEmail("");
         setPassword("");
         setShowResend(true);
         return;
@@ -231,7 +230,7 @@ export function SiteAuthForm({ mode }: SiteAuthFormProps) {
         </div>
       ) : null}
 
-      {showResend && !isRegister ? (
+      {showResend ? (
         <button
           type="button"
           onClick={handleResendVerification}

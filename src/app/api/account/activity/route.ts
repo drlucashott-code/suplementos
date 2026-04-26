@@ -15,21 +15,18 @@ export async function GET() {
         id: string;
         body: string;
         createdAt: Date;
+        productId: string;
         productName: string;
-        categoryGroup: string;
-        categorySlug: string;
       }>
     >(Prisma.sql`
       SELECT
         c."id",
         c."body",
         c."createdAt",
-        p."name" AS "productName",
-        cat."group" AS "categoryGroup",
-        cat."slug" AS "categorySlug"
+        p."id" AS "productId",
+        p."name" AS "productName"
       FROM "SiteProductComment" c
       INNER JOIN "DynamicProduct" p ON p."id" = c."productId"
-      INNER JOIN "DynamicCategory" cat ON cat."id" = p."categoryId"
       WHERE c."userId" = ${user.id}
         AND c."status" = 'published'
       ORDER BY c."createdAt" DESC
@@ -60,7 +57,7 @@ export async function GET() {
       body: comment.body,
       createdAt: comment.createdAt.toISOString(),
       productName: comment.productName,
-      href: `/${comment.categoryGroup}/${comment.categorySlug}`,
+      href: `/produto/${comment.productId}?comments=1`,
     })),
     reactions: reactions.map((reaction) => ({
       id: reaction.id,

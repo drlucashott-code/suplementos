@@ -166,7 +166,7 @@ export default function HeaderClient({
           </div>
 
           {initialUser ? <SiteNotificationsBell /> : null}
-          <SiteUserEntry initialUser={initialUser} />
+          <SiteUserEntry compact initialUser={initialUser} />
         </div>
       </div>
     </header>

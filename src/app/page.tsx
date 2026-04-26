@@ -168,11 +168,44 @@ async function getPetCategories(): Promise<CategoryItem[]> {
 }
 
 export default async function HomePage() {
-  const [supplementCategories, houseCategories, petCategories, bestDeals] = await Promise.all([
+  const [supplementCategories, houseCategories, petCategories, bestDeals, publicLists] = await Promise.all([
     getSupplementCategories(),
     getHouseCategories(),
     getPetCategories(),
     getBestDeals(6),
+    prisma.$queryRaw<
+      Array<{
+        slug: string;
+        title: string;
+        ownerDisplayName: string;
+        ownerUsername: string | null;
+        itemsCount: number;
+        previewImages: string[] | null;
+      }>
+    >`
+      SELECT
+        l."slug",
+        l."title",
+        u."displayName" AS "ownerDisplayName",
+        u."username" AS "ownerUsername",
+        COUNT(i."id")::int AS "itemsCount",
+        ARRAY(
+          SELECT p2."imageUrl"
+          FROM "SiteUserListItem" i2
+          INNER JOIN "DynamicProduct" p2 ON p2."id" = i2."productId"
+          WHERE i2."listId" = l."id"
+            AND p2."imageUrl" IS NOT NULL
+          ORDER BY i2."sortOrder" ASC, i2."createdAt" DESC
+          LIMIT 3
+        ) AS "previewImages"
+      FROM "SiteUserList" l
+      INNER JOIN "SiteUser" u ON u."id" = l."userId"
+      LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
+      WHERE l."isPublic" = true
+      GROUP BY l."id", u."displayName", u."username"
+      ORDER BY l."createdAt" DESC
+      LIMIT 6
+    `,
   ]);
 
   const headerCategories = [
@@ -189,6 +222,7 @@ export default async function HomePage() {
         houseCategories={houseCategories}
         petCategories={petCategories}
         bestDeals={bestDeals}
+        publicLists={publicLists}
       />
     </>
   );
