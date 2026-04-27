@@ -304,23 +304,22 @@ export async function applyDynamicRefreshOutcome(params: {
     availabilityStatus: params.availabilityStatus,
   });
 
-  await prisma.$executeRaw(Prisma.sql`
-    UPDATE "DynamicProduct"
-    SET
-      "refreshTier" = ${next.refreshTier},
-      "priorityScore" = ${next.priorityScore},
-      "lastRefreshAttemptAt" = ${next.lastRefreshAttemptAt},
-      "lastPriceRefreshAt" = ${next.lastPriceRefreshAt},
-      "lastSuccessfulRefreshAt" = ${next.lastSuccessfulRefreshAt},
-      "nextPriceRefreshAt" = ${next.nextPriceRefreshAt},
-      "nextPriorityEnqueueAt" = ${next.nextPriorityEnqueueAt},
-      "refreshFailCount" = ${next.refreshFailCount},
-      "priceChangeFrequency" = ${next.priceChangeFrequency},
-      "dataFreshnessScore" = ${next.dataFreshnessScore},
-      "refreshLockUntil" = NULL,
-      "updatedAt" = NOW()
-    WHERE "id" = ${params.productId}
-  `);
+  await prisma.dynamicProduct.update({
+    where: { id: params.productId },
+    data: {
+      refreshTier: next.refreshTier,
+      priorityScore: next.priorityScore,
+      lastRefreshAttemptAt: next.lastRefreshAttemptAt,
+      lastPriceRefreshAt: next.lastPriceRefreshAt,
+      lastSuccessfulRefreshAt: next.lastSuccessfulRefreshAt,
+      nextPriceRefreshAt: next.nextPriceRefreshAt,
+      nextPriorityEnqueueAt: next.nextPriorityEnqueueAt,
+      refreshFailCount: next.refreshFailCount,
+      priceChangeFrequency: next.priceChangeFrequency,
+      dataFreshnessScore: next.dataFreshnessScore,
+      refreshLockUntil: null,
+    },
+  });
 }
 
 export async function applyTrackedRefreshOutcome(params: {
@@ -337,23 +336,22 @@ export async function applyTrackedRefreshOutcome(params: {
     monitorCount: params.previousState.monitorCount ?? 0,
   });
 
-  await prisma.$executeRaw(Prisma.sql`
-    UPDATE "SiteTrackedAmazonProduct"
-    SET
-      "refreshTier" = ${next.refreshTier},
-      "priorityScore" = ${next.priorityScore},
-      "lastRefreshAttemptAt" = ${next.lastRefreshAttemptAt},
-      "lastPriceRefreshAt" = ${next.lastPriceRefreshAt},
-      "lastSuccessfulRefreshAt" = ${next.lastSuccessfulRefreshAt},
-      "nextPriceRefreshAt" = ${next.nextPriceRefreshAt},
-      "nextPriorityEnqueueAt" = ${next.nextPriorityEnqueueAt},
-      "refreshFailCount" = ${next.refreshFailCount},
-      "priceChangeFrequency" = ${next.priceChangeFrequency},
-      "dataFreshnessScore" = ${next.dataFreshnessScore},
-      "refreshLockUntil" = NULL,
-      "updatedAt" = NOW()
-    WHERE "id" = ${params.trackedProductId}
-  `);
+  await prisma.siteTrackedAmazonProduct.update({
+    where: { id: params.trackedProductId },
+    data: {
+      refreshTier: next.refreshTier,
+      priorityScore: next.priorityScore,
+      lastRefreshAttemptAt: next.lastRefreshAttemptAt,
+      lastPriceRefreshAt: next.lastPriceRefreshAt,
+      lastSuccessfulRefreshAt: next.lastSuccessfulRefreshAt,
+      nextPriceRefreshAt: next.nextPriceRefreshAt,
+      nextPriorityEnqueueAt: next.nextPriorityEnqueueAt,
+      refreshFailCount: next.refreshFailCount,
+      priceChangeFrequency: next.priceChangeFrequency,
+      dataFreshnessScore: next.dataFreshnessScore,
+      refreshLockUntil: null,
+    },
+  });
 }
 
 export async function seedDynamicSchedulerState(productId: string) {

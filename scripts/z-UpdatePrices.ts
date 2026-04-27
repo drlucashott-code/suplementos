@@ -52,6 +52,7 @@ const GLOBAL_DAILY_REQUEST_LIMIT = Math.max(
   50,
   Number(process.env.AMAZON_GLOBAL_DAILY_REQUEST_LIMIT ?? 12000)
 );
+const GLOBAL_OUT_OF_STOCK_SHARE = 0.15;
 
 function getFirstEnvValue(...keys: string[]) {
   for (const key of keys) {
@@ -654,65 +655,120 @@ async function updateAmazonPrices() {
     );
 
     const now = new Date();
-    const dynamicProducts = await withDatabaseRetry("dynamicProduct.findMany", async () =>
-      prisma.dynamicProduct.findMany({
-        where:
-          {
-            ...(groupFilter || slugFilter
-              ? {
-                  category: {
-                    ...(groupFilter ? { group: groupFilter } : {}),
-                    ...(slugFilter ? { slug: slugFilter } : {}),
-                  },
-                }
-              : {}),
-            AND: [
-              {
-                OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
-              },
-              {
-                OR: [{ nextPriceRefreshAt: null }, { nextPriceRefreshAt: { lte: now } }],
-              },
-            ],
-          },
-        select: {
-          id: true,
-          asin: true,
-          totalPrice: true,
-          name: true,
-          attributes: true,
-          availabilityStatus: true,
-          refreshTier: true,
-          priorityScore: true,
-          lastPrioritySignalAt: true,
-          lastInteractionAt: true,
-          lastRefreshAttemptAt: true,
-          lastPriceRefreshAt: true,
-          lastSuccessfulRefreshAt: true,
-          nextPriceRefreshAt: true,
-          nextPriorityEnqueueAt: true,
-          refreshFailCount: true,
-          priceChangeFrequency: true,
-          dataFreshnessScore: true,
-          refreshLockUntil: true,
-          category: {
-            select: {
-              group: true,
-              name: true,
-              slug: true,
-              displayConfig: true,
+    const baseDynamicWhere = {
+      ...(groupFilter || slugFilter
+        ? {
+            category: {
+              ...(groupFilter ? { group: groupFilter } : {}),
+              ...(slugFilter ? { slug: slugFilter } : {}),
             },
-          },
+          }
+        : {}),
+      AND: [
+        {
+          OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
         },
-        orderBy: [
-          { dataFreshnessScore: "desc" },
-          { priorityScore: "desc" },
-          { nextPriceRefreshAt: "asc" },
-          { updatedAt: "asc" },
-        ],
-        take: MAX_DYNAMIC_PRODUCTS_PER_RUN,
-      })
+        {
+          OR: [{ nextPriceRefreshAt: null }, { nextPriceRefreshAt: { lte: now } }],
+        },
+      ],
+    } satisfies Prisma.DynamicProductWhereInput;
+
+    const dynamicSelect = {
+      id: true,
+      asin: true,
+      totalPrice: true,
+      name: true,
+      attributes: true,
+      availabilityStatus: true,
+      refreshTier: true,
+      priorityScore: true,
+      lastPrioritySignalAt: true,
+      lastInteractionAt: true,
+      lastRefreshAttemptAt: true,
+      lastPriceRefreshAt: true,
+      lastSuccessfulRefreshAt: true,
+      nextPriceRefreshAt: true,
+      nextPriorityEnqueueAt: true,
+      refreshFailCount: true,
+      priceChangeFrequency: true,
+      dataFreshnessScore: true,
+      refreshLockUntil: true,
+      category: {
+        select: {
+          group: true,
+          name: true,
+          slug: true,
+          displayConfig: true,
+        },
+      },
+    } satisfies Prisma.DynamicProductSelect;
+
+    const dynamicOrderBy = [
+      { dataFreshnessScore: "desc" },
+      { priorityScore: "desc" },
+      { nextPriceRefreshAt: "asc" },
+      { updatedAt: "asc" },
+    ] satisfies Prisma.DynamicProductOrderByWithRelationInput[];
+
+    const outOfStockLimit = Math.max(
+      1,
+      Math.floor(MAX_DYNAMIC_PRODUCTS_PER_RUN * GLOBAL_OUT_OF_STOCK_SHARE)
     );
+    const inStockLimit = Math.max(1, MAX_DYNAMIC_PRODUCTS_PER_RUN - outOfStockLimit);
+
+    const [preferredDynamicProducts, outOfStockDynamicProducts] = await withDatabaseRetry(
+      "dynamicProduct.findMany",
+      async () =>
+        Promise.all([
+          prisma.dynamicProduct.findMany({
+            where: {
+              ...baseDynamicWhere,
+              OR: [
+                { availabilityStatus: null },
+                { availabilityStatus: { not: "OUT_OF_STOCK" } },
+              ],
+            },
+            select: dynamicSelect,
+            orderBy: dynamicOrderBy,
+            take: inStockLimit,
+          }),
+          prisma.dynamicProduct.findMany({
+            where: {
+              ...baseDynamicWhere,
+              availabilityStatus: "OUT_OF_STOCK",
+            },
+            select: dynamicSelect,
+            orderBy: dynamicOrderBy,
+            take: outOfStockLimit,
+          }),
+        ])
+    );
+
+    const preferredIds = new Set(preferredDynamicProducts.map((product) => product.id));
+    const uniqueOutOfStockDynamicProducts = outOfStockDynamicProducts.filter(
+      (product) => !preferredIds.has(product.id)
+    );
+    let dynamicProducts = [...preferredDynamicProducts, ...uniqueOutOfStockDynamicProducts];
+
+    if (dynamicProducts.length < MAX_DYNAMIC_PRODUCTS_PER_RUN) {
+      const remainingLimit = MAX_DYNAMIC_PRODUCTS_PER_RUN - dynamicProducts.length;
+      const excludedIds = dynamicProducts.map((product) => product.id);
+      const fallbackDynamicProducts = await withDatabaseRetry(
+        "dynamicProduct.findMany:fallback",
+        async () =>
+          prisma.dynamicProduct.findMany({
+            where: {
+              ...baseDynamicWhere,
+              ...(excludedIds.length > 0 ? { id: { notIn: excludedIds } } : {}),
+            },
+            select: dynamicSelect,
+            orderBy: dynamicOrderBy,
+            take: remainingLimit,
+          })
+      );
+      dynamicProducts = [...dynamicProducts, ...fallbackDynamicProducts];
+    }
 
     counters.totalOffers = dynamicProducts.length;
 
