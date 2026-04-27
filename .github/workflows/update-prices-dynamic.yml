@@ -5,7 +5,7 @@ on:
     # De 4 em 4 horas, das 08:00 às 00:00 (Horário de Brasília)
     # BRT: 08, 12, 16, 20, 00
     # UTC: 11, 15, 19, 23, 03
-    - cron: "0 3,11,15,19,23 * * *"
+    - cron: "0 * * * *"
 
   workflow_dispatch:
 
