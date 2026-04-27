@@ -8,6 +8,11 @@ import {
   isSiteUserVerified,
   verificationRequiredResponse,
 } from "@/lib/siteAuth";
+import {
+  touchDynamicProductPriority,
+  touchTrackedProductPriority,
+} from "@/lib/priceRefreshSignals";
+import { enqueuePriorityRefresh } from "@/lib/priorityRefreshQueue";
 
 export async function GET() {
   const user = await getCurrentSiteUser();
@@ -111,6 +116,34 @@ export async function POST(request: Request) {
     }
 
     throw error;
+  }
+
+  const listItems = await prisma.$queryRaw<
+    Array<{ productId: string | null; trackedAmazonProductId: string | null }>
+  >(Prisma.sql`
+    SELECT "productId", "trackedAmazonProductId"
+    FROM "SiteUserListItem"
+    WHERE "listId" = ${listId}
+  `);
+
+  for (const item of listItems) {
+    if (item.productId) {
+      const priorityTouch = await touchDynamicProductPriority({
+        productId: item.productId,
+        signal: "public_list",
+      });
+      if (priorityTouch?.shouldEnqueue && priorityTouch.asin) {
+        await enqueuePriorityRefresh({
+          asin: priorityTouch.asin,
+          reason: "list",
+        });
+      }
+    } else if (item.trackedAmazonProductId) {
+      await touchTrackedProductPriority({
+        trackedProductId: item.trackedAmazonProductId,
+        signal: "public_list",
+      });
+    }
   }
 
   return NextResponse.json({ ok: true });

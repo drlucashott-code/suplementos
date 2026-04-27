@@ -7,6 +7,11 @@ import {
   isSiteUserVerified,
   verificationRequiredResponse,
 } from "@/lib/siteAuth";
+import {
+  touchDynamicProductPriority,
+  touchTrackedProductPriority,
+} from "@/lib/priceRefreshSignals";
+import { enqueuePriorityRefresh } from "@/lib/priorityRefreshQueue";
 
 export async function POST(
   request: Request,
@@ -129,6 +134,24 @@ export async function POST(
         NOW()
       )
     `);
+
+    if (productId) {
+      const priorityTouch = await touchDynamicProductPriority({
+        productId,
+        signal: "list",
+      });
+      if (priorityTouch?.shouldEnqueue && priorityTouch.asin) {
+        await enqueuePriorityRefresh({
+          asin: priorityTouch.asin,
+          reason: "list",
+        });
+      }
+    } else if (trackedAmazonProductId) {
+      await touchTrackedProductPriority({
+        trackedProductId: trackedAmazonProductId,
+        signal: "list",
+      });
+    }
 
     return NextResponse.json({ ok: true, created: true });
   } catch (error) {

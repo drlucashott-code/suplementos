@@ -11,13 +11,6 @@ import { refreshTrackedAmazonProductPriceStatsBulk } from "../src/lib/siteTracke
 import {
   fetchAmazonPriceSnapshots,
 } from "../src/lib/amazonApiClient";
-import {
-  applyDynamicRefreshOutcome,
-  applyTrackedRefreshOutcome,
-  markDynamicRefreshAttemptById,
-  markTrackedRefreshAttemptById,
-} from "../src/lib/priceRefreshSignals";
-import { reservePriceRefreshBudget } from "../src/lib/priceRefreshBudget";
 
 const prisma = new PrismaClient();
 
@@ -35,22 +28,6 @@ const DB_RETRY_LIMIT = Math.max(
 const DB_RETRY_DELAY_MS = Math.max(
   250,
   Number(process.env.AMAZON_GLOBAL_DB_RETRY_DELAY_MS ?? 3000)
-);
-const MAX_DYNAMIC_PRODUCTS_PER_RUN = Math.max(
-  1,
-  Number(process.env.AMAZON_GLOBAL_MAX_PRODUCTS_PER_RUN ?? 300)
-);
-const MAX_TRACKED_PRODUCTS_PER_RUN = Math.max(
-  1,
-  Number(process.env.AMAZON_GLOBAL_MAX_TRACKED_PRODUCTS_PER_RUN ?? 150)
-);
-const GLOBAL_HOURLY_REQUEST_LIMIT = Math.max(
-  10,
-  Number(process.env.AMAZON_GLOBAL_HOURLY_REQUEST_LIMIT ?? 800)
-);
-const GLOBAL_DAILY_REQUEST_LIMIT = Math.max(
-  50,
-  Number(process.env.AMAZON_GLOBAL_DAILY_REQUEST_LIMIT ?? 12000)
 );
 
 function getFirstEnvValue(...keys: string[]) {
@@ -117,20 +94,6 @@ type DynamicProductLite = {
   totalPrice: number;
   name: string;
   attributes: unknown;
-  availabilityStatus: string | null;
-  refreshTier: string | null;
-  priorityScore: number | null;
-  lastPrioritySignalAt: Date | null;
-  lastInteractionAt: Date | null;
-  lastRefreshAttemptAt: Date | null;
-  lastPriceRefreshAt: Date | null;
-  lastSuccessfulRefreshAt: Date | null;
-  nextPriceRefreshAt: Date | null;
-  nextPriorityEnqueueAt: Date | null;
-  refreshFailCount: number | null;
-  priceChangeFrequency: number | null;
-  dataFreshnessScore: number | null;
-  refreshLockUntil: Date | null;
   category:
     | {
         group: string;
@@ -146,35 +109,6 @@ type PersistDynamicUpdateResult = {
   outcome: PersistOutcome;
   shouldRefreshPriceStats: boolean;
 };
-
-type TrackedProductLite = {
-  id: string;
-  asin: string;
-  totalPrice: number;
-  availabilityStatus: string | null;
-  refreshTier: string | null;
-  priorityScore: number | null;
-  lastPrioritySignalAt: Date | null;
-  lastInteractionAt: Date | null;
-  lastRefreshAttemptAt: Date | null;
-  lastPriceRefreshAt: Date | null;
-  lastSuccessfulRefreshAt: Date | null;
-  nextPriceRefreshAt: Date | null;
-  nextPriorityEnqueueAt: Date | null;
-  refreshFailCount: number | null;
-  priceChangeFrequency: number | null;
-  dataFreshnessScore: number | null;
-  refreshLockUntil: Date | null;
-  monitorCount: number | null;
-};
-
-type RecheckQueueItem = {
-  product: DynamicProductLite;
-  claimedState: ClaimedDynamicState;
-};
-
-type ClaimedDynamicState = NonNullable<Awaited<ReturnType<typeof markDynamicRefreshAttemptById>>>;
-type ClaimedTrackedState = NonNullable<Awaited<ReturnType<typeof markTrackedRefreshAttemptById>>>;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -368,38 +302,11 @@ async function persistDynamicUpdate(
 }
 
 async function refreshMonitoredProducts() {
-  const now = new Date();
   const trackedProducts = await withDatabaseRetry("siteTrackedAmazonProduct.query", async () =>
-    prisma.$queryRaw<TrackedProductLite[]>(Prisma.sql`
-      SELECT
-        tp."id",
-        tp."asin",
-        tp."totalPrice",
-        tp."availabilityStatus",
-        tp."refreshTier",
-        tp."priorityScore",
-        tp."lastPrioritySignalAt",
-        tp."lastInteractionAt",
-        tp."lastRefreshAttemptAt",
-        tp."lastPriceRefreshAt",
-        tp."lastSuccessfulRefreshAt",
-        tp."nextPriceRefreshAt",
-        tp."nextPriorityEnqueueAt",
-        tp."refreshFailCount",
-        tp."priceChangeFrequency",
-        tp."dataFreshnessScore",
-        tp."refreshLockUntil",
-        tp."monitorCount"
+    prisma.$queryRaw<Array<{ id: string; asin: string }>>(Prisma.sql`
+      SELECT tp."id", tp."asin"
       FROM "SiteTrackedAmazonProduct" tp
-      WHERE
-        (tp."refreshLockUntil" IS NULL OR tp."refreshLockUntil" <= ${now})
-        AND (tp."nextPriceRefreshAt" IS NULL OR tp."nextPriceRefreshAt" <= ${now})
-      ORDER BY
-        tp."dataFreshnessScore" DESC,
-        tp."priorityScore" DESC,
-        tp."nextPriceRefreshAt" ASC NULLS FIRST,
-        tp."updatedAt" ASC
-      LIMIT ${MAX_TRACKED_PRODUCTS_PER_RUN}
+      ORDER BY tp."createdAt" ASC
     `)
   );
 
@@ -414,55 +321,16 @@ async function refreshMonitoredProducts() {
   for (let i = 0; i < trackedProducts.length; i += BATCH_SIZE) {
     const chunk = trackedProducts.slice(i, i + BATCH_SIZE);
     const asins = [...new Set(chunk.map((product) => product.asin).filter((asin) => !!asin))];
-    const budget = await withDatabaseRetry("reservePriceRefreshBudget:tracked", async () =>
-      reservePriceRefreshBudget({
-        scope: "global_tracked_refresh",
-        amount: asins.length,
-        hourlyLimit: Math.max(10, Math.floor(GLOBAL_HOURLY_REQUEST_LIMIT * 0.35)),
-        dailyLimit: Math.max(50, Math.floor(GLOBAL_DAILY_REQUEST_LIMIT * 0.35)),
-      })
-    );
-
-    if (budget.granted <= 0) {
-      console.warn(
-        `Orcamento dos monitorados esgotado (${budget.blockedBy ?? "janela"}). Restante hora=${budget.hourlyRemaining} dia=${budget.dailyRemaining}`
-      );
-      break;
-    }
-
-    const allowedAsins = new Set(asins.slice(0, budget.granted));
-    const budgetedChunk = chunk.filter((product) => allowedAsins.has(product.asin));
-    const claimedTrackedProducts: Array<{
-      product: TrackedProductLite;
-      claimedState: ClaimedTrackedState;
-    }> = [];
-
-    for (const trackedProduct of budgetedChunk) {
-      const claimedState = await withDatabaseRetry(
-        `siteTrackedAmazonProduct.claim:${trackedProduct.id}`,
-        async () => markTrackedRefreshAttemptById(trackedProduct.id)
-      );
-      if (claimedState) {
-        claimedTrackedProducts.push({ product: trackedProduct, claimedState });
-      }
-    }
-
-    if (claimedTrackedProducts.length === 0) {
-      continue;
-    }
-
     let apiResults: Record<string, PriceResult> = {};
 
     try {
-      apiResults = await fetchAmazonPricesBatch(
-        claimedTrackedProducts.map(({ product }) => product.asin)
-      );
+      apiResults = await fetchAmazonPricesBatch(asins);
     } catch (error) {
       console.error("Erro ao atualizar lote de produtos monitorados:", error);
       continue;
     }
 
-    for (const { product: trackedProduct, claimedState } of claimedTrackedProducts) {
+    for (const trackedProduct of chunk) {
       const result = apiResults[trackedProduct.asin];
       const totalPrice = result?.status === "OK" ? result.price : 0;
       const availabilityStatus = result?.status === "OK" ? "IN_STOCK" : "OUT_OF_STOCK";
@@ -527,16 +395,6 @@ async function refreshMonitoredProducts() {
             "updatedAt" = NOW()
           WHERE "trackedProductId" = ${trackedProduct.id}
         `
-      );
-
-      await withDatabaseRetry(`siteTrackedAmazonProduct.scheduler:${trackedProduct.id}`, async () =>
-        applyTrackedRefreshOutcome({
-          trackedProductId: trackedProduct.id,
-          previousState: claimedState,
-          success: Boolean(result && result.status === "OK"),
-          priceChanged: totalPrice > 0 && Math.abs(totalPrice - trackedProduct.totalPrice) > 0.009,
-          availabilityStatus,
-        })
       );
     }
 
@@ -653,48 +511,23 @@ async function updateAmazonPrices() {
       `
     );
 
-    const now = new Date();
     const dynamicProducts = await withDatabaseRetry("dynamicProduct.findMany", async () =>
       prisma.dynamicProduct.findMany({
         where:
-          {
-            ...(groupFilter || slugFilter
-              ? {
-                  category: {
-                    ...(groupFilter ? { group: groupFilter } : {}),
-                    ...(slugFilter ? { slug: slugFilter } : {}),
-                  },
-                }
-              : {}),
-            AND: [
-              {
-                OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
-              },
-              {
-                OR: [{ nextPriceRefreshAt: null }, { nextPriceRefreshAt: { lte: now } }],
-              },
-            ],
-          },
+          groupFilter || slugFilter
+            ? {
+                category: {
+                  ...(groupFilter ? { group: groupFilter } : {}),
+                  ...(slugFilter ? { slug: slugFilter } : {}),
+                },
+              }
+            : undefined,
         select: {
           id: true,
           asin: true,
           totalPrice: true,
           name: true,
           attributes: true,
-          availabilityStatus: true,
-          refreshTier: true,
-          priorityScore: true,
-          lastPrioritySignalAt: true,
-          lastInteractionAt: true,
-          lastRefreshAttemptAt: true,
-          lastPriceRefreshAt: true,
-          lastSuccessfulRefreshAt: true,
-          nextPriceRefreshAt: true,
-          nextPriorityEnqueueAt: true,
-          refreshFailCount: true,
-          priceChangeFrequency: true,
-          dataFreshnessScore: true,
-          refreshLockUntil: true,
           category: {
             select: {
               group: true,
@@ -704,13 +537,7 @@ async function updateAmazonPrices() {
             },
           },
         },
-        orderBy: [
-          { dataFreshnessScore: "desc" },
-          { priorityScore: "desc" },
-          { nextPriceRefreshAt: "asc" },
-          { updatedAt: "asc" },
-        ],
-        take: MAX_DYNAMIC_PRODUCTS_PER_RUN,
+        orderBy: { name: "asc" },
       })
     );
 
@@ -730,8 +557,7 @@ async function updateAmazonPrices() {
       `Processando ${dynamicProducts.length} produtos em lotes de ${BATCH_SIZE}`
     );
 
-    const recheckQueue: RecheckQueueItem[] = [];
-    let globalBudgetStoppedEarly = false;
+    const recheckQueue: DynamicProductLite[] = [];
 
     for (let i = 0; i < dynamicProducts.length; i += BATCH_SIZE) {
       const chunk = dynamicProducts.slice(i, i + BATCH_SIZE);
@@ -739,58 +565,16 @@ async function updateAmazonPrices() {
         .map((product) => product.asin)
         .filter((id): id is string => !!id);
 
-      const budget = await withDatabaseRetry("reservePriceRefreshBudget:global", async () =>
-        reservePriceRefreshBudget({
-          scope: "global_dynamic_refresh",
-          amount: asins.length,
-          hourlyLimit: GLOBAL_HOURLY_REQUEST_LIMIT,
-          dailyLimit: GLOBAL_DAILY_REQUEST_LIMIT,
-        })
-      );
-
-      if (budget.granted <= 0) {
-        console.warn(
-          `Orcamento do update global esgotado (${budget.blockedBy ?? "janela"}). Restante hora=${budget.hourlyRemaining} dia=${budget.dailyRemaining}`
-        );
-        globalBudgetStoppedEarly = true;
-        break;
-      }
-
-      const allowedAsins = new Set(asins.slice(0, budget.granted));
-      const budgetedChunk = chunk.filter((product) => product.asin && allowedAsins.has(product.asin));
-      const claimedProducts: Array<{
-        product: DynamicProductLite;
-        claimedState: ClaimedDynamicState;
-      }> = [];
-
-      for (const product of budgetedChunk) {
-        const claimedState = await withDatabaseRetry(
-          `dynamicProduct.claim:${product.id}`,
-          async () => markDynamicRefreshAttemptById(product.id)
-        );
-        if (claimedState) {
-          claimedProducts.push({ product, claimedState });
-        }
-      }
-
-      if (claimedProducts.length === 0) {
-        continue;
-      }
-
       let apiResults: Record<string, PriceResult> = {};
 
       try {
-        if (claimedProducts.length > 0) {
-          apiResults = await fetchAmazonPricesBatch(
-            claimedProducts
-              .map(({ product }) => product.asin)
-              .filter((asin): asin is string => Boolean(asin))
-          );
+        if (asins.length > 0) {
+          apiResults = await fetchAmazonPricesBatch(asins);
         }
       } catch (error) {
         console.error("Erro ao buscar lote na API:", error);
-        counters.failedOffers += claimedProducts.length;
-        currentFailedStreak += claimedProducts.length;
+        counters.failedOffers += chunk.length;
+        currentFailedStreak += chunk.length;
         counters.maxConsecutiveFailedOffers = Math.max(
           counters.maxConsecutiveFailedOffers,
           currentFailedStreak
@@ -798,7 +582,7 @@ async function updateAmazonPrices() {
         continue;
       }
 
-      for (const { product, claimedState } of claimedProducts) {
+      for (const product of chunk) {
         const asin = product.asin || "---";
         const result = apiResults[asin];
 
@@ -810,29 +594,13 @@ async function updateAmazonPrices() {
             console.log(
               `Suspeito ${(variation * 100).toFixed(1)}% | ${asin} | R$ ${product.totalPrice} -> R$ ${result.price} | enviado para rechecagem`
             );
-            recheckQueue.push({ product, claimedState });
+            recheckQueue.push(product);
             continue;
           }
         }
 
         const { logStatus, outcome, shouldRefreshPriceStats } =
           await persistDynamicUpdate(product, result);
-        await withDatabaseRetry(`dynamicProduct.scheduler:${product.id}`, async () =>
-          applyDynamicRefreshOutcome({
-            productId: product.id,
-            previousState: claimedState,
-            success: Boolean(result && result.status === "OK"),
-            priceChanged:
-              Boolean(result && result.status === "OK") &&
-              Math.abs((result?.price ?? 0) - product.totalPrice) > 0.009,
-            availabilityStatus:
-              result?.status === "OK"
-                ? "IN_STOCK"
-                : result?.status === "OUT_OF_STOCK"
-                  ? "OUT_OF_STOCK"
-                  : product.availabilityStatus,
-          })
-        );
         incrementCounters(counters, outcome);
         if (shouldRefreshPriceStats) {
           statsRefreshProductIds.add(product.id);
@@ -857,7 +625,7 @@ async function updateAmazonPrices() {
         );
       }
 
-      if (i + BATCH_SIZE < dynamicProducts.length && !globalBudgetStoppedEarly) {
+      if (i + BATCH_SIZE < dynamicProducts.length) {
         await new Promise((resolve) => setTimeout(resolve, REQUEST_DELAY_MS));
       }
     }
@@ -869,40 +637,19 @@ async function updateAmazonPrices() {
       for (let i = 0; i < recheckQueue.length; i += BATCH_SIZE) {
         const chunk = recheckQueue.slice(i, i + BATCH_SIZE);
         const asins = chunk
-          .map((entry) => entry.product.asin)
+          .map((product) => product.asin)
           .filter((id): id is string => !!id);
-
-        const budget = await withDatabaseRetry("reservePriceRefreshBudget:global.recheck", async () =>
-          reservePriceRefreshBudget({
-            scope: "global_dynamic_refresh",
-            amount: asins.length,
-            hourlyLimit: GLOBAL_HOURLY_REQUEST_LIMIT,
-            dailyLimit: GLOBAL_DAILY_REQUEST_LIMIT,
-          })
-        );
-
-        if (budget.granted <= 0) {
-          console.warn(
-            `Orcamento do update global esgotado na rechecagem (${budget.blockedBy ?? "janela"}).`
-          );
-          break;
-        }
-
-        const allowedAsins = new Set(asins.slice(0, budget.granted));
-        const budgetedChunk = chunk.filter(
-          (entry) => entry.product.asin && allowedAsins.has(entry.product.asin)
-        );
 
         let apiResults: Record<string, PriceResult> = {};
 
         try {
-          if (allowedAsins.size > 0) {
-            apiResults = await fetchAmazonPricesBatch([...allowedAsins]);
+          if (asins.length > 0) {
+            apiResults = await fetchAmazonPricesBatch(asins);
           }
         } catch (error) {
           console.error("Erro no lote de rechecagem:", error);
-          counters.failedOffers += budgetedChunk.length;
-          currentFailedStreak += budgetedChunk.length;
+          counters.failedOffers += chunk.length;
+          currentFailedStreak += chunk.length;
           counters.maxConsecutiveFailedOffers = Math.max(
             counters.maxConsecutiveFailedOffers,
             currentFailedStreak
@@ -910,28 +657,12 @@ async function updateAmazonPrices() {
           continue;
         }
 
-        for (const { product, claimedState } of budgetedChunk) {
+        for (const product of chunk) {
           const asin = product.asin || "---";
           const result = apiResults[asin];
 
           const { logStatus, outcome, shouldRefreshPriceStats } =
             await persistDynamicUpdate(product, result);
-          await withDatabaseRetry(`dynamicProduct.scheduler.recheck:${product.id}`, async () =>
-            applyDynamicRefreshOutcome({
-              productId: product.id,
-              previousState: claimedState,
-              success: Boolean(result && result.status === "OK"),
-              priceChanged:
-                Boolean(result && result.status === "OK") &&
-                Math.abs((result?.price ?? 0) - product.totalPrice) > 0.009,
-              availabilityStatus:
-                result?.status === "OK"
-                  ? "IN_STOCK"
-                  : result?.status === "OUT_OF_STOCK"
-                    ? "OUT_OF_STOCK"
-                    : product.availabilityStatus,
-            })
-          );
           incrementCounters(counters, outcome);
           if (shouldRefreshPriceStats) {
             statsRefreshProductIds.add(product.id);

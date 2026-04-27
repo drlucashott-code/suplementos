@@ -236,8 +236,8 @@ async function main() {
     return;
   }
 
-  const trintaDiasAtras = new Date();
-  trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
+  const sessentaDiasAtras = new Date();
+  sessentaDiasAtras.setDate(sessentaDiasAtras.getDate() - 60);
 
   const products = await prisma.dynamicProduct.findMany({
     where: {
@@ -245,7 +245,7 @@ async function main() {
         { ratingsUpdatedAt: null },
         {
           AND: [
-            { ratingsUpdatedAt: { lt: trintaDiasAtras } },
+            { ratingsUpdatedAt: { lt: sessentaDiasAtras } },
             {
               NOT: {
                 AND: [{ ratingAverage: null }, { ratingCount: null }],

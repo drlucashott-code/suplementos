@@ -13,6 +13,12 @@ import {
 } from "@/lib/siteMonitoredProducts";
 import { getPriceHistoryCanonicalDate } from "@/lib/dynamicPriceHistory";
 import { refreshTrackedAmazonProductPriceStatsBulk } from "@/lib/siteTrackedAmazonPriceStats";
+import {
+  seedTrackedSchedulerState,
+  touchDynamicProductPriority,
+  touchTrackedProductPriority,
+} from "@/lib/priceRefreshSignals";
+import { enqueuePriorityRefresh } from "@/lib/priorityRefreshQueue";
 
 export async function GET() {
   const user = await getCurrentSiteUser();
@@ -181,6 +187,17 @@ export async function POST(request: Request) {
         throw new Error("favorite_upsert_failed");
       }
 
+      const priorityTouch = await touchDynamicProductPriority({
+        productId: catalogProduct.id,
+        signal: "monitored",
+      });
+      if (priorityTouch?.shouldEnqueue && priorityTouch.asin) {
+        await enqueuePriorityRefresh({
+          asin: priorityTouch.asin,
+          reason: "monitored",
+        });
+      }
+
       return NextResponse.json({
         ok: true,
         source: "catalog",
@@ -278,6 +295,8 @@ export async function POST(request: Request) {
     if (!trackedProduct) {
       throw new Error("tracked_amazon_product_upsert_failed");
     }
+
+    await seedTrackedSchedulerState(trackedProduct.id);
 
     const maxSortOrderRows = await prisma.$queryRaw<Array<{ maxSortOrder: number | null }>>(Prisma.sql`
       SELECT MAX(mp."sortOrder")::int AS "maxSortOrder"
@@ -407,6 +426,11 @@ export async function POST(request: Request) {
       )
       WHERE "id" = ${trackedProduct.id}
     `;
+
+    await touchTrackedProductPriority({
+      trackedProductId: trackedProduct.id,
+      signal: "monitored",
+    });
 
     return NextResponse.json({
       ok: true,

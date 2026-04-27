@@ -160,6 +160,19 @@ model DynamicProduct {
   highestPrice30d  Float?
   lowestPrice365d  Float?
   priceStatsUpdatedAt DateTime?
+  refreshTier      String                @default("cold")
+  priorityScore    Float                 @default(0)
+  lastPrioritySignalAt DateTime?
+  lastInteractionAt DateTime?
+  lastRefreshAttemptAt DateTime?
+  lastPriceRefreshAt DateTime?
+  lastSuccessfulRefreshAt DateTime?
+  nextPriceRefreshAt DateTime?
+  nextPriorityEnqueueAt DateTime?
+  refreshFailCount Int                   @default(0)
+  priceChangeFrequency Float             @default(0)
+  dataFreshnessScore Float               @default(0)
+  refreshLockUntil DateTime?
   url              String
   imageUrl         String?
   categoryId       String
@@ -504,6 +517,19 @@ model SiteTrackedAmazonProduct {
   availabilityStatus    String?   @default("UNKNOWN")
   programAndSavePrice   Float?
   lastSyncedAt          DateTime?
+  refreshTier           String    @default("cold")
+  priorityScore         Float     @default(0)
+  lastPrioritySignalAt  DateTime?
+  lastInteractionAt     DateTime?
+  lastRefreshAttemptAt  DateTime?
+  lastPriceRefreshAt    DateTime?
+  lastSuccessfulRefreshAt DateTime?
+  nextPriceRefreshAt    DateTime?
+  nextPriorityEnqueueAt DateTime?
+  refreshFailCount      Int       @default(0)
+  priceChangeFrequency  Float     @default(0)
+  dataFreshnessScore    Float     @default(0)
+  refreshLockUntil      DateTime?
   monitorCount          Int       @default(0)
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
@@ -689,4 +715,34 @@ model SiteProductSuggestion {
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
+}
+
+model PriceRefreshBudgetWindow {
+  id            String   @id @default(cuid())
+  scope         String
+  windowType    String
+  windowStart   DateTime
+  windowEnd     DateTime
+  requestCount  Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([scope, windowType, windowStart])
+  @@index([scope, windowType, windowStart(sort: Desc)])
+}
+
+model AdminSchedulerActionLog {
+  id              String   @id @default(cuid())
+  actor           String   @default("admin")
+  actionType      String
+  productSource   String
+  asin            String
+  productId       String?
+  trackedProductId String?
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([actionType, createdAt(sort: Desc)])
+  @@index([asin, createdAt(sort: Desc)])
 }

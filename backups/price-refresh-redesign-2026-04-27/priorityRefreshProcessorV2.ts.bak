@@ -21,8 +21,6 @@ import { enrichDynamicAttributesForCategory } from "@/lib/dynamicCategoryMetrics
 import { prisma } from "@/lib/prisma";
 import { refreshDynamicProductPriceStats } from "@/lib/dynamicPriceStats";
 import { getPriceHistoryCanonicalDate } from "@/lib/dynamicPriceHistory";
-import { applyDynamicRefreshOutcome, markDynamicRefreshAttempt } from "@/lib/priceRefreshSignals";
-import { reservePriceRefreshBudget } from "@/lib/priceRefreshBudget";
 
 const sqsClient = new SQSClient({ region: process.env.AWS_REGION || "us-east-2" });
 const queueUrl =
@@ -30,14 +28,6 @@ const queueUrl =
 const AMAZON_PARTNER_TAG = process.env.AMAZON_PARTNER_TAG;
 const AMAZON_LINK_TAG = process.env.AMAZON_LINK_TAG ?? AMAZON_PARTNER_TAG;
 const BATCH_SIZE = 10;
-const PRIORITY_HOURLY_REQUEST_LIMIT = Math.max(
-  20,
-  Number(process.env.AMAZON_PRIORITY_HOURLY_REQUEST_LIMIT ?? 240)
-);
-const PRIORITY_DAILY_REQUEST_LIMIT = Math.max(
-  100,
-  Number(process.env.AMAZON_PRIORITY_DAILY_REQUEST_LIMIT ?? 4000)
-);
 
 function getFirstEnvValue(...keys: string[]) {
   for (const key of keys) {
@@ -86,15 +76,12 @@ export type PriorityRefreshRunSummaryV2 = {
   updatedAsins: string[];
   updatedCategoryRefs: DynamicCatalogCategoryRef[];
   runId?: string;
-  reusedRunningRunId?: string;
   debug?: {
     batchAsins: string[];
     missingAsins: string[];
     resultsCount: number;
   };
 };
-
-const RUN_STALE_AFTER_MS = 10 * 60 * 1000;
 
 function assertEnv() {
   if (!queueUrl) {
@@ -169,8 +156,6 @@ async function persistDynamicUpdate(params: {
       }) as Record<string, string | number | boolean | undefined>)
     : nextAttributesBase;
 
-  const now = new Date();
-
   await prisma.dynamicProduct.update({
     where: { id: product.id },
     data: {
@@ -181,11 +166,10 @@ async function persistDynamicUpdate(params: {
           : {}),
       url: affiliateUrl,
       attributes,
-      lastRefreshAttemptAt: now,
-      lastPriceRefreshAt: now,
-      ...(result.status === "OK" ? { lastSuccessfulRefreshAt: now } : {}),
     },
   });
+
+  const now = new Date();
   if (result.status === "OK") {
     await prisma.$executeRaw`
       UPDATE "DynamicProduct"
@@ -244,53 +228,6 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
   assertEnv();
   assertCreatorsModeForPriorityRefresh();
 
-  const now = new Date();
-  const staleBefore = new Date(now.getTime() - RUN_STALE_AFTER_MS);
-  await prisma.priorityRefreshRun.updateMany({
-    where: {
-      status: "running",
-      startedAt: {
-        lt: staleBefore,
-      },
-      finishedAt: null,
-    },
-    data: {
-      status: "error",
-      finishedAt: now,
-      errorMessage: "priority_run_stale_timeout",
-    },
-  });
-
-  const existingRunningRun = await prisma.priorityRefreshRun.findFirst({
-    where: {
-      status: "running",
-      finishedAt: null,
-      startedAt: {
-        gte: staleBefore,
-      },
-    },
-    orderBy: {
-      startedAt: "desc",
-    },
-    select: {
-      id: true,
-      startedAt: true,
-    },
-  });
-
-  if (existingRunningRun) {
-    return {
-      processedMessages: 0,
-      uniqueAsins: 0,
-      updatedProducts: 0,
-      skippedProducts: 0,
-      updatedAsins: [],
-      updatedCategoryRefs: [],
-      runId: existingRunningRun.id,
-      reusedRunningRunId: existingRunningRun.id,
-    };
-  }
-
   const runId = crypto.randomUUID();
 
   await prisma.priorityRefreshRun.create({
@@ -347,29 +284,12 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
         new Set(messageAsins.map((entry) => entry.asin).filter(Boolean))
       ) as string[];
 
-      const budget = await reservePriceRefreshBudget({
-        scope: "priority_dynamic_refresh",
-        amount: uniqueAsins.length,
-        hourlyLimit: PRIORITY_HOURLY_REQUEST_LIMIT,
-        dailyLimit: PRIORITY_DAILY_REQUEST_LIMIT,
-      });
-
-      const budgetedAsins =
-        budget.granted >= uniqueAsins.length ? uniqueAsins : uniqueAsins.slice(0, budget.granted);
-
-      if (budget.granted <= 0) {
-        console.warn(
-          `[priority-budget] lote adiado por falta de orcamento (${budget.blockedBy ?? "budget"})`
-        );
-        break;
-      }
-
       summary.uniqueAsins += uniqueAsins.length;
 
       const products = await prisma.dynamicProduct.findMany({
         where: {
           asin: {
-            in: budgetedAsins,
+            in: uniqueAsins,
           },
         },
         select: {
@@ -378,7 +298,6 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
           name: true,
           totalPrice: true,
           attributes: true,
-          availabilityStatus: true,
           category: {
             select: {
               name: true,
@@ -392,7 +311,7 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
 
       const productMap = new Map(products.map((product) => [product.asin, product]));
       const items = await getAmazonItemsViaCreators({
-        itemIds: budgetedAsins,
+        itemIds: uniqueAsins,
         resources: [
           "ItemInfo.Title",
           "Offers.Listings.Type",
@@ -432,7 +351,7 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
       if (params?.debug) {
         summary.debug = {
           batchAsins: uniqueAsins,
-          missingAsins: budgetedAsins.filter((asin) => !snapshots[asin]),
+          missingAsins: uniqueAsins.filter((asin) => !snapshots[asin]),
           resultsCount: Object.keys(snapshots).length,
         };
       }
@@ -440,18 +359,11 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
       const successfullyUpdatedAsins = new Set<string>();
       const terminalSkippedAsins = new Set<string>();
 
-      for (const asin of budgetedAsins) {
+      for (const asin of uniqueAsins) {
         const product = productMap.get(asin);
         const snapshot = snapshots[asin];
 
         if (!product) {
-          summary.skippedProducts += 1;
-          terminalSkippedAsins.add(asin);
-          continue;
-        }
-
-        const refreshState = await markDynamicRefreshAttempt(asin);
-        if (!refreshState) {
           summary.skippedProducts += 1;
           terminalSkippedAsins.add(asin);
           continue;
@@ -481,13 +393,6 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
             programAndSavePrice: snapshot.programAndSavePrice,
             status,
           },
-        });
-        await applyDynamicRefreshOutcome({
-          productId: product.id,
-          previousState: refreshState,
-          success: status === "OK",
-          priceChanged: price > 0 && Math.abs(price - product.totalPrice) > 0.009,
-          availabilityStatus: status === "OK" ? "IN_STOCK" : "OUT_OF_STOCK",
         });
 
         summary.updatedProducts += 1;

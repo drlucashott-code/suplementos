@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { revalidateDynamicCatalogCategoryRefs } from "@/lib/dynamicCatalogRevalidation";
+import { getPriceRefreshBudgetSnapshot } from "@/lib/priceRefreshBudget";
 import CacheResetButton, { type CacheResetState } from "@/components/admin/CacheResetButton";
 
 type CardColor = "blue" | "emerald" | "purple" | "sky" | "orange" | "yellow" | "red" | "amber" | "gray";
@@ -92,6 +93,105 @@ function AdminCard({
   );
 }
 
+function BudgetCard({
+  title,
+  hourlyUsed,
+  hourlyLimit,
+  dailyUsed,
+  dailyLimit,
+  tone,
+}: {
+  title: string;
+  hourlyUsed: number;
+  hourlyLimit: number;
+  dailyUsed: number;
+  dailyLimit: number;
+  tone: "blue" | "emerald";
+}) {
+  const palette =
+    tone === "blue"
+      ? {
+          dot: "bg-blue-600",
+          ring: "border-blue-100",
+          pill: "bg-blue-50 text-blue-700",
+        }
+      : {
+          dot: "bg-emerald-600",
+          ring: "border-emerald-100",
+          pill: "bg-emerald-50 text-emerald-700",
+        };
+
+  return (
+    <div className={`rounded-3xl border bg-white p-6 shadow-sm ${palette.ring}`}>
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <div>
+          <div className="mb-2 flex items-center gap-2">
+            <span className={`h-2 w-2 rounded-full ${palette.dot}`} />
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+              Orcamento de refresh
+            </span>
+          </div>
+          <h3 className="text-xl font-black text-gray-900">{title}</h3>
+        </div>
+        <span className={`rounded-full px-3 py-1 text-xs font-black ${palette.pill}`}>
+          ativo
+        </span>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+          <span className="block text-[10px] font-black uppercase tracking-widest text-gray-400">
+            Hora atual
+          </span>
+          <div className="mt-2 flex items-end gap-2">
+            <span className="text-3xl font-black text-gray-900">{hourlyUsed}</span>
+            <span className="pb-1 text-sm font-semibold text-gray-500">/ {hourlyLimit}</span>
+          </div>
+        </div>
+        <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+          <span className="block text-[10px] font-black uppercase tracking-widest text-gray-400">
+            Dia atual
+          </span>
+          <div className="mt-2 flex items-end gap-2">
+            <span className="text-3xl font-black text-gray-900">{dailyUsed}</span>
+            <span className="pb-1 text-sm font-semibold text-gray-500">/ {dailyLimit}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SchedulerStatCard({
+  title,
+  value,
+  description,
+  tone,
+}: {
+  title: string;
+  value: string;
+  description: string;
+  tone: "blue" | "emerald" | "orange" | "red" | "gray";
+}) {
+  const styles = {
+    blue: "border-blue-100 bg-blue-50/50 text-blue-700",
+    emerald: "border-emerald-100 bg-emerald-50/50 text-emerald-700",
+    orange: "border-orange-100 bg-orange-50/50 text-orange-700",
+    red: "border-red-100 bg-red-50/50 text-red-700",
+    gray: "border-gray-200 bg-white text-gray-700",
+  } as const;
+
+  return (
+    <div className={`rounded-2xl border p-5 shadow-sm ${styles[tone]}`}>
+      <span className="block text-[10px] font-black uppercase tracking-widest opacity-80">
+        {title}
+      </span>
+      <div className="mt-3 text-3xl font-black">{value}</div>
+      <p className="mt-2 text-sm leading-relaxed text-gray-600">{description}</p>
+    </div>
+  );
+}
+
 async function revalidateAllDynamicCatalog(
   _prevState: CacheResetState,
   _formData: FormData
@@ -124,10 +224,90 @@ async function revalidateAllDynamicCatalog(
 }
 
 export default async function AdminDynamicDashboard() {
-  const [totalProducts, totalCategories] = await Promise.all([
+  const now = new Date();
+  const GLOBAL_HOURLY_REQUEST_LIMIT = Math.max(
+    50,
+    Number(process.env.AMAZON_GLOBAL_HOURLY_REQUEST_LIMIT ?? 800)
+  );
+  const GLOBAL_DAILY_REQUEST_LIMIT = Math.max(
+    200,
+    Number(process.env.AMAZON_GLOBAL_DAILY_REQUEST_LIMIT ?? 12000)
+  );
+  const PRIORITY_HOURLY_REQUEST_LIMIT = Math.max(
+    20,
+    Number(process.env.AMAZON_PRIORITY_HOURLY_REQUEST_LIMIT ?? 240)
+  );
+  const PRIORITY_DAILY_REQUEST_LIMIT = Math.max(
+    100,
+    Number(process.env.AMAZON_PRIORITY_DAILY_REQUEST_LIMIT ?? 4000)
+  );
+
+  const [
+    totalProducts,
+    totalCategories,
+    budgetSnapshots,
+    dynamicDueCount,
+    trackedDueCount,
+    dynamicLockedCount,
+    trackedLockedCount,
+    dynamicHotCount,
+    dynamicWarmCount,
+    dynamicColdCount,
+    trackedHotCount,
+    trackedWarmCount,
+    trackedColdCount,
+    dynamicFailingCount,
+    trackedFailingCount,
+  ] = await Promise.all([
     prisma.dynamicProduct.count(),
     prisma.dynamicCategory.count(),
+    getPriceRefreshBudgetSnapshot({
+      scopes: ["global_dynamic_refresh", "priority_dynamic_refresh"],
+    }),
+    prisma.dynamicProduct.count({
+      where: {
+        AND: [
+          {
+            OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
+          },
+          {
+            OR: [{ nextPriceRefreshAt: null }, { nextPriceRefreshAt: { lte: now } }],
+          },
+        ],
+      },
+    }),
+    prisma.siteTrackedAmazonProduct.count({
+      where: {
+        AND: [
+          {
+            OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
+          },
+          {
+            OR: [{ nextPriceRefreshAt: null }, { nextPriceRefreshAt: { lte: now } }],
+          },
+        ],
+      },
+    }),
+    prisma.dynamicProduct.count({
+      where: { refreshLockUntil: { gt: now } },
+    }),
+    prisma.siteTrackedAmazonProduct.count({
+      where: { refreshLockUntil: { gt: now } },
+    }),
+    prisma.dynamicProduct.count({ where: { refreshTier: "hot" } }),
+    prisma.dynamicProduct.count({ where: { refreshTier: "warm" } }),
+    prisma.dynamicProduct.count({ where: { refreshTier: "cold" } }),
+    prisma.siteTrackedAmazonProduct.count({ where: { refreshTier: "hot" } }),
+    prisma.siteTrackedAmazonProduct.count({ where: { refreshTier: "warm" } }),
+    prisma.siteTrackedAmazonProduct.count({ where: { refreshTier: "cold" } }),
+    prisma.dynamicProduct.count({ where: { refreshFailCount: { gt: 0 } } }),
+    prisma.siteTrackedAmazonProduct.count({ where: { refreshFailCount: { gt: 0 } } }),
   ]);
+
+  const globalBudget =
+    budgetSnapshots.find((snapshot) => snapshot.scope === "global_dynamic_refresh") ?? null;
+  const priorityBudget =
+    budgetSnapshots.find((snapshot) => snapshot.scope === "priority_dynamic_refresh") ?? null;
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 text-black">
@@ -228,6 +408,14 @@ export default async function AdminDynamicDashboard() {
           />
 
           <AdminCard
+            title="Refresh Scheduler"
+            description="Veja urgencia, tiers, locks e os produtos que mais pressionam a fila."
+            href="/admin/dynamic/refresh-scheduler"
+            icon="T"
+            color="emerald"
+          />
+
+          <AdminCard
             title="Fallback"
             description="Controle o fallback global de precos do site dinamico."
             href="/admin/dynamic/fallback"
@@ -282,6 +470,92 @@ export default async function AdminDynamicDashboard() {
             icon="S"
             color="gray"
           />
+        </div>
+
+        <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <BudgetCard
+            title="Global scheduler"
+            hourlyUsed={globalBudget?.hourRequestCount ?? 0}
+            hourlyLimit={GLOBAL_HOURLY_REQUEST_LIMIT}
+            dailyUsed={globalBudget?.dayRequestCount ?? 0}
+            dailyLimit={GLOBAL_DAILY_REQUEST_LIMIT}
+            tone="blue"
+          />
+          <BudgetCard
+            title="Priority refresh"
+            hourlyUsed={priorityBudget?.hourRequestCount ?? 0}
+            hourlyLimit={PRIORITY_HOURLY_REQUEST_LIMIT}
+            dailyUsed={priorityBudget?.dayRequestCount ?? 0}
+            dailyLimit={PRIORITY_DAILY_REQUEST_LIMIT}
+            tone="emerald"
+          />
+        </div>
+
+        <div className="mt-12">
+          <div className="mb-6">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-600" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                Scheduler health
+              </span>
+            </div>
+            <h2 className="text-2xl font-black text-gray-900">Saude da fila de refresh</h2>
+            <p className="mt-1 text-sm font-medium text-gray-500">
+              Uma leitura rapida do que esta vencido agora, do que esta travado e de como os
+              produtos estao distribuídos entre hot, warm e cold.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <SchedulerStatCard
+              title="Dinamicos vencidos"
+              value={String(dynamicDueCount)}
+              description="Produtos do comparador ja elegiveis para novo refresh."
+              tone="blue"
+            />
+            <SchedulerStatCard
+              title="Amazon internos vencidos"
+              value={String(trackedDueCount)}
+              description="Produtos adicionados por link aguardando nova consulta."
+              tone="emerald"
+            />
+            <SchedulerStatCard
+              title="Locks ativos"
+              value={String(dynamicLockedCount + trackedLockedCount)}
+              description={`Dinamicos: ${dynamicLockedCount} • Amazon internos: ${trackedLockedCount}`}
+              tone="orange"
+            />
+            <SchedulerStatCard
+              title="Falhas pendentes"
+              value={String(dynamicFailingCount + trackedFailingCount)}
+              description={`Dinamicos: ${dynamicFailingCount} • Amazon internos: ${trackedFailingCount}`}
+              tone="red"
+            />
+            <SchedulerStatCard
+              title="Tier hot"
+              value={String(dynamicHotCount + trackedHotCount)}
+              description={`Dinamicos: ${dynamicHotCount} • Amazon internos: ${trackedHotCount}`}
+              tone="gray"
+            />
+            <SchedulerStatCard
+              title="Tier warm"
+              value={String(dynamicWarmCount + trackedWarmCount)}
+              description={`Dinamicos: ${dynamicWarmCount} • Amazon internos: ${trackedWarmCount}`}
+              tone="gray"
+            />
+            <SchedulerStatCard
+              title="Tier cold"
+              value={String(dynamicColdCount + trackedColdCount)}
+              description={`Dinamicos: ${dynamicColdCount} • Amazon internos: ${trackedColdCount}`}
+              tone="gray"
+            />
+            <SchedulerStatCard
+              title="Monitorados internos"
+              value={String(trackedHotCount + trackedWarmCount + trackedColdCount)}
+              description="Base total de produtos por link ja incorporados ao scheduler."
+              tone="gray"
+            />
+          </div>
         </div>
 
         <div className="relative mt-12 overflow-hidden rounded-3xl bg-gray-900 p-8 text-white shadow-2xl">

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+const RUN_STALE_AFTER_MS = 10 * 60 * 1000;
 
 type ExecutionRow = {
   id: string;
@@ -46,6 +47,24 @@ function getStatusClasses(status: string) {
 }
 
 export default async function AdminDynamicExecutionsPage() {
+  const now = new Date();
+  const staleBefore = new Date(now.getTime() - RUN_STALE_AFTER_MS);
+
+  await prisma.priorityRefreshRun.updateMany({
+    where: {
+      status: "running",
+      finishedAt: null,
+      startedAt: {
+        lt: staleBefore,
+      },
+    },
+    data: {
+      status: "error",
+      finishedAt: now,
+      errorMessage: "priority_run_stale_timeout",
+    },
+  });
+
   const runs = await prisma.$queryRaw<ExecutionRow[]>`
     SELECT
       "id",
@@ -142,7 +161,7 @@ export default async function AdminDynamicExecutionsPage() {
                   <th className="w-32 p-4 text-center text-black">Duração</th>
                   <th className="w-28 p-4 text-center text-black">Mensagens</th>
                   <th className="w-28 p-4 text-center text-black">ASINs</th>
-                  <th className="w-32 p-4 text-center text-black">Atualizados</th>
+                  <th className="w-32 p-4 text-center text-black">Processados</th>
                   <th className="w-28 p-4 text-center text-black">Pulados</th>
                   <th className="w-36 p-4 text-center text-black">Detalhes</th>
                 </tr>

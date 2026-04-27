@@ -7,6 +7,8 @@ import {
   isSiteUserVerified,
   verificationRequiredResponse,
 } from "@/lib/siteAuth";
+import { touchDynamicProductPriority } from "@/lib/priceRefreshSignals";
+import { enqueuePriorityRefresh } from "@/lib/priorityRefreshQueue";
 
 export async function GET() {
   const user = await getCurrentSiteUser();
@@ -138,6 +140,18 @@ export async function POST(request: Request) {
         "note" = EXCLUDED."note",
         "updatedAt" = NOW()
     `);
+
+    const priorityTouch = await touchDynamicProductPriority({
+      productId,
+      signal: "favorite",
+    });
+
+    if (priorityTouch?.shouldEnqueue && priorityTouch.asin) {
+      await enqueuePriorityRefresh({
+        asin: priorityTouch.asin,
+        reason: "favorite",
+      });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {

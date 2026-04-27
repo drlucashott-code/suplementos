@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { touchDynamicProductPriority } from "@/lib/priceRefreshSignals";
+import { enqueuePriorityRefresh } from "@/lib/priorityRefreshQueue";
 
 const ASIN_PATTERN = /^[A-Z0-9]{10}$/;
 const VALID_REASONS = new Set([
@@ -77,6 +79,18 @@ export async function POST(request: NextRequest) {
         NOW()
       )
     `;
+
+    const priorityTouch = await touchDynamicProductPriority({
+      productId: product.id,
+      signal: "issue_report",
+      extraBoost: reason === "Preço desatualizado" || reason === "PreÃ§o desatualizado" ? 6 : 0,
+    });
+    if (priorityTouch?.shouldEnqueue && priorityTouch.asin) {
+      await enqueuePriorityRefresh({
+        asin,
+        reason: "issue_report",
+      });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {

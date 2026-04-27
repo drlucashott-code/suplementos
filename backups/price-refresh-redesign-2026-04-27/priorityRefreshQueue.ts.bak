@@ -7,14 +7,7 @@ const sqsClient = queueUrl
   ? new SQSClient({ region: process.env.AWS_REGION || "us-east-2" })
   : null;
 
-export type PriorityRefreshReason =
-  | "click"
-  | "favorite"
-  | "monitored"
-  | "list"
-  | "issue_report"
-  | "admin"
-  | "system";
+export type PriorityRefreshReason = "click" | "admin" | "system";
 
 export async function enqueuePriorityRefresh(params: {
   asin: string;
