@@ -13,14 +13,14 @@ function getWindowRange(now: Date, windowType: "hour" | "day") {
   const date = new Date(now);
 
   if (windowType === "hour") {
-    date.setMinutes(0, 0, 0);
+    date.setUTCMinutes(0, 0, 0);
     return {
       start: date,
       end: new Date(date.getTime() + HOUR_MS),
     };
   }
 
-  date.setHours(0, 0, 0, 0);
+  date.setUTCHours(0, 0, 0, 0);
   return {
     start: date,
     end: new Date(date.getTime() + DAY_MS),
@@ -173,11 +173,17 @@ export async function getPriceRefreshBudgetSnapshot(params: {
       OR: [
         {
           windowType: "hour",
-          windowStart: hourRange.start,
+          windowStart: {
+            gte: hourRange.start,
+            lt: hourRange.end,
+          },
         },
         {
           windowType: "day",
-          windowStart: dayRange.start,
+          windowStart: {
+            gte: dayRange.start,
+            lt: dayRange.end,
+          },
         },
       ],
     },
@@ -189,13 +195,17 @@ export async function getPriceRefreshBudgetSnapshot(params: {
   });
 
   return params.scopes.map((scope) => {
-    const hour = rows.find((row) => row.scope === scope && row.windowType === "hour");
-    const day = rows.find((row) => row.scope === scope && row.windowType === "day");
+    const hourRequestCount = rows
+      .filter((row) => row.scope === scope && row.windowType === "hour")
+      .reduce((sum, row) => sum + row.requestCount, 0);
+    const dayRequestCount = rows
+      .filter((row) => row.scope === scope && row.windowType === "day")
+      .reduce((sum, row) => sum + row.requestCount, 0);
 
     return {
       scope,
-      hourRequestCount: hour?.requestCount ?? 0,
-      dayRequestCount: day?.requestCount ?? 0,
+      hourRequestCount,
+      dayRequestCount,
       hourWindowStart: hourRange.start,
       dayWindowStart: dayRange.start,
     };
