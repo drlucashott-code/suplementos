@@ -40,6 +40,7 @@ type ProductRow = {
   id: string;
   asin: string;
   name: string;
+  source: "dynamic" | "tracked";
 };
 
 type BatchOutcome = {
@@ -225,24 +226,35 @@ async function persistReturnedProducts(
       const hasReviewData =
         typeof rating === "number" || (typeof count === "number" && count > 0);
 
-      await prisma.dynamicProduct.update({
-        where: { id: product.id },
-        data: {
-          ratingAverage: hasReviewData ? rating : null,
-          ratingCount: hasReviewData ? count : null,
-          ratingsUpdatedAt: now,
-        },
-      });
+      if (product.source === "dynamic") {
+        await prisma.dynamicProduct.update({
+          where: { id: product.id },
+          data: {
+            ratingAverage: hasReviewData ? rating : null,
+            ratingCount: hasReviewData ? count : null,
+            ratingsUpdatedAt: now,
+          },
+        });
+      } else {
+        await prisma.siteTrackedAmazonProduct.update({
+          where: { id: product.id },
+          data: {
+            ratingAverage: hasReviewData ? rating : null,
+            ratingCount: hasReviewData ? count : null,
+            ratingsUpdatedAt: now,
+          },
+        });
+      }
 
       if (hasReviewData) {
         counters.updated += 1;
         console.log(
-          `[ok] ${product.asin} | ${product.name.slice(0, 45)} | ${rating ?? "-"} estrela(s) | ${count ?? 0} reviews`
+          `[ok] [${product.source}] ${product.asin} | ${product.name.slice(0, 45)} | ${rating ?? "-"} estrela(s) | ${count ?? 0} reviews`
         );
       } else {
         counters.noRating += 1;
         console.log(
-          `[ok] ${product.asin} | ${product.name.slice(0, 45)} | sem reviews no retorno da API`
+          `[ok] [${product.source}] ${product.asin} | ${product.name.slice(0, 45)} | sem reviews no retorno da API`
         );
       }
     })
@@ -251,36 +263,88 @@ async function persistReturnedProducts(
 
 async function resolveProductsToProcess(singleAsin: string | null, staleDays: number, limit: number) {
   if (singleAsin) {
-    const product = await prisma.dynamicProduct.findUnique({
-      where: { asin: singleAsin },
-      select: { id: true, asin: true, name: true },
-    });
+    const [dynamicProduct, trackedProduct] = await Promise.all([
+      prisma.dynamicProduct.findUnique({
+        where: { asin: singleAsin },
+        select: { id: true, asin: true, name: true },
+      }),
+      prisma.siteTrackedAmazonProduct.findUnique({
+        where: { asin: singleAsin },
+        select: { id: true, asin: true, name: true },
+      }),
+    ]);
 
-    return product ? [product] : [];
+    return [
+      ...(dynamicProduct ? [{ ...dynamicProduct, source: "dynamic" as const }] : []),
+      ...(trackedProduct ? [{ ...trackedProduct, source: "tracked" as const }] : []),
+    ];
   }
 
   const cutoff = new Date(Date.now() - staleDays * DAY_MS);
 
-  return prisma.dynamicProduct.findMany({
-    where: {
-      OR: [
-        { ratingsUpdatedAt: null },
-        {
-          AND: [
-            { ratingsUpdatedAt: { lt: cutoff } },
-            {
-              NOT: {
-                AND: [{ ratingAverage: null }, { ratingCount: null }],
+  const perSourceLimit = Math.max(1, limit);
+  const [dynamicProducts, trackedProducts] = await Promise.all([
+    prisma.dynamicProduct.findMany({
+      where: {
+        OR: [
+          { ratingsUpdatedAt: null },
+          {
+            AND: [
+              { ratingsUpdatedAt: { lt: cutoff } },
+              {
+                NOT: {
+                  AND: [{ ratingAverage: null }, { ratingCount: null }],
+                },
               },
-            },
-          ],
-        },
-      ],
-    },
-    select: { id: true, asin: true, name: true },
-    orderBy: [{ ratingsUpdatedAt: "asc" }, { createdAt: "asc" }],
-    take: limit,
-  });
+            ],
+          },
+        ],
+      },
+      select: { id: true, asin: true, name: true, ratingsUpdatedAt: true, createdAt: true },
+      orderBy: [{ ratingsUpdatedAt: "asc" }, { createdAt: "asc" }],
+      take: perSourceLimit,
+    }),
+    prisma.siteTrackedAmazonProduct.findMany({
+      where: {
+        OR: [
+          { ratingsUpdatedAt: null },
+          {
+            AND: [
+              { ratingsUpdatedAt: { lt: cutoff } },
+              {
+                NOT: {
+                  AND: [{ ratingAverage: null }, { ratingCount: null }],
+                },
+              },
+            ],
+          },
+        ],
+      },
+      select: { id: true, asin: true, name: true, ratingsUpdatedAt: true, createdAt: true },
+      orderBy: [{ ratingsUpdatedAt: "asc" }, { createdAt: "asc" }],
+      take: perSourceLimit,
+    }),
+  ]);
+
+  return [
+    ...dynamicProducts.map((product) => ({
+      id: product.id,
+      asin: product.asin,
+      name: product.name,
+      source: "dynamic" as const,
+      sortDate: product.ratingsUpdatedAt ?? product.createdAt,
+    })),
+    ...trackedProducts.map((product) => ({
+      id: product.id,
+      asin: product.asin,
+      name: product.name,
+      source: "tracked" as const,
+      sortDate: product.ratingsUpdatedAt ?? product.createdAt,
+    })),
+  ]
+    .sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime())
+    .slice(0, limit)
+    .map(({ sortDate: _sortDate, ...product }) => product);
 }
 
 async function main() {

@@ -35,6 +35,13 @@ type RatingResult =
       status: "no_rating" | "error" | "blocked";
     };
 
+type RatingTarget = {
+  id: string;
+  asin: string;
+  name: string;
+  source: "dynamic" | "tracked";
+};
+
 function getFirstText($: cheerio.CheerioAPI, selectors: string[]) {
   for (const selector of selectors) {
     const value = $(selector).first().text().trim();
@@ -156,50 +163,84 @@ async function fetchAmazonRatings(asin: string): Promise<RatingResult> {
   }
 }
 
-async function processProduct(product: { id: string; asin: string; name: string }) {
+async function processProduct(product: RatingTarget) {
   console.log(
-    `[check] [${product.asin}] - Processando: ${product.name.substring(0, 45)}...`
+    `[check] [${product.source}] [${product.asin}] - Processando: ${product.name.substring(0, 45)}...`
   );
 
   const result = await fetchAmazonRatings(product.asin);
+  const now = new Date();
 
   if (result.status === "success") {
-    await prisma.dynamicProduct.update({
-      where: { id: product.id },
-      data: {
-        ratingAverage: result.rating ?? undefined,
-        ratingCount: result.count ?? undefined,
-        ratingsUpdatedAt: new Date(),
-      },
-    });
+    if (product.source === "dynamic") {
+      await prisma.dynamicProduct.update({
+        where: { id: product.id },
+        data: {
+          ratingAverage: result.rating ?? undefined,
+          ratingCount: result.count ?? undefined,
+          ratingsUpdatedAt: now,
+        },
+      });
+    } else {
+      await prisma.siteTrackedAmazonProduct.update({
+        where: { id: product.id },
+        data: {
+          ratingAverage: result.rating ?? undefined,
+          ratingCount: result.count ?? undefined,
+          ratingsUpdatedAt: now,
+        },
+      });
+    }
 
     console.log(`  [ok] Sucesso: ${result.rating} estrela(s) | ${result.count} reviews`);
     return "success" as const;
   }
 
   if (result.status === "not_found") {
-    await prisma.dynamicProduct.update({
-      where: { id: product.id },
-      data: {
-        ratingAverage: null,
-        ratingCount: null,
-        ratingsUpdatedAt: new Date(),
-      },
-    });
+    if (product.source === "dynamic") {
+      await prisma.dynamicProduct.update({
+        where: { id: product.id },
+        data: {
+          ratingAverage: null,
+          ratingCount: null,
+          ratingsUpdatedAt: now,
+        },
+      });
+    } else {
+      await prisma.siteTrackedAmazonProduct.update({
+        where: { id: product.id },
+        data: {
+          ratingAverage: null,
+          ratingCount: null,
+          ratingsUpdatedAt: now,
+        },
+      });
+    }
 
     console.log("  [warn] Produto nao encontrado (404). Marcado como checado.");
     return "not_found" as const;
   }
 
   if (result.status === "no_rating") {
-    await prisma.dynamicProduct.update({
-      where: { id: product.id },
-      data: {
-        ratingAverage: null,
-        ratingCount: null,
-        ratingsUpdatedAt: new Date(),
-      },
-    });
+    if (product.source === "dynamic") {
+      await prisma.dynamicProduct.update({
+        where: { id: product.id },
+        data: {
+          ratingAverage: null,
+          ratingCount: null,
+          ratingsUpdatedAt: now,
+        },
+      });
+    } else {
+      await prisma.siteTrackedAmazonProduct.update({
+        where: { id: product.id },
+        data: {
+          ratingAverage: null,
+          ratingCount: null,
+          ratingsUpdatedAt: now,
+        },
+      });
+    }
 
     console.log("  [warn] Produto sem avaliacoes. Marcado como checado.");
     return "no_rating" as const;
@@ -221,43 +262,88 @@ async function main() {
   const singleAsin = asinArg?.split("=")[1];
 
   if (singleAsin) {
-    const product = await prisma.dynamicProduct.findUnique({
-      where: { asin: singleAsin },
-      select: { id: true, asin: true, name: true },
-    });
+    const [dynamicProduct, trackedProduct] = await Promise.all([
+      prisma.dynamicProduct.findUnique({
+        where: { asin: singleAsin },
+        select: { id: true, asin: true, name: true },
+      }),
+      prisma.siteTrackedAmazonProduct.findUnique({
+        where: { asin: singleAsin },
+        select: { id: true, asin: true, name: true },
+      }),
+    ]);
 
-    if (!product) {
+    const products: RatingTarget[] = [
+      ...(dynamicProduct ? [{ ...dynamicProduct, source: "dynamic" as const }] : []),
+      ...(trackedProduct ? [{ ...trackedProduct, source: "tracked" as const }] : []),
+    ];
+
+    if (products.length === 0) {
       console.log(`[error] ASIN ${singleAsin} nao encontrado em DynamicProduct.`);
       return;
     }
 
     console.log(`[target] Modo teste por ASIN: ${singleAsin}`);
-    await processProduct(product);
+    for (const product of products) {
+      await processProduct(product);
+    }
     return;
   }
 
   const sessentaDiasAtras = new Date();
   sessentaDiasAtras.setDate(sessentaDiasAtras.getDate() - 60);
 
-  const products = await prisma.dynamicProduct.findMany({
-    where: {
-      OR: [
-        { ratingsUpdatedAt: null },
-        {
-          AND: [
-            { ratingsUpdatedAt: { lt: sessentaDiasAtras } },
-            {
-              NOT: {
-                AND: [{ ratingAverage: null }, { ratingCount: null }],
+  const [dynamicProducts, trackedProducts] = await Promise.all([
+    prisma.dynamicProduct.findMany({
+      where: {
+        OR: [
+          { ratingsUpdatedAt: null },
+          {
+            AND: [
+              { ratingsUpdatedAt: { lt: sessentaDiasAtras } },
+              {
+                NOT: {
+                  AND: [{ ratingAverage: null }, { ratingCount: null }],
+                },
               },
-            },
-          ],
-        },
-      ],
-    },
-    select: { id: true, asin: true, name: true },
-    orderBy: [{ ratingsUpdatedAt: "asc" }, { createdAt: "asc" }],
-  });
+            ],
+          },
+        ],
+      },
+      select: { id: true, asin: true, name: true, ratingsUpdatedAt: true, createdAt: true },
+      orderBy: [{ ratingsUpdatedAt: "asc" }, { createdAt: "asc" }],
+    }),
+    prisma.siteTrackedAmazonProduct.findMany({
+      where: {
+        OR: [
+          { ratingsUpdatedAt: null },
+          {
+            AND: [
+              { ratingsUpdatedAt: { lt: sessentaDiasAtras } },
+              {
+                NOT: {
+                  AND: [{ ratingAverage: null }, { ratingCount: null }],
+                },
+              },
+            ],
+          },
+        ],
+      },
+      select: { id: true, asin: true, name: true, ratingsUpdatedAt: true, createdAt: true },
+      orderBy: [{ ratingsUpdatedAt: "asc" }, { createdAt: "asc" }],
+    }),
+  ]);
+
+  const products: RatingTarget[] = [
+    ...dynamicProducts.map((product) => ({ ...product, source: "dynamic" as const })),
+    ...trackedProducts.map((product) => ({ ...product, source: "tracked" as const })),
+  ]
+    .sort((a, b) => {
+      const aDate = a.ratingsUpdatedAt?.getTime() ?? a.createdAt.getTime();
+      const bDate = b.ratingsUpdatedAt?.getTime() ?? b.createdAt.getTime();
+      return aDate - bDate;
+    })
+    .map(({ ratingsUpdatedAt, createdAt, ...product }) => product);
 
   if (products.length === 0) {
     console.log(
@@ -270,7 +356,7 @@ async function main() {
 
   let atualizados = 0;
   let consecutiveErrors = 0;
-  const retryQueue: { id: string; asin: string; name: string }[] = [];
+  const retryQueue: RatingTarget[] = [];
 
   for (const product of products) {
     const status = await processProduct(product);

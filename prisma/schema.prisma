@@ -509,6 +509,9 @@ model SiteTrackedAmazonProduct {
   amazonUrl             String
   name                  String
   imageUrl              String?
+  ratingAverage         Float?
+  ratingCount           Int?
+  ratingsUpdatedAt      DateTime?
   totalPrice            Float     @default(0)
   averagePrice30d       Float?
   lowestPrice30d        Float?
