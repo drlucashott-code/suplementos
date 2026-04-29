@@ -2,9 +2,9 @@ name: Update Prices (Dynamic System)
 
 on:
   schedule:
-    # De 4 em 4 horas, das 08:00 às 00:00 (Horário de Brasília)
-    # BRT: 08, 12, 16, 20, 00
-    # UTC: 11, 15, 19, 23, 03
+    # De hora em hora
+    # BRT: 00, 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23
+    # UTC: 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 00, 01, 02
     - cron: "0 * * * *"
 
   workflow_dispatch:

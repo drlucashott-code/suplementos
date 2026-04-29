@@ -342,8 +342,7 @@ async function main() {
       const aDate = a.ratingsUpdatedAt?.getTime() ?? a.createdAt.getTime();
       const bDate = b.ratingsUpdatedAt?.getTime() ?? b.createdAt.getTime();
       return aDate - bDate;
-    })
-    .map(({ ratingsUpdatedAt, createdAt, ...product }) => product);
+    });
 
   if (products.length === 0) {
     console.log(

@@ -22,12 +22,10 @@ import { reservePriceRefreshBudget } from "../src/lib/priceRefreshBudget";
 const prisma = new PrismaClient();
 
 const REQUEST_DELAY_MS = Number(process.env.AMAZON_GLOBAL_REQUEST_DELAY_MS ?? 1200);
-const RECHECK_DELAY_MS = 5000;
 const BATCH_SIZE = Math.min(
   Number(process.env.AMAZON_GLOBAL_BATCH_SIZE ?? 10),
   10
 );
-const VARIATION_THRESHOLD = 0.2;
 const DB_RETRY_LIMIT = Math.max(
   1,
   Number(process.env.AMAZON_GLOBAL_DB_RETRY_LIMIT ?? 4)
@@ -38,7 +36,7 @@ const DB_RETRY_DELAY_MS = Math.max(
 );
 const MAX_DYNAMIC_PRODUCTS_PER_RUN = Math.max(
   1,
-  Number(process.env.AMAZON_GLOBAL_MAX_PRODUCTS_PER_RUN ?? 400)
+  Number(process.env.AMAZON_GLOBAL_MAX_PRODUCTS_PER_RUN ?? 800)
 );
 const MAX_TRACKED_PRODUCTS_PER_RUN = Math.max(
   1,
@@ -167,11 +165,6 @@ type TrackedProductLite = {
   dataFreshnessScore: number | null;
   refreshLockUntil: Date | null;
   monitorCount: number | null;
-};
-
-type RecheckQueueItem = {
-  product: DynamicProductLite;
-  claimedState: ClaimedDynamicState;
 };
 
 type ClaimedDynamicState = NonNullable<Awaited<ReturnType<typeof markDynamicRefreshAttemptById>>>;
@@ -786,7 +779,6 @@ async function updateAmazonPrices() {
       `Processando ${dynamicProducts.length} produtos em lotes de ${BATCH_SIZE}`
     );
 
-    const recheckQueue: RecheckQueueItem[] = [];
     let globalBudgetStoppedEarly = false;
 
     for (let i = 0; i < dynamicProducts.length; i += BATCH_SIZE) {
@@ -858,19 +850,6 @@ async function updateAmazonPrices() {
         const asin = product.asin || "---";
         const result = apiResults[asin];
 
-        if (result && result.status === "OK" && product.totalPrice > 0) {
-          const variation =
-            Math.abs(result.price - product.totalPrice) / product.totalPrice;
-
-          if (variation > VARIATION_THRESHOLD) {
-            console.log(
-              `Suspeito ${(variation * 100).toFixed(1)}% | ${asin} | R$ ${product.totalPrice} -> R$ ${result.price} | enviado para rechecagem`
-            );
-            recheckQueue.push({ product, claimedState });
-            continue;
-          }
-        }
-
         const { logStatus, outcome, shouldRefreshPriceStats } =
           await persistDynamicUpdate(product, result);
         await withDatabaseRetry(`dynamicProduct.scheduler:${product.id}`, async () =>
@@ -915,106 +894,6 @@ async function updateAmazonPrices() {
 
       if (i + BATCH_SIZE < dynamicProducts.length && !globalBudgetStoppedEarly) {
         await new Promise((resolve) => setTimeout(resolve, REQUEST_DELAY_MS));
-      }
-    }
-
-    if (recheckQueue.length > 0) {
-      console.log(`Rechecando ${recheckQueue.length} produtos suspeitos`);
-      await new Promise((resolve) => setTimeout(resolve, RECHECK_DELAY_MS));
-
-      for (let i = 0; i < recheckQueue.length; i += BATCH_SIZE) {
-        const chunk = recheckQueue.slice(i, i + BATCH_SIZE);
-        const asins = chunk
-          .map((entry) => entry.product.asin)
-          .filter((id): id is string => !!id);
-
-        const budget = await withDatabaseRetry("reservePriceRefreshBudget:global.recheck", async () =>
-          reservePriceRefreshBudget({
-            scope: "global_dynamic_refresh",
-            amount: asins.length,
-            hourlyLimit: GLOBAL_HOURLY_REQUEST_LIMIT,
-            dailyLimit: GLOBAL_DAILY_REQUEST_LIMIT,
-          })
-        );
-
-        if (budget.granted <= 0) {
-          console.warn(
-            `Orcamento do update global esgotado na rechecagem (${budget.blockedBy ?? "janela"}).`
-          );
-          break;
-        }
-
-        const allowedAsins = new Set(asins.slice(0, budget.granted));
-        const budgetedChunk = chunk.filter(
-          (entry) => entry.product.asin && allowedAsins.has(entry.product.asin)
-        );
-
-        let apiResults: Record<string, PriceResult> = {};
-
-        try {
-          if (allowedAsins.size > 0) {
-            apiResults = await fetchAmazonPricesBatch([...allowedAsins]);
-          }
-        } catch (error) {
-          console.error("Erro no lote de rechecagem:", error);
-          counters.failedOffers += budgetedChunk.length;
-          currentFailedStreak += budgetedChunk.length;
-          counters.maxConsecutiveFailedOffers = Math.max(
-            counters.maxConsecutiveFailedOffers,
-            currentFailedStreak
-          );
-          continue;
-        }
-
-        for (const { product, claimedState } of budgetedChunk) {
-          const asin = product.asin || "---";
-          const result = apiResults[asin];
-
-          const { logStatus, outcome, shouldRefreshPriceStats } =
-            await persistDynamicUpdate(product, result);
-          await withDatabaseRetry(`dynamicProduct.scheduler.recheck:${product.id}`, async () =>
-            applyDynamicRefreshOutcome({
-              productId: product.id,
-              previousState: claimedState,
-              success: Boolean(result && result.status === "OK"),
-              priceChanged:
-                Boolean(result && result.status === "OK") &&
-                Math.abs((result?.price ?? 0) - product.totalPrice) > 0.009,
-              availabilityStatus:
-                result?.status === "OK"
-                  ? "IN_STOCK"
-                  : result?.status === "OUT_OF_STOCK"
-                    ? "OUT_OF_STOCK"
-                    : product.availabilityStatus,
-            })
-          );
-          incrementCounters(counters, outcome);
-          if (shouldRefreshPriceStats) {
-            statsRefreshProductIds.add(product.id);
-          }
-          if (outcome === "FAILED") {
-            currentFailedStreak += 1;
-            counters.maxConsecutiveFailedOffers = Math.max(
-              counters.maxConsecutiveFailedOffers,
-              currentFailedStreak
-            );
-          } else {
-            currentFailedStreak = 0;
-          }
-
-          const logName = product.name.substring(0, 25).padEnd(25);
-          const logStore = (result?.merchantName || "---")
-            .substring(0, 15)
-            .padEnd(15);
-
-          console.log(
-            `[RECHECK] ${logName} | ${asin.padEnd(10)} | loja ${logStore} | ${logStatus}`
-          );
-        }
-
-        if (i + BATCH_SIZE < recheckQueue.length) {
-          await new Promise((resolve) => setTimeout(resolve, REQUEST_DELAY_MS));
-        }
       }
     }
 
