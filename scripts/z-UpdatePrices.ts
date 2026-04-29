@@ -38,11 +38,11 @@ const DB_RETRY_DELAY_MS = Math.max(
 );
 const MAX_DYNAMIC_PRODUCTS_PER_RUN = Math.max(
   1,
-  Number(process.env.AMAZON_GLOBAL_MAX_PRODUCTS_PER_RUN ?? 300)
+  Number(process.env.AMAZON_GLOBAL_MAX_PRODUCTS_PER_RUN ?? 400)
 );
 const MAX_TRACKED_PRODUCTS_PER_RUN = Math.max(
   1,
-  Number(process.env.AMAZON_GLOBAL_MAX_TRACKED_PRODUCTS_PER_RUN ?? 150)
+  Number(process.env.AMAZON_GLOBAL_MAX_TRACKED_PRODUCTS_PER_RUN ?? 200)
 );
 const GLOBAL_HOURLY_REQUEST_LIMIT = Math.max(
   10,

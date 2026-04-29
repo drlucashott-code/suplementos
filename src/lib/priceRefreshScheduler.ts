@@ -60,13 +60,13 @@ const SIGNAL_WEIGHTS: Record<RefreshSignal, number> = {
 const TIER_COOLDOWNS: Record<RefreshTier, number> = {
   hot: 15 * MINUTE_MS,
   warm: 1 * HOUR_MS,
-  cold: 6 * HOUR_MS,
+  cold: 24 * HOUR_MS,
 };
 
 const TIER_MAX_AGES: Record<RefreshTier, number> = {
   hot: 30 * MINUTE_MS,
   warm: 6 * HOUR_MS,
-  cold: 48 * HOUR_MS,
+  cold: 24 * HOUR_MS,
 };
 
 const OUT_OF_STOCK_COOLDOWNS: Record<RefreshTier, number> = {
