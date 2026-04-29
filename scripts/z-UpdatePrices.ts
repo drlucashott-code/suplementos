@@ -46,7 +46,7 @@ const MAX_TRACKED_PRODUCTS_PER_RUN = Math.max(
 );
 const GLOBAL_HOURLY_REQUEST_LIMIT = Math.max(
   10,
-  Number(process.env.AMAZON_GLOBAL_HOURLY_REQUEST_LIMIT ?? 800)
+  Number(process.env.AMAZON_GLOBAL_HOURLY_REQUEST_LIMIT ?? 1000)
 );
 const GLOBAL_DAILY_REQUEST_LIMIT = Math.max(
   50,
