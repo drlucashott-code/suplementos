@@ -83,6 +83,7 @@ export default function BestDealProductCard({
     item.averagePrice30d > item.totalPrice && hasPrice && item.discountPercent > 0;
   const price = formatPriceParts(hasPrice ? item.totalPrice : 0);
   const hasRating = (item.ratingAverage || 0) > 0 && (item.ratingCount || 0) > 0;
+  const [showFullTitle, setShowFullTitle] = useState(false);
   const [saved, setSaved] = useState(false);
   const [accountAlert, setAccountAlert] = useState<null | "unverified">(null);
   const [reportOpen, setReportOpen] = useState(false);
@@ -232,20 +233,41 @@ export default function BestDealProductCard({
             />
           </div>
 
-          <p
-            className={`mt-1.5 h-[40px] font-medium leading-[20px] text-[#2162A1] group-hover:text-[#174e87] ${
-              compact ? "text-[12px]" : "text-[14px]"
-            }`}
-            style={{
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-              maxHeight: "40px",
-            }}
-          >
-            {item.name}
-          </p>
+          <div className="mt-1.5">
+            <p
+              className={`font-medium leading-[20px] text-[#2162A1] group-hover:text-[#174e87] ${
+                compact ? "text-[12px]" : "text-[14px]"
+              }`}
+              style={
+                showFullTitle
+                  ? undefined
+                  : {
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                      maxHeight: "40px",
+                    }
+              }
+            >
+              {item.name}
+            </p>
+            {item.name.length > 58 ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setShowFullTitle((current) => !current);
+                }}
+                className="mt-1 text-[11px] font-bold text-[#2162A1] hover:text-[#174e87]"
+              >
+                {showFullTitle ? "Ver menos" : "Ver mais"}
+              </button>
+            ) : (
+              <div className="h-[18px]" />
+            )}
+          </div>
 
           <div className="mt-auto">
             <div className="min-h-[16px]">

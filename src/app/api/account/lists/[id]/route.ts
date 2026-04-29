@@ -41,6 +41,8 @@ export async function GET(
       productImageUrl: string | null;
       productTotalPrice: number | null;
       productAveragePrice30d: number | null;
+      productRatingAverage: number | null;
+      productRatingCount: number | null;
       productUrl: string | null;
       productAvailabilityStatus: string | null;
       categoryName: string | null;
@@ -65,6 +67,8 @@ export async function GET(
       COALESCE(p."imageUrl", tp."imageUrl", mp."imageUrl") AS "productImageUrl",
       COALESCE(p."totalPrice", tp."totalPrice", mp."totalPrice") AS "productTotalPrice",
       COALESCE(p."averagePrice30d", tp."averagePrice30d", mp."averagePrice30d") AS "productAveragePrice30d",
+      COALESCE(p."ratingAverage", tp."ratingAverage") AS "productRatingAverage",
+      COALESCE(p."ratingCount", tp."ratingCount") AS "productRatingCount",
       COALESCE(p."url", tp."amazonUrl", mp."amazonUrl") AS "productUrl",
       COALESCE(p."availabilityStatus", tp."availabilityStatus", mp."availabilityStatus") AS "productAvailabilityStatus",
       c."name" AS "categoryName",
@@ -104,6 +108,8 @@ export async function GET(
           imageUrl: row.productImageUrl,
           totalPrice: row.productTotalPrice ?? 0,
           averagePrice30d: row.productAveragePrice30d,
+          ratingAverage: row.productRatingAverage,
+          ratingCount: row.productRatingCount,
           url: row.productUrl!,
           availabilityStatus: row.productAvailabilityStatus,
           category: {

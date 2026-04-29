@@ -13,14 +13,14 @@ function getWindowRange(now: Date, windowType: "hour" | "day") {
   const date = new Date(now);
 
   if (windowType === "hour") {
-    date.setUTCMinutes(0, 0, 0);
+    date.setMinutes(0, 0, 0);
     return {
       start: date,
       end: new Date(date.getTime() + HOUR_MS),
     };
   }
 
-  date.setUTCHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
   return {
     start: date,
     end: new Date(date.getTime() + DAY_MS),

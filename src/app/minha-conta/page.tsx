@@ -61,6 +61,8 @@ export default async function MyAccountPage() {
           imageUrl: string | null;
           url: string;
           averagePrice30d: number | null;
+          ratingAverage: number | null;
+          ratingCount: number | null;
           category: {
             name: string;
             group: string;
@@ -81,6 +83,8 @@ export default async function MyAccountPage() {
           'imageUrl', p."imageUrl",
           'url', p."url",
           'averagePrice30d', p."averagePrice30d",
+          'ratingAverage', p."ratingAverage",
+          'ratingCount', p."ratingCount",
           'category', json_build_object(
             'name', c."name",
             'group', c."group",
@@ -127,6 +131,8 @@ export default async function MyAccountPage() {
         imageUrl: string | null;
         totalPrice: number;
         averagePrice30d: number | null;
+        ratingAverage: number | null;
+        ratingCount: number | null;
         availabilityStatus: string | null;
         programAndSavePrice: number | null;
         sortOrder: number;
@@ -142,6 +148,8 @@ export default async function MyAccountPage() {
         COALESCE(tp."imageUrl", mp."imageUrl") AS "imageUrl",
         COALESCE(tp."totalPrice", mp."totalPrice") AS "totalPrice",
         COALESCE(tp."averagePrice30d", mp."averagePrice30d") AS "averagePrice30d",
+        tp."ratingAverage" AS "ratingAverage",
+        tp."ratingCount" AS "ratingCount",
         COALESCE(tp."availabilityStatus", mp."availabilityStatus") AS "availabilityStatus",
         COALESCE(tp."programAndSavePrice", mp."programAndSavePrice") AS "programAndSavePrice",
         mp."sortOrder",
@@ -204,7 +212,11 @@ export default async function MyAccountPage() {
             id: favorite.id,
             savedAt: favorite.createdAt.toISOString(),
             sortOrder: favorite.sortOrder,
-            product: favorite.product,
+            product: {
+              ...favorite.product,
+              ratingAverage: favorite.product.ratingAverage ?? null,
+              ratingCount: favorite.product.ratingCount ?? null,
+            },
           }))}
           lists={lists.map((list: (typeof lists)[number]) => ({
             id: list.id,
@@ -236,6 +248,8 @@ export default async function MyAccountPage() {
               imageUrl: product.imageUrl,
               url: product.amazonUrl,
               averagePrice30d: product.averagePrice30d,
+              ratingAverage: product.ratingAverage,
+              ratingCount: product.ratingCount,
               availabilityStatus: product.availabilityStatus,
               programAndSavePrice: product.programAndSavePrice,
               category: {

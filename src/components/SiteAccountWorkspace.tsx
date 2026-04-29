@@ -5,8 +5,6 @@ import Link from "next/link";
 import {
   CalendarDays,
   Check,
-  ChevronDown,
-  ChevronUp,
   ExternalLink,
   Globe,
   GripVertical,
@@ -37,6 +35,8 @@ type FavoriteEntry = {
     imageUrl: string | null;
     url: string;
     averagePrice30d: number | null;
+    ratingAverage: number | null;
+    ratingCount: number | null;
     availabilityStatus?: string | null;
     category: {
       name: string;
@@ -58,6 +58,8 @@ type MonitoredProductEntry = {
     imageUrl: string | null;
     url: string;
     averagePrice30d: number | null;
+    ratingAverage: number | null;
+    ratingCount: number | null;
     availabilityStatus?: string | null;
     programAndSavePrice?: number | null;
     category: {
@@ -93,16 +95,18 @@ type ListDetails = {
     note: string | null;
     sortOrder: number;
     source: "catalog" | "monitored";
-    product: {
-      id: string;
-      asin: string;
-      name: string;
-      imageUrl: string | null;
-      totalPrice: number;
-      averagePrice30d: number | null;
-      url: string;
-      availabilityStatus?: string | null;
-      category: {
+      product: {
+        id: string;
+        asin: string;
+        name: string;
+        imageUrl: string | null;
+        totalPrice: number;
+        averagePrice30d: number | null;
+        ratingAverage: number | null;
+        ratingCount: number | null;
+        url: string;
+        availabilityStatus?: string | null;
+        category: {
         name: string;
         group: string;
         slug: string;
@@ -185,8 +189,8 @@ function favoriteToCardItem(favorite: FavoriteEntry) {
     totalPrice: favorite.product.totalPrice,
     averagePrice30d,
     discountPercent,
-    ratingAverage: null,
-    ratingCount: null,
+    ratingAverage: favorite.product.ratingAverage ?? null,
+    ratingCount: favorite.product.ratingCount ?? null,
     likeCount: 0,
     dislikeCount: 0,
     categoryName: favorite.product.category.name,
@@ -218,8 +222,8 @@ function monitoredProductToCardItem(monitoredProduct: MonitoredProductEntry) {
     totalPrice: monitoredProduct.product.totalPrice,
     averagePrice30d,
     discountPercent,
-    ratingAverage: null,
-    ratingCount: null,
+    ratingAverage: monitoredProduct.product.ratingAverage ?? null,
+    ratingCount: monitoredProduct.product.ratingCount ?? null,
     likeCount: 0,
     dislikeCount: 0,
     categoryName: "Amazon",
@@ -239,13 +243,6 @@ function createInitialListForms(lists: ListEntry[]) {
     };
     return accumulator;
   }, {});
-}
-
-function moveItem<T>(items: T[], fromIndex: number, toIndex: number) {
-  const next = [...items];
-  const [moved] = next.splice(fromIndex, 1);
-  next.splice(toIndex, 0, moved);
-  return next;
 }
 
 export default function SiteAccountWorkspace({
@@ -296,6 +293,9 @@ export default function SiteAccountWorkspace({
   const [selectedTrackedKeys, setSelectedTrackedKeys] = useState<string[]>([]);
   const [listPickerOpen, setListPickerOpen] = useState(false);
   const [trackedReorderMode, setTrackedReorderMode] = useState(false);
+  const [trackedSortMode, setTrackedSortMode] = useState<"manual" | "discount">("manual");
+  const [trackedReorderSelection, setTrackedReorderSelection] = useState<string[]>([]);
+  const [showOutOfStockInTracked, setShowOutOfStockInTracked] = useState(false);
   const [monitoredProductUrl, setMonitoredProductUrl] = useState("");
   const [addingMonitoredProduct, setAddingMonitoredProduct] = useState(false);
   const [comparatorPrompt, setComparatorPrompt] = useState<ComparatorPromptState | null>(null);
@@ -305,6 +305,9 @@ export default function SiteAccountWorkspace({
     createInitialListForms(initialLists)
   );
   const [listOrderMode, setListOrderMode] = useState(false);
+  const [listSortMode, setListSortMode] = useState<"manual" | "discount">("manual");
+  const [listReorderSelection, setListReorderSelection] = useState<string[]>([]);
+  const [showOutOfStockInList, setShowOutOfStockInList] = useState(false);
   const [listTab, setListTab] = useState<"mine" | "saved">("mine");
 
   const [activityMode, setActivityMode] = useState<"comments" | "reactions" | null>(null);
@@ -340,15 +343,88 @@ export default function SiteAccountWorkspace({
       card: monitoredProductToCardItem(monitoredProduct),
     }));
 
-    return [...favoriteEntries, ...monitoredEntries].sort((left, right) => {
+    const merged = [...favoriteEntries, ...monitoredEntries];
+
+    if (trackedSortMode === "discount" && !trackedReorderMode) {
+      return merged.sort((left, right) => {
+        const leftOutOfStock =
+          (left.card.attributes?.availabilityStatus ?? "") === "OUT_OF_STOCK" ||
+          left.card.totalPrice <= 0;
+        const rightOutOfStock =
+          (right.card.attributes?.availabilityStatus ?? "") === "OUT_OF_STOCK" ||
+          right.card.totalPrice <= 0;
+
+        if (leftOutOfStock !== rightOutOfStock) {
+          return leftOutOfStock ? 1 : -1;
+        }
+        if ((right.card.discountPercent ?? 0) !== (left.card.discountPercent ?? 0)) {
+          return (right.card.discountPercent ?? 0) - (left.card.discountPercent ?? 0);
+        }
+        if ((right.card.averagePrice30d ?? 0) !== (left.card.averagePrice30d ?? 0)) {
+          return (right.card.averagePrice30d ?? 0) - (left.card.averagePrice30d ?? 0);
+        }
+        return left.card.totalPrice - right.card.totalPrice;
+      });
+    }
+
+    return merged.sort((left, right) => {
       if ((left.sortOrder ?? 0) !== (right.sortOrder ?? 0)) {
         return (left.sortOrder ?? 0) - (right.sortOrder ?? 0);
       }
       return new Date(left.savedAt).getTime() - new Date(right.savedAt).getTime();
     });
-  }, [favorites, monitoredProducts]);
+  }, [favorites, monitoredProducts, trackedReorderMode, trackedSortMode]);
   const openedList = openListId ? listDetailsMap[openListId] ?? null : null;
   const selectedList = selectedListId ? lists.find((list) => list.id === selectedListId) : null;
+  const sortedOpenedListItems = useMemo(() => {
+    if (!openedList) return [];
+    if (listSortMode !== "discount" || listOrderMode) return openedList.items;
+
+    return [...openedList.items].sort((left, right) => {
+      const leftAverage = left.product.averagePrice30d ?? left.product.totalPrice;
+      const rightAverage = right.product.averagePrice30d ?? right.product.totalPrice;
+      const leftDiscount =
+        left.product.totalPrice > 0 && leftAverage > left.product.totalPrice
+          ? Math.round(((leftAverage - left.product.totalPrice) / leftAverage) * 100)
+          : 0;
+      const rightDiscount =
+        right.product.totalPrice > 0 && rightAverage > right.product.totalPrice
+          ? Math.round(((rightAverage - right.product.totalPrice) / rightAverage) * 100)
+          : 0;
+      const leftOutOfStock =
+        left.product.availabilityStatus === "OUT_OF_STOCK" || left.product.totalPrice <= 0;
+      const rightOutOfStock =
+        right.product.availabilityStatus === "OUT_OF_STOCK" || right.product.totalPrice <= 0;
+
+      if (leftOutOfStock !== rightOutOfStock) {
+        return leftOutOfStock ? 1 : -1;
+      }
+      if (rightDiscount !== leftDiscount) {
+        return rightDiscount - leftDiscount;
+      }
+      return left.product.totalPrice - right.product.totalPrice;
+    });
+  }, [openedList, listSortMode, listOrderMode]);
+  const visibleOpenedListItems = useMemo(() => {
+    if (!sortedOpenedListItems.length) return [];
+    if (showOutOfStockInList) return sortedOpenedListItems;
+    return sortedOpenedListItems.filter(
+      (item) =>
+        item.product.availabilityStatus !== "OUT_OF_STOCK" &&
+        item.product.totalPrice > 0
+    );
+  }, [sortedOpenedListItems, showOutOfStockInList]);
+  const visibleTrackedProductCards = useMemo(() => {
+    if (showOutOfStockInTracked || trackedSortMode === "discount" || trackedReorderMode) {
+      return trackedProductCards;
+    }
+
+    return trackedProductCards.filter(
+      (item) =>
+        (item.card.attributes?.availabilityStatus ?? "") !== "OUT_OF_STOCK" &&
+        item.card.totalPrice > 0
+    );
+  }, [trackedProductCards, trackedSortMode, trackedReorderMode, showOutOfStockInTracked]);
 
   function setMessage(message: string) {
     setWorkspaceMessage(message);
@@ -1056,13 +1132,14 @@ export default function SiteAccountWorkspace({
     }
   }
 
-  async function reorderTrackedProductsByIndex(fromIndex: number, toIndex: number) {
-    if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
-
-    const reorderedTrackedItems = moveItem(trackedProductCards, fromIndex, toIndex).map((item, index) => ({
-      ...item,
-      sortOrder: index,
-    }));
+  function applyTrackedOrderByKeys(orderedKeys: string[]) {
+    const keyOrder = new Map(orderedKeys.map((key, index) => [key, index]));
+    const reorderedTrackedItems = [...trackedProductCards]
+      .sort((left, right) => (keyOrder.get(left.key) ?? 0) - (keyOrder.get(right.key) ?? 0))
+      .map((item, index) => ({
+        ...item,
+        sortOrder: index,
+      }));
 
     setFavorites((current) =>
       current
@@ -1088,25 +1165,33 @@ export default function SiteAccountWorkspace({
     );
   }
 
-  function moveTrackedProductUp(trackedKey: string) {
-    const index = trackedProductCards.findIndex((item) => item.key === trackedKey);
-    if (index <= 0) return;
-    void reorderTrackedProductsByIndex(index, index - 1);
-  }
-
-  function moveTrackedProductDown(trackedKey: string) {
-    const index = trackedProductCards.findIndex((item) => item.key === trackedKey);
-    if (index < 0 || index >= trackedProductCards.length - 1) return;
-    void reorderTrackedProductsByIndex(index, index + 1);
+  function toggleTrackedReorderSelection(trackedKey: string) {
+    setTrackedReorderSelection((current) =>
+      current.includes(trackedKey)
+        ? current.filter((key) => key !== trackedKey)
+        : [...current, trackedKey]
+    );
   }
 
   async function finishTrackedReorder() {
+    const orderedKeys = [
+      ...trackedReorderSelection,
+      ...trackedProductCards
+        .map((item) => item.key)
+        .filter((key) => !trackedReorderSelection.includes(key)),
+    ];
+
+    applyTrackedOrderByKeys(orderedKeys);
     await saveTrackedProductsOrder(
-      trackedProductCards.map((item) => ({
-        source: item.source,
-        id: item.entryId,
-      }))
+      orderedKeys
+        .map((key) => trackedProductCards.find((item) => item.key === key))
+        .filter((item): item is (typeof trackedProductCards)[number] => !!item)
+        .map((item) => ({
+          source: item.source,
+          id: item.entryId,
+        }))
     );
+    setTrackedReorderSelection([]);
     setTrackedReorderMode(false);
   }
 
@@ -1219,27 +1304,12 @@ export default function SiteAccountWorkspace({
     }
   }
 
-  function moveListItemByOffset(listItemId: string, offset: number) {
-    if (!openListId) return;
-    const currentList = listDetailsMap[openListId];
-    if (!currentList) return;
-
-    const fromIndex = currentList.items.findIndex((item) => item.id === listItemId);
-    const toIndex = fromIndex + offset;
-    if (fromIndex < 0 || toIndex < 0 || toIndex >= currentList.items.length) return;
-
-    const reorderedItems = moveItem(currentList.items, fromIndex, toIndex).map((item, index) => ({
-      ...item,
-      sortOrder: index,
-    }));
-
-    setListDetailsMap((current) => ({
-      ...current,
-      [openListId]: {
-        ...currentList,
-        items: reorderedItems,
-      },
-    }));
+  function toggleListReorderSelection(listItemId: string) {
+    setListReorderSelection((current) =>
+      current.includes(listItemId)
+        ? current.filter((id) => id !== listItemId)
+        : [...current, listItemId]
+    );
   }
 
   async function finishListReorder() {
@@ -1247,10 +1317,32 @@ export default function SiteAccountWorkspace({
     const currentList = listDetailsMap[openListId];
     if (!currentList) return;
 
+    const orderedItemIds = [
+      ...listReorderSelection,
+      ...currentList.items
+        .map((item) => item.id)
+        .filter((id) => !listReorderSelection.includes(id)),
+    ];
+
+    const orderMap = new Map(orderedItemIds.map((id, index) => [id, index]));
+    setListDetailsMap((current) => ({
+      ...current,
+      [openListId]: {
+        ...currentList,
+        items: [...currentList.items]
+          .sort((left, right) => (orderMap.get(left.id) ?? 0) - (orderMap.get(right.id) ?? 0))
+          .map((item, index) => ({
+            ...item,
+            sortOrder: index,
+          })),
+      },
+    }));
+
     await saveListOrder(
       openListId,
-      currentList.items.map((item) => item.id)
+      orderedItemIds
     );
+    setListReorderSelection([]);
     setListOrderMode(false);
   }
 
@@ -1505,12 +1597,27 @@ export default function SiteAccountWorkspace({
             {trackedProductCards.length > 1 ? (
               <button
                 type="button"
+                onClick={() =>
+                  setTrackedSortMode((current) => (current === "manual" ? "discount" : "manual"))
+                }
+                disabled={trackedReorderMode}
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-bold text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
+              >
+                {trackedSortMode === "discount" ? "Ordem manual" : "Maior desconto"}
+              </button>
+            ) : null}
+
+            {trackedProductCards.length > 1 ? (
+              <button
+                type="button"
                 onClick={() => {
                   if (trackedReorderMode) {
                     void finishTrackedReorder();
                     return;
                   }
+                  setTrackedSortMode("manual");
                   setTrackedReorderMode(true);
+                  setTrackedReorderSelection([]);
                 }}
                 className={`inline-flex h-11 items-center justify-center rounded-2xl border px-4 text-sm font-bold transition ${
                   trackedReorderMode
@@ -1521,6 +1628,23 @@ export default function SiteAccountWorkspace({
                 {trackedReorderMode ? "Concluir organização" : "Personalizar ordem"}
               </button>
             ) : null}
+            {trackedReorderMode ? (
+              <button
+                type="button"
+                onClick={() => setTrackedReorderSelection([])}
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-bold text-[#344054] transition hover:bg-[#F8FAFA]"
+              >
+                Limpar sequencia
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => setShowOutOfStockInTracked((current) => !current)}
+              className="inline-flex h-11 items-center justify-center rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-bold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+            >
+              {showOutOfStockInTracked ? "Ocultar sem estoque" : "Exibir sem estoque"}
+            </button>
 
             <button
               type="button"
@@ -1589,10 +1713,21 @@ export default function SiteAccountWorkspace({
           <div className="mt-6 rounded-3xl border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-4 py-10 text-center text-sm text-[#565959]">
             Nenhum produto monitorado ainda.
           </div>
+        ) : visibleTrackedProductCards.length === 0 ? (
+          <div className="mt-6 rounded-3xl border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-4 py-10 text-center text-sm text-[#565959]">
+            Todos os produtos monitorados estao sem estoque no momento.
+          </div>
         ) : (
           <div className="mt-6">
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              {!showOutOfStockInTracked ? (
+                <span className="text-sm text-[#667085]">
+                  Produtos sem estoque ficam ocultos por padrao.
+                </span>
+              ) : null}
+            </div>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-            {trackedProductCards.map((trackedItem, index) => {
+            {visibleTrackedProductCards.map((trackedItem, index) => {
               const favorite = trackedItem.productId
                 ? favorites.find((entry) => entry.product.id === trackedItem.productId) ?? null
                 : null;
@@ -1649,30 +1784,22 @@ export default function SiteAccountWorkspace({
                         </div>
                       </>
                     ) : trackedReorderMode ? (
-                      <div className="pointer-events-none absolute inset-0 z-10 rounded-xl border-2 border-dashed border-[#16A34A] bg-[#DCFCE7]/30" />
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => toggleTrackedReorderSelection(trackedItem.key)}
+                          className="absolute inset-0 z-20 rounded-xl"
+                          aria-label={`Definir posição para ${trackedItem.card.name}`}
+                        />
+                        <div className="pointer-events-none absolute inset-0 z-10 rounded-xl border-2 border-dashed border-[#16A34A] bg-[#DCFCE7]/30" />
+                        {trackedReorderSelection.includes(trackedItem.key) ? (
+                          <div className="pointer-events-none absolute right-2 top-2 z-30 rounded-full bg-[#16A34A] px-2.5 py-1 text-xs font-black text-white shadow-sm">
+                            Nova pos. {trackedReorderSelection.indexOf(trackedItem.key) + 1}
+                          </div>
+                        ) : null}
+                      </>
                     ) : null}
                   </div>
-
-                  {trackedReorderMode ? (
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => moveTrackedProductUp(trackedItem.key)}
-                        disabled={index === 0 || pendingAction === "reorder:tracked"}
-                        className="inline-flex h-10 items-center justify-center gap-1 rounded-xl border border-[#D0D5DD] bg-white px-3 text-xs font-bold text-[#344054] transition hover:bg-[#F8FAFA] disabled:opacity-40"
-                      >
-                        <ChevronUp className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveTrackedProductDown(trackedItem.key)}
-                        disabled={index === trackedProductCards.length - 1 || pendingAction === "reorder:tracked"}
-                        className="inline-flex h-10 items-center justify-center gap-1 rounded-xl border border-[#D0D5DD] bg-white px-3 text-xs font-bold text-[#344054] transition hover:bg-[#F8FAFA] disabled:opacity-40"
-                      >
-                        <ChevronDown className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ) : null}
 
                   {!trackedReorderMode ? (
                     trackedItem.source === "favorite" && favorite ? (
@@ -2083,7 +2210,9 @@ export default function SiteAccountWorkspace({
                       void finishListReorder();
                       return;
                     }
+                    setListSortMode("manual");
                     setListOrderMode(true);
+                    setListReorderSelection([]);
                   }}
                   className={`inline-flex h-10 items-center justify-center rounded-2xl border px-4 text-sm font-semibold transition ${
                     listOrderMode
@@ -2093,6 +2222,27 @@ export default function SiteAccountWorkspace({
                 >
                   {listOrderMode ? "Concluir ordem" : "Personalizar ordem"}
                 </button>
+                {openedList.items.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setListSortMode((current) => (current === "manual" ? "discount" : "manual"))
+                    }
+                    disabled={listOrderMode}
+                    className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white disabled:opacity-60"
+                  >
+                    {listSortMode === "discount" ? "Ordem manual" : "Maior desconto"}
+                  </button>
+                ) : null}
+                {listOrderMode ? (
+                  <button
+                    type="button"
+                    onClick={() => setListReorderSelection([])}
+                    className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
+                  >
+                    Limpar sequencia
+                  </button>
+                ) : null}
 
                 <button
                   type="button"
@@ -2100,6 +2250,7 @@ export default function SiteAccountWorkspace({
                     setListEditorId(null);
                     setOpenListId(null);
                     setListOrderMode(false);
+                    setListReorderSelection([]);
                   }}
                   className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
                 >
@@ -2108,16 +2259,35 @@ export default function SiteAccountWorkspace({
               </div>
             </div>
 
-            {openedList.items.length === 0 ? (
+            {visibleOpenedListItems.length === 0 ? (
               <div className="mt-5 rounded-3xl border border-dashed border-[#D0D5DD] bg-white px-4 py-10 text-center text-sm text-[#565959]">
-                Essa lista ainda nao tem produtos.
+                {openedList.items.length === 0
+                  ? "Essa lista ainda nao tem produtos."
+                  : "Todos os produtos desta lista estao sem estoque no momento."}
               </div>
             ) : (
-              <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-                {openedList.items.map((item, index) => (
+              <>
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowOutOfStockInList((current) => !current)}
+                    className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
+                  >
+                    {showOutOfStockInList ? "Ocultar sem estoque" : "Exibir sem estoque"}
+                  </button>
+                  {!showOutOfStockInList ? (
+                    <span className="text-sm text-[#667085]">
+                      Produtos sem estoque ficam ocultos por padrao.
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+                {visibleOpenedListItems.map((item, index) => (
                   <div
                     key={item.id}
-                    className={`space-y-2 ${listOrderMode ? "rounded-[22px] border-2 border-[#16A34A] bg-[#F0FDF4] p-2" : ""}`}
+                    className={`space-y-2 rounded-2xl transition ${
+                      listOrderMode ? "bg-[#ECFDF3] ring-2 ring-[#16A34A] ring-offset-2 ring-offset-[#E3E6E6]" : ""
+                    }`}
                   >
                     <div className="relative rounded-xl">
                       <BestDealProductCard
@@ -2141,8 +2311,8 @@ export default function SiteAccountWorkspace({
                                     100
                                 )
                               : 0,
-                          ratingAverage: null,
-                          ratingCount: null,
+                          ratingAverage: item.product.ratingAverage ?? null,
+                          ratingCount: item.product.ratingCount ?? null,
                           likeCount: 0,
                           dislikeCount: 0,
                           categoryName: item.product.category.name,
@@ -2154,7 +2324,7 @@ export default function SiteAccountWorkspace({
                         }}
                         category="edicao_lista"
                         showActions={false}
-                        disableNavigation
+                        disableNavigation={listOrderMode}
                       />
                       <div className="pointer-events-none absolute left-2 top-2 z-30">
                         <div className="inline-flex items-center gap-1 rounded-full border border-[#D0D5DD] bg-white px-2.5 py-1 text-xs font-bold text-[#344054] shadow-sm">
@@ -2162,34 +2332,26 @@ export default function SiteAccountWorkspace({
                           {`Pos. ${index + 1}`}
                         </div>
                       </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
                       {listOrderMode ? (
                         <>
                           <button
                             type="button"
-                            onClick={() => moveListItemByOffset(item.id, -1)}
-                            disabled={index === 0 || pendingAction === `reorder:${openedList.id}`}
-                            className="flex-1 rounded-xl border border-[#D0D5DD] bg-white px-3 py-2 text-xs font-bold text-[#344054] transition hover:bg-[#F8FAFA] disabled:cursor-not-allowed disabled:opacity-50"
-                            aria-label="Mover para cima"
-                          >
-                            <ChevronUp className="mx-auto h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => moveListItemByOffset(item.id, 1)}
-                            disabled={
-                              index === openedList.items.length - 1 ||
-                              pendingAction === `reorder:${openedList.id}`
-                            }
-                            className="flex-1 rounded-xl border border-[#D0D5DD] bg-white px-3 py-2 text-xs font-bold text-[#344054] transition hover:bg-[#F8FAFA] disabled:cursor-not-allowed disabled:opacity-50"
-                            aria-label="Mover para baixo"
-                          >
-                            <ChevronDown className="mx-auto h-4 w-4" />
-                          </button>
+                            onClick={() => toggleListReorderSelection(item.id)}
+                            className="absolute inset-0 z-20 rounded-xl"
+                            aria-label={`Definir posição para ${item.product.name}`}
+                          />
+                          <div className="pointer-events-none absolute inset-0 z-10 rounded-xl border-2 border-dashed border-[#16A34A] bg-[#DCFCE7]/30" />
+                          {listReorderSelection.includes(item.id) ? (
+                            <div className="pointer-events-none absolute right-2 top-2 z-30 rounded-full bg-[#16A34A] px-2.5 py-1 text-xs font-black text-white shadow-sm">
+                              Nova pos. {listReorderSelection.indexOf(item.id) + 1}
+                            </div>
+                          ) : null}
                         </>
-                      ) : (
+                      ) : null}
+                    </div>
+
+                    {!listOrderMode ? (
+                      <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() =>
@@ -2207,11 +2369,12 @@ export default function SiteAccountWorkspace({
                             ? "Removendo..."
                             : "Remover"}
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    ) : null}
                   </div>
                 ))}
-              </div>
+                </div>
+              </>
             )}
           </div>
         ) : null}

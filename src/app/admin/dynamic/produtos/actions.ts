@@ -388,11 +388,28 @@ export async function getDynamicProducts() {
 
 export async function getAdminProductsPageData() {
   try {
-    const [products, categories] = await prisma.$transaction([
+    const [products, trackedProducts, categories] = await prisma.$transaction([
       prisma.dynamicProduct.findMany({
         include: {
           category: {
             select: { id: true, name: true, group: true, displayConfig: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.siteTrackedAmazonProduct.findMany({
+        include: {
+          monitoredBy: {
+            select: {
+              id: true,
+              user: {
+                select: {
+                  displayName: true,
+                  username: true,
+                  email: true,
+                },
+              },
+            },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -402,7 +419,45 @@ export async function getAdminProductsPageData() {
       }),
     ]);
 
-    return { products, categories };
+    const internalCategory = {
+      id: '__internal__',
+      name: 'Internos',
+      group: 'internal',
+      displayConfig: { fields: [] },
+    };
+
+    const dynamicAsins = new Set(products.map((product) => product.asin));
+    const internalOnlyTrackedProducts = trackedProducts.filter(
+      (product) => !dynamicAsins.has(product.asin)
+    );
+
+    const mergedProducts = [
+      ...products.map((product) => ({
+        ...product,
+        source: 'dynamic' as const,
+      })),
+      ...internalOnlyTrackedProducts.map((product) => ({
+        ...product,
+        source: 'internal' as const,
+        url: product.amazonUrl,
+        imageUrl: product.imageUrl,
+        visibilityStatus: 'hidden',
+        isVisibleOnSite: false,
+        attributes: {
+          asin: product.asin,
+        } as Prisma.JsonValue,
+        category: internalCategory,
+        internalMonitorCount: product.monitoredBy.length,
+        internalAddedBy: product.monitoredBy.map((entry) => ({
+          id: entry.id,
+          displayName: entry.user.displayName,
+          username: entry.user.username,
+          email: entry.user.email,
+        })),
+      })),
+    ];
+
+    return { products: mergedProducts, categories };
   } catch (error) {
     console.error('Erro ao buscar dados do admin de produtos:', error);
     return { products: [], categories: [] };
@@ -502,6 +557,92 @@ export async function deleteManyProducts(ids: string[]) {
   } catch (err) {
     console.error('Erro ao excluir em massa:', err);
     return { error: 'Erro ao excluir produtos selecionados.' };
+  }
+}
+
+export async function deleteTrackedInternalProduct(id: string) {
+  try {
+    await prisma.siteTrackedAmazonProduct.delete({
+      where: { id },
+    });
+    revalidatePath('/admin/dynamic/produtos');
+    return { success: true };
+  } catch (err) {
+    console.error('Erro ao excluir produto interno:', err);
+    return { error: 'Erro ao excluir produto interno.' };
+  }
+}
+
+export async function promoteTrackedInternalProductToCategory(data: {
+  trackedProductId: string;
+  categoryId: string;
+}) {
+  try {
+    const [trackedProduct, category] = await prisma.$transaction([
+      prisma.siteTrackedAmazonProduct.findUnique({
+        where: { id: data.trackedProductId },
+      }),
+      prisma.dynamicCategory.findUnique({
+        where: { id: data.categoryId },
+        select: { id: true, name: true, slug: true, group: true, displayConfig: true },
+      }),
+    ]);
+
+    if (!trackedProduct) {
+      return { error: 'Produto interno nao encontrado.' };
+    }
+
+    if (!category) {
+      return { error: 'Categoria nao encontrada.' };
+    }
+
+    const existingDynamic = await prisma.dynamicProduct.findUnique({
+      where: { asin: trackedProduct.asin },
+      select: { id: true },
+    });
+
+    if (existingDynamic) {
+      return { error: 'Esse ASIN ja existe no catalogo dinamico.' };
+    }
+
+    await prisma.dynamicProduct.create({
+      data: {
+        asin: trackedProduct.asin,
+        name: trackedProduct.name,
+        totalPrice: trackedProduct.totalPrice,
+        url: trackedProduct.amazonUrl,
+        imageUrl: trackedProduct.imageUrl,
+        categoryId: category.id,
+        averagePrice30d: trackedProduct.averagePrice30d,
+        lowestPrice30d: trackedProduct.lowestPrice30d,
+        highestPrice30d: trackedProduct.highestPrice30d,
+        lowestPrice365d: trackedProduct.lowestPrice365d,
+        availabilityStatus: trackedProduct.availabilityStatus,
+        ratingAverage: trackedProduct.ratingAverage,
+        ratingCount: trackedProduct.ratingCount,
+        ratingsUpdatedAt: trackedProduct.ratingsUpdatedAt,
+        visibilityStatus: NEW_PRODUCT_DEFAULT_VISIBILITY,
+        isVisibleOnSite: getDynamicVisibilityBoolean(NEW_PRODUCT_DEFAULT_VISIBILITY),
+        attributes: enrichDynamicAttributesForCategory({
+          category,
+          rawDisplayConfig: category.displayConfig,
+          productName: trackedProduct.name,
+          totalPrice: trackedProduct.totalPrice,
+          attributes: {
+            asin: trackedProduct.asin,
+          },
+        }) as Prisma.InputJsonValue,
+      },
+    });
+
+    revalidatePath('/admin/dynamic/produtos');
+    revalidateDynamicCatalogCategoryRefs(
+      [getCategoryRef(category)].filter((ref): ref is DynamicCatalogCategoryRef => !!ref)
+    );
+    return { success: true };
+  } catch (err) {
+    console.error('Erro ao promover produto interno para categoria:', err);
+    return { error: 'Erro ao adicionar produto interno a categoria.' };
   }
 }
 

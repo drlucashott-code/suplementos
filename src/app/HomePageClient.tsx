@@ -283,13 +283,13 @@ export default function HomePageClient({
                 Escolha a categoria e compare pelo critério que realmente importa.
               </h1>
               <p className="mt-2 max-w-xl text-[12px] leading-relaxed text-white/84 md:mt-3 md:text-[14px]">
-                Preço por dose, por unidade, por grama e histórico de 30 dias para
+                Preço por dose, por unidade, por grama e histórico de até 1 ano para
                 encontrar o melhor produto para você.
               </p>
 
               <div className="mt-3 flex flex-wrap justify-center gap-2 md:justify-start">
                 <TrustPill icon={<BarChart3 className="h-3.5 w-3.5" />} label="Análise técnica" />
-                <TrustPill icon={<TrendingUp className="h-3.5 w-3.5" />} label="Histórico de 30 dias" />
+                <TrustPill icon={<TrendingUp className="h-3.5 w-3.5" />} label="Histórico de até 1 ano" />
               </div>
             </div>
 

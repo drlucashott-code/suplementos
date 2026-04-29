@@ -16,12 +16,13 @@ export default async function PublicUserListPage({
   searchParams,
 }: {
   params: Promise<{ username: string; slug: string }>;
-  searchParams?: Promise<{ sort?: string; comments?: string }>;
+  searchParams?: Promise<{ sort?: string; comments?: string; outOfStock?: string }>;
 }) {
   const { username, slug } = await params;
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const sortMode = resolvedSearchParams?.sort === "discount" ? "discount" : "author";
   const openComments = resolvedSearchParams?.comments === "1";
+  const showOutOfStock = resolvedSearchParams?.outOfStock === "1";
 
   const rows = await prisma.$queryRaw<
     Array<{
@@ -68,8 +69,8 @@ export default async function PublicUserListPage({
       COALESCE(p."averagePrice30d", tp."averagePrice30d", mp."averagePrice30d") AS "productAveragePrice30d",
       COALESCE(p."url", tp."amazonUrl", mp."amazonUrl") AS "productUrl",
       COALESCE(p."availabilityStatus", tp."availabilityStatus", mp."availabilityStatus") AS "productAvailabilityStatus",
-      p."ratingAverage" AS "productRatingAverage",
-      p."ratingCount" AS "productRatingCount",
+      COALESCE(p."ratingAverage", tp."ratingAverage") AS "productRatingAverage",
+      COALESCE(p."ratingCount", tp."ratingCount") AS "productRatingCount",
       c."name" AS "categoryName",
       c."group" AS "categoryGroup",
       c."slug" AS "categorySlug",
@@ -146,10 +147,24 @@ export default async function PublicUserListPage({
   const sortedItems =
     sortMode === "discount"
       ? [...items].sort((a, b) => {
+          const leftOutOfStock =
+            (a.attributes.availabilityStatus ?? "") === "OUT_OF_STOCK" || a.totalPrice <= 0;
+          const rightOutOfStock =
+            (b.attributes.availabilityStatus ?? "") === "OUT_OF_STOCK" || b.totalPrice <= 0;
+
+          if (leftOutOfStock !== rightOutOfStock) {
+            return leftOutOfStock ? 1 : -1;
+          }
           if (b.discountPercent !== a.discountPercent) return b.discountPercent - a.discountPercent;
           return a.totalPrice - b.totalPrice;
         })
       : items;
+  const visibleItems = showOutOfStock
+    ? sortedItems
+    : sortedItems.filter(
+        (item) =>
+          item.attributes.availabilityStatus !== "OUT_OF_STOCK" && item.totalPrice > 0
+      );
 
   const list = {
     id: rows[0]!.listId,
@@ -175,7 +190,18 @@ export default async function PublicUserListPage({
               ) : null}
               <p className="mt-1 text-[13px] text-[#565959]">
                 Lista criada por {list.ownerDisplayName}
-                {list.ownerUsername ? ` @${list.ownerUsername}` : ""}
+                {list.ownerUsername ? (
+                  <>
+                    {" "}
+                    <Link
+                      href={buildPublicUserPath(list.ownerUsername)}
+                      className="font-medium text-[14px] text-[#2162A1] transition hover:text-[#174e87]"
+                      style={{ color: "#2162A1" }}
+                    >
+                      @{list.ownerUsername}
+                    </Link>
+                  </>
+                ) : null}
               </p>
             </div>
 
@@ -200,23 +226,29 @@ export default async function PublicUserListPage({
               </div>
 
               <Link
-                href={buildPublicUserPath(username)}
+                href={
+                  showOutOfStock
+                    ? `${buildPublicListPath(username, slug)}${sortMode === "discount" ? "?sort=discount" : ""}`
+                    : `${buildPublicListPath(username, slug)}?${sortMode === "discount" ? "sort=discount&" : ""}outOfStock=1`
+                }
                 className="inline-flex h-10 items-center justify-center rounded-full border border-[#d5d9d9] bg-white px-4 text-sm font-bold text-[#0F1111] transition hover:border-[#aab7b8]"
               >
-                Ver perfil
+                {showOutOfStock ? "Ocultar sem estoque" : "Exibir sem estoque"}
               </Link>
 
               <SavePublicListButton listId={list.id} initialSaved={savedRows.length > 0} />
             </div>
           </div>
 
-          {list.items.length === 0 ? (
+          {visibleItems.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-[#d5d9d9] bg-[#F8FAFA] px-4 py-12 text-center text-sm text-[#565959]">
-              Essa lista ainda nao tem produtos.
+              {list.items.length === 0
+                ? "Essa lista ainda nao tem produtos."
+                : "Todos os produtos desta lista estao sem estoque no momento."}
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-              {list.items.map((item) => (
+              {visibleItems.map((item) => (
                 <BestDealProductCard key={item.id} item={item} category="lista_publica" />
               ))}
             </div>

@@ -9,6 +9,8 @@ import {
   updateDynamicProduct,
   deleteDynamicProduct,
   deleteManyProducts,
+  deleteTrackedInternalProduct,
+  promoteTrackedInternalProductToCategory,
 } from "@/app/admin/dynamic/produtos/actions";
 import { Prisma } from "@prisma/client";
 import {
@@ -37,6 +39,7 @@ interface DisplayConfigPayload {
 
 interface Product {
   id: string;
+  source?: "dynamic" | "internal";
   name: string;
   imageUrl: string | null;
   totalPrice: number;
@@ -50,6 +53,13 @@ interface Product {
     name: string;
     displayConfig: Prisma.JsonValue;
   };
+  internalMonitorCount?: number;
+  internalAddedBy?: Array<{
+    id: string;
+    displayName: string;
+    username: string | null;
+    email: string;
+  }>;
 }
 
 interface CategoryOption {
@@ -61,7 +71,7 @@ interface TableInitialState {
   searchTerm?: string;
   filterCategory?: string;
   selectedBrands?: string[];
-  siteVisibilityFilter?: "all" | DynamicVisibilityStatus;
+  siteVisibilityFilter?: "all" | DynamicVisibilityStatus | "internal";
   currentPage?: number;
   sortConfig?: {
     key: string;
@@ -212,7 +222,7 @@ export function AdminProductTable({
   const [showBrandFilter, setShowBrandFilter] = useState(false);
   const [brandFilterSearch, setBrandFilterSearch] = useState("");
   const [siteVisibilityFilter, setSiteVisibilityFilter] = useState<
-    "all" | DynamicVisibilityStatus
+    "all" | DynamicVisibilityStatus | "internal"
   >(initialState?.siteVisibilityFilter ?? "all");
   const [currentPage, setCurrentPage] = useState(initialState?.currentPage ?? 1);
   const [sortConfig, setSortConfig] = useState<{
@@ -220,6 +230,16 @@ export function AdminProductTable({
     direction: "asc" | "desc";
   } | null>(initialState?.sortConfig ?? { key: "name", direction: "asc" });
   const [savingVisibilityIds, setSavingVisibilityIds] = useState<string[]>([]);
+  const [internalCategoryDrafts, setInternalCategoryDrafts] = useState<Record<string, string>>({});
+  const [activeInternalUsers, setActiveInternalUsers] = useState<{
+    productName: string;
+    users: Array<{
+      id: string;
+      displayName: string;
+      username: string | null;
+      email: string;
+    }>;
+  } | null>(null);
   const [nameColumnWidth, setNameColumnWidth] = useState(NAME_COLUMN_DEFAULT_WIDTH);
   const tableWrapperRef = useRef<HTMLDivElement>(null);
   const nameColumnResizeRef = useRef<{
@@ -358,6 +378,7 @@ export function AdminProductTable({
         p.visibilityStatus,
         p.isVisibleOnSite
       );
+      const isInternal = p.source === "internal";
 
       const matchesSearch =
         searchTerms.length === 0 ||
@@ -373,8 +394,11 @@ export function AdminProductTable({
         selectedBrands.length === 0 || selectedBrands.includes(brandValue);
 
       const matchesVisibility =
-        siteVisibilityFilter === "all" ||
-        siteVisibilityFilter === visibilityStatus;
+        siteVisibilityFilter === "all"
+          ? !isInternal
+          : siteVisibilityFilter === "internal"
+            ? isInternal
+            : !isInternal && siteVisibilityFilter === visibilityStatus;
 
       return matchesCat && matchesSearch && matchesBrand && matchesVisibility;
     });
@@ -431,8 +455,13 @@ export function AdminProductTable({
         let bVal: string | number = "";
 
         if (sortConfig.key === "brand") {
-          aVal = String(attrsA.marca || attrsA.brand || "");
-          bVal = String(attrsB.marca || attrsB.brand || "");
+          if (siteVisibilityFilter === "internal") {
+            aVal = a.internalMonitorCount ?? 0;
+            bVal = b.internalMonitorCount ?? 0;
+          } else {
+            aVal = String(attrsA.marca || attrsA.brand || "");
+            bVal = String(attrsB.marca || attrsB.brand || "");
+          }
         } else if (sortConfig.key === "totalPrice") {
           aVal = a.totalPrice;
           bVal = b.totalPrice;
@@ -713,6 +742,39 @@ export function AdminProductTable({
     }
   };
 
+  const handlePromoteInternalProduct = async (productId: string) => {
+    const categoryId = internalCategoryDrafts[productId]?.trim() ?? "";
+    if (!categoryId) {
+      alert("Selecione uma categoria para adicionar esse produto interno.");
+      return;
+    }
+
+    const result = await promoteTrackedInternalProductToCategory({
+      trackedProductId: productId,
+      categoryId,
+    });
+
+    if (result.success) {
+      alert("Produto interno adicionado ao catalogo dinamico.");
+      router.refresh();
+      return;
+    }
+
+    alert(result.error || "Nao foi possivel adicionar esse produto a categoria.");
+  };
+
+  const handleDeleteInternalProduct = async (productId: string) => {
+    if (!confirm("Excluir esse produto interno?")) return;
+
+    const result = await deleteTrackedInternalProduct(productId);
+    if (result.success) {
+      router.refresh();
+      return;
+    }
+
+    alert(result.error || "Nao foi possivel excluir esse produto interno.");
+  };
+
   const handleVisibilityChange = async (
     productId: string,
     nextVisibilityStatus: DynamicVisibilityStatus
@@ -865,7 +927,7 @@ export function AdminProductTable({
               className="w-full cursor-pointer rounded-xl border-none bg-gray-50 p-3 text-sm font-bold outline-none"
               onChange={(e) => {
                 setSiteVisibilityFilter(
-                  e.target.value as "all" | DynamicVisibilityStatus
+                  e.target.value as "all" | DynamicVisibilityStatus | "internal"
                 );
                 setCurrentPage(1);
                 setSelectedIds([]);
@@ -875,6 +937,7 @@ export function AdminProductTable({
               <option value="visible">Somente visiveis</option>
               <option value="pending">Somente pendentes</option>
               <option value="hidden">Somente ocultos</option>
+              <option value="internal">Somente internos</option>
             </select>
           </div>
         </div>
@@ -883,7 +946,14 @@ export function AdminProductTable({
           normalizedSearchTerm === "" &&
           siteVisibilityFilter === "all" && (
           <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-sm font-semibold text-gray-500">
-            Selecione uma categoria para carregar os produtos. Isso evita renderizar os 1600 itens de uma vez e deixa o admin bem mais leve.
+              Selecione uma categoria para carregar os produtos. Isso evita renderizar os 1600 itens de uma vez e deixa o admin bem mais leve.
+            </div>
+        )}
+
+        {siteVisibilityFilter === "internal" && (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm font-semibold text-emerald-800">
+            Produtos internos adicionados por link aparecem aqui em modo de leitura. Eles nao
+            seguem a mesma visibilidade publica do catalogo dinamico.
           </div>
         )}
 
@@ -1036,7 +1106,9 @@ export function AdminProductTable({
                 ))}
                 <th className={`w-32 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}>
                   <div className="relative inline-flex items-center justify-center gap-2">
-                    <span className="font-black uppercase">Marca</span>
+                    <span className="font-black uppercase">
+                      {siteVisibilityFilter === "internal" ? "Adicoes" : "Marca"}
+                    </span>
                     <span className={`rounded-md border px-1.5 py-0.5 text-[11px] ${
                       selectedBrands.length > 0
                         ? "border-blue-500 bg-blue-50 text-blue-600"
@@ -1136,7 +1208,7 @@ export function AdminProductTable({
                       onClick={() => toggleSort("brand")}
                       className="font-black uppercase hover:text-blue-600"
                     >
-                      Marca
+                      {siteVisibilityFilter === "internal" ? "Adicoes" : "Marca"}
                     </button>
 
                     <button
@@ -1159,7 +1231,11 @@ export function AdminProductTable({
                           <input
                             value={brandFilterSearch}
                             onChange={(e) => setBrandFilterSearch(e.target.value)}
-                            placeholder="Buscar marca..."
+                            placeholder={
+                              siteVisibilityFilter === "internal"
+                                ? "Buscar marca..."
+                                : "Buscar marca..."
+                            }
                             className="w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-400"
                           />
                         </div>
@@ -1235,6 +1311,7 @@ export function AdminProductTable({
             <tbody className="divide-y divide-gray-50">
               {paginatedProducts.map((p) => {
                 const attrs = (p.attributes as DynamicAttributes) || {};
+                const isInternal = p.source === "internal";
 
                 return (
                   <tr
@@ -1246,6 +1323,7 @@ export function AdminProductTable({
                     <td className="px-3 py-3 text-center">
                       <input
                         type="checkbox"
+                        disabled={isInternal}
                         checked={selectedIds.includes(p.id)}
                         onChange={() =>
                           setSelectedIds((prev) =>
@@ -1292,10 +1370,13 @@ export function AdminProductTable({
                       }}
                     >
                       <textarea
+                        disabled={isInternal}
                         className="min-h-[42px] w-full resize-none border-none bg-transparent p-0 text-[12px] font-bold leading-tight text-gray-900 focus:ring-0"
                         defaultValue={p.name}
                         rows={2}
-                        onBlur={(e) => handleQuickUpdate(p.id, "name", e.target.value)}
+                        onBlur={(e) =>
+                          !isInternal && handleQuickUpdate(p.id, "name", e.target.value)
+                        }
                       />
                     </td>
 
@@ -1318,6 +1399,7 @@ export function AdminProductTable({
                       return (
                         <td key={col.key} className="px-3 py-3 text-center">
                           <input
+                            disabled={isInternal}
                             className={`w-full max-w-[84px] rounded-lg border bg-white px-1.5 py-1 text-center text-[10px] font-black outline-none focus:border-yellow-400 ${
                               isMissing ? "border-red-500" : "border-black"
                             }`}
@@ -1334,12 +1416,14 @@ export function AdminProductTable({
 
                               e.target.value = String(val);
 
-                              handleQuickUpdate(
-                                p.id,
-                                col.key === "volume" ? "volumeMl" : col.key,
-                                col.type === "number" ? Number(val) : String(val),
-                                true
-                              );
+                              if (!isInternal) {
+                                handleQuickUpdate(
+                                  p.id,
+                                  col.key === "volume" ? "volumeMl" : col.key,
+                                  col.type === "number" ? Number(val) : String(val),
+                                  true
+                                );
+                              }
                             }}
                           />
                         </td>
@@ -1347,22 +1431,40 @@ export function AdminProductTable({
                     })}
 
                     <td className="px-3 py-3 text-center">
-                      <input
-                        className={`w-full rounded-lg border bg-white px-2 py-1 text-center text-[10px] font-black italic text-gray-600 focus:ring-0 ${
-                          isMissingEditableValue(attrs.marca ?? attrs.brand)
-                            ? "border-red-500"
-                            : "border-black"
-                        }`}
-                        defaultValue={formatAdminTextValue(
-                          String(attrs.marca ?? attrs.brand ?? ""),
-                          "marca"
-                        )}
-                        onBlur={(e) => {
-                          const formatted = formatAdminTextValue(e.target.value, "marca");
-                          e.target.value = formatted;
-                          handleQuickUpdate(p.id, "marca", formatted, true);
-                        }}
-                      />
+                      {isInternal ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setActiveInternalUsers({
+                              productName: p.name,
+                              users: p.internalAddedBy ?? [],
+                            })
+                          }
+                          className="inline-flex min-w-[90px] items-center justify-center rounded-lg border border-[#D0D5DD] bg-white px-2 py-1 text-center text-[10px] font-black text-[#2162A1] transition hover:border-[#2162A1] hover:bg-[#EFF6FF]"
+                        >
+                          {p.internalMonitorCount ?? 0} adicoes
+                        </button>
+                      ) : (
+                        <input
+                          disabled={isInternal}
+                          className={`w-full rounded-lg border bg-white px-2 py-1 text-center text-[10px] font-black italic text-gray-600 focus:ring-0 ${
+                            isMissingEditableValue(attrs.marca ?? attrs.brand)
+                              ? "border-red-500"
+                              : "border-black"
+                          }`}
+                          defaultValue={formatAdminTextValue(
+                            String(attrs.marca ?? attrs.brand ?? ""),
+                            "marca"
+                          )}
+                          onBlur={(e) => {
+                            const formatted = formatAdminTextValue(e.target.value, "marca");
+                            e.target.value = formatted;
+                            if (!isInternal) {
+                              handleQuickUpdate(p.id, "marca", formatted, true);
+                            }
+                          }}
+                        />
+                      )}
                     </td>
 
                     <td className="px-3 py-3 text-center">
@@ -1382,9 +1484,11 @@ export function AdminProductTable({
                       <input
                         type="number"
                         step="0.01"
+                        disabled={isInternal}
                         className="w-14 border-none bg-transparent p-0 text-center font-black focus:ring-0"
                         defaultValue={p.totalPrice}
                         onBlur={(e) =>
+                          !isInternal &&
                           handleQuickUpdate(
                             p.id,
                             "totalPrice",
@@ -1395,34 +1499,73 @@ export function AdminProductTable({
                     </td>
                     <td className="px-3 py-3 text-center">
                       <div className="flex flex-col items-center gap-1.5">
-                        <select
-                          value={normalizeDynamicVisibilityStatus(
-                            p.visibilityStatus,
-                            p.isVisibleOnSite
-                          )}
-                          onChange={(e) =>
-                            handleVisibilityChange(
-                              p.id,
-                              e.currentTarget.value as DynamicVisibilityStatus
-                            )
-                          }
-                          disabled={savingVisibilityIds.includes(p.id)}
-                          className="min-w-[100px] rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-gray-700 outline-none transition-colors hover:border-gray-300"
-                        >
-                          <option value="visible">Visivel</option>
-                          <option value="pending">Pendente</option>
-                          <option value="hidden">Oculto</option>
-                        </select>
+                        {isInternal ? (
+                          <>
+                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-emerald-700">
+                              Interno
+                            </span>
+                            <select
+                              value={internalCategoryDrafts[p.id] ?? ""}
+                              onChange={(event) =>
+                                setInternalCategoryDrafts((current) => ({
+                                  ...current,
+                                  [p.id]: event.target.value,
+                                }))
+                              }
+                              className="min-w-[120px] rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-gray-700 outline-none transition-colors hover:border-gray-300"
+                            >
+                              <option value="">Categoria</option>
+                              {categories.map((category) => (
+                                <option key={category.id} value={category.id}>
+                                  {category.name}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => void handlePromoteInternalProduct(p.id)}
+                              className="text-[10px] font-black uppercase text-blue-500 transition-colors hover:text-blue-700"
+                            >
+                              Adicionar
+                            </button>
+                            <button
+                              onClick={() => void handleDeleteInternalProduct(p.id)}
+                              className="text-[10px] font-black uppercase text-red-300 transition-colors hover:text-red-600"
+                            >
+                              Excluir
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <select
+                              value={normalizeDynamicVisibilityStatus(
+                                p.visibilityStatus,
+                                p.isVisibleOnSite
+                              )}
+                              onChange={(e) =>
+                                handleVisibilityChange(
+                                  p.id,
+                                  e.currentTarget.value as DynamicVisibilityStatus
+                                )
+                              }
+                              disabled={savingVisibilityIds.includes(p.id)}
+                              className="min-w-[100px] rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-gray-700 outline-none transition-colors hover:border-gray-300"
+                            >
+                              <option value="visible">Visivel</option>
+                              <option value="pending">Pendente</option>
+                              <option value="hidden">Oculto</option>
+                            </select>
 
-                        <button
-                          onClick={() =>
-                            confirm("Excluir?") &&
-                            deleteDynamicProduct(p.id).then(() => router.refresh())
-                          }
-                          className="text-[10px] font-black uppercase text-red-300 transition-colors hover:text-red-600"
-                        >
-                          Excluir
-                        </button>
+                            <button
+                              onClick={() =>
+                                confirm("Excluir?") &&
+                                deleteDynamicProduct(p.id).then(() => router.refresh())
+                              }
+                              className="text-[10px] font-black uppercase text-red-300 transition-colors hover:text-red-600"
+                            >
+                              Excluir
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1471,6 +1614,60 @@ export function AdminProductTable({
           </div>
         </div>
       )}
+
+      {activeInternalUsers ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4"
+          onClick={() => setActiveInternalUsers(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-[2rem] border border-gray-200 bg-white p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">
+                  Produto interno
+                </p>
+                <h3 className="mt-2 text-xl font-black text-gray-900">
+                  {activeInternalUsers.productName}
+                </h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  {activeInternalUsers.users.length} adicao
+                  {activeInternalUsers.users.length === 1 ? "" : "es"} registradas.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveInternalUsers(null)}
+                className="rounded-full border border-gray-200 px-3 py-1 text-xs font-black uppercase text-gray-500 transition hover:border-gray-300 hover:text-gray-800"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="mt-5 max-h-[360px] space-y-3 overflow-y-auto pr-1">
+              {activeInternalUsers.users.length > 0 ? (
+                activeInternalUsers.users.map((user) => (
+                  <div
+                    key={user.id}
+                    className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3"
+                  >
+                    <div className="text-sm font-bold text-gray-900">{user.displayName}</div>
+                    <div className="mt-1 text-xs font-semibold text-[#2162A1]">
+                      {user.username ? `@${user.username}` : user.email}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+                  Nenhum usuario vinculado a esse produto interno.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
