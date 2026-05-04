@@ -22,9 +22,15 @@ import {
 
 const BRAZIL_TZ = "America/Sao_Paulo";
 
-function formatBrazilDateTime(value: Date | string) {
+function formatBrazilDate(value: Date | string) {
   return new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
+    timeZone: BRAZIL_TZ,
+  }).format(new Date(value));
+}
+
+function formatBrazilTime(value: Date | string) {
+  return new Intl.DateTimeFormat("pt-BR", {
     timeStyle: "medium",
     timeZone: BRAZIL_TZ,
   }).format(new Date(value));
@@ -1477,12 +1483,12 @@ export function AdminProductTable({
                       )}
                     </td>
 
-                      <td className="px-3 py-3 text-center">
+                    <td className="px-3 py-3 text-center">
                       <div className="text-[10px] font-black uppercase text-gray-700">
-                        {formatBrazilDateTime(p.createdAt).split(" ")[0]}
+                        {formatBrazilDate(p.createdAt)}
                       </div>
                       <div className="mt-1 text-[10px] font-semibold text-gray-400">
-                        {formatBrazilDateTime(p.createdAt).split(" ")[1]}
+                        {formatBrazilTime(p.createdAt)}
                       </div>
                     </td>
 

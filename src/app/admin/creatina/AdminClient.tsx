@@ -15,6 +15,7 @@ const BRAZIL_TZ = "America/Sao_Paulo";
 function formatBrazilDate(value: string | Date) {
   return new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
+    timeStyle: "short",
     timeZone: BRAZIL_TZ,
   }).format(new Date(value));
 }

@@ -71,12 +71,18 @@ export default function BestDealProductCard({
   compact = false,
   showActions = true,
   disableNavigation = false,
+  decisionLabel,
+  insightText,
+  decisionTone = "emerald",
 }: {
   item: BestDeal;
   category: string;
   compact?: boolean;
   showActions?: boolean;
   disableNavigation?: boolean;
+  decisionLabel?: string;
+  insightText?: string;
+  decisionTone?: "emerald" | "amber" | "rose";
 }) {
   const hasPrice = item.totalPrice > 0;
   const hasReferencePrice =
@@ -95,6 +101,12 @@ export default function BestDealProductCard({
     "idle"
   );
   const router = useRouter();
+
+  const decisionStyles = {
+    emerald: "border-emerald-100 bg-emerald-50 text-emerald-700",
+    amber: "border-amber-100 bg-amber-50 text-amber-700",
+    rose: "border-rose-100 bg-rose-50 text-rose-700",
+  }[decisionTone];
 
   useEffect(() => {
     let active = true;
@@ -234,6 +246,11 @@ export default function BestDealProductCard({
           </div>
 
           <div className="mt-1.5">
+            {decisionLabel ? (
+              <div className={`mb-2 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.26em] ${decisionStyles}`}>
+                {decisionLabel}
+              </div>
+            ) : null}
             <p
               className={`font-medium leading-[20px] text-[#2162A1] group-hover:text-[#174e87] ${
                 compact ? "text-[12px]" : "text-[14px]"
@@ -321,6 +338,9 @@ export default function BestDealProductCard({
                     <PriceHistoryButton productId={item.id} productName={item.name} />
                   </div>
                 </div>
+                {insightText ? (
+                  <p className="mt-1 text-[11px] leading-5 text-[#6B7280]">{insightText}</p>
+                ) : null}
               </>
             ) : (
               <div className="mt-3 min-h-[58px] rounded-2xl border border-[#FECACA] bg-[#FFF5F5] px-3 py-3 text-sm font-bold text-[#B42318]">
