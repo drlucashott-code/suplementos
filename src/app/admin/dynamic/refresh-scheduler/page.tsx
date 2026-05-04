@@ -39,7 +39,11 @@ type ActionLogRow = {
 
 function formatDate(value: Date | null) {
   if (!value) return "—";
-  return new Date(value).toLocaleString("pt-BR");
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "medium",
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date(value));
 }
 
 function getRefreshTimingLabel(value: Date | null, now: Date) {

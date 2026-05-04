@@ -10,6 +10,15 @@ import type { CreatineProduct } from "./AdminWrapper";
 import { CreatineForm } from "@prisma/client";
 import { ToastOnSubmit } from "./ToastOnSubmit";
 
+const BRAZIL_TZ = "America/Sao_Paulo";
+
+function formatBrazilDate(value: string | Date) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeZone: BRAZIL_TZ,
+  }).format(new Date(value));
+}
+
 /* =======================
    FIELD (LABEL À ESQUERDA)
    ======================= */
@@ -259,7 +268,7 @@ export default function AdminClient({ products }: Props) {
                   <td className="p-2">{p.name}</td>
                   <td className="p-2">{p.flavor || "—"}</td>
                   <td className="p-2">
-                    {new Date(p.createdAt).toLocaleDateString("pt-BR")}
+                    {formatBrazilDate(p.createdAt)}
                   </td>
                   <td className="p-2 text-right space-x-3">
                     <button

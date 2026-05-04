@@ -20,6 +20,16 @@ import {
   startDynamicImportViaAPI,
 } from './actions';
 
+const BRAZIL_TZ = 'America/Sao_Paulo';
+
+function formatBrazilClock() {
+  return new Intl.DateTimeFormat('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: BRAZIL_TZ,
+  }).format(new Date());
+}
+
 interface Category {
   id: string;
   name: string;
@@ -878,7 +888,7 @@ export default function ImportadorDynamicAPI() {
                     className="flex gap-3 leading-relaxed text-cyan-300"
                   >
                     <span className="shrink-0 text-gray-600">
-                      [{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}]
+                      [{formatBrazilClock()}]
                     </span>
                     <span className="break-all">{log}</span>
                   </div>
@@ -903,7 +913,7 @@ export default function ImportadorDynamicAPI() {
                     }`}
                   >
                     <span className="shrink-0 text-gray-600">
-                      [{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}]
+                      [{formatBrazilClock()}]
                     </span>
                     <span className="break-all">{log}</span>
                   </div>

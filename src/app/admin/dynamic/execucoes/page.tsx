@@ -4,6 +4,15 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 const RUN_STALE_AFTER_MS = 10 * 60 * 1000;
+const BRAZIL_TZ = "America/Sao_Paulo";
+
+function formatDateTime(value: Date | string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "medium",
+    timeZone: BRAZIL_TZ,
+  }).format(new Date(value));
+}
 
 type ExecutionRow = {
   id: string;
@@ -143,11 +152,9 @@ export default async function AdminDynamicExecutionsPage() {
             <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
               Última execução
             </div>
-            <div className="mt-2 text-sm font-black text-gray-900">
-              {lastRun
-                ? new Date(lastRun.startedAt).toLocaleString("pt-BR")
-                : "Nenhuma"}
-            </div>
+              <div className="mt-2 text-sm font-black text-gray-900">
+              {lastRun ? formatDateTime(lastRun.startedAt) : "Nenhuma"}
+              </div>
           </div>
         </div>
 
@@ -194,7 +201,7 @@ export default async function AdminDynamicExecutionsPage() {
                       <tr key={run.id} className="transition-colors hover:bg-gray-50/50">
                         <td className="p-4">
                           <div className="text-[13px] font-bold text-gray-900">
-                            {new Date(run.startedAt).toLocaleString("pt-BR")}
+                            {formatDateTime(run.startedAt)}
                           </div>
                           <div className="mt-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">
                             {run.source}

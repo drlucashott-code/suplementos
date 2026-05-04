@@ -7,6 +7,7 @@ import { saveDynamicFallbackConfig } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+const BRAZIL_TZ = "America/Sao_Paulo";
 
 const defaultFallbackConfig: DynamicFallbackConfig = {
   fallbackEnabled: false,
@@ -21,7 +22,11 @@ const defaultFallbackConfig: DynamicFallbackConfig = {
 
 function formatDateTime(value?: Date | null) {
   if (!value) return "—";
-  return value.toLocaleString("pt-BR");
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "medium",
+    timeZone: BRAZIL_TZ,
+  }).format(value);
 }
 
 function formatPercent(value: number) {

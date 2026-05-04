@@ -20,6 +20,16 @@ import {
   type DynamicVisibilityStatus,
 } from "@/lib/dynamicVisibility";
 
+const BRAZIL_TZ = "America/Sao_Paulo";
+
+function formatBrazilDateTime(value: Date | string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "medium",
+    timeZone: BRAZIL_TZ,
+  }).format(new Date(value));
+}
+
 type DynamicAttributes = Record<
   string,
   string | number | boolean | null | undefined
@@ -1467,15 +1477,12 @@ export function AdminProductTable({
                       )}
                     </td>
 
-                    <td className="px-3 py-3 text-center">
+                      <td className="px-3 py-3 text-center">
                       <div className="text-[10px] font-black uppercase text-gray-700">
-                        {new Date(p.createdAt).toLocaleDateString("pt-BR")}
+                        {formatBrazilDateTime(p.createdAt).split(" ")[0]}
                       </div>
                       <div className="mt-1 text-[10px] font-semibold text-gray-400">
-                        {new Date(p.createdAt).toLocaleTimeString("pt-BR", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {formatBrazilDateTime(p.createdAt).split(" ")[1]}
                       </div>
                     </td>
 
