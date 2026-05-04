@@ -69,12 +69,6 @@ const TIER_MAX_AGES: Record<RefreshTier, number> = {
   cold: 24 * HOUR_MS,
 };
 
-const OUT_OF_STOCK_COOLDOWNS: Record<RefreshTier, number> = {
-  hot: 60 * MINUTE_MS,
-  warm: 6 * HOUR_MS,
-  cold: 24 * HOUR_MS,
-};
-
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
@@ -112,13 +106,11 @@ export function computeDataFreshnessScore(params: {
   lastSuccessfulRefreshAt?: Date | null;
   refreshTier: RefreshTier;
   priceChangeFrequency: number;
-  availabilityStatus?: string | null;
 }) {
   const now = params.now ?? new Date();
   const nextAt = params.nextPriceRefreshAt;
   const lastSuccess = params.lastSuccessfulRefreshAt;
   const baseMaxAge = TIER_MAX_AGES[params.refreshTier];
-  const outOfStockPenalty = params.availabilityStatus === "OUT_OF_STOCK" ? 0.65 : 1;
   const volatilityBoost = 1 + clamp(params.priceChangeFrequency, 0, 1.5);
 
   let overdueRatio = 0;
@@ -130,21 +122,17 @@ export function computeDataFreshnessScore(params: {
     overdueRatio = 1.25;
   }
 
-  return clamp(Number((overdueRatio * volatilityBoost * outOfStockPenalty).toFixed(4)), 0, 10);
+  return clamp(Number((overdueRatio * volatilityBoost).toFixed(4)), 0, 10);
 }
 
 export function computeNextRefreshAt(params: {
   now?: Date;
   refreshTier: RefreshTier;
-  availabilityStatus?: string | null;
   priceChangeFrequency: number;
   refreshFailCount: number;
 }) {
   const now = params.now ?? new Date();
-  const cooldown =
-    params.availabilityStatus === "OUT_OF_STOCK"
-      ? OUT_OF_STOCK_COOLDOWNS[params.refreshTier]
-      : TIER_COOLDOWNS[params.refreshTier];
+  const cooldown = TIER_COOLDOWNS[params.refreshTier];
 
   const volatilityReduction = cooldown * clamp(params.priceChangeFrequency, 0, 0.5);
   const failurePenalty = params.refreshFailCount > 0 ? params.refreshFailCount * 10 * MINUTE_MS : 0;
@@ -156,13 +144,9 @@ export function computeNextRefreshAt(params: {
 export function computeNextEnqueueAt(params: {
   now?: Date;
   refreshTier: RefreshTier;
-  availabilityStatus?: string | null;
 }) {
   const now = params.now ?? new Date();
-  const cooldown =
-    params.availabilityStatus === "OUT_OF_STOCK"
-      ? OUT_OF_STOCK_COOLDOWNS[params.refreshTier]
-      : TIER_COOLDOWNS[params.refreshTier];
+  const cooldown = TIER_COOLDOWNS[params.refreshTier];
   return new Date(now.getTime() + cooldown);
 }
 
@@ -180,7 +164,6 @@ export function createSchedulerSnapshot(
     computeNextRefreshAt({
       now,
       refreshTier,
-      availabilityStatus: input.availabilityStatus,
       priceChangeFrequency,
       refreshFailCount,
     });
@@ -189,7 +172,6 @@ export function createSchedulerSnapshot(
     computeNextEnqueueAt({
       now,
       refreshTier,
-      availabilityStatus: input.availabilityStatus,
     });
   const dataFreshnessScore = computeDataFreshnessScore({
     now,
@@ -197,7 +179,6 @@ export function createSchedulerSnapshot(
     lastSuccessfulRefreshAt: input.lastSuccessfulRefreshAt,
     refreshTier,
     priceChangeFrequency,
-    availabilityStatus: input.availabilityStatus,
   });
 
   return {
@@ -235,14 +216,12 @@ export function applyPrioritySignal(
   const nextPriceRefreshAt = computeNextRefreshAt({
     now,
     refreshTier,
-    availabilityStatus: input.availabilityStatus,
     priceChangeFrequency: base.priceChangeFrequency,
     refreshFailCount: base.refreshFailCount,
   });
   const nextPriorityEnqueueAt = computeNextEnqueueAt({
     now,
     refreshTier,
-    availabilityStatus: input.availabilityStatus,
   });
 
   return {
@@ -259,7 +238,6 @@ export function applyPrioritySignal(
       lastSuccessfulRefreshAt: base.lastSuccessfulRefreshAt,
       refreshTier,
       priceChangeFrequency: base.priceChangeFrequency,
-      availabilityStatus: input.availabilityStatus,
     }),
   };
 }
@@ -270,16 +248,12 @@ export function applyRefreshResult(
     now?: Date;
     success: boolean;
     priceChanged: boolean;
-    availabilityStatus?: string | null;
     monitorCount?: number;
   }
 ) {
   const now = options.now ?? new Date();
   const base = createSchedulerSnapshot(
-    {
-      ...input,
-      availabilityStatus: options.availabilityStatus ?? input.availabilityStatus,
-    },
+    input,
     { now, monitorCount: options.monitorCount }
   );
 
@@ -296,7 +270,6 @@ export function applyRefreshResult(
   const nextPriceRefreshAt = computeNextRefreshAt({
     now,
     refreshTier,
-    availabilityStatus: options.availabilityStatus ?? input.availabilityStatus,
     priceChangeFrequency: nextFrequency,
     refreshFailCount,
   });
@@ -311,7 +284,6 @@ export function applyRefreshResult(
     nextPriorityEnqueueAt: computeNextEnqueueAt({
       now,
       refreshTier,
-      availabilityStatus: options.availabilityStatus ?? input.availabilityStatus,
     }),
     refreshFailCount,
     priceChangeFrequency: nextFrequency,
@@ -321,7 +293,6 @@ export function applyRefreshResult(
       lastSuccessfulRefreshAt: options.success ? now : base.lastSuccessfulRefreshAt,
       refreshTier,
       priceChangeFrequency: nextFrequency,
-      availabilityStatus: options.availabilityStatus ?? input.availabilityStatus,
     }),
   };
 }

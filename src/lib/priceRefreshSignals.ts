@@ -296,12 +296,10 @@ export async function applyDynamicRefreshOutcome(params: {
   previousState: DynamicSchedulerRow;
   success: boolean;
   priceChanged: boolean;
-  availabilityStatus?: string | null;
 }) {
   const next = applyRefreshResult(params.previousState, {
     success: params.success,
     priceChanged: params.priceChanged,
-    availabilityStatus: params.availabilityStatus,
   });
 
   await prisma.dynamicProduct.update({
@@ -327,12 +325,10 @@ export async function applyTrackedRefreshOutcome(params: {
   previousState: TrackedSchedulerRow;
   success: boolean;
   priceChanged: boolean;
-  availabilityStatus?: string | null;
 }) {
   const next = applyRefreshResult(params.previousState, {
     success: params.success,
     priceChanged: params.priceChanged,
-    availabilityStatus: params.availabilityStatus,
     monitorCount: params.previousState.monitorCount ?? 0,
   });
 

@@ -50,7 +50,6 @@ const GLOBAL_DAILY_REQUEST_LIMIT = Math.max(
   50,
   Number(process.env.AMAZON_GLOBAL_DAILY_REQUEST_LIMIT ?? 12000)
 );
-const GLOBAL_OUT_OF_STOCK_SHARE = 0.15;
 
 function getFirstEnvValue(...keys: string[]) {
   for (const key of keys) {
@@ -529,7 +528,6 @@ async function refreshMonitoredProducts() {
           previousState: claimedState,
           success: Boolean(result && result.status === "OK"),
           priceChanged: totalPrice > 0 && Math.abs(totalPrice - trackedProduct.totalPrice) > 0.009,
-          availabilityStatus,
         })
       );
     }
@@ -704,45 +702,14 @@ async function updateAmazonPrices() {
       { updatedAt: "asc" },
     ] satisfies Prisma.DynamicProductOrderByWithRelationInput[];
 
-    const outOfStockLimit = Math.max(
-      1,
-      Math.floor(MAX_DYNAMIC_PRODUCTS_PER_RUN * GLOBAL_OUT_OF_STOCK_SHARE)
+    let dynamicProducts = await withDatabaseRetry("dynamicProduct.findMany", async () =>
+      prisma.dynamicProduct.findMany({
+        where: baseDynamicWhere,
+        select: dynamicSelect,
+        orderBy: dynamicOrderBy,
+        take: MAX_DYNAMIC_PRODUCTS_PER_RUN,
+      })
     );
-    const inStockLimit = Math.max(1, MAX_DYNAMIC_PRODUCTS_PER_RUN - outOfStockLimit);
-
-    const [preferredDynamicProducts, outOfStockDynamicProducts] = await withDatabaseRetry(
-      "dynamicProduct.findMany",
-      async () =>
-        Promise.all([
-          prisma.dynamicProduct.findMany({
-            where: {
-              ...baseDynamicWhere,
-              OR: [
-                { availabilityStatus: null },
-                { availabilityStatus: { not: "OUT_OF_STOCK" } },
-              ],
-            },
-            select: dynamicSelect,
-            orderBy: dynamicOrderBy,
-            take: inStockLimit,
-          }),
-          prisma.dynamicProduct.findMany({
-            where: {
-              ...baseDynamicWhere,
-              availabilityStatus: "OUT_OF_STOCK",
-            },
-            select: dynamicSelect,
-            orderBy: dynamicOrderBy,
-            take: outOfStockLimit,
-          }),
-        ])
-    );
-
-    const preferredIds = new Set(preferredDynamicProducts.map((product) => product.id));
-    const uniqueOutOfStockDynamicProducts = outOfStockDynamicProducts.filter(
-      (product) => !preferredIds.has(product.id)
-    );
-    let dynamicProducts = [...preferredDynamicProducts, ...uniqueOutOfStockDynamicProducts];
 
     if (dynamicProducts.length < MAX_DYNAMIC_PRODUCTS_PER_RUN) {
       const remainingLimit = MAX_DYNAMIC_PRODUCTS_PER_RUN - dynamicProducts.length;
@@ -860,12 +827,6 @@ async function updateAmazonPrices() {
             priceChanged:
               Boolean(result && result.status === "OK") &&
               Math.abs((result?.price ?? 0) - product.totalPrice) > 0.009,
-            availabilityStatus:
-              result?.status === "OK"
-                ? "IN_STOCK"
-                : result?.status === "OUT_OF_STOCK"
-                  ? "OUT_OF_STOCK"
-                  : product.availabilityStatus,
           })
         );
         incrementCounters(counters, outcome);

@@ -487,7 +487,6 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
           previousState: refreshState,
           success: status === "OK",
           priceChanged: price > 0 && Math.abs(price - product.totalPrice) > 0.009,
-          availabilityStatus: status === "OK" ? "IN_STOCK" : "OUT_OF_STOCK",
         });
 
         summary.updatedProducts += 1;
