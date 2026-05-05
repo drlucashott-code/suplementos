@@ -1,11 +1,12 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bell,
   ArrowRight,
   Dumbbell,
   Home,
+  Heart,
   PawPrint,
   ShieldCheck,
   TrendingUp,
@@ -215,6 +216,7 @@ export default function HomeV3Client({
   const router = useRouter();
   const [selectedHub, setSelectedHub] = useState<HubKey>("suplementos");
   const [carouselIndex, setCarouselIndex] = useState(0);
+  const carouselRef = useRef<HTMLDivElement | null>(null);
 
   const effectiveSupplementCategories = useMemo(
     () =>
@@ -271,6 +273,23 @@ export default function HomeV3Client({
     },
   ];
 
+  const handleCarouselDotClick = (index: number) => {
+    setCarouselIndex(index);
+    carouselRef.current?.scrollTo({
+      left: index * carouselRef.current.clientWidth,
+      behavior: "smooth",
+    });
+  };
+
+  const handleCarouselScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const container = event.currentTarget;
+    const nextIndex = Math.round(container.scrollLeft / container.clientWidth);
+
+    if (nextIndex !== carouselIndex) {
+      setCarouselIndex(nextIndex);
+    }
+  };
+
   const handleCategoryClick = (
     path: string,
     categoryName: string,
@@ -311,47 +330,51 @@ export default function HomeV3Client({
           </div>
         </div>
 
-      <div className="mx-auto max-w-[1560px] px-3 pb-8 pt-4 md:px-5">
+      <div className="mx-auto max-w-[1560px] px-3 pb-8 pt-2 md:px-5">
         <section className="relative overflow-hidden rounded-2xl border border-[#d5d9d9] bg-[linear-gradient(90deg,#131921_0%,#1f2f46_52%,#23415d_100%)] text-white shadow-sm">
-          <div className="grid gap-4 px-4 py-4 md:grid-cols-[1.08fr_0.92fr] md:px-8 md:py-8">
-            <div>
-              <h1 className="max-w-[12ch] text-[2.25rem] font-black leading-[1.02] tracking-tight sm:max-w-none sm:text-5xl md:mt-5 md:max-w-3xl md:text-6xl">
-                Você pode estar pagando mais caro sem perceber
+            <div className="grid gap-8 px-4 py-3 md:grid-cols-[1fr_1.18fr] md:items-start md:gap-10 md:px-8 md:py-5">
+              <div className="flex max-w-[600px] flex-col gap-4 md:pt-1">
+              <h1 className="max-w-[520px] text-left text-[clamp(28px,3.2vw,44px)] font-black leading-[1.1] tracking-[-0.02em]">
+                Compare produtos{" "}
+                <span className="block">pelo custo real</span>{" "}
+                <span className="block">e compre no momento certo</span>
               </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-200 md:mt-4 md:text-lg md:leading-8">
-                Compare pelo custo real, veja o histórico e descubra quando vale a pena comprar.
-              </p>
-
-              <div className="mt-5 grid gap-3 sm:grid-cols-3 md:mt-6">
+              <div className="grid w-full max-w-[600px] grid-cols-1 gap-4 md:grid-cols-2">
                 <DecisionBadge
                   icon={<Wallet className="h-4 w-4" />}
-                  title="Veja o preço por dose"
-                  description="Compare custo por dose, unidade ou rendimento."
+                  title="PREÇO POR USO"
+                  description="Compare por dose, unidade ou rendimento."
                 />
                 <DecisionBadge
                   icon={<TrendingUp className="h-4 w-4" />}
-                  title="Descubra se está realmente barato"
-                  description="Veja o histórico e o momento certo da compra."
+                  title="HISTÓRICO DE PREÇOS"
+                  description="Veja até 1 ano e entenda o momento certo."
                   accent="amber"
                 />
                 <DecisionBadge
+                  icon={<Heart className="h-4 w-4" />}
+                  title="ACOMPANHE PRODUTOS"
+                  description="Salve produtos da Amazon e acompanhe automaticamente."
+                  accent="emerald"
+                />
+                <DecisionBadge
                   icon={<Bell className="h-4 w-4" />}
-                  title="Receba alerta quando cair"
-                  description="Monitore automaticamente e não perca a queda."
+                  title="ALERTA DE QUEDA"
+                  description="Receba aviso quando o preço baixar."
                   accent="emerald"
                 />
               </div>
 
             </div>
 
-            <div className="rounded-[1.75rem] border border-white/12 bg-white/10 p-3 shadow-2xl backdrop-blur md:p-4">
+            <div className="rounded-[1.75rem] border border-white/12 bg-white/10 p-3 shadow-2xl backdrop-blur md:p-4 md:-mt-1">
               <div className="rounded-[1.5rem] border border-[#d5d9d9] bg-[#F8FAFA] p-4 text-slate-950 shadow-lg">
                 <div className="mb-3 flex items-center justify-end gap-1">
                     {carouselSlides.map((slide, index) => (
                       <button
                         key={slide.key}
                         type="button"
-                        onClick={() => setCarouselIndex(index)}
+                        onClick={() => handleCarouselDotClick(index)}
                         className={`h-2.5 w-2.5 rounded-full transition ${
                           carouselIndex === index ? "bg-[#0F1111]" : "bg-[#D0D5DD]"
                         }`}
@@ -360,27 +383,30 @@ export default function HomeV3Client({
                     ))}
                 </div>
 
-                <div className="overflow-hidden rounded-[1.5rem] border border-[#d5d9d9] bg-white shadow-sm">
+                <div className="overflow-visible rounded-[1.5rem] border border-[#d5d9d9] bg-white shadow-sm">
                   <div
-                    className="flex transition-transform duration-500 ease-out"
-                    style={{ transform: `translateX(-${carouselIndex * 100}%)` }}
+                    ref={carouselRef}
+                    onScroll={handleCarouselScroll}
+                    className="flex snap-x snap-mandatory overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                   >
                     {carouselSlides.map((slide) => (
-                      <div key={slide.key} className="min-w-full">
-                        <div className="relative h-[420px] w-full bg-gradient-to-b from-slate-50 to-slate-100 md:h-[420px]">
+                      <div key={slide.key} className="min-w-full snap-start">
+                        <div className="relative flex min-h-[460px] w-full items-center justify-center overflow-visible bg-gradient-to-b from-slate-50 to-slate-100 px-2 py-2 sm:min-h-[500px] md:min-h-[440px]">
                           <Image
                             src={slide.mobileSrc ?? slide.src}
                             alt={slide.alt}
-                            fill
-                            className="block object-contain p-2 md:hidden"
+                            width={1200}
+                            height={900}
+                            className="block h-auto w-full max-w-[560px] object-contain p-2 md:hidden"
                             sizes="(max-width: 768px) 100vw, 50vw"
                             unoptimized
                           />
                           <Image
                             src={slide.src}
                             alt={slide.alt}
-                            fill
-                            className="hidden object-cover p-0 md:block"
+                            width={1200}
+                            height={900}
+                            className="hidden h-auto w-full max-w-[650px] object-contain p-0 md:block"
                             sizes="(max-width: 768px) 100vw, 50vw"
                             unoptimized
                           />
@@ -684,15 +710,15 @@ function DecisionBadge({
 
   return (
     <div
-      className={`cursor-pointer rounded-2xl border p-4 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:scale-[1.05] hover:shadow-lg ${accentStyles}`}
+      className={`flex h-full w-full cursor-pointer flex-col gap-1.5 rounded-[16px] border p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${accentStyles}`}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-start gap-2">
         <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white/90 shadow-sm">
           {icon}
         </span>
-        <div>
-          <p className="text-[13px] font-black uppercase tracking-widest">{title}</p>
-          <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
+        <div className="min-w-0">
+          <p className="text-[14px] font-semibold uppercase tracking-[0.5px] leading-[1.2]">{title}</p>
+          <p className="text-[13px] leading-[1.4] text-slate-600/85">{description}</p>
         </div>
       </div>
     </div>
