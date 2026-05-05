@@ -190,12 +190,14 @@ export default async function HomePage() {
         u."username" AS "ownerUsername",
         COUNT(i."id")::int AS "itemsCount",
         ARRAY(
-          SELECT COALESCE(p2."imageUrl", c2."imageUrl")
+          SELECT COALESCE(p2."imageUrl", mp2."imageUrl", tp2."imageUrl", c2."imageUrl")
           FROM "SiteUserListItem" i2
-          INNER JOIN "DynamicProduct" p2 ON p2."id" = i2."productId"
+          LEFT JOIN "DynamicProduct" p2 ON p2."id" = i2."productId"
+          LEFT JOIN "SiteUserMonitoredProduct" mp2 ON mp2."id" = i2."monitoredProductId"
+          LEFT JOIN "SiteTrackedAmazonProduct" tp2 ON tp2."id" = i2."trackedAmazonProductId"
           LEFT JOIN "DynamicCategory" c2 ON c2."id" = p2."categoryId"
           WHERE i2."listId" = l."id"
-            AND COALESCE(p2."imageUrl", c2."imageUrl") IS NOT NULL
+            AND COALESCE(p2."imageUrl", mp2."imageUrl", tp2."imageUrl", c2."imageUrl") IS NOT NULL
           ORDER BY i2."sortOrder" ASC, i2."createdAt" DESC
           LIMIT 3
         ) AS "previewImages"
