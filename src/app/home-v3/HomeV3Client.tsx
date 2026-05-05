@@ -391,12 +391,13 @@ export default function HomeV3Client({
                   >
                     {carouselSlides.map((slide) => (
                       <div key={slide.key} className="min-w-full snap-start">
-                        <div className="relative flex min-h-[440px] w-full items-center justify-center overflow-hidden bg-gradient-to-b from-slate-50 to-slate-100 px-0 py-0 sm:min-h-[460px] md:min-h-[440px] md:overflow-visible md:px-2 md:py-2">
+                        <div className="relative flex w-full items-center justify-center overflow-visible bg-gradient-to-b from-slate-50 to-slate-100 px-0 py-0 md:min-h-[440px] md:overflow-visible md:px-2 md:py-2">
                           <Image
                             src={slide.mobileSrc ?? slide.src}
                             alt={slide.alt}
-                            fill
-                            className="block object-cover object-[center_20%] scale-[1.14] md:hidden"
+                            width={1200}
+                            height={1600}
+                            className="block h-auto w-full max-w-none object-contain md:hidden"
                             sizes="(max-width: 768px) 100vw, 50vw"
                             unoptimized
                           />
