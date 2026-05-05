@@ -12,6 +12,33 @@ import { buildPublicListPath, buildPublicUserPath } from "@/lib/siteSocial";
 
 export const revalidate = 300;
 
+type PublicUserListRow = {
+  listId: string;
+  title: string;
+  description: string | null;
+  createdAt: Date;
+  ownerDisplayName: string;
+  ownerUsername: string | null;
+  itemId: string | null;
+  note: string | null;
+  productId: string | null;
+  monitoredProductId: string | null;
+  trackedAmazonProductId: string | null;
+  productAsin: string | null;
+  productName: string | null;
+  productImageUrl: string | null;
+  productTotalPrice: number | null;
+  productAveragePrice30d: number | null;
+  productUrl: string | null;
+  productAvailabilityStatus: string | null;
+  productRatingAverage: number | null;
+  productRatingCount: number | null;
+  categoryName: string | null;
+  categoryGroup: string | null;
+  categorySlug: string | null;
+  commentsCount: number;
+};
+
 export default async function PublicUserListPage({
   params,
   searchParams,
@@ -34,34 +61,7 @@ export default async function PublicUserListPage({
   const openComments = resolvedSearchParams?.comments === "1";
   const showOutOfStock = resolvedSearchParams?.outOfStock === "1";
 
-  const rows = await prisma.$queryRaw<
-    Array<{
-      listId: string;
-      title: string;
-      description: string | null;
-      createdAt: Date;
-      ownerDisplayName: string;
-      ownerUsername: string | null;
-      itemId: string | null;
-      note: string | null;
-      productId: string | null;
-      monitoredProductId: string | null;
-      trackedAmazonProductId: string | null;
-      productAsin: string | null;
-      productName: string | null;
-      productImageUrl: string | null;
-      productTotalPrice: number | null;
-      productAveragePrice30d: number | null;
-      productUrl: string | null;
-      productAvailabilityStatus: string | null;
-      productRatingAverage: number | null;
-      productRatingCount: number | null;
-      categoryName: string | null;
-      categoryGroup: string | null;
-      categorySlug: string | null;
-      commentsCount: number;
-    }>
-  >(Prisma.sql`
+  const rows = await prisma.$queryRaw<PublicUserListRow[]>(Prisma.sql`
     SELECT
       l."id" AS "listId",
       l."title",
@@ -189,15 +189,16 @@ export default async function PublicUserListPage({
           item.attributes.availabilityStatus !== "OUT_OF_STOCK" && item.totalPrice > 0
       );
 
+  const firstRow = rows[0]!;
   const list = {
-    id: rows[0]!.listId,
-    title: rows[0]!.title,
-    description: rows[0]!.description,
-    ownerDisplayName: rows[0]!.ownerDisplayName,
-    ownerUsername: rows[0]!.ownerUsername,
-    createdAt: rows[0]!.createdAt,
+    id: firstRow.listId,
+    title: firstRow.title,
+    description: firstRow.description,
+    ownerDisplayName: firstRow.ownerDisplayName,
+    ownerUsername: firstRow.ownerUsername,
+    createdAt: firstRow.createdAt,
     items: sortedItems,
-    commentsCount: rows[0]!.commentsCount,
+    commentsCount: firstRow.commentsCount,
   };
 
   return (
