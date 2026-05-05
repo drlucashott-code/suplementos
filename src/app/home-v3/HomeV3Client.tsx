@@ -333,7 +333,7 @@ export default function HomeV3Client({
       <div className="mx-auto max-w-[1560px] px-3 pb-8 pt-2 md:px-5">
         <section className="relative overflow-hidden rounded-2xl border border-[#d5d9d9] bg-[linear-gradient(90deg,#131921_0%,#1f2f46_52%,#23415d_100%)] text-white shadow-sm">
             <div className="grid gap-8 px-4 py-3 md:grid-cols-[1fr_1.18fr] md:items-start md:gap-10 md:px-8 md:py-5">
-              <div className="flex max-w-[600px] flex-col gap-4 md:pt-1">
+              <div className="flex max-w-[600px] flex-col gap-4 md:pt-10">
               <h1 className="max-w-[520px] text-left text-[clamp(28px,3.2vw,44px)] font-black leading-[1.1] tracking-[-0.02em]">
                 Compare produtos{" "}
                 <span className="block">pelo custo real</span>{" "}
@@ -391,13 +391,12 @@ export default function HomeV3Client({
                   >
                     {carouselSlides.map((slide) => (
                       <div key={slide.key} className="min-w-full snap-start">
-                        <div className="relative flex min-h-[460px] w-full items-center justify-center overflow-visible bg-gradient-to-b from-slate-50 to-slate-100 px-2 py-2 sm:min-h-[500px] md:min-h-[440px]">
+                        <div className="relative flex min-h-[420px] w-full items-center justify-center overflow-hidden bg-gradient-to-b from-slate-50 to-slate-100 px-2 py-2 sm:min-h-[460px] md:min-h-[440px] md:overflow-visible">
                           <Image
                             src={slide.mobileSrc ?? slide.src}
                             alt={slide.alt}
-                            width={1200}
-                            height={900}
-                            className="block h-auto w-full max-w-[560px] object-contain p-2 md:hidden"
+                            fill
+                            className="block object-cover object-center md:hidden"
                             sizes="(max-width: 768px) 100vw, 50vw"
                             unoptimized
                           />
