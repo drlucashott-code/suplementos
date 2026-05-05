@@ -638,6 +638,7 @@ model SiteUserList {
   title       String
   description String?
   isPublic    Boolean           @default(false)
+  isDefault   Boolean           @default(false)
   items       SiteUserListItem[]
   comments    SiteUserListComment[]
   savedBy     SiteUserSavedList[]
@@ -645,6 +646,7 @@ model SiteUserList {
   updatedAt   DateTime          @updatedAt
 
   @@index([isPublic, updatedAt(sort: Desc)])
+  @@index([userId, isDefault])
 }
 
 model SiteUserListItem {

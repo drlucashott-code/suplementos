@@ -1,9 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { AlertTriangle, Heart, X } from "lucide-react";
+import { AlertTriangle, Heart, ImageOff, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
+import AccountListPickerModal from "@/components/AccountListPickerModal";
 import TrackedDealLink from "@/components/TrackedDealLink";
 import { PriceHistoryButton } from "@/components/dynamic/PriceHistoryButton";
 import type { BestDeal } from "@/lib/bestDeals";
@@ -12,6 +14,7 @@ import {
   isAccountFavorite,
   toggleAccountFavorite,
 } from "@/lib/client/accountFavorites";
+import { getAccountListsCount } from "@/lib/client/accountLists";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 const REPORT_REASONS = [
@@ -93,6 +96,8 @@ export default function BestDealProductCard({
   const [saved, setSaved] = useState(false);
   const [accountAlert, setAccountAlert] = useState<null | "unverified">(null);
   const [reportOpen, setReportOpen] = useState(false);
+  const [listPickerOpen, setListPickerOpen] = useState(false);
+  const [accountListCount, setAccountListCount] = useState<number | null>(null);
   const [reason, setReason] = useState<(typeof REPORT_REASONS)[number]>(
     "Preço desatualizado"
   );
@@ -101,6 +106,9 @@ export default function BestDealProductCard({
     "idle"
   );
   const router = useRouter();
+  const imageSrc = item.imageUrl?.trim()
+    ? getOptimizedAmazonUrl(item.imageUrl, compact ? 240 : 320)
+    : null;
 
   const decisionStyles = {
     emerald: "border-emerald-100 bg-emerald-50 text-emerald-700",
@@ -117,6 +125,16 @@ export default function BestDealProductCard({
       active = false;
     };
   }, [item.id]);
+
+  useEffect(() => {
+    let active = true;
+    void getAccountListsCount().then((count) => {
+      if (active) setAccountListCount(count);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const syncSaved = () => {
@@ -168,6 +186,70 @@ export default function BestDealProductCard({
     }
   }
 
+  async function handleToggleSave() {
+    try {
+      const nextSaved = !saved;
+
+      if (nextSaved) {
+        const listCount = accountListCount ?? (await getAccountListsCount());
+        if (accountListCount === null) {
+          setAccountListCount(listCount);
+        }
+
+        if (listCount > 1) {
+          setListPickerOpen(true);
+          return;
+        }
+      }
+
+      const result = await toggleAccountFavorite(item.id, nextSaved);
+      if (result.unauthorized) {
+        router.push("/entrar");
+        return;
+      }
+      if ("unverified" in result && result.unverified) {
+        setAccountAlert("unverified");
+        return;
+      }
+      if (!result.ok) {
+        toast.error(result.errorDetail ?? result.error ?? "Nao foi possivel salvar agora.");
+        return;
+      }
+
+      setSaved(nextSaved);
+      if (nextSaved) {
+        const listTitle = result.list?.title ?? "Minha lista";
+        toast.custom((t) => (
+          <div
+            className={`flex w-full max-w-sm items-center justify-between gap-3 rounded-2xl border border-[#D5D9D9] bg-white px-4 py-3 shadow-lg transition ${
+              t.visible ? "animate-in fade-in slide-in-from-top-2" : "animate-out fade-out"
+            }`}
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-[#0F1111]">Salvo em {listTitle}</p>
+              <p className="mt-0.5 text-xs text-[#565959]">
+                Você pode alterar depois sem perder o produto.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                toast.dismiss(t.id);
+                router.push("/minha-conta#listas");
+              }}
+              className="shrink-0 rounded-full bg-[#FFD814] px-3 py-1.5 text-xs font-black text-[#0F1111] transition hover:bg-[#F7CA00]"
+            >
+              Alterar
+            </button>
+          </div>
+        ));
+      }
+    } catch (error) {
+      console.error("best_deal_save_failed", error);
+      toast.error("Nao foi possivel salvar agora.");
+    }
+  }
+
   return (
     <>
       <div className="relative h-full">
@@ -191,27 +273,14 @@ export default function BestDealProductCard({
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                const nextSaved = !saved;
-                void toggleAccountFavorite(item.id, nextSaved).then((result) => {
-                  if (result.unauthorized) {
-                    router.push("/entrar");
-                    return;
-                  }
-                  if ("unverified" in result && result.unverified) {
-                    setAccountAlert("unverified");
-                    return;
-                  }
-                  if (result.ok) {
-                    setSaved(nextSaved);
-                  }
-                });
+                void handleToggleSave();
               }}
               className={`inline-flex h-8 w-8 items-center justify-center rounded-full border shadow-sm transition ${
                 saved
                   ? "border-[#f0c14b] bg-[#fff7d6] text-[#b77900]"
                   : "border-gray-200 bg-white text-gray-500 hover:text-[#0F1111]"
               }`}
-              aria-label={saved ? "Remover dos salvos" : "Salvar oferta"}
+              aria-label={saved ? "Remover da Minha lista" : "Salvar na Minha lista"}
             >
               <Heart className={`h-4 w-4 ${saved ? "fill-current" : ""}`} />
             </button>
@@ -233,16 +302,22 @@ export default function BestDealProductCard({
               compact ? "h-[78px]" : "h-[108px]"
             }`}
           >
-            <Image
-              src={getOptimizedAmazonUrl(item.imageUrl, compact ? 240 : 320)}
-              alt={item.name}
-              fill
-              sizes={
-                compact ? "(max-width: 768px) 42vw, 180px" : "(max-width: 768px) 42vw, 220px"
-              }
-              className="object-contain p-2"
-              unoptimized
-            />
+            {imageSrc ? (
+              <Image
+                src={imageSrc}
+                alt={item.name}
+                fill
+                sizes={
+                  compact ? "(max-width: 768px) 42vw, 180px" : "(max-width: 768px) 42vw, 220px"
+                }
+                className="object-contain p-2"
+                unoptimized
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-[#F8FAFA] text-[#98A2B3]">
+                <ImageOff className="h-8 w-8" />
+              </div>
+            )}
           </div>
 
           <div className="mt-1.5">
@@ -475,6 +550,55 @@ export default function BestDealProductCard({
           </div>
         </div>
       ) : null}
+
+      <AccountListPickerModal
+        open={listPickerOpen}
+        productId={item.id}
+        productName={item.name}
+        selectionMode="single"
+        actionLabel="Salvar"
+        onConfirmSingleList={async (list) => {
+          const result = await toggleAccountFavorite(item.id, true, list.id);
+          if (result.unauthorized) {
+            router.push("/entrar");
+            return;
+          }
+          if ("unverified" in result && result.unverified) {
+            setAccountAlert("unverified");
+            return;
+          }
+          if (result.ok) {
+            setSaved(true);
+            const listTitle = result.list?.title ?? list.title;
+            toast.custom((t) => (
+              <div
+                className={`flex w-full max-w-sm items-center justify-between gap-3 rounded-2xl border border-[#D5D9D9] bg-white px-4 py-3 shadow-lg transition ${
+                  t.visible ? "animate-in fade-in slide-in-from-top-2" : "animate-out fade-out"
+                }`}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-[#0F1111]">Salvo em {listTitle}</p>
+                  <p className="mt-0.5 text-xs text-[#565959]">
+                    Você pode alterar depois sem perder o produto.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    router.push("/minha-conta#listas");
+                  }}
+                  className="shrink-0 rounded-full bg-[#FFD814] px-3 py-1.5 text-xs font-black text-[#0F1111] transition hover:bg-[#F7CA00]"
+                >
+                  Alterar
+                </button>
+              </div>
+            ));
+          }
+        }}
+        onClose={() => setListPickerOpen(false)}
+      />
     </>
   );
 }
+

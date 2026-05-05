@@ -1,10 +1,30 @@
-"use client";
+﻿"use client";
 
+import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
 import Image from "next/image";
 import Link from "next/link";
 import {
   CalendarDays,
   Check,
+  ArrowDown,
+  ArrowUp,
   ExternalLink,
   Globe,
   GripVertical,
@@ -18,9 +38,12 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import AccountListPickerModal from "@/components/AccountListPickerModal";
 import BestDealProductCard from "@/components/BestDealProductCard";
+import ListOrderProductCard from "@/components/ListOrderProductCard";
+import { getAccountLastUsedListStorageKey } from "@/lib/client/accountFavorites";
 import { buildPublicListPath } from "@/lib/siteSocial";
 
 type FavoriteEntry = {
@@ -76,6 +99,7 @@ type ListEntry = {
   title: string;
   description: string | null;
   isPublic: boolean;
+  isDefault: boolean;
   itemsCount: number;
 };
 
@@ -155,6 +179,18 @@ type ComparatorPromptState = {
   name: string;
 };
 
+type ListPickerContext = {
+  productId?: string;
+  monitoredProductId?: string;
+  productName: string;
+  initialSelectedListIds: string[];
+};
+
+type ListItemOrderChange = {
+  listId: string;
+  orderedItemIds: string[];
+};
+
 function formatDate(dateIso: string) {
   return new Date(dateIso).toLocaleDateString("pt-BR", {
     day: "2-digit",
@@ -173,6 +209,76 @@ function formatRelativeTime(dateIso: string) {
   return `${days} d`;
 }
 
+function extractAmazonAsinFromInput(input: string) {
+  const normalized = input.trim();
+  if (!normalized) return null;
+
+  const directAsinMatch = normalized.match(/\b([A-Z0-9]{10})\b/i);
+  const dpMatch = normalized.match(/\/dp\/([A-Z0-9]{10})/i);
+  const gpMatch = normalized.match(/\/gp\/product\/([A-Z0-9]{10})/i);
+
+  const asin = dpMatch?.[1] || gpMatch?.[1] || directAsinMatch?.[1];
+  return asin ? asin.toUpperCase() : null;
+}
+
+function formatAsinList(asins: string[]) {
+  return asins.length > 0 ? ` (${asins.join(", ")})` : "";
+}
+
+function pushUnique(values: string[], value: string) {
+  if (!values.includes(value)) {
+    values.push(value);
+  }
+}
+
+function reorderListItemsByIds(items: ListDetails["items"], orderedItemIds: string[]) {
+  const orderMap = new Map(orderedItemIds.map((id, index) => [id, index]));
+  const fallbackIndex = orderedItemIds.length + 1;
+
+  return [...items]
+    .sort((left, right) => (orderMap.get(left.id) ?? fallbackIndex) - (orderMap.get(right.id) ?? fallbackIndex))
+    .map((item, index) => ({
+      ...item,
+      sortOrder: index,
+    }));
+}
+
+function sameItemOrder(items: ListDetails["items"], orderedItemIds: string[]) {
+  if (items.length !== orderedItemIds.length) return false;
+  return items.every((item, index) => item.id === orderedItemIds[index]);
+}
+
+function getListItemBestDeal(item: ListDetails["items"][number]) {
+  const product = item.product;
+  const category = product.category ?? null;
+  const averagePrice30d = product.averagePrice30d ?? product.totalPrice;
+  const discountPercent =
+    product.totalPrice > 0 && averagePrice30d > product.totalPrice
+      ? Math.round(((averagePrice30d - product.totalPrice) / averagePrice30d) * 100)
+      : 0;
+
+  return {
+    id: product.id,
+    asin: product.asin,
+    name: product.name || `Produto Amazon ${product.asin}`,
+    imageUrl: product.imageUrl,
+    url: product.url || `https://www.amazon.com.br/dp/${product.asin}`,
+    totalPrice: product.totalPrice,
+    averagePrice30d,
+    discountPercent,
+    ratingAverage: product.ratingAverage ?? null,
+    ratingCount: product.ratingCount ?? null,
+    likeCount: 0,
+    dislikeCount: 0,
+    categoryName: category?.name ?? "Sem categoria",
+    categoryGroup: category?.group ?? "geral",
+    categorySlug: category?.slug ?? "geral",
+    attributes: {
+      availabilityStatus: product.availabilityStatus ?? "",
+    },
+  };
+}
+
 function favoriteToCardItem(favorite: FavoriteEntry) {
   const averagePrice30d = favorite.product.averagePrice30d ?? favorite.product.totalPrice;
   const discountPercent =
@@ -184,7 +290,7 @@ function favoriteToCardItem(favorite: FavoriteEntry) {
     id: favorite.product.id,
     asin: favorite.product.asin,
     name: favorite.product.name,
-    imageUrl: favorite.product.imageUrl ?? "",
+    imageUrl: favorite.product.imageUrl,
     url: favorite.product.url,
     totalPrice: favorite.product.totalPrice,
     averagePrice30d,
@@ -217,7 +323,7 @@ function monitoredProductToCardItem(monitoredProduct: MonitoredProductEntry) {
     id: monitoredProduct.product.id,
     asin: monitoredProduct.product.asin,
     name: monitoredProduct.product.name,
-    imageUrl: monitoredProduct.product.imageUrl ?? "",
+    imageUrl: monitoredProduct.product.imageUrl,
     url: monitoredProduct.product.url,
     totalPrice: monitoredProduct.product.totalPrice,
     averagePrice30d,
@@ -288,8 +394,12 @@ export default function SiteAccountWorkspace({
   const [listDescription, setListDescription] = useState("");
   const [listPublic, setListPublic] = useState(false);
   const [creatingList, setCreatingList] = useState(false);
+  const [quickListTitle, setQuickListTitle] = useState("");
+  const [creatingQuickList, setCreatingQuickList] = useState(false);
 
   const [selectedListId, setSelectedListId] = useState<string | null>(initialLists[0]?.id ?? null);
+  const [addProductListId, setAddProductListId] = useState<string | null>(null);
+  const [showAddProductListComposer, setShowAddProductListComposer] = useState(false);
   const [selectedTrackedKeys, setSelectedTrackedKeys] = useState<string[]>([]);
   const [listPickerOpen, setListPickerOpen] = useState(false);
   const [trackedReorderMode, setTrackedReorderMode] = useState(false);
@@ -298,6 +408,10 @@ export default function SiteAccountWorkspace({
   const [showOutOfStockInTracked, setShowOutOfStockInTracked] = useState(false);
   const [monitoredProductUrl, setMonitoredProductUrl] = useState("");
   const [addingMonitoredProduct, setAddingMonitoredProduct] = useState(false);
+  const [postAddListPickerContext, setPostAddListPickerContext] = useState<ListPickerContext | null>(
+    null
+  );
+  const [postAddListPickerOpen, setPostAddListPickerOpen] = useState(false);
   const [comparatorPrompt, setComparatorPrompt] = useState<ComparatorPromptState | null>(null);
 
   const [listEditorId, setListEditorId] = useState<string | null>(null);
@@ -306,9 +420,9 @@ export default function SiteAccountWorkspace({
   );
   const [listOrderMode, setListOrderMode] = useState(false);
   const [listSortMode, setListSortMode] = useState<"manual" | "discount">("manual");
-  const [listReorderSelection, setListReorderSelection] = useState<string[]>([]);
   const [showOutOfStockInList, setShowOutOfStockInList] = useState(false);
   const [listTab, setListTab] = useState<"mine" | "saved">("mine");
+  const [activeListItemId, setActiveListItemId] = useState<string | null>(null);
 
   const [activityMode, setActivityMode] = useState<"comments" | "reactions" | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
@@ -319,6 +433,14 @@ export default function SiteAccountWorkspace({
   const [submittingSuggestion, setSubmittingSuggestion] = useState(false);
   const [suggestionMessage, setSuggestionMessage] = useState("");
   const [showSuggestionComposer, setShowSuggestionComposer] = useState(false);
+  const listOrderSaveTimerRef = useRef<number | null>(null);
+  const listOrderSaveRequestRef = useRef<ListItemOrderChange | null>(null);
+  const listOrderSavingRef = useRef(false);
+  const listOrderShowOutOfStockBeforeEditRef = useRef<boolean | null>(null);
+  const defaultList = lists.find((list) => list.isDefault) ?? lists[0] ?? null;
+  const otherLists = lists.filter((list) => !list.isDefault);
+  const addListOptions = otherLists.length > 0 ? otherLists : defaultList ? [defaultList] : [];
+  const addProductListStorageKey = getAccountLastUsedListStorageKey(currentUser.id);
 
   const trackedProductCards = useMemo(() => {
     const favoriteEntries = favorites.map((favorite) => ({
@@ -376,6 +498,9 @@ export default function SiteAccountWorkspace({
   }, [favorites, monitoredProducts, trackedReorderMode, trackedSortMode]);
   const openedList = openListId ? listDetailsMap[openListId] ?? null : null;
   const selectedList = selectedListId ? lists.find((list) => list.id === selectedListId) : null;
+  const addProductList = addProductListId
+    ? lists.find((list) => list.id === addProductListId) ?? addListOptions[0] ?? null
+    : addListOptions[0] ?? null;
   const sortedOpenedListItems = useMemo(() => {
     if (!openedList) return [];
     if (listSortMode !== "discount" || listOrderMode) return openedList.items;
@@ -425,6 +550,48 @@ export default function SiteAccountWorkspace({
         item.card.totalPrice > 0
     );
   }, [trackedProductCards, trackedSortMode, trackedReorderMode, showOutOfStockInTracked]);
+  const listOrderSensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 160, tolerance: 8 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  useEffect(
+    () => () => {
+      if (listOrderSaveTimerRef.current) {
+        window.clearTimeout(listOrderSaveTimerRef.current);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (lists.length === 0) return;
+
+    const visibleIds = new Set(addListOptions.map((list) => list.id));
+
+    if (addProductListId && visibleIds.has(addProductListId)) {
+      return;
+    }
+
+    const storedListId =
+      typeof window !== "undefined" ? window.localStorage.getItem(addProductListStorageKey) : null;
+    const nextListId =
+      (storedListId && visibleIds.has(storedListId) ? storedListId : null) ??
+      addListOptions[0]?.id ??
+      null;
+
+    if (nextListId && nextListId !== addProductListId) {
+      setAddProductListId(nextListId);
+    }
+  }, [addListOptions, addProductListId, addProductListStorageKey, defaultList?.id, lists]);
+
+  useEffect(() => {
+    if (!addProductListId || typeof window === "undefined") return;
+    window.localStorage.setItem(addProductListStorageKey, addProductListId);
+  }, [addProductListId, addProductListStorageKey]);
 
   function setMessage(message: string) {
     setWorkspaceMessage(message);
@@ -453,20 +620,20 @@ export default function SiteAccountWorkspace({
       }
 
       if (data.alreadyVerified) {
-        setVerificationMessage("Seu email já foi confirmado. Atualize a página para seguir normalmente.");
+        setVerificationMessage("Seu email jÃ¡ foi confirmado. Atualize a pÃ¡gina para seguir normalmente.");
         return;
       }
 
       setVerificationMessage(
         data.sent
-          ? "Enviamos um novo link de confirmação para o seu email."
-          : "Não foi possível reenviar a confirmação agora."
+          ? "Enviamos um novo link de confirmaÃ§Ã£o para o seu email."
+          : "NÃ£o foi possÃ­vel reenviar a confirmaÃ§Ã£o agora."
       );
     } catch (error) {
       setVerificationMessage(
         error instanceof Error && error.message !== "resend_failed"
           ? error.message
-          : "Não foi possível reenviar a confirmação agora."
+          : "NÃ£o foi possÃ­vel reenviar a confirmaÃ§Ã£o agora."
       );
     } finally {
       setResendingVerification(false);
@@ -538,70 +705,203 @@ export default function SiteAccountWorkspace({
 
   async function addMonitoredProduct(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!monitoredProductUrl.trim()) {
-      setMessage("Cole um link valido da Amazon para adicionar ao monitoramento.");
+    const amazonInputs = monitoredProductUrl
+      .split(",")
+      .map((input) => input.trim())
+      .filter(Boolean);
+
+    if (amazonInputs.length === 0) {
+      setMessage("Cole um link da Amazon ou ASIN para adicionar.");
       return;
+    }
+
+    const targetList = addProductList ?? addListOptions[0] ?? null;
+    const targetListKnownAsins = new Set<string>();
+    const targetListDetails = targetList ? listDetailsMap[targetList.id] : null;
+    if (targetListDetails) {
+      for (const item of targetListDetails.items) {
+        targetListKnownAsins.add(item.product.asin.toUpperCase());
+      }
     }
 
     setAddingMonitoredProduct(true);
     setMessage("");
+    setPostAddListPickerContext(null);
 
     try {
-      const response = await fetch("/api/account/monitored-products", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amazonUrl: monitoredProductUrl.trim() }),
-      });
-      const data = (await response.json()) as {
-        ok?: boolean;
-        error?: string;
-        source?: "catalog" | "amazon";
-        canSuggestComparator?: boolean;
-        favorite?: FavoriteEntry;
-        monitoredProduct?: MonitoredProductEntry;
-      };
+      const seenAsinsInBatch = new Set<string>();
+      const addedAsins: string[] = [];
+      const existingAsins: string[] = [];
+      const errorAsins: string[] = [];
+      let latestComparatorPrompt: ComparatorPromptState | null = null;
+      let lastSuccessfulContext: ListPickerContext | null = null;
+      const selectedListTitle = targetList?.title ?? "Minha lista";
 
-      if (!response.ok || !data.ok) {
-        throw new Error(data.error || "monitored_product_create_failed");
+      for (const amazonInput of amazonInputs) {
+        const asin = extractAmazonAsinFromInput(amazonInput) ?? amazonInput;
+        const normalizedAsin = asin.toUpperCase();
+
+        if (seenAsinsInBatch.has(normalizedAsin)) {
+          pushUnique(existingAsins, normalizedAsin);
+          continue;
+        }
+        seenAsinsInBatch.add(normalizedAsin);
+
+        if (targetListKnownAsins.has(normalizedAsin)) {
+          pushUnique(existingAsins, normalizedAsin);
+          continue;
+        }
+
+        try {
+          const response = await fetch("/api/account/monitored-products", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ amazonUrl: amazonInput, listId: targetList?.id }),
+          });
+          const data = (await response.json()) as {
+            ok?: boolean;
+            error?: string;
+            errorDetail?: string;
+            asin?: string | null;
+            source?: "catalog" | "amazon";
+            canSuggestComparator?: boolean;
+            created?: boolean;
+            listId?: string | null;
+            favorite?: FavoriteEntry;
+            monitoredProduct?: MonitoredProductEntry;
+          };
+
+          if (!response.ok || !data.ok) {
+            throw new Error(data.errorDetail || data.error || "monitored_product_create_failed");
+          }
+
+          if (data.source === "catalog" && data.favorite) {
+            const favoriteAsin = data.favorite.product.asin.toUpperCase();
+            const resolvedListId = data.listId ?? targetList?.id ?? null;
+            setFavorites((current) => {
+              const withoutSameProduct = current.filter(
+                (entry) => entry.product.id !== data.favorite!.product.id
+              );
+              return [data.favorite!, ...withoutSameProduct];
+            });
+            if (data.created && resolvedListId) {
+              setLists((current) =>
+                current.map((list) =>
+                  list.id === resolvedListId ? { ...list, itemsCount: list.itemsCount + 1 } : list
+                )
+              );
+              setListDetailsMap((current) => {
+                const details = current[resolvedListId];
+                if (!details) return current;
+                return {
+                  ...current,
+                  [resolvedListId]: {
+                    ...details,
+                    items: [
+                      ...details.items,
+                      {
+                        id: `${resolvedListId}:${data.favorite!.product.id}`,
+                        note: null,
+                        sortOrder: details.items.length,
+                        source: "catalog",
+                        product: data.favorite!.product,
+                      },
+                    ],
+                  },
+                };
+              });
+            }
+            latestComparatorPrompt = null;
+            if (data.created) {
+              pushUnique(addedAsins, favoriteAsin);
+            } else {
+              pushUnique(existingAsins, favoriteAsin);
+            }
+            lastSuccessfulContext = {
+              productId: data.favorite.product.id,
+              productName: data.favorite.product.name,
+              initialSelectedListIds: resolvedListId ? [resolvedListId] : [],
+            };
+          } else if (data.source === "amazon" && data.monitoredProduct) {
+            const monitoredAsin = data.monitoredProduct.product.asin.toUpperCase();
+            const resolvedProduct = data.monitoredProduct.product;
+            const resolvedListId = data.listId ?? targetList?.id ?? null;
+            setMonitoredProducts((current) => {
+              const withoutSameAsin = current.filter(
+                (entry) => entry.product.asin !== data.monitoredProduct!.product.asin
+              );
+              return [data.monitoredProduct!, ...withoutSameAsin];
+            });
+            if (!resolvedListId) {
+              throw new Error("list_not_found");
+            }
+            const addedToList = await addTrackedProductToList(resolvedListId, {
+              monitoredProductId: data.monitoredProduct.id,
+              resolvedProduct,
+            });
+            latestComparatorPrompt = data.canSuggestComparator
+              ? {
+                  asin: data.monitoredProduct.product.asin,
+                  amazonUrl: data.monitoredProduct.product.url,
+                  name: data.monitoredProduct.product.name,
+                }
+              : null;
+            if (addedToList.created) {
+              pushUnique(addedAsins, monitoredAsin);
+            } else {
+              pushUnique(existingAsins, monitoredAsin);
+            }
+            targetListKnownAsins.add(monitoredAsin);
+            lastSuccessfulContext = {
+              monitoredProductId: data.monitoredProduct.id,
+              productName: data.monitoredProduct.product.name,
+              initialSelectedListIds: [resolvedListId],
+            };
+          } else {
+            throw new Error("monitored_product_create_failed");
+          }
+        } catch (error) {
+          const cause = error instanceof Error ? error.message : "monitored_product_create_failed";
+          if (targetListKnownAsins.has(normalizedAsin)) {
+            pushUnique(existingAsins, normalizedAsin);
+            continue;
+          }
+          pushUnique(errorAsins, normalizedAsin);
+          console.error("monitored_product_create_failed", {
+            amazonInput,
+            asin: normalizedAsin,
+            cause,
+            error,
+          });
+        }
       }
 
-      if (data.source === "catalog" && data.favorite) {
-        setFavorites((current) => {
-          const withoutSameProduct = current.filter(
-            (entry) => entry.product.id !== data.favorite!.product.id
-          );
-          return [data.favorite!, ...withoutSameProduct];
-        });
-        setMonitoredProducts((current) =>
-          current.filter((entry) => entry.product.asin !== data.favorite!.product.asin)
-        );
-        setComparatorPrompt(null);
-        setMessage("Produto ja existe no comparador e foi adicionado aos seus monitorados.");
-      } else if (data.source === "amazon" && data.monitoredProduct) {
-        setMonitoredProducts((current) => {
-          const withoutSameAsin = current.filter(
-            (entry) => entry.product.asin !== data.monitoredProduct!.product.asin
-          );
-          return [data.monitoredProduct!, ...withoutSameAsin];
-        });
-        setComparatorPrompt(
-          data.canSuggestComparator
-            ? {
-                asin: data.monitoredProduct.product.asin,
-                amazonUrl: data.monitoredProduct.product.url,
-                name: data.monitoredProduct.product.name,
-              }
-            : null
-        );
-        setMessage("Produto adicionado ao seu monitoramento pessoal.");
-      } else {
-        throw new Error("monitored_product_create_failed");
-      }
+      setComparatorPrompt(latestComparatorPrompt);
 
       setMonitoredProductUrl("");
+      setPostAddListPickerContext(lastSuccessfulContext);
+      setPostAddListPickerOpen(false);
+
+      const addedPart = `${addedAsins.length} produto${
+        addedAsins.length === 1 ? "" : "s"
+      } adicionad${addedAsins.length === 1 ? "o" : "os"}${formatAsinList(addedAsins)}`;
+      const existingPart = `${existingAsins.length} produto${
+        existingAsins.length === 1 ? "" : "s"
+      } ja existente${existingAsins.length === 1 ? "" : "s"}${formatAsinList(existingAsins)}`;
+      const errorPart = `${errorAsins.length} produto${
+        errorAsins.length === 1 ? "" : "s"
+      } apresentaram erro${formatAsinList(errorAsins)}`;
+
+      if (addedAsins.length === 1 && existingAsins.length === 0 && errorAsins.length === 0) {
+        setMessage(`Salvo em ${selectedListTitle}.`);
+      } else if (addedAsins.length === 0 && existingAsins.length === 1 && errorAsins.length === 0) {
+        setMessage("Produto ja esta nesta lista.");
+      } else {
+        setMessage([addedPart, existingPart, errorPart].join(" | "));
+      }
     } catch (error) {
       console.error("monitored_product_create_failed", error);
-      setMessage("Nao foi possivel adicionar esse link da Amazon agora.");
+      setMessage("Nao foi possivel adicionar esses produtos agora.");
     } finally {
       setAddingMonitoredProduct(false);
     }
@@ -708,36 +1008,46 @@ export default function SiteAccountWorkspace({
     }
   }
 
+  async function createListRecord(input: {
+    title: string;
+    description?: string;
+    isPublic?: boolean;
+  }) {
+    const response = await fetch("/api/account/lists", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+
+    const data = (await response.json()) as { ok?: boolean; error?: string; list?: ListEntry };
+    if (!response.ok || !data.ok || !data.list) {
+      throw new Error(data.error || "list_create_failed");
+    }
+
+    setLists((current) => [data.list!, ...current]);
+    setListForms((current) => ({
+      ...current,
+      [data.list!.id]: {
+        title: data.list!.title,
+        description: data.list!.description ?? "",
+      },
+    }));
+
+    return data.list!;
+  }
+
   async function createList(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setCreatingList(true);
     setMessage("");
 
     try {
-      const response = await fetch("/api/account/lists", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: listTitle,
-          description: listDescription,
-          isPublic: listPublic,
-        }),
+      const createdList = await createListRecord({
+        title: listTitle,
+        description: listDescription,
+        isPublic: listPublic,
       });
-
-      const data = (await response.json()) as { ok?: boolean; error?: string; list?: ListEntry };
-      if (!response.ok || !data.ok || !data.list) {
-        throw new Error(data.error || "list_create_failed");
-      }
-
-      setLists((current) => [data.list!, ...current]);
-      setListForms((current) => ({
-        ...current,
-        [data.list!.id]: {
-          title: data.list!.title,
-          description: data.list!.description ?? "",
-        },
-      }));
-      setSelectedListId((current) => current ?? data.list!.id);
+      setSelectedListId((current) => current ?? createdList.id);
       setListTitle("");
       setListDescription("");
       setListPublic(false);
@@ -748,6 +1058,30 @@ export default function SiteAccountWorkspace({
       setMessage("Nao foi possivel criar a lista agora.");
     } finally {
       setCreatingList(false);
+    }
+  }
+
+  async function createQuickAddList() {
+    const title = quickListTitle.trim();
+    if (title.length < 2) {
+      setMessage("Digite um nome para a nova lista.");
+      return;
+    }
+
+    setCreatingQuickList(true);
+    setMessage("");
+
+    try {
+      const createdList = await createListRecord({ title });
+      setAddProductListId(createdList.id);
+      setQuickListTitle("");
+      setShowAddProductListComposer(false);
+      setMessage(`Lista "${createdList.title}" criada e selecionada.`);
+    } catch (error) {
+      console.error("quick_list_create_failed", error);
+      setMessage("Nao foi possivel criar a lista agora.");
+    } finally {
+      setCreatingQuickList(false);
     }
   }
 
@@ -882,6 +1216,13 @@ export default function SiteAccountWorkspace({
   }
 
   async function deleteList(listId: string) {
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm("Tem certeza que deseja excluir esta lista?");
+      if (!confirmed) {
+        return;
+      }
+    }
+
     setPendingAction(`delete:${listId}`);
     setMessage("");
 
@@ -959,17 +1300,26 @@ export default function SiteAccountWorkspace({
 
   async function addTrackedProductToList(
     listId: string,
-    input: { productId?: string | null; monitoredProductId?: string | null }
-  ) {
+    input: {
+      productId?: string | null;
+      monitoredProductId?: string | null;
+      resolvedProduct?: FavoriteEntry["product"] | MonitoredProductEntry["product"] | null;
+    }
+  ): Promise<{ created: boolean }> {
     const response = await fetch(`/api/account/lists/${listId}/items`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });
 
-    const data = (await response.json()) as { ok?: boolean; created?: boolean };
+    const data = (await response.json()) as {
+      ok?: boolean;
+      created?: boolean;
+      error?: string;
+      errorDetail?: string;
+    };
     if (!response.ok || !data.ok) {
-      throw new Error("list_item_create_failed");
+      throw new Error(data.errorDetail || data.error || "list_item_create_failed");
     }
 
     setLists((current) =>
@@ -990,7 +1340,7 @@ export default function SiteAccountWorkspace({
         ? monitoredProducts.find((item) => item.id === input.monitoredProductId)
         : null;
       const source = favorite ? "catalog" : "monitored";
-      const resolvedProduct = favorite?.product ?? monitoredProduct?.product;
+      const resolvedProduct = input.resolvedProduct ?? favorite?.product ?? monitoredProduct?.product;
       if (!resolvedProduct) return current;
 
       return {
@@ -1010,6 +1360,8 @@ export default function SiteAccountWorkspace({
         },
       };
     });
+
+    return { created: Boolean(data.created) };
   }
 
   async function addSelectedFavoritesToList() {
@@ -1022,9 +1374,11 @@ export default function SiteAccountWorkspace({
     setMessage("");
 
     try {
-      for (const trackedKey of selectedTrackedKeys) {
-        const trackedItem = trackedProductCards.find((item) => item.key === trackedKey);
-        if (!trackedItem) continue;
+      const orderedSelectedItems = selectedTrackedKeys
+        .map((trackedKey) => trackedProductCards.find((item) => item.key === trackedKey))
+        .filter((item): item is (typeof trackedProductCards)[number] => Boolean(item));
+
+      for (const trackedItem of orderedSelectedItems) {
         await addTrackedProductToList(selectedListId, {
           productId: trackedItem.productId,
           monitoredProductId: trackedItem.monitoredProductId,
@@ -1032,10 +1386,14 @@ export default function SiteAccountWorkspace({
       }
       setSelectedTrackedKeys([]);
       setListPickerOpen(false);
-      setMessage("Produtos adicionados a lista.");
+      setMessage("Produtos adicionados a lista na ordem selecionada.");
     } catch (error) {
       console.error("bulk_add_failed", error);
-      setMessage("Nao foi possivel adicionar os produtos selecionados.");
+      setMessage(
+        error instanceof Error && error.message !== "list_item_create_failed"
+          ? `Nao foi possivel adicionar os produtos selecionados: ${error.message}`
+          : "Nao foi possivel adicionar os produtos selecionados."
+      );
     } finally {
       setPendingAction(null);
     }
@@ -1244,14 +1602,15 @@ export default function SiteAccountWorkspace({
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          itemId: input.itemId,
           productId: input.productId,
           monitoredProductId: input.monitoredProductId,
         }),
       });
-      const data = (await response.json()) as { ok?: boolean };
+      const data = (await response.json()) as { ok?: boolean; error?: string; errorDetail?: string };
 
       if (!response.ok || !data.ok) {
-        throw new Error("list_item_delete_failed");
+        throw new Error(data.errorDetail || data.error || "list_item_delete_failed");
       }
 
       setLists((current) =>
@@ -1259,6 +1618,21 @@ export default function SiteAccountWorkspace({
           list.id === listId ? { ...list, itemsCount: Math.max(0, list.itemsCount - 1) } : list
         )
       );
+      const currentDetails = listDetailsMap[listId];
+      const nextItemIds = currentDetails
+        ? currentDetails.items
+            .filter((item) => item.id !== input.itemId)
+            .map((item) => item.id)
+        : [];
+
+      if (nextItemIds.length > 0) {
+        queueListOrderSave(listId, nextItemIds);
+      } else if (listOrderSaveTimerRef.current) {
+        window.clearTimeout(listOrderSaveTimerRef.current);
+        listOrderSaveTimerRef.current = null;
+        listOrderSaveRequestRef.current = null;
+      }
+
       setListDetailsMap((current) => {
         const details = current[listId];
         if (!details) return current;
@@ -1273,16 +1647,79 @@ export default function SiteAccountWorkspace({
       setMessage("Produto removido da lista.");
     } catch (error) {
       console.error("list_item_delete_failed", error);
-      setMessage("Nao foi possivel remover o produto da lista.");
+      setMessage(
+        error instanceof Error && error.message !== "list_item_delete_failed"
+          ? `Nao foi possivel remover o produto da lista: ${error.message}`
+          : "Nao foi possivel remover o produto da lista."
+      );
     } finally {
       setPendingAction(null);
     }
   }
 
-  async function saveListOrder(listId: string, orderedItemIds: string[]) {
-    setPendingAction(`reorder:${listId}`);
-    setMessage("");
+  function updateListOrderInState(listId: string, orderedItemIds: string[]) {
+    setListDetailsMap((current) => {
+      const details = current[listId];
+      if (!details) return current;
+      if (sameItemOrder(details.items, orderedItemIds)) return current;
 
+      return {
+        ...current,
+        [listId]: {
+          ...details,
+          items: reorderListItemsByIds(details.items, orderedItemIds),
+        },
+      };
+    });
+  }
+
+  function queueListOrderSave(listId: string, orderedItemIds: string[]) {
+    listOrderSaveRequestRef.current = { listId, orderedItemIds };
+
+    if (listOrderSaveTimerRef.current) {
+      window.clearTimeout(listOrderSaveTimerRef.current);
+    }
+
+    listOrderSaveTimerRef.current = window.setTimeout(() => {
+      void flushListOrderSave();
+    }, 500);
+  }
+
+  async function flushListOrderSave() {
+    const pending = listOrderSaveRequestRef.current;
+    if (!pending) return;
+
+    if (listOrderSavingRef.current) {
+      if (listOrderSaveTimerRef.current) {
+        window.clearTimeout(listOrderSaveTimerRef.current);
+      }
+      listOrderSaveTimerRef.current = window.setTimeout(() => {
+        void flushListOrderSave();
+      }, 250);
+      return;
+    }
+
+    if (listOrderSaveTimerRef.current) {
+      window.clearTimeout(listOrderSaveTimerRef.current);
+      listOrderSaveTimerRef.current = null;
+    }
+
+    listOrderSavingRef.current = true;
+    try {
+      await saveListOrder(pending.listId, pending.orderedItemIds, { silent: true });
+      if (listOrderSaveRequestRef.current === pending) {
+        listOrderSaveRequestRef.current = null;
+      }
+    } finally {
+      listOrderSavingRef.current = false;
+    }
+  }
+
+  async function saveListOrder(
+    listId: string,
+    orderedItemIds: string[],
+    options?: { silent?: boolean }
+  ) {
     try {
       const response = await fetch(`/api/account/lists/${listId}/items`, {
         method: "PATCH",
@@ -1295,21 +1732,37 @@ export default function SiteAccountWorkspace({
         throw new Error("list_reorder_failed");
       }
 
-      setMessage("Ordem da lista atualizada.");
+      if (!options?.silent) {
+        setMessage("Ordem da lista atualizada.");
+      }
     } catch (error) {
       console.error("list_reorder_failed", error);
       setMessage("Nao foi possivel salvar a nova ordem.");
-    } finally {
-      setPendingAction(null);
     }
   }
 
-  function toggleListReorderSelection(listItemId: string) {
-    setListReorderSelection((current) =>
-      current.includes(listItemId)
-        ? current.filter((id) => id !== listItemId)
-        : [...current, listItemId]
-    );
+  function commitListOrder(
+    listId: string,
+    orderedItemIds: string[],
+    options?: { persist?: boolean }
+  ) {
+    const currentList = listDetailsMap[listId];
+    if (currentList && sameItemOrder(currentList.items, orderedItemIds)) {
+      return;
+    }
+    updateListOrderInState(listId, orderedItemIds);
+    if (options?.persist !== false) {
+      queueListOrderSave(listId, orderedItemIds);
+    }
+  }
+
+  function beginListReorder() {
+    if (!openedList) return;
+    setListSortMode("manual");
+    setListOrderMode(true);
+    listOrderShowOutOfStockBeforeEditRef.current = showOutOfStockInList;
+    setShowOutOfStockInList(true);
+    setMessage("");
   }
 
   async function finishListReorder() {
@@ -1317,33 +1770,111 @@ export default function SiteAccountWorkspace({
     const currentList = listDetailsMap[openListId];
     if (!currentList) return;
 
-    const orderedItemIds = [
-      ...listReorderSelection,
-      ...currentList.items
-        .map((item) => item.id)
-        .filter((id) => !listReorderSelection.includes(id)),
-    ];
-
-    const orderMap = new Map(orderedItemIds.map((id, index) => [id, index]));
-    setListDetailsMap((current) => ({
-      ...current,
-      [openListId]: {
-        ...currentList,
-        items: [...currentList.items]
-          .sort((left, right) => (orderMap.get(left.id) ?? 0) - (orderMap.get(right.id) ?? 0))
-          .map((item, index) => ({
-            ...item,
-            sortOrder: index,
-          })),
-      },
-    }));
-
-    await saveListOrder(
-      openListId,
-      orderedItemIds
-    );
-    setListReorderSelection([]);
+    await flushListOrderSave();
+    setActiveListItemId(null);
     setListOrderMode(false);
+    if (listOrderShowOutOfStockBeforeEditRef.current !== null) {
+      setShowOutOfStockInList(listOrderShowOutOfStockBeforeEditRef.current);
+      listOrderShowOutOfStockBeforeEditRef.current = null;
+    }
+  }
+
+  function getCurrentListItemIds(listId: string) {
+    const currentList = listDetailsMap[listId];
+    return currentList ? currentList.items.map((item) => item.id) : [];
+  }
+
+  function reorderCurrentList(listId: string, orderedItemIds: string[], persist = true) {
+    commitListOrder(listId, orderedItemIds, { persist });
+  }
+
+  function moveListItem(listId: string, itemId: string, direction: -1 | 1) {
+    const currentIds = getCurrentListItemIds(listId);
+    const fromIndex = currentIds.indexOf(itemId);
+    const toIndex = fromIndex + direction;
+
+    if (fromIndex < 0 || toIndex < 0 || toIndex >= currentIds.length) {
+      return;
+    }
+
+    const nextIds = arrayMove(currentIds, fromIndex, toIndex);
+    reorderCurrentList(listId, nextIds);
+  }
+
+  function sortCurrentList(
+    listId: string,
+    sortMode: "price" | "discount" | "alpha"
+  ) {
+    const currentList = listDetailsMap[listId];
+    if (!currentList) return;
+
+    const nextIds = [...currentList.items]
+      .sort((left, right) => {
+        if (sortMode === "price") {
+          return left.product.totalPrice - right.product.totalPrice;
+        }
+        if (sortMode === "alpha") {
+          return left.product.name.localeCompare(right.product.name, "pt-BR");
+        }
+
+        const leftAverage = left.product.averagePrice30d ?? left.product.totalPrice;
+        const rightAverage = right.product.averagePrice30d ?? right.product.totalPrice;
+        const leftDiscount =
+          left.product.totalPrice > 0 && leftAverage > left.product.totalPrice
+            ? Math.round(((leftAverage - left.product.totalPrice) / leftAverage) * 100)
+            : 0;
+        const rightDiscount =
+          right.product.totalPrice > 0 && rightAverage > right.product.totalPrice
+            ? Math.round(((rightAverage - right.product.totalPrice) / rightAverage) * 100)
+            : 0;
+
+        if (rightDiscount !== leftDiscount) {
+          return rightDiscount - leftDiscount;
+        }
+
+        return left.product.totalPrice - right.product.totalPrice;
+      })
+      .map((item) => item.id);
+
+    reorderCurrentList(listId, nextIds);
+  }
+
+  function handleListDragStart(event: DragStartEvent) {
+    setActiveListItemId(String(event.active.id));
+  }
+
+  function handleListDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveListItemId(null);
+
+    if (!openListId || !openedList || !over) return;
+    if (active.id === over.id) {
+      return;
+    }
+
+    const currentIds = getCurrentListItemIds(openListId);
+    const fromIndex = currentIds.indexOf(String(active.id));
+    const toIndex = currentIds.indexOf(String(over.id));
+
+    if (fromIndex < 0 || toIndex < 0) return;
+
+    const nextIds = arrayMove(currentIds, fromIndex, toIndex);
+    queueListOrderSave(openListId, nextIds);
+  }
+
+  function handleListDragOver(event: DragOverEvent) {
+    const { active, over } = event;
+    if (!openListId || !openedList || !over) return;
+    if (active.id === over.id) return;
+
+    const currentIds = getCurrentListItemIds(openListId);
+    const fromIndex = currentIds.indexOf(String(active.id));
+    const toIndex = currentIds.indexOf(String(over.id));
+
+    if (fromIndex < 0 || toIndex < 0) return;
+
+    const nextIds = arrayMove(currentIds, fromIndex, toIndex);
+    commitListOrder(openListId, nextIds, { persist: false });
   }
 
   return (
@@ -1439,7 +1970,7 @@ export default function SiteAccountWorkspace({
                 <MessageCircle className="h-4 w-4 shrink-0 text-[#FFD37A] sm:h-5 sm:w-5" />
                 <div>
                   <p className="text-[10px] font-bold text-white/60 sm:text-xs sm:uppercase sm:tracking-[0.16em]">
-                    Comentários
+                    ComentÃ¡rios
                   </p>
                   <p className="mt-1 text-sm font-black text-white sm:text-lg">
                     {profileStats.commentsCount}
@@ -1457,8 +1988,8 @@ export default function SiteAccountWorkspace({
                 <Heart className="h-4 w-4 shrink-0 text-[#FFD37A] sm:h-5 sm:w-5" />
                 <div>
                   <p className="text-[10px] font-bold text-white/60 sm:text-xs sm:uppercase sm:tracking-[0.16em]">
-                    <span className="sm:hidden">Reações</span>
-                    <span className="hidden sm:inline">Reações a comentários</span>
+                    <span className="sm:hidden">ReaÃ§Ãµes</span>
+                    <span className="hidden sm:inline">ReaÃ§Ãµes a comentÃ¡rios</span>
                   </p>
                   <p className="mt-1 text-sm font-black text-white sm:text-lg">
                     {profileStats.commentReactionsCount}
@@ -1481,8 +2012,8 @@ export default function SiteAccountWorkspace({
                   endereco de email em <span className="font-bold">{currentUser.email}</span>.
                 </p>
                 <p className="mt-2 text-sm text-[#7A2E0E]">
-                  Enquanto essa confirmação não for feita, favoritos, listas, comentários e outras
-                  interações ficam bloqueadas.
+                  Enquanto essa confirmaÃ§Ã£o nÃ£o for feita, listas, produtos salvos, comentÃ¡rios e
+                  outras interaÃ§Ãµes ficam bloqueadas.
                 </p>
                 {verificationMessage ? (
                   <p className="mt-2 text-sm font-semibold text-[#B54708]">{verificationMessage}</p>
@@ -1575,25 +2106,20 @@ export default function SiteAccountWorkspace({
         ) : null}
       </section>
 
-      {workspaceMessage ? (
-        <div className="rounded-2xl border border-[#d5d9d9] bg-white px-4 py-3 text-sm font-medium text-[#475467] shadow-sm">
-          {workspaceMessage}
-        </div>
-      ) : null}
-
       <section className="rounded-[32px] border border-[#d5d9d9] bg-white p-6 shadow-sm md:p-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#FF8F1F]">
-              Monitoramento
+              Adicionar produto
             </p>
-            <h3 className="mt-2 text-3xl font-black text-[#0F1111]">Produtos monitorados</h3>
+            <h3 className="mt-2 text-3xl font-black text-[#0F1111]">Salvar na sua lista</h3>
             <p className="mt-2 max-w-3xl text-sm text-[#565959]">
-              Acompanhe em um so lugar os produtos salvos no site e tambem os links da Amazon que voce quiser monitorar.
+              Cole o link ou o ASIN do produto da Amazon. Selecione a lista antes de salvar ou
+              deixe em Minha lista como fallback.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="hidden flex-wrap gap-3">
             {trackedProductCards.length > 1 ? (
               <button
                 type="button"
@@ -1625,7 +2151,7 @@ export default function SiteAccountWorkspace({
                     : "border-[#D0D5DD] bg-white text-[#0F1111] hover:bg-[#F8FAFA]"
                 }`}
               >
-                {trackedReorderMode ? "Concluir organização" : "Personalizar ordem"}
+                {trackedReorderMode ? "Concluir organizaÃ§Ã£o" : "Personalizar ordem"}
               </button>
             ) : null}
             {trackedReorderMode ? (
@@ -1665,7 +2191,7 @@ export default function SiteAccountWorkspace({
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#B54708]">
-                  Adicionar favoritos a uma lista
+                  Adicionar produtos a uma lista
                 </p>
                 <p className="mt-2 text-sm text-[#7A271A]">
                   Escolha uma lista e clique nos produtos que voce quer incluir.
@@ -1710,15 +2236,15 @@ export default function SiteAccountWorkspace({
         ) : null}
 
         {trackedProductCards.length === 0 ? (
-          <div className="mt-6 rounded-3xl border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-4 py-10 text-center text-sm text-[#565959]">
+          <div className="hidden mt-6 rounded-3xl border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-4 py-10 text-center text-sm text-[#565959]">
             Nenhum produto monitorado ainda.
           </div>
         ) : visibleTrackedProductCards.length === 0 ? (
-          <div className="mt-6 rounded-3xl border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-4 py-10 text-center text-sm text-[#565959]">
+          <div className="hidden mt-6 rounded-3xl border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-4 py-10 text-center text-sm text-[#565959]">
             Todos os produtos monitorados estao sem estoque no momento.
           </div>
         ) : (
-          <div className="mt-6">
+          <div className="hidden mt-6">
             <div className="mb-4 flex flex-wrap items-center gap-3">
               {!showOutOfStockInTracked ? (
                 <span className="text-sm text-[#667085]">
@@ -1732,6 +2258,7 @@ export default function SiteAccountWorkspace({
                 ? favorites.find((entry) => entry.product.id === trackedItem.productId) ?? null
                 : null;
               const isSelected = selectedTrackedKeys.includes(trackedItem.key);
+              const selectionOrder = selectedTrackedKeys.indexOf(trackedItem.key) + 1;
 
               return (
                 <div
@@ -1770,7 +2297,7 @@ export default function SiteAccountWorkspace({
                           className="absolute inset-0 z-20 rounded-xl"
                           aria-label={`Selecionar ${trackedItem.card.name}`}
                         />
-                        <div className="pointer-events-none absolute left-2 top-2 z-30">
+                        <div className="pointer-events-none absolute right-2 top-2 z-30">
                           <div
                             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold shadow-sm ${
                               isSelected
@@ -1778,8 +2305,17 @@ export default function SiteAccountWorkspace({
                                 : "border border-[#D0D5DD] bg-white text-[#344054]"
                             }`}
                           >
-                            {isSelected ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
-                            {isSelected ? "Selecionado" : "Selecionar"}
+                            {isSelected ? (
+                              <>
+                                <Check className="h-3.5 w-3.5" />
+                                {`#${selectionOrder}`}
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="h-3.5 w-3.5" />
+                                Selecionar
+                              </>
+                            )}
                           </div>
                         </div>
                       </>
@@ -1789,7 +2325,7 @@ export default function SiteAccountWorkspace({
                           type="button"
                           onClick={() => toggleTrackedReorderSelection(trackedItem.key)}
                           className="absolute inset-0 z-20 rounded-xl"
-                          aria-label={`Definir posição para ${trackedItem.card.name}`}
+                          aria-label={`Definir posiÃ§Ã£o para ${trackedItem.card.name}`}
                         />
                         <div className="pointer-events-none absolute inset-0 z-10 rounded-xl border-2 border-dashed border-[#16A34A] bg-[#DCFCE7]/30" />
                         {trackedReorderSelection.includes(trackedItem.key) ? (
@@ -1841,15 +2377,46 @@ export default function SiteAccountWorkspace({
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
               <label className="block flex-1">
                 <span className="mb-2 block text-sm font-bold uppercase tracking-[0.14em] text-[#475467]">
-                  Adicionar link da Amazon
+                  Adicionar produto
                 </span>
                 <input
-                  type="url"
+                  type="text"
                   value={monitoredProductUrl}
                   onChange={(event) => setMonitoredProductUrl(event.target.value)}
-                  placeholder="Cole aqui o link do produto da Amazon"
+                  placeholder="Cole o link ou o ASIN do produto da Amazon"
                   className="h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm text-[#0F1111] outline-none transition focus:border-[#F3A847]"
                 />
+              </label>
+
+              <label className="block min-w-0 lg:w-[230px]">
+                <span className="mb-2 block text-sm font-bold uppercase tracking-[0.14em] text-[#475467]">
+                  Lista
+                </span>
+                <select
+                  value={addProductListId && addListOptions.some((list) => list.id === addProductListId)
+                    ? addProductListId
+                    : addListOptions[0]?.id ?? ""}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (value === "__new__") {
+                      setShowAddProductListComposer(true);
+                      return;
+                    }
+                    setShowAddProductListComposer(false);
+                    setAddProductListId(value);
+                  }}
+                  className="h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm text-[#0F1111] outline-none transition focus:border-[#F3A847]"
+                >
+                  {defaultList && otherLists.length === 0 ? (
+                    <option value={defaultList.id}>Minha lista</option>
+                  ) : null}
+                  {otherLists.map((list) => (
+                    <option key={list.id} value={list.id}>
+                      {list.title}
+                    </option>
+                  ))}
+                  <option value="__new__">+ Nova lista</option>
+                </select>
               </label>
 
               <button
@@ -1857,41 +2424,56 @@ export default function SiteAccountWorkspace({
                 disabled={addingMonitoredProduct}
                 className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#FFD814] px-5 text-sm font-black text-[#0F1111] transition hover:bg-[#F7CA00] disabled:opacity-70"
               >
-                {addingMonitoredProduct ? "Adicionando..." : "Adicionar ao monitoramento"}
+                {addingMonitoredProduct ? "Adicionando..." : "Adicionar"}
               </button>
             </div>
+            {showAddProductListComposer ? (
+              <div className="mt-3 flex flex-col gap-2 rounded-2xl border border-[#D0D5DD] bg-white p-3 sm:flex-row sm:items-center">
+                <input
+                  autoFocus
+                  type="text"
+                  value={quickListTitle}
+                  onChange={(event) => setQuickListTitle(event.target.value)}
+                  placeholder="Nome da nova lista"
+                  className="h-11 flex-1 rounded-xl border border-[#D0D5DD] px-4 text-sm outline-none transition focus:border-[#F3A847]"
+                />
+                <button
+                  type="button"
+                  onClick={() => void createQuickAddList()}
+                  disabled={creatingQuickList}
+                  className="inline-flex h-11 items-center justify-center rounded-xl bg-[#0F1111] px-4 text-sm font-bold text-white transition hover:bg-[#1F2937] disabled:opacity-60"
+                >
+                  {creatingQuickList ? "Criando..." : "Criar e usar"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddProductListComposer(false);
+                    setQuickListTitle("");
+                  }}
+                  className="inline-flex h-11 items-center justify-center rounded-xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-[#F8FAFA]"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : null}
             <p className="mt-3 text-sm text-[#565959]">
-              Cole um link da Amazon para acompanhar variações de preço, estoque e ofertas.
+              Cole um link da Amazon ou ASIN para acompanhar variaÃ§Ãµes de preÃ§o, estoque e ofertas. Para varios produtos, separe por virgula.
             </p>
           </form>
 
-          {comparatorPrompt ? (
-            <div className="rounded-[28px] border border-[#F3D6A3] bg-[#FFF9E8] p-5">
-              <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#B54708]">
-                Adicionar ao comparador?
-              </p>
-              <p className="mt-2 text-sm text-[#7A271A]">
-                Esse produto ainda nao faz parte do comparador da Amazonpicks. Se voce quiser, podemos registrar sua sugestao para avaliacao sem duplicar itens ja existentes.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
+          {workspaceMessage ? (
+            <div className="flex flex-col gap-3 rounded-2xl border border-[#d5d9d9] bg-white px-4 py-3 text-sm font-medium text-[#475467] shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              <p>{workspaceMessage}</p>
+              {postAddListPickerContext ? (
                 <button
                   type="button"
-                  onClick={suggestComparatorForPrompt}
-                  disabled={pendingAction === `suggest:${comparatorPrompt.asin}`}
-                  className="inline-flex h-10 items-center justify-center rounded-full bg-[#FF8F1F] px-4 text-sm font-bold text-white transition hover:bg-[#E07A13] disabled:opacity-60"
+                  onClick={() => setPostAddListPickerOpen(true)}
+                  className="inline-flex h-9 items-center justify-center rounded-full bg-[#FFD814] px-3 text-xs font-black text-[#0F1111] transition hover:bg-[#F7CA00]"
                 >
-                  {pendingAction === `suggest:${comparatorPrompt.asin}`
-                    ? "Enviando..."
-                    : "Adicionar ao comparador"}
+                  Alterar
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setComparatorPrompt(null)}
-                  className="inline-flex h-10 items-center justify-center rounded-full border border-[#F3D6A3] bg-white px-4 text-sm font-bold text-[#7A271A] transition hover:bg-[#FFF3D1]"
-                >
-                  Agora nao
-                </button>
-              </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -1998,7 +2580,8 @@ export default function SiteAccountWorkspace({
                 };
 
                 return (
-                  <div key={list.id} className="rounded-[28px] border border-[#EAECF0] bg-[#FCFCFD] p-5">
+                  <div key={list.id}>
+                    <div className="rounded-[28px] border border-[#EAECF0] bg-[#FCFCFD] p-5">
                     <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                       <div className="min-w-0 flex-1">
                         {isEditing ? (
@@ -2131,6 +2714,173 @@ export default function SiteAccountWorkspace({
                         )}
                       </div>
                     </div>
+                    </div>
+
+                    {openedList && listEditorId === list.id ? (
+                      <div className="mt-4 rounded-[28px] border border-[#EAECF0] bg-[#F8FAFA] p-5">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                          <div>
+                            <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#FF8F1F]">
+                              Editando lista
+                            </p>
+                            <h4 className="mt-2 text-2xl font-black text-[#0F1111]">{openedList.title}</h4>
+                            <p className="mt-1 text-sm text-[#565959]">
+                              Organize os produtos na ordem em que eles devem aparecer na lista publica.
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (listOrderMode) {
+                                  await finishListReorder();
+                                  return;
+                                }
+                                beginListReorder();
+                              }}
+                              className={`inline-flex h-10 items-center justify-center rounded-2xl border px-4 text-sm font-semibold transition ${
+                                listOrderMode
+                                  ? "border-[#16A34A] bg-[#ECFDF3] text-[#166534] hover:bg-[#D1FADF]"
+                                  : "border-[#D0D5DD] text-[#344054] hover:bg-white"
+                              }`}
+                            >
+                              {listOrderMode ? "Concluir ediÃƒÂ§ÃƒÂ£o" : "Reordenar lista"}
+                            </button>
+                            {openedList.items.length > 1 ? (
+                              listOrderMode ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => sortCurrentList(openedList.id, "price")}
+                                    className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
+                                  >
+                                    <ArrowUp className="h-4 w-4" />
+                                    <span>Ordenar por preÃƒÂ§o</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => sortCurrentList(openedList.id, "discount")}
+                                    className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
+                                  >
+                                    <ArrowDown className="h-4 w-4" />
+                                    <span>Ordenar por desconto</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => sortCurrentList(openedList.id, "alpha")}
+                                    className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
+                                  >
+                                    <GripVertical className="h-4 w-4" />
+                                    <span>Ordem alfabÃƒÂ©tica</span>
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setListSortMode((current) => (current === "manual" ? "discount" : "manual"))
+                                  }
+                                  disabled={listOrderMode}
+                                  className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white disabled:opacity-60"
+                                >
+                                  {listSortMode === "discount" ? "Ordem manual" : "Maior desconto"}
+                                </button>
+                              )
+                            ) : null}
+                            {listOrderMode ? (
+                              <span className="inline-flex h-10 items-center rounded-2xl border border-dashed border-[#86EFAC] bg-[#F0FDF4] px-4 text-sm font-semibold text-[#166534]">
+                                Arraste pelo icone ou use as setas
+                              </span>
+                            ) : null}
+
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (listOrderMode) {
+                                  await flushListOrderSave();
+                                  if (listOrderShowOutOfStockBeforeEditRef.current !== null) {
+                                    setShowOutOfStockInList(listOrderShowOutOfStockBeforeEditRef.current);
+                                    listOrderShowOutOfStockBeforeEditRef.current = null;
+                                  }
+                                }
+                                setListEditorId(null);
+                                setOpenListId(null);
+                                setListOrderMode(false);
+                              }}
+                              className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
+                            >
+                              Fechar edicao
+                            </button>
+                          </div>
+                        </div>
+
+                        {visibleOpenedListItems.length === 0 ? (
+                          <div className="mt-5 rounded-3xl border border-dashed border-[#D0D5DD] bg-white px-4 py-10 text-center text-sm text-[#565959]">
+                            {openedList.items.length === 0
+                              ? "Essa lista ainda nao tem produtos."
+                              : "Todos os produtos desta lista estao sem estoque no momento."}
+                          </div>
+                        ) : (
+                          <>
+                            <div className="mt-5 flex flex-wrap items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => setShowOutOfStockInList((current) => !current)}
+                                disabled={listOrderMode}
+                                className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#344054] transition hover:bg-white disabled:opacity-60"
+                              >
+                                {showOutOfStockInList ? "Ocultar sem estoque" : "Exibir sem estoque"}
+                              </button>
+                              {!showOutOfStockInList ? (
+                                <span className="text-sm text-[#667085]">
+                                  Produtos sem estoque ficam ocultos por padrao.
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="mt-6">
+                              <DndContext
+                                sensors={listOrderSensors}
+                                collisionDetection={closestCenter}
+                                onDragStart={handleListDragStart}
+                                onDragOver={listOrderMode ? handleListDragOver : undefined}
+                                onDragEnd={listOrderMode ? handleListDragEnd : undefined}
+                              >
+                                <SortableContext
+                                  items={visibleOpenedListItems.map((item) => item.id)}
+                                  strategy={rectSortingStrategy}
+                                >
+                                  <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+                                    {visibleOpenedListItems.map((item, index) => (
+                                      <ListOrderProductCard
+                                        key={item.id}
+                                        sortableId={item.id}
+                                        item={getListItemBestDeal(item)}
+                                        index={index}
+                                        editMode={listOrderMode}
+                                        disableNavigation={listOrderMode}
+                                        canMoveDown={index < visibleOpenedListItems.length - 1}
+                                        onMoveUp={() => moveListItem(openedList.id, item.id, -1)}
+                                        onMoveDown={() => moveListItem(openedList.id, item.id, 1)}
+                                        onRemove={() =>
+                                          removeListItem(openedList.id, {
+                                            itemId: item.id,
+                                            productId: item.source === "catalog" ? item.product.id : null,
+                                            monitoredProductId:
+                                              item.source === "monitored" ? item.product.id : null,
+                                          })
+                                        }
+                                        removeDisabled={pendingAction === `item:${openedList.id}:${item.id}`}
+                                      />
+                                    ))}
+                                  </div>
+                                </SortableContext>
+                              </DndContext>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -2189,195 +2939,6 @@ export default function SiteAccountWorkspace({
           </div>
         )}
 
-        {openedList && listEditorId === openedList.id ? (
-          <div className="mt-8 rounded-[28px] border border-[#EAECF0] bg-[#F8FAFA] p-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#FF8F1F]">
-                  Editando lista
-                </p>
-                <h4 className="mt-2 text-2xl font-black text-[#0F1111]">{openedList.title}</h4>
-                <p className="mt-1 text-sm text-[#565959]">
-                  Organize os produtos na ordem em que eles devem aparecer na lista publica.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (listOrderMode) {
-                      void finishListReorder();
-                      return;
-                    }
-                    setListSortMode("manual");
-                    setListOrderMode(true);
-                    setListReorderSelection([]);
-                  }}
-                  className={`inline-flex h-10 items-center justify-center rounded-2xl border px-4 text-sm font-semibold transition ${
-                    listOrderMode
-                      ? "border-[#16A34A] bg-[#ECFDF3] text-[#166534] hover:bg-[#D1FADF]"
-                      : "border-[#D0D5DD] text-[#344054] hover:bg-white"
-                  }`}
-                >
-                  {listOrderMode ? "Concluir ordem" : "Personalizar ordem"}
-                </button>
-                {openedList.items.length > 1 ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setListSortMode((current) => (current === "manual" ? "discount" : "manual"))
-                    }
-                    disabled={listOrderMode}
-                    className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white disabled:opacity-60"
-                  >
-                    {listSortMode === "discount" ? "Ordem manual" : "Maior desconto"}
-                  </button>
-                ) : null}
-                {listOrderMode ? (
-                  <button
-                    type="button"
-                    onClick={() => setListReorderSelection([])}
-                    className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
-                  >
-                    Limpar sequencia
-                  </button>
-                ) : null}
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setListEditorId(null);
-                    setOpenListId(null);
-                    setListOrderMode(false);
-                    setListReorderSelection([]);
-                  }}
-                  className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
-                >
-                  Fechar edicao
-                </button>
-              </div>
-            </div>
-
-            {visibleOpenedListItems.length === 0 ? (
-              <div className="mt-5 rounded-3xl border border-dashed border-[#D0D5DD] bg-white px-4 py-10 text-center text-sm text-[#565959]">
-                {openedList.items.length === 0
-                  ? "Essa lista ainda nao tem produtos."
-                  : "Todos os produtos desta lista estao sem estoque no momento."}
-              </div>
-            ) : (
-              <>
-                <div className="mt-5 flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowOutOfStockInList((current) => !current)}
-                    className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
-                  >
-                    {showOutOfStockInList ? "Ocultar sem estoque" : "Exibir sem estoque"}
-                  </button>
-                  {!showOutOfStockInList ? (
-                    <span className="text-sm text-[#667085]">
-                      Produtos sem estoque ficam ocultos por padrao.
-                    </span>
-                  ) : null}
-                </div>
-                <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-                {visibleOpenedListItems.map((item, index) => (
-                  <div
-                    key={item.id}
-                    className={`space-y-2 rounded-2xl transition ${
-                      listOrderMode ? "bg-[#ECFDF3] ring-2 ring-[#16A34A] ring-offset-2 ring-offset-[#E3E6E6]" : ""
-                    }`}
-                  >
-                    <div className="relative rounded-xl">
-                      <BestDealProductCard
-                        item={{
-                          id: item.product.id,
-                          asin: item.product.asin,
-                          name: item.product.name,
-                          imageUrl: item.product.imageUrl ?? "",
-                          url: item.product.url,
-                          totalPrice: item.product.totalPrice,
-                          averagePrice30d:
-                            item.product.averagePrice30d ?? item.product.totalPrice,
-                          discountPercent:
-                            item.product.totalPrice > 0 &&
-                            (item.product.averagePrice30d ?? item.product.totalPrice) >
-                              item.product.totalPrice
-                              ? Math.round(
-                                  (((item.product.averagePrice30d ?? item.product.totalPrice) -
-                                    item.product.totalPrice) /
-                                    (item.product.averagePrice30d ?? item.product.totalPrice)) *
-                                    100
-                                )
-                              : 0,
-                          ratingAverage: item.product.ratingAverage ?? null,
-                          ratingCount: item.product.ratingCount ?? null,
-                          likeCount: 0,
-                          dislikeCount: 0,
-                          categoryName: item.product.category.name,
-                          categoryGroup: item.product.category.group,
-                          categorySlug: item.product.category.slug,
-                          attributes: {
-                            availabilityStatus: item.product.availabilityStatus ?? "",
-                          },
-                        }}
-                        category="edicao_lista"
-                        showActions={false}
-                        disableNavigation={listOrderMode}
-                      />
-                      <div className="pointer-events-none absolute left-2 top-2 z-30">
-                        <div className="inline-flex items-center gap-1 rounded-full border border-[#D0D5DD] bg-white px-2.5 py-1 text-xs font-bold text-[#344054] shadow-sm">
-                          <GripVertical className="h-3.5 w-3.5" />
-                          {`Pos. ${index + 1}`}
-                        </div>
-                      </div>
-                      {listOrderMode ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => toggleListReorderSelection(item.id)}
-                            className="absolute inset-0 z-20 rounded-xl"
-                            aria-label={`Definir posição para ${item.product.name}`}
-                          />
-                          <div className="pointer-events-none absolute inset-0 z-10 rounded-xl border-2 border-dashed border-[#16A34A] bg-[#DCFCE7]/30" />
-                          {listReorderSelection.includes(item.id) ? (
-                            <div className="pointer-events-none absolute right-2 top-2 z-30 rounded-full bg-[#16A34A] px-2.5 py-1 text-xs font-black text-white shadow-sm">
-                              Nova pos. {listReorderSelection.indexOf(item.id) + 1}
-                            </div>
-                          ) : null}
-                        </>
-                      ) : null}
-                    </div>
-
-                    {!listOrderMode ? (
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            removeListItem(openedList.id, {
-                              itemId: item.id,
-                              productId: item.source === "catalog" ? item.product.id : null,
-                              monitoredProductId:
-                                item.source === "monitored" ? item.product.id : null,
-                            })
-                          }
-                          disabled={pendingAction === `item:${openedList.id}:${item.id}`}
-                          className="w-full rounded-xl border border-[#FECDCA] bg-[#FEF3F2] px-3 py-2 text-xs font-bold text-[#B42318] transition hover:bg-[#FEE4E2] disabled:opacity-60"
-                        >
-                          {pendingAction === `item:${openedList.id}:${item.id}`
-                            ? "Removendo..."
-                            : "Remover"}
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
-                </div>
-              </>
-            )}
-          </div>
-        ) : null}
       </section>
 
       {activityMode ? (
@@ -2657,6 +3218,20 @@ export default function SiteAccountWorkspace({
             <p className="mt-6 text-sm font-medium text-[#475467]">{suggestionMessage}</p>
           ) : null}
         </section>
+      ) : null}
+
+      {postAddListPickerContext ? (
+        <AccountListPickerModal
+          open={postAddListPickerOpen}
+          productId={postAddListPickerContext.productId}
+          monitoredProductId={postAddListPickerContext.monitoredProductId}
+          productName={postAddListPickerContext.productName}
+          initialSelectedListIds={postAddListPickerContext.initialSelectedListIds}
+          onClose={() => {
+            setPostAddListPickerOpen(false);
+            setPostAddListPickerContext(null);
+          }}
+        />
       ) : null}
     </div>
   );

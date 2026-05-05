@@ -5,6 +5,7 @@ import {
   isSiteUserVerified,
   verificationRequiredResponse,
 } from "@/lib/siteAuth";
+import { migrateLegacyFavoritesToDefaultList } from "@/lib/siteDefaultList";
 
 export async function PATCH(request: Request) {
   const user = await getCurrentSiteUser();
@@ -34,11 +35,14 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ ok: false, error: "invalid_order" }, { status: 400 });
     }
 
-    const [favorites, monitoredProducts] = await Promise.all([
+    const defaultList = await migrateLegacyFavoritesToDefaultList(user.id);
+
+    const [favoriteItems, monitoredProducts] = await Promise.all([
       prisma.$queryRaw<Array<{ id: string }>>`
-        SELECT f."id"
-        FROM "SiteUserFavorite" f
-        WHERE f."userId" = ${user.id}
+        SELECT i."id"
+        FROM "SiteUserListItem" i
+        WHERE i."listId" = ${defaultList.id}
+          AND i."productId" IS NOT NULL
       `,
       prisma.$queryRaw<Array<{ id: string }>>`
         SELECT mp."id"
@@ -47,12 +51,12 @@ export async function PATCH(request: Request) {
       `,
     ]);
 
-    const expectedCount = favorites.length + monitoredProducts.length;
+    const expectedCount = favoriteItems.length + monitoredProducts.length;
     if (expectedCount !== orderedItems.length) {
       return NextResponse.json({ ok: false, error: "invalid_order" }, { status: 400 });
     }
 
-    const favoriteIds = new Set(favorites.map((item) => item.id));
+    const favoriteIds = new Set(favoriteItems.map((item) => item.id));
     const monitoredIds = new Set(monitoredProducts.map((item) => item.id));
 
     const hasInvalidItem = orderedItems.some((item) => {
@@ -68,10 +72,10 @@ export async function PATCH(request: Request) {
       const item = orderedItems[index]!;
       if (item.source === "favorite") {
         await prisma.$executeRaw`
-          UPDATE "SiteUserFavorite"
+          UPDATE "SiteUserListItem"
           SET "sortOrder" = ${index}, "updatedAt" = NOW()
           WHERE "id" = ${item.id}
-            AND "userId" = ${user.id}
+            AND "listId" = ${defaultList.id}
         `;
       } else {
         await prisma.$executeRaw`

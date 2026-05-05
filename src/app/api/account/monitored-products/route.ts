@@ -13,12 +13,14 @@ import {
 } from "@/lib/siteMonitoredProducts";
 import { getPriceHistoryCanonicalDate } from "@/lib/dynamicPriceHistory";
 import { refreshTrackedAmazonProductPriceStatsBulk } from "@/lib/siteTrackedAmazonPriceStats";
+import { repairTrackedAmazonProductMetadataIfNeeded } from "@/lib/siteTrackedAmazonMetadata";
 import {
   seedTrackedSchedulerState,
   touchDynamicProductPriority,
   touchTrackedProductPriority,
 } from "@/lib/priceRefreshSignals";
 import { enqueuePriorityRefresh } from "@/lib/priorityRefreshQueue";
+import { ensureDefaultList } from "@/lib/siteDefaultList";
 
 export async function GET() {
   const user = await getCurrentSiteUser();
@@ -68,6 +70,50 @@ export async function GET() {
     ORDER BY mp."sortOrder" ASC, mp."createdAt" DESC
   `);
 
+  const trackedProductsToRepair = [
+    ...new Set(
+      products
+        .filter((product) => product.trackedProductId && product.asin)
+        .filter((product) => {
+          const fallbackName = `Produto Amazon ${product.asin}`;
+          return !product.name || product.name === fallbackName || !product.imageUrl;
+        })
+        .map((product) => product.trackedProductId as string)
+    ),
+  ];
+
+  if (trackedProductsToRepair.length > 0) {
+    await Promise.all(
+      trackedProductsToRepair.map((trackedProductId) =>
+        repairTrackedAmazonProductMetadataIfNeeded(trackedProductId)
+      )
+    );
+
+    const repairedProducts = await prisma.$queryRaw<typeof products>(Prisma.sql`
+      SELECT
+        mp."id",
+        mp."trackedProductId",
+        COALESCE(tp."asin", mp."asin") AS "asin",
+        COALESCE(tp."amazonUrl", mp."amazonUrl") AS "amazonUrl",
+        COALESCE(tp."name", mp."name") AS "name",
+        COALESCE(tp."imageUrl", mp."imageUrl") AS "imageUrl",
+        COALESCE(tp."totalPrice", mp."totalPrice") AS "totalPrice",
+        COALESCE(tp."averagePrice30d", mp."averagePrice30d") AS "averagePrice30d",
+        tp."ratingAverage" AS "ratingAverage",
+        tp."ratingCount" AS "ratingCount",
+        COALESCE(tp."availabilityStatus", mp."availabilityStatus") AS "availabilityStatus",
+        COALESCE(tp."programAndSavePrice", mp."programAndSavePrice") AS "programAndSavePrice",
+        mp."sortOrder",
+        mp."createdAt"
+      FROM "SiteUserMonitoredProduct" mp
+      LEFT JOIN "SiteTrackedAmazonProduct" tp ON tp."id" = mp."trackedProductId"
+      WHERE mp."userId" = ${user.id}
+      ORDER BY mp."sortOrder" ASC, mp."createdAt" DESC
+    `);
+
+    products.splice(0, products.length, ...repairedProducts);
+  }
+
   return NextResponse.json({
     ok: true,
     monitoredProducts: products.map((product) => ({
@@ -101,13 +147,37 @@ export async function POST(request: Request) {
     return verificationRequiredResponse();
   }
 
+  let asin: string | null = null;
+
   try {
-    const body = (await request.json()) as { amazonUrl?: string };
+    const body = (await request.json()) as { amazonUrl?: string; listId?: string };
     const amazonUrl = body.amazonUrl?.trim() ?? "";
-    const asin = extractAmazonAsin(amazonUrl);
+    const requestedListId = body.listId?.trim() ?? "";
+    asin = extractAmazonAsin(amazonUrl);
 
     if (!amazonUrl || !asin) {
-      return NextResponse.json({ ok: false, error: "invalid_amazon_url" }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: "invalid_amazon_url", asin, errorDetail: "invalid_amazon_url" },
+        { status: 400 }
+      );
+    }
+
+    const accessibleLists = await prisma.$queryRaw<Array<{ id: string; isDefault: boolean }>>(Prisma.sql`
+      SELECT "id", "isDefault"
+      FROM "SiteUserList"
+      WHERE "userId" = ${user.id}
+      ORDER BY "isDefault" DESC, "createdAt" ASC
+    `);
+
+    let listId =
+      (requestedListId &&
+        accessibleLists.find((list) => list.id === requestedListId)?.id) ||
+      accessibleLists[0]?.id ||
+      null;
+
+    if (!listId) {
+      const defaultList = await ensureDefaultList(user.id);
+      listId = defaultList.id;
     }
 
     const catalogProducts = await prisma.$queryRaw<
@@ -145,6 +215,20 @@ export async function POST(request: Request) {
 
     if (catalogProducts[0]) {
       const catalogProduct = catalogProducts[0];
+      const maxSortOrderRows = await prisma.$queryRaw<Array<{ maxSortOrder: number | null }>>(Prisma.sql`
+        SELECT MAX("sortOrder")::int AS "maxSortOrder"
+        FROM "SiteUserListItem"
+        WHERE "listId" = ${listId}
+          AND "productId" IS NOT NULL
+      `);
+
+      const existingListItemRows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT "id"
+        FROM "SiteUserListItem"
+        WHERE "listId" = ${listId}
+          AND "productId" = ${catalogProduct.id}
+        LIMIT 1
+      `);
 
       const favoriteRows = await prisma.$queryRaw<
         Array<{
@@ -152,34 +236,44 @@ export async function POST(request: Request) {
           createdAt: Date;
         }>
       >(Prisma.sql`
-        INSERT INTO "SiteUserFavorite" (
+        INSERT INTO "SiteUserListItem" (
           "id",
-          "userId",
+          "listId",
           "productId",
+          "monitoredProductId",
+          "trackedAmazonProductId",
+          "note",
+          "sortOrder",
           "createdAt",
           "updatedAt"
         )
         VALUES (
           ${randomUUID()},
-          ${user.id},
+          ${listId},
           ${catalogProduct.id},
+          NULL,
+          NULL,
+          NULL,
+          ${(maxSortOrderRows[0]?.maxSortOrder ?? -1) + 1},
           NOW(),
           NOW()
         )
-        ON CONFLICT ("userId", "productId")
-        DO UPDATE SET "updatedAt" = NOW()
+        ON CONFLICT ("listId", "productId")
+        DO UPDATE SET
+          "updatedAt" = NOW(),
+          "note" = COALESCE(EXCLUDED."note", "SiteUserListItem"."note")
         RETURNING "id" AS "favoriteId", "createdAt"
-      `);
+        `);
 
       const existingFavorite =
         favoriteRows[0] ??
         (
           await prisma.$queryRaw<Array<{ favoriteId: string; createdAt: Date }>>(Prisma.sql`
             SELECT "id" AS "favoriteId", "createdAt"
-            FROM "SiteUserFavorite"
-            WHERE "userId" = ${user.id}
+          FROM "SiteUserListItem"
+          WHERE "listId" = ${listId}
               AND "productId" = ${catalogProduct.id}
-            LIMIT 1
+          LIMIT 1
           `)
         )[0];
 
@@ -207,6 +301,8 @@ export async function POST(request: Request) {
       return NextResponse.json({
         ok: true,
         source: "catalog",
+        created: existingListItemRows.length === 0,
+        listId,
         favorite: {
           id: existingFavorite.favoriteId,
           savedAt: existingFavorite.createdAt.toISOString(),
@@ -442,6 +538,7 @@ export async function POST(request: Request) {
       ok: true,
       source: "amazon",
       canSuggestComparator: suggestionRows.length === 0,
+      listId,
       monitoredProduct: {
         id: row.id,
         trackedProductId: row.trackedProductId,
@@ -461,9 +558,15 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    console.error("monitored_product_create_failed", error);
+    const errorDetail = error instanceof Error ? error.message : String(error);
+    console.error("monitored_product_create_failed", { asin, errorDetail, error });
     return NextResponse.json(
-      { ok: false, error: "monitored_product_create_failed" },
+      {
+        ok: false,
+        error: "monitored_product_create_failed",
+        asin,
+        errorDetail,
+      },
       { status: 500 }
     );
   }

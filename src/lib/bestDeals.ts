@@ -5,7 +5,7 @@ export type BestDeal = {
   id: string;
   asin: string;
   name: string;
-  imageUrl: string;
+  imageUrl: string | null;
   url: string;
   totalPrice: number;
   averagePrice30d: number;

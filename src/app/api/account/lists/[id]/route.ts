@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { repairTrackedAmazonProductMetadataIfNeeded } from "@/lib/siteTrackedAmazonMetadata";
 import {
   getCurrentSiteUser,
   isSiteUserVerified,
@@ -85,6 +86,64 @@ export async function GET(
     ORDER BY i."sortOrder" ASC NULLS LAST, i."createdAt" DESC NULLS LAST
   `);
 
+  const trackedProductsToRepair = [
+    ...new Set(
+      rows
+        .filter((row) => row.trackedAmazonProductId && row.productAsin)
+        .filter((row) => {
+          const fallbackName = `Produto Amazon ${row.productAsin}`;
+          return !row.productName || row.productName === fallbackName || !row.productImageUrl;
+        })
+        .map((row) => row.trackedAmazonProductId as string)
+    ),
+  ];
+
+  if (trackedProductsToRepair.length > 0) {
+    await Promise.all(
+      trackedProductsToRepair.map((trackedProductId) =>
+        repairTrackedAmazonProductMetadataIfNeeded(trackedProductId)
+      )
+    );
+
+    const repairedRows = await prisma.$queryRaw<typeof rows>(Prisma.sql`
+      SELECT
+        l."id",
+        l."slug",
+        l."title",
+        l."description",
+        l."isPublic",
+        i."id" AS "itemId",
+        i."note",
+        i."sortOrder",
+        p."id" AS "productId",
+        mp."id" AS "monitoredProductId",
+        tp."id" AS "trackedAmazonProductId",
+        COALESCE(p."asin", tp."asin", mp."asin") AS "productAsin",
+        COALESCE(p."name", tp."name", mp."name") AS "productName",
+        COALESCE(p."imageUrl", tp."imageUrl", mp."imageUrl") AS "productImageUrl",
+        COALESCE(p."totalPrice", tp."totalPrice", mp."totalPrice") AS "productTotalPrice",
+        COALESCE(p."averagePrice30d", tp."averagePrice30d", mp."averagePrice30d") AS "productAveragePrice30d",
+        COALESCE(p."ratingAverage", tp."ratingAverage") AS "productRatingAverage",
+        COALESCE(p."ratingCount", tp."ratingCount") AS "productRatingCount",
+        COALESCE(p."url", tp."amazonUrl", mp."amazonUrl") AS "productUrl",
+        COALESCE(p."availabilityStatus", tp."availabilityStatus", mp."availabilityStatus") AS "productAvailabilityStatus",
+        c."name" AS "categoryName",
+        c."group" AS "categoryGroup",
+        c."slug" AS "categorySlug"
+      FROM "SiteUserList" l
+      LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
+      LEFT JOIN "DynamicProduct" p ON p."id" = i."productId"
+      LEFT JOIN "SiteUserMonitoredProduct" mp ON mp."id" = i."monitoredProductId"
+      LEFT JOIN "SiteTrackedAmazonProduct" tp ON tp."id" = COALESCE(i."trackedAmazonProductId", mp."trackedProductId")
+      LEFT JOIN "DynamicCategory" c ON c."id" = p."categoryId"
+      WHERE l."id" = ${id}
+        AND l."userId" = ${user.id}
+      ORDER BY i."sortOrder" ASC NULLS LAST, i."createdAt" DESC NULLS LAST
+    `);
+
+    rows.splice(0, rows.length, ...repairedRows);
+  }
+
   if (rows.length === 0) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
@@ -96,21 +155,21 @@ export async function GET(
     description: rows[0]!.description,
     isPublic: rows[0]!.isPublic,
     items: rows
-      .filter((row) => row.itemId && row.productName && row.productUrl)
+      .filter((row) => row.itemId)
       .map((row) => ({
         id: row.itemId!,
         note: row.note,
         sortOrder: row.sortOrder ?? 0,
         product: {
           id: row.productId ?? row.trackedAmazonProductId ?? row.monitoredProductId!,
-          asin: row.productAsin!,
-          name: row.productName!,
+          asin: row.productAsin ?? "UNKNOWN",
+          name: row.productName ?? `Produto Amazon ${row.productAsin ?? "UNKNOWN"}`,
           imageUrl: row.productImageUrl,
           totalPrice: row.productTotalPrice ?? 0,
           averagePrice30d: row.productAveragePrice30d,
           ratingAverage: row.productRatingAverage,
           ratingCount: row.productRatingCount,
-          url: row.productUrl!,
+          url: row.productUrl ?? `https://www.amazon.com.br/dp/${row.productAsin ?? ""}`,
           availabilityStatus: row.productAvailabilityStatus,
           category: {
             name: row.categoryName ?? "Amazon",
@@ -151,9 +210,9 @@ export async function PATCH(
     const description =
       typeof body.description === "string" ? body.description.trim() || null : undefined;
     const currentListRows = await prisma.$queryRaw<
-      Array<{ id: string; title: string; slug: string }>
+      Array<{ id: string; title: string; slug: string; isDefault: boolean }>
     >(Prisma.sql`
-      SELECT "id", "title", "slug"
+      SELECT "id", "title", "slug", "isDefault"
       FROM "SiteUserList"
       WHERE "id" = ${id}
         AND "userId" = ${user.id}

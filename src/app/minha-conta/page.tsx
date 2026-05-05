@@ -4,9 +4,11 @@ import SiteAccountWorkspace from "@/components/SiteAccountWorkspace";
 import { prisma } from "@/lib/prisma";
 import { isMissingRelationError } from "@/lib/prismaSchemaCompat";
 import { requireCurrentSiteUser } from "@/lib/siteAuth";
+import { findDefaultList } from "@/lib/siteDefaultList";
 
 export default async function MyAccountPage() {
   const user = await requireCurrentSiteUser();
+  const defaultList = await findDefaultList(user.id);
 
   const savedListsPromise = prisma
     .$queryRaw<
@@ -16,6 +18,7 @@ export default async function MyAccountPage() {
         title: string;
         description: string | null;
         isPublic: boolean;
+        isDefault: boolean;
         ownerDisplayName: string;
         ownerUsername: string | null;
         itemsCount: number;
@@ -27,6 +30,7 @@ export default async function MyAccountPage() {
         l."title",
         l."description",
         l."isPublic",
+        l."isDefault",
         owner."displayName" AS "ownerDisplayName",
         owner."username" AS "ownerUsername",
         COUNT(i."id")::int AS "itemsCount",
@@ -91,10 +95,11 @@ export default async function MyAccountPage() {
             'slug', c."slug"
           )
         ) AS "product"
-      FROM "SiteUserFavorite" f
+      FROM "SiteUserListItem" f
       INNER JOIN "DynamicProduct" p ON p."id" = f."productId"
       INNER JOIN "DynamicCategory" c ON c."id" = p."categoryId"
-      WHERE f."userId" = ${user.id}
+      WHERE f."listId" = ${defaultList?.id ?? null}
+        AND f."productId" IS NOT NULL
       ORDER BY f."sortOrder" ASC, f."createdAt" DESC
     `),
     prisma.$queryRaw<
@@ -104,6 +109,7 @@ export default async function MyAccountPage() {
         title: string;
         description: string | null;
         isPublic: boolean;
+        isDefault: boolean;
         itemsCount: number;
       }>
     >(Prisma.sql`
@@ -113,6 +119,7 @@ export default async function MyAccountPage() {
         l."title",
         l."description",
         l."isPublic",
+        l."isDefault",
         COUNT(i."id")::int AS "itemsCount"
       FROM "SiteUserList" l
       LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
@@ -219,19 +226,21 @@ export default async function MyAccountPage() {
             },
           }))}
           lists={lists.map((list: (typeof lists)[number]) => ({
-            id: list.id,
-            slug: list.slug,
-            title: list.title,
-            description: list.description,
-            isPublic: list.isPublic,
-            itemsCount: list.itemsCount,
-          }))}
+          id: list.id,
+          slug: list.slug,
+          title: list.title,
+          description: list.description,
+          isPublic: list.isPublic,
+          isDefault: list.isDefault,
+          itemsCount: list.itemsCount,
+        }))}
           savedLists={savedLists.map((list: (typeof savedLists)[number]) => ({
             id: list.id,
             slug: list.slug,
             title: list.title,
             description: list.description,
             isPublic: list.isPublic,
+            isDefault: list.isDefault,
             itemsCount: list.itemsCount,
             ownerDisplayName: list.ownerDisplayName,
             ownerUsername: list.ownerUsername,

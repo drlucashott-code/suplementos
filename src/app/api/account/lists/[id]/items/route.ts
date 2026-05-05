@@ -110,53 +110,49 @@ export async function POST(
       WHERE "listId" = ${id}
     `);
 
-    await prisma.$executeRaw(Prisma.sql`
-      INSERT INTO "SiteUserListItem" (
-        "id",
-        "listId",
-        "productId",
-        "monitoredProductId",
-        "trackedAmazonProductId",
-        "note",
-        "sortOrder",
-        "createdAt",
-        "updatedAt"
-      )
-      VALUES (
-        ${randomUUID()},
-        ${id},
-        ${productId || null},
-        ${trackedAmazonProductId ? null : monitoredProductId || null},
-        ${trackedAmazonProductId},
-        ${body.note?.trim() || null},
-        ${(maxSortOrderRows[0]?.maxSortOrder ?? -1) + 1},
-        NOW(),
-        NOW()
-      )
-    `);
+    await prisma.siteUserListItem.create({
+      data: {
+        id: randomUUID(),
+        listId: id,
+        productId: productId || null,
+        monitoredProductId: trackedAmazonProductId ? null : monitoredProductId || null,
+        trackedAmazonProductId: trackedAmazonProductId || null,
+        note: body.note?.trim() || null,
+        sortOrder: (maxSortOrderRows[0]?.maxSortOrder ?? -1) + 1,
+      },
+    });
 
-    if (productId) {
-      const priorityTouch = await touchDynamicProductPriority({
-        productId,
-        signal: "list",
-      });
-      if (priorityTouch?.shouldEnqueue && priorityTouch.asin) {
-        await enqueuePriorityRefresh({
-          asin: priorityTouch.asin,
-          reason: "list",
+    try {
+      if (productId) {
+        const priorityTouch = await touchDynamicProductPriority({
+          productId,
+          signal: "list",
+        });
+        if (priorityTouch?.shouldEnqueue && priorityTouch.asin) {
+          await enqueuePriorityRefresh({
+            asin: priorityTouch.asin,
+            reason: "list",
+          });
+        }
+      } else if (trackedAmazonProductId) {
+        await touchTrackedProductPriority({
+          trackedProductId: trackedAmazonProductId,
+          signal: "list",
         });
       }
-    } else if (trackedAmazonProductId) {
-      await touchTrackedProductPriority({
-        trackedProductId: trackedAmazonProductId,
-        signal: "list",
-      });
+    } catch (error) {
+      const errorDetail = error instanceof Error ? error.message : String(error);
+      console.error("list_item_priority_touch_failed", { errorDetail, error });
     }
 
     return NextResponse.json({ ok: true, created: true });
   } catch (error) {
-    console.error("list_item_create_failed", error);
-    return NextResponse.json({ ok: false, error: "list_item_create_failed" }, { status: 500 });
+    const errorDetail = error instanceof Error ? error.message : String(error);
+    console.error("list_item_create_failed", { errorDetail, error });
+    return NextResponse.json(
+      { ok: false, error: "list_item_create_failed", errorDetail },
+      { status: 500 }
+    );
   }
 }
 
@@ -175,11 +171,16 @@ export async function DELETE(
 
   try {
     const { id } = await context.params;
-    const body = (await request.json()) as { productId?: string; monitoredProductId?: string };
+    const body = (await request.json()) as {
+      itemId?: string;
+      productId?: string;
+      monitoredProductId?: string;
+    };
+    const itemId = body.itemId?.trim() ?? "";
     const productId = body.productId?.trim() ?? "";
     const monitoredProductId = body.monitoredProductId?.trim() ?? "";
 
-    if (!productId && !monitoredProductId) {
+    if (!itemId && !productId && !monitoredProductId) {
       return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
     }
 
@@ -195,6 +196,17 @@ export async function DELETE(
       return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
     }
 
+    if (itemId) {
+      const deleted = await prisma.siteUserListItem.deleteMany({
+        where: {
+          id: itemId,
+          listId: id,
+        },
+      });
+
+      return NextResponse.json({ ok: true, deleted: deleted.count });
+    }
+
     let trackedAmazonProductId: string | null = null;
     if (monitoredProductId) {
       const monitoredProduct = await prisma.$queryRaw<Array<{ trackedProductId: string | null }>>(Prisma.sql`
@@ -207,20 +219,40 @@ export async function DELETE(
       trackedAmazonProductId = monitoredProduct[0]?.trackedProductId ?? null;
     }
 
-    await prisma.$executeRaw(Prisma.sql`
-      DELETE FROM "SiteUserListItem"
-      WHERE "listId" = ${id}
-        AND (
-          (${productId || null} IS NOT NULL AND "productId" = ${productId || null})
-          OR (${trackedAmazonProductId} IS NOT NULL AND "trackedAmazonProductId" = ${trackedAmazonProductId})
-          OR (${monitoredProductId || null} IS NOT NULL AND "monitoredProductId" = ${monitoredProductId || null})
-        )
-    `);
+    const deleteWhere: {
+      listId: string;
+      OR: Array<Record<string, string>>;
+    } = {
+      listId: id,
+      OR: [],
+    };
 
-    return NextResponse.json({ ok: true });
+    if (productId) {
+      deleteWhere.OR.push({ productId });
+    }
+    if (trackedAmazonProductId) {
+      deleteWhere.OR.push({ trackedAmazonProductId });
+    }
+    if (monitoredProductId) {
+      deleteWhere.OR.push({ monitoredProductId });
+    }
+
+    const deleted = await prisma.siteUserListItem.deleteMany({
+      where: deleteWhere,
+    });
+
+    if (deleted.count === 0) {
+      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true, deleted: deleted.count });
   } catch (error) {
-    console.error("list_item_delete_failed", error);
-    return NextResponse.json({ ok: false, error: "list_item_delete_failed" }, { status: 500 });
+    const errorDetail = error instanceof Error ? error.message : String(error);
+    console.error("list_item_delete_failed", { errorDetail, error });
+    return NextResponse.json(
+      { ok: false, error: "list_item_delete_failed", errorDetail },
+      { status: 500 }
+    );
   }
 }
 
@@ -287,7 +319,11 @@ export async function PATCH(
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("list_item_reorder_failed", error);
-    return NextResponse.json({ ok: false, error: "list_item_reorder_failed" }, { status: 500 });
+    const errorDetail = error instanceof Error ? error.message : String(error);
+    console.error("list_item_reorder_failed", { errorDetail, error });
+    return NextResponse.json(
+      { ok: false, error: "list_item_reorder_failed", errorDetail },
+      { status: 500 }
+    );
   }
 }

@@ -15,7 +15,7 @@ type SavedDeal = {
   id: string;
   asin: string;
   name: string;
-  imageUrl: string;
+  imageUrl: string | null;
   url: string;
   totalPrice: number;
   averagePrice30d: number;
@@ -41,7 +41,7 @@ function mapAccountFavoriteToSavedDeal(item: AccountFavoriteCardItem): SavedDeal
     id: item.product.id,
     asin: item.product.asin,
     name: item.product.name,
-    imageUrl: item.product.imageUrl ?? "",
+    imageUrl: item.product.imageUrl ?? null,
     url: item.product.url,
     totalPrice: item.product.totalPrice,
     averagePrice30d,
@@ -91,7 +91,7 @@ export default function SavedDealsPanel({ onClose }: { onClose?: () => void }) {
             <Bookmark className="h-4.5 w-4.5 fill-current" />
           </span>
           <div>
-            <h2 className="text-[24px] font-bold text-[#0F1111]">Ofertas salvas</h2>
+            <h2 className="text-[24px] font-bold text-[#0F1111]">Minha lista</h2>
             <p className="mt-1 text-[13px] text-[#565959]">
               {savedDeals.length} {savedDeals.length === 1 ? "produto salvo" : "produtos salvos"} na sua conta.
             </p>
@@ -103,7 +103,7 @@ export default function SavedDealsPanel({ onClose }: { onClose?: () => void }) {
             type="button"
             onClick={onClose}
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-[#0F1111]"
-            aria-label="Fechar ofertas salvas"
+            aria-label="Fechar minha lista"
           >
             <X className="h-4 w-4" />
           </button>
@@ -112,9 +112,9 @@ export default function SavedDealsPanel({ onClose }: { onClose?: () => void }) {
 
       {!authenticated ? (
         <div className="rounded-xl border border-dashed border-gray-200 bg-[#F8FAFA] px-4 py-10 text-center">
-          <p className="text-[16px] font-bold text-[#0F1111]">Entre para salvar produtos.</p>
+          <p className="text-[16px] font-bold text-[#0F1111]">Entre para salvar produtos na sua lista.</p>
           <p className="mt-2 text-[13px] text-[#565959]">
-            Os favoritos agora ficam vinculados à sua conta.
+            Os produtos salvos agora ficam vinculados à sua conta.
           </p>
           <Link
             href="/entrar"

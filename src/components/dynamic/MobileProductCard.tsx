@@ -4,12 +4,15 @@ import Image from "next/image";
 import { AlertTriangle, Heart, RefreshCw, ShoppingCart, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import { trackProductClick } from "@/lib/client/productClickTracking";
 import {
   ACCOUNT_FAVORITES_EVENT,
   isAccountFavorite,
   toggleAccountFavorite,
 } from "@/lib/client/accountFavorites";
+import { getAccountListsCount } from "@/lib/client/accountLists";
+import AccountListPickerModal from "@/components/AccountListPickerModal";
 import { PriceHistoryButton } from "@/components/dynamic/PriceHistoryButton";
 import { ProductCommentsSheet } from "@/components/dynamic/ProductCommentsSheet";
 import type { PriceHistoryChartRange } from "@/lib/dynamicPriceHistory";
@@ -396,6 +399,8 @@ export function MobileProductCard({
   const [accountAlert, setAccountAlert] = useState<null | "unverified">(null);
   const [commentCount, setCommentCount] = useState(product.commentCount ?? 0);
   const [reportOpen, setReportOpen] = useState(false);
+  const [listPickerOpen, setListPickerOpen] = useState(false);
+  const [accountListCount, setAccountListCount] = useState<number | null>(null);
   const [reportReason, setReportReason] = useState<(typeof REPORT_REASONS)[number]>(
     "Preço desatualizado"
   );
@@ -447,6 +452,16 @@ export function MobileProductCard({
       active = false;
     };
   }, [product.id]);
+
+  useEffect(() => {
+    let active = true;
+    void getAccountListsCount().then((count) => {
+      if (active) setAccountListCount(count);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const syncSaved = () => {
@@ -537,6 +552,70 @@ export function MobileProductCard({
     }
   }
 
+  async function handleToggleSave() {
+    try {
+      const nextSaved = !saved;
+
+      if (nextSaved) {
+        const listCount = accountListCount ?? (await getAccountListsCount());
+        if (accountListCount === null) {
+          setAccountListCount(listCount);
+        }
+
+        if (listCount > 1) {
+          setListPickerOpen(true);
+          return;
+        }
+      }
+
+      const result = await toggleAccountFavorite(product.id, nextSaved);
+      if (result.unauthorized) {
+        router.push("/entrar");
+        return;
+      }
+      if ("unverified" in result && result.unverified) {
+        setAccountAlert("unverified");
+        return;
+      }
+      if (!result.ok) {
+        toast.error(result.errorDetail ?? result.error ?? "Nao foi possivel salvar agora.");
+        return;
+      }
+
+      setSaved(nextSaved);
+      if (nextSaved) {
+        const listTitle = result.list?.title ?? "Minha lista";
+        toast.custom((t) => (
+          <div
+            className={`flex w-full max-w-sm items-center justify-between gap-3 rounded-2xl border border-[#D5D9D9] bg-white px-4 py-3 shadow-lg transition ${
+              t.visible ? "animate-in fade-in slide-in-from-top-2" : "animate-out fade-out"
+            }`}
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-[#0F1111]">Salvo em {listTitle}</p>
+              <p className="mt-0.5 text-xs text-[#565959]">
+                Você pode alterar depois sem perder o produto.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                toast.dismiss(t.id);
+                router.push("/minha-conta#listas");
+              }}
+              className="shrink-0 rounded-full bg-[#FFD814] px-3 py-1.5 text-xs font-black text-[#0F1111] transition hover:bg-[#F7CA00]"
+            >
+              Alterar
+            </button>
+          </div>
+        ));
+      }
+    } catch (error) {
+      console.error("mobile_product_save_failed", error);
+      toast.error("Nao foi possivel salvar agora.");
+    }
+  }
+
   return (
     <>
       <div className="relative flex min-h-[250px] items-stretch gap-3 border-b border-gray-100 bg-white font-sans">
@@ -580,28 +659,17 @@ export function MobileProductCard({
 
             <button
               type="button"
-              onClick={() => {
-                const nextSaved = !saved;
-                void toggleAccountFavorite(product.id, nextSaved).then((result) => {
-                  if (result.unauthorized) {
-                    router.push("/entrar");
-                    return;
-                  }
-                  if ("unverified" in result && result.unverified) {
-                    setAccountAlert("unverified");
-                    return;
-                  }
-                  if (result.ok) {
-                    setSaved(nextSaved);
-                  }
-                });
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void handleToggleSave();
               }}
               className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
                 saved
                   ? "border-[#f0c14b] bg-[#fff7d6] text-[#b77900]"
                   : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
               }`}
-              aria-label={saved ? "Remover dos salvos" : "Salvar oferta"}
+              aria-label={saved ? "Remover da Minha lista" : "Salvar na Minha lista"}
             >
               <Heart className={`h-3.5 w-3.5 ${saved ? "fill-current" : ""}`} />
               {saved ? "Salvo" : "Salvar"}
@@ -952,6 +1020,54 @@ export function MobileProductCard({
           </div>
         </div>
       ) : null}
+
+      <AccountListPickerModal
+        open={listPickerOpen}
+        productId={product.id}
+        productName={product.name}
+        selectionMode="single"
+        actionLabel="Salvar"
+        onConfirmSingleList={async (list) => {
+          const result = await toggleAccountFavorite(product.id, true, list.id);
+          if (result.unauthorized) {
+            router.push("/entrar");
+            return;
+          }
+          if ("unverified" in result && result.unverified) {
+            setAccountAlert("unverified");
+            return;
+          }
+          if (result.ok) {
+            setSaved(true);
+            const listTitle = result.list?.title ?? list.title;
+            toast.custom((t) => (
+              <div
+                className={`flex w-full max-w-sm items-center justify-between gap-3 rounded-2xl border border-[#D5D9D9] bg-white px-4 py-3 shadow-lg transition ${
+                  t.visible ? "animate-in fade-in slide-in-from-top-2" : "animate-out fade-out"
+                }`}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-[#0F1111]">Salvo em {listTitle}</p>
+                  <p className="mt-0.5 text-xs text-[#565959]">
+                    Você pode alterar depois sem perder o produto.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    router.push("/minha-conta#listas");
+                  }}
+                  className="shrink-0 rounded-full bg-[#FFD814] px-3 py-1.5 text-xs font-black text-[#0F1111] transition hover:bg-[#F7CA00]"
+                >
+                  Alterar
+                </button>
+              </div>
+            ));
+          }
+        }}
+        onClose={() => setListPickerOpen(false)}
+      />
     </>
   );
 }

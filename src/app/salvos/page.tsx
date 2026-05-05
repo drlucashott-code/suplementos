@@ -90,7 +90,7 @@ export default function SavedDealsPage() {
       <div className="mx-auto max-w-[1500px] px-3 py-4 md:px-5">
         <section className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm md:p-5">
           <div className="mb-5">
-            <h1 className="text-[24px] font-bold text-[#0F1111]">Ofertas salvas</h1>
+            <h1 className="text-[24px] font-bold text-[#0F1111]">Minha lista</h1>
             <p className="mt-1 text-[13px] text-[#565959]">
               {savedDeals.length} {savedDeals.length === 1 ? "produto salvo" : "produtos salvos"} na sua conta.
             </p>
@@ -98,7 +98,7 @@ export default function SavedDealsPage() {
 
           {!authenticated ? (
             <div className="rounded-xl border border-dashed border-gray-200 bg-[#F8FAFA] px-4 py-10 text-center">
-              <p className="text-[16px] font-bold text-[#0F1111]">Entre para usar favoritos.</p>
+              <p className="text-[16px] font-bold text-[#0F1111]">Entre para usar sua lista.</p>
               <p className="mt-2 text-[13px] text-[#565959]">
                 Agora os produtos salvos ficam vinculados à sua conta, não mais ao navegador.
               </p>
