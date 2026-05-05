@@ -361,14 +361,14 @@ export default function HomeV3Client({
                   icon={<Bell className="h-4 w-4" />}
                   title="ALERTA DE QUEDA"
                   description="Receba aviso quando o preço baixar."
-                  accent="emerald"
+                  accent="rose"
                 />
               </div>
 
             </div>
 
-            <div className="rounded-[1.75rem] border border-white/12 bg-white/10 p-3 shadow-2xl backdrop-blur md:p-4 md:-mt-1">
-              <div className="rounded-[1.5rem] border border-[#d5d9d9] bg-[#F8FAFA] p-4 text-slate-950 shadow-lg">
+            <div className="rounded-[1.75rem] border border-white/12 bg-white/10 p-2 shadow-2xl backdrop-blur md:-mt-1 md:p-4">
+              <div className="rounded-[1.5rem] border border-[#d5d9d9] bg-[#F8FAFA] p-2 text-slate-950 shadow-lg md:p-4">
                 <div className="mb-3 flex items-center justify-end gap-1">
                     {carouselSlides.map((slide, index) => (
                       <button
@@ -391,12 +391,12 @@ export default function HomeV3Client({
                   >
                     {carouselSlides.map((slide) => (
                       <div key={slide.key} className="min-w-full snap-start">
-                        <div className="relative flex min-h-[420px] w-full items-center justify-center overflow-hidden bg-gradient-to-b from-slate-50 to-slate-100 px-2 py-2 sm:min-h-[460px] md:min-h-[440px] md:overflow-visible">
+                        <div className="relative flex min-h-[440px] w-full items-center justify-center overflow-hidden bg-gradient-to-b from-slate-50 to-slate-100 px-0 py-0 sm:min-h-[460px] md:min-h-[440px] md:overflow-visible md:px-2 md:py-2">
                           <Image
                             src={slide.mobileSrc ?? slide.src}
                             alt={slide.alt}
                             fill
-                            className="block object-cover object-center md:hidden"
+                            className="block object-cover object-[center_20%] scale-[1.14] md:hidden"
                             sizes="(max-width: 768px) 100vw, 50vw"
                             unoptimized
                           />
@@ -699,12 +699,13 @@ function DecisionBadge({
   icon: React.ReactNode;
   title: string;
   description: string;
-  accent?: "indigo" | "emerald" | "amber";
+  accent?: "indigo" | "emerald" | "amber" | "rose";
 }) {
   const accentStyles = {
     indigo: "border-indigo-100 bg-indigo-50 text-indigo-700",
     emerald: "border-emerald-100 bg-emerald-50 text-emerald-700",
     amber: "border-amber-100 bg-amber-50 text-amber-700",
+    rose: "border-rose-100 bg-rose-50 text-rose-700",
   }[accent];
 
   return (
