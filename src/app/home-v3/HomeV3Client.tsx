@@ -367,12 +367,12 @@ export default function HomeV3Client({
                   >
                     {carouselSlides.map((slide) => (
                       <div key={slide.key} className="min-w-full">
-                        <div className="relative h-[340px] w-full bg-gradient-to-b from-slate-50 to-slate-100 md:h-[420px]">
+                        <div className="relative h-[420px] w-full bg-gradient-to-b from-slate-50 to-slate-100 md:h-[420px]">
                           <Image
                             src={slide.mobileSrc ?? slide.src}
                             alt={slide.alt}
                             fill
-                            className="block object-cover p-0 md:hidden"
+                            className="block object-contain p-2 md:hidden"
                             sizes="(max-width: 768px) 100vw, 50vw"
                             unoptimized
                           />
