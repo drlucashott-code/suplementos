@@ -34,6 +34,7 @@ export default async function PublicUserListPage({
       listId: string;
       title: string;
       description: string | null;
+      createdAt: Date;
       ownerDisplayName: string;
       ownerUsername: string | null;
       itemId: string | null;
