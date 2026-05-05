@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark } from "lucide-react";
+import { Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -54,7 +54,7 @@ export default function SavePublicListButton({
           : "border-[#d5d9d9] bg-white text-[#0F1111] hover:border-[#aab7b8]"
       } disabled:opacity-60`}
     >
-      <Bookmark className={`h-4 w-4 ${saved ? "fill-current" : ""}`} />
+      <Heart className={`h-4 w-4 ${saved ? "fill-current" : ""}`} />
       {pending ? "Salvando..." : saved ? "Lista salva" : "Salvar lista"}
     </button>
   );

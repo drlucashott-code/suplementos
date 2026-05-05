@@ -102,6 +102,15 @@ const houseQuickSubtitles: Record<string, string> = {
   "/casa/shampoo": "Preço por volume",
 };
 
+const petQuickSubtitles: Record<string, string> = {
+  "/pets/pasta-de-amendoim": "Preço por peso",
+  "/pets/sabao-para-louca": "Preço por lavagem",
+  "/pets/sabonete-liquido": "Preço por volume",
+  "/pets/areia-higienica": "Preço por peso",
+  "/pets/racao-umida": "Preço por peso",
+  "/pets/antipulgas": "Preço por unidade",
+};
+
 const quickHeroPriorityMatchers = [
   ["/suplementos/whey", "whey protein"],
   ["/casa/papel-higienico", "papel higienico"],
@@ -138,7 +147,8 @@ function sortCategories(items: CategoryItem[]) {
 
 function buildQuickHeroCategories(
   supplementCategories: CategoryItem[],
-  houseCategories: CategoryItem[]
+  houseCategories: CategoryItem[],
+  petCategories: CategoryItem[]
 ): QuickCategoryItem[] {
   const supplements = sortCategories(supplementCategories).map((item) => ({
     ...item,
@@ -150,7 +160,12 @@ function buildQuickHeroCategories(
     subtitle: houseQuickSubtitles[item.path] ?? "Preço por unidade",
   }));
 
-  const allItems = [...supplements, ...house];
+  const pets = sortCategories(petCategories).map((item) => ({
+    ...item,
+    subtitle: petQuickSubtitles[item.path] ?? "Preço por unidade",
+  }));
+
+  const allItems = [...supplements, ...house, ...pets];
   const prioritized: QuickCategoryItem[] = [];
   const remaining = [...allItems];
 
@@ -171,7 +186,9 @@ function buildQuickHeroCategories(
     }
   });
 
-  return [...prioritized, ...remaining];
+  const combined = [...prioritized, ...remaining];
+
+  return combined.length % 2 === 1 ? combined.slice(0, -1) : combined;
 }
 
 function chunkQuickHeroCategories(items: QuickCategoryItem[], size: number) {
@@ -225,8 +242,13 @@ export default function HomePageClient({
   );
 
   const quickHeroCategories = useMemo(
-    () => buildQuickHeroCategories(effectiveSupplementCategories, houseCategories),
-    [effectiveSupplementCategories, houseCategories]
+    () =>
+      buildQuickHeroCategories(
+        effectiveSupplementCategories,
+        houseCategories,
+        petCategories
+      ),
+    [effectiveSupplementCategories, houseCategories, petCategories]
   );
 
   const quickHeroPages = useMemo(
@@ -278,13 +300,13 @@ export default function HomePageClient({
 
       <div className="mx-auto max-w-[1560px] px-3 pb-8 pt-4 md:px-5">
         <section className="relative overflow-hidden rounded-2xl border border-[#d5d9d9] bg-[linear-gradient(90deg,#131921_0%,#1f2f46_52%,#23415d_100%)] text-white shadow-sm">
-          <div className="grid gap-4 px-4 py-4 md:grid-cols-[1.05fr_0.95fr] md:px-8 md:py-8">
-            <div>
+          <div className="grid gap-4 px-4 py-4 md:grid-cols-[1fr_1fr] md:items-center md:gap-8 md:px-8 md:py-8 lg:gap-10">
+            <div className="md:pt-1 lg:pt-2">
               <h1 className="max-w-2xl text-[20px] font-bold leading-tight md:text-[34px]">
                 Compare pelo custo real e escolha melhor
               </h1>
               <p className="mt-2 max-w-xl text-[12px] leading-relaxed text-white/84 md:mt-3 md:text-[14px]">
-                Selecione uma categoria e descubra qual produto realmente vale a pena.
+                Selecione uma categoria e compare o que realmente importa.
               </p>
 
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:max-w-2xl">
@@ -336,7 +358,7 @@ export default function HomePageClient({
               </div>
             </div>
 
-            <div className="hidden overflow-x-auto px-1 pb-2 pt-2 md:block">
+            <div className="hidden overflow-x-auto px-1 pb-2 pt-2 md:block md:pl-2 lg:pl-4">
               <div className="flex min-w-max snap-x snap-mandatory gap-3 px-0">
                 {quickHeroCategories.map((category) => (
                   <QuickCategoryCard

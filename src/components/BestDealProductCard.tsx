@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { AlertTriangle, Bookmark, X } from "lucide-react";
+import { AlertTriangle, Heart, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import TrackedDealLink from "@/components/TrackedDealLink";
@@ -213,7 +213,7 @@ export default function BestDealProductCard({
               }`}
               aria-label={saved ? "Remover dos salvos" : "Salvar oferta"}
             >
-              <Bookmark className={`h-4 w-4 ${saved ? "fill-current" : ""}`} />
+              <Heart className={`h-4 w-4 ${saved ? "fill-current" : ""}`} />
             </button>
           </div>
         ) : null}

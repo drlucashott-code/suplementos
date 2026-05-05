@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Image from "next/image";
-import { AlertTriangle, Bookmark, RefreshCw, ShoppingCart, X } from "lucide-react";
+import { AlertTriangle, Heart, RefreshCw, ShoppingCart, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { trackProductClick } from "@/lib/client/productClickTracking";
@@ -603,7 +603,7 @@ export function MobileProductCard({
               }`}
               aria-label={saved ? "Remover dos salvos" : "Salvar oferta"}
             >
-              <Bookmark className={`h-3.5 w-3.5 ${saved ? "fill-current" : ""}`} />
+              <Heart className={`h-3.5 w-3.5 ${saved ? "fill-current" : ""}`} />
               {saved ? "Salvo" : "Salvar"}
             </button>
           </div>
