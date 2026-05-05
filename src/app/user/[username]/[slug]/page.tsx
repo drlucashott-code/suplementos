@@ -20,7 +20,12 @@ export default async function PublicUserListPage({
 }) {
   const { username, slug } = await params;
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const sortMode = resolvedSearchParams?.sort === "discount" ? "discount" : "author";
+  const sortMode =
+    resolvedSearchParams?.sort === "discount" ||
+    resolvedSearchParams?.sort === "price" ||
+    resolvedSearchParams?.sort === "alpha"
+      ? resolvedSearchParams.sort
+      : "creator";
   const openComments = resolvedSearchParams?.comments === "1";
   const showOutOfStock = resolvedSearchParams?.outOfStock === "1";
 
@@ -55,6 +60,7 @@ export default async function PublicUserListPage({
       l."id" AS "listId",
       l."title",
       l."description",
+      l."createdAt",
       u."displayName" AS "ownerDisplayName",
       u."username" AS "ownerUsername",
       i."id" AS "itemId",
@@ -144,21 +150,32 @@ export default async function PublicUserListPage({
       };
     });
 
-  const sortedItems =
-    sortMode === "discount"
-      ? [...items].sort((a, b) => {
-          const leftOutOfStock =
-            (a.attributes.availabilityStatus ?? "") === "OUT_OF_STOCK" || a.totalPrice <= 0;
-          const rightOutOfStock =
-            (b.attributes.availabilityStatus ?? "") === "OUT_OF_STOCK" || b.totalPrice <= 0;
+  const sortedItems = [...items].sort((a, b) => {
+    const leftOutOfStock =
+      (a.attributes.availabilityStatus ?? "") === "OUT_OF_STOCK" || a.totalPrice <= 0;
+    const rightOutOfStock =
+      (b.attributes.availabilityStatus ?? "") === "OUT_OF_STOCK" || b.totalPrice <= 0;
 
-          if (leftOutOfStock !== rightOutOfStock) {
-            return leftOutOfStock ? 1 : -1;
-          }
-          if (b.discountPercent !== a.discountPercent) return b.discountPercent - a.discountPercent;
-          return a.totalPrice - b.totalPrice;
-        })
-      : items;
+    if (leftOutOfStock !== rightOutOfStock) {
+      return leftOutOfStock ? 1 : -1;
+    }
+
+    if (sortMode === "discount") {
+      if (b.discountPercent !== a.discountPercent) return b.discountPercent - a.discountPercent;
+      return a.totalPrice - b.totalPrice;
+    }
+
+    if (sortMode === "price") {
+      if (a.totalPrice !== b.totalPrice) return a.totalPrice - b.totalPrice;
+      return a.name.localeCompare(b.name, "pt-BR");
+    }
+
+    if (sortMode === "alpha") {
+      return a.name.localeCompare(b.name, "pt-BR");
+    }
+
+    return 0;
+  });
   const visibleItems = showOutOfStock
     ? sortedItems
     : sortedItems.filter(
@@ -172,6 +189,7 @@ export default async function PublicUserListPage({
     description: rows[0]!.description,
     ownerDisplayName: rows[0]!.ownerDisplayName,
     ownerUsername: rows[0]!.ownerUsername,
+    createdAt: rows[0]!.createdAt,
     items: sortedItems,
     commentsCount: rows[0]!.commentsCount,
   };
@@ -202,6 +220,12 @@ export default async function PublicUserListPage({
                     </Link>
                   </>
                 ) : null}
+                {" em "}
+                {new Intl.DateTimeFormat("pt-BR", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                }).format(list.createdAt)}
               </p>
             </div>
 
@@ -210,10 +234,10 @@ export default async function PublicUserListPage({
                 <Link
                   href={buildPublicListPath(username, slug)}
                   className={`rounded-full px-4 py-2 text-sm font-bold transition ${
-                    sortMode === "author" ? "bg-white text-[#0F1111] shadow-sm" : "text-[#565959]"
+                    sortMode === "creator" ? "bg-white text-[#0F1111] shadow-sm" : "text-[#565959]"
                   }`}
                 >
-                  Ordem da lista
+                  Ordem do criador
                 </Link>
                 <Link
                   href={`${buildPublicListPath(username, slug)}?sort=discount`}
@@ -223,13 +247,33 @@ export default async function PublicUserListPage({
                 >
                   Maior desconto
                 </Link>
+                <Link
+                  href={`${buildPublicListPath(username, slug)}?sort=price`}
+                  className={`rounded-full px-4 py-2 text-sm font-bold transition ${
+                    sortMode === "price" ? "bg-white text-[#0F1111] shadow-sm" : "text-[#565959]"
+                  }`}
+                >
+                  Menor preço
+                </Link>
+                <Link
+                  href={`${buildPublicListPath(username, slug)}?sort=alpha`}
+                  className={`rounded-full px-4 py-2 text-sm font-bold transition ${
+                    sortMode === "alpha" ? "bg-white text-[#0F1111] shadow-sm" : "text-[#565959]"
+                  }`}
+                >
+                  Ordem alfabética
+                </Link>
               </div>
 
               <Link
                 href={
                   showOutOfStock
-                    ? `${buildPublicListPath(username, slug)}${sortMode === "discount" ? "?sort=discount" : ""}`
-                    : `${buildPublicListPath(username, slug)}?${sortMode === "discount" ? "sort=discount&" : ""}outOfStock=1`
+                    ? `${buildPublicListPath(username, slug)}${
+                        sortMode === "creator" ? "" : `?sort=${sortMode}`
+                      }`
+                    : `${buildPublicListPath(username, slug)}?${
+                        sortMode === "creator" ? "" : `sort=${sortMode}&`
+                      }outOfStock=1`
                 }
                 className="inline-flex h-10 items-center justify-center rounded-full border border-[#d5d9d9] bg-white px-4 text-sm font-bold text-[#0F1111] transition hover:border-[#aab7b8]"
               >

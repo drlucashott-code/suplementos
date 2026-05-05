@@ -174,14 +174,15 @@ export default async function HomePage() {
     getPetCategories(),
     getBestDeals(6),
     prisma.$queryRaw<
-      Array<{
-        slug: string;
-        title: string;
-        ownerDisplayName: string;
-        ownerUsername: string | null;
-        itemsCount: number;
-        previewImages: string[] | null;
-      }>
+    Array<{
+      slug: string;
+      title: string;
+      ownerDisplayName: string;
+      ownerUsername: string | null;
+      itemsCount: number;
+      previewImages: string[] | null;
+      createdAt: Date;
+    }>
     >`
       SELECT
         l."slug",
@@ -189,6 +190,7 @@ export default async function HomePage() {
         u."displayName" AS "ownerDisplayName",
         u."username" AS "ownerUsername",
         COUNT(i."id")::int AS "itemsCount",
+        l."createdAt",
         ARRAY(
           SELECT COALESCE(p2."imageUrl", mp2."imageUrl", tp2."imageUrl", c2."imageUrl")
           FROM "SiteUserListItem" i2
@@ -217,6 +219,11 @@ export default async function HomePage() {
     ...petCategories,
   ];
 
+  const publicListsWithDates = publicLists.map((list) => ({
+    ...list,
+    createdAt: list.createdAt.toISOString(),
+  }));
+
   return (
     <>
       <Header extraCategories={headerCategories} />
@@ -225,7 +232,7 @@ export default async function HomePage() {
         houseCategories={houseCategories}
         petCategories={petCategories}
         bestDeals={bestDeals}
-        publicLists={publicLists}
+        publicLists={publicListsWithDates}
       />
     </>
   );

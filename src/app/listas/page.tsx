@@ -101,7 +101,12 @@ export default async function PublicListsPage({
                       <h2 className="text-[18px] font-bold text-[#0F1111]">{list.title}</h2>
                       <p className="mt-1 text-[13px] text-[#565959]">
                         por {list.ownerDisplayName}
-                        {list.ownerUsername ? ` @${list.ownerUsername}` : ""}
+                        {list.ownerUsername ? ` @${list.ownerUsername}` : ""} em{" "}
+                        {new Intl.DateTimeFormat("pt-BR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        }).format(list.createdAt)}
                       </p>
                     </div>
                     <span className="rounded-full bg-[#EEF2FF] px-3 py-1 text-[11px] font-bold text-[#374151]">
@@ -117,14 +122,6 @@ export default async function PublicListsPage({
 
                   <div className="mt-4 flex items-center gap-3 text-[12px] text-[#667085]">
                     <span>{list.savesCount} salvamentos</span>
-                    <span>•</span>
-                    <span>
-                      {new Intl.DateTimeFormat("pt-BR", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                      }).format(list.createdAt)}
-                    </span>
                   </div>
                 </Link>
               ))}

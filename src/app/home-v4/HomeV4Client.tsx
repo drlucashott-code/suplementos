@@ -219,6 +219,7 @@ export default function HomePageClient({
     ownerUsername: string | null;
     itemsCount: number;
     previewImages: string[] | null;
+    createdAt: string;
   }>;
 }) {
   const router = useRouter();
@@ -514,7 +515,12 @@ export default function HomePageClient({
                           </p>
                           <p className="mt-1 text-[12px] text-[#565959]">
                             por {list.ownerDisplayName}
-                            {list.ownerUsername ? ` @${list.ownerUsername}` : ""}
+                            {list.ownerUsername ? ` @${list.ownerUsername}` : ""} em{" "}
+                            {new Intl.DateTimeFormat("pt-BR", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                            }).format(new Date(list.createdAt))}
                           </p>
                         </div>
                         <span className="rounded-full bg-[#EEF2FF] px-3 py-1 text-[11px] font-bold text-[#374151]">

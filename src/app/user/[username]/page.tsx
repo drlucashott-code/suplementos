@@ -95,45 +95,48 @@ export default async function PublicUserListsPage({
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {rows.map((list) => (
-              <Link
-                key={list.id}
-                href={buildPublicListPath(list.ownerUsername, list.slug)}
-                className="rounded-2xl border border-[#d5d9d9] bg-[#FCFCFD] p-5 transition hover:border-[#b8c3c4] hover:bg-white hover:shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-[18px] font-bold text-[#0F1111]">{list.title}</h2>
-                    <p className="mt-1 text-[13px] text-[#565959]">
-                      por {list.ownerDisplayName} @{list.ownerUsername}
-                    </p>
+          {rows.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[#d5d9d9] bg-[#F8FAFA] px-4 py-12 text-center text-sm text-[#565959]">
+              Nenhuma lista pública encontrada para este usuário.
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {rows.map((list) => (
+                <Link
+                  key={list.id}
+                  href={buildPublicListPath(list.ownerUsername, list.slug)}
+                  className="rounded-2xl border border-[#d5d9d9] bg-[#FCFCFD] p-5 transition hover:border-[#b8c3c4] hover:bg-white hover:shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h2 className="text-[18px] font-bold text-[#0F1111]">{list.title}</h2>
+                      <p className="mt-1 text-[13px] text-[#565959]">
+                        por {list.ownerDisplayName} @{list.ownerUsername} em{" "}
+                        {new Intl.DateTimeFormat("pt-BR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        }).format(list.createdAt)}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-[#EEF2FF] px-3 py-1 text-[11px] font-bold text-[#374151]">
+                      {list.itemsCount} itens
+                    </span>
                   </div>
-                  <span className="rounded-full bg-[#EEF2FF] px-3 py-1 text-[11px] font-bold text-[#374151]">
-                    {list.itemsCount} itens
-                  </span>
-                </div>
 
-                {list.description ? (
-                  <p className="mt-3 line-clamp-3 text-[13px] leading-6 text-[#344054]">
-                    {list.description}
-                  </p>
-                ) : null}
+                  {list.description ? (
+                    <p className="mt-3 line-clamp-3 text-[13px] leading-6 text-[#344054]">
+                      {list.description}
+                    </p>
+                  ) : null}
 
-                <div className="mt-4 flex items-center gap-3 text-[12px] text-[#667085]">
-                  <span>{list.savesCount} salvamentos</span>
-                  <span>•</span>
-                  <span>
-                    {new Intl.DateTimeFormat("pt-BR", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    }).format(list.createdAt)}
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
+                  <div className="mt-4 flex items-center gap-3 text-[12px] text-[#667085]">
+                    <span>{list.savesCount} salvamentos</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </main>
