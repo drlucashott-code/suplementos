@@ -248,21 +248,25 @@ export default function HomeV3Client({
     {
       key: "1",
       src: "/home-v3/1.png",
+      mobileSrc: "/home-v3/1m.png",
       alt: "Produto 1",
     },
     {
       key: "2",
       src: "/home-v3/2.png",
+      mobileSrc: "/home-v3/2m.png",
       alt: "Produto 2",
     },
     {
       key: "3",
       src: "/home-v3/3.png",
+      mobileSrc: "/home-v3/3m.png",
       alt: "Produto 3",
     },
     {
       key: "4",
       src: "/home-v3/4.png",
+      mobileSrc: "/home-v3/4m.png",
       alt: "Produto 4",
     },
   ];
@@ -337,6 +341,7 @@ export default function HomeV3Client({
                   accent="emerald"
                 />
               </div>
+
             </div>
 
             <div className="rounded-[1.75rem] border border-white/12 bg-white/10 p-3 shadow-2xl backdrop-blur md:p-4">
@@ -362,15 +367,23 @@ export default function HomeV3Client({
                   >
                     {carouselSlides.map((slide) => (
                       <div key={slide.key} className="min-w-full">
-                      <div className="relative h-[340px] w-full bg-gradient-to-b from-slate-50 to-slate-100 md:h-[420px]">
-                        <Image
-                          src={slide.src}
-                          alt={slide.alt}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 768px) 100vw, 50vw"
-                          unoptimized
-                        />
+                        <div className="relative h-[340px] w-full bg-gradient-to-b from-slate-50 to-slate-100 md:h-[420px]">
+                          <Image
+                            src={slide.mobileSrc ?? slide.src}
+                            alt={slide.alt}
+                            fill
+                            className="block object-cover p-0 md:hidden"
+                            sizes="(max-width: 768px) 100vw, 50vw"
+                            unoptimized
+                          />
+                          <Image
+                            src={slide.src}
+                            alt={slide.alt}
+                            fill
+                            className="hidden object-cover p-0 md:block"
+                            sizes="(max-width: 768px) 100vw, 50vw"
+                            unoptimized
+                          />
                       </div>
                     </div>
                     ))}
