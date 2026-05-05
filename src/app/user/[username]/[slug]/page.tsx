@@ -3,6 +3,7 @@ import BestDealProductCard from "@/components/BestDealProductCard";
 import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
 import ListCommentsSheet from "@/components/dynamic/ListCommentsSheet";
 import SavePublicListButton from "@/components/SavePublicListButton";
+import PublicListSortSelect from "@/components/PublicListSortSelect";
 import { notFound } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -16,15 +17,19 @@ export default async function PublicUserListPage({
   searchParams,
 }: {
   params: Promise<{ username: string; slug: string }>;
-  searchParams?: Promise<{ sort?: string; comments?: string; outOfStock?: string }>;
+  searchParams?: Promise<{ sort?: string; order?: string; comments?: string; outOfStock?: string }>;
 }) {
   const { username, slug } = await params;
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const sortMode =
-    resolvedSearchParams?.sort === "discount" ||
-    resolvedSearchParams?.sort === "price" ||
-    resolvedSearchParams?.sort === "alpha"
-      ? resolvedSearchParams.sort
+    resolvedSearchParams?.order === "discount" ||
+    resolvedSearchParams?.order === "price" ||
+    resolvedSearchParams?.order === "alpha"
+      ? resolvedSearchParams.order
+      : resolvedSearchParams?.sort === "discount" ||
+        resolvedSearchParams?.sort === "price" ||
+        resolvedSearchParams?.sort === "alpha"
+        ? resolvedSearchParams.sort
       : "creator";
   const openComments = resolvedSearchParams?.comments === "1";
   const showOutOfStock = resolvedSearchParams?.outOfStock === "1";
@@ -231,49 +236,27 @@ export default async function PublicUserListPage({
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex rounded-full border border-[#D5D9D9] bg-[#F8FAFA] p-1">
-                <Link
-                  href={buildPublicListPath(username, slug)}
-                  className={`rounded-full px-4 py-2 text-sm font-bold transition ${
-                    sortMode === "creator" ? "bg-white text-[#0F1111] shadow-sm" : "text-[#565959]"
-                  }`}
-                >
-                  Ordem do criador
-                </Link>
-                <Link
-                  href={`${buildPublicListPath(username, slug)}?sort=discount`}
-                  className={`rounded-full px-4 py-2 text-sm font-bold transition ${
-                    sortMode === "discount" ? "bg-white text-[#0F1111] shadow-sm" : "text-[#565959]"
-                  }`}
-                >
-                  Maior desconto
-                </Link>
-                <Link
-                  href={`${buildPublicListPath(username, slug)}?sort=price`}
-                  className={`rounded-full px-4 py-2 text-sm font-bold transition ${
-                    sortMode === "price" ? "bg-white text-[#0F1111] shadow-sm" : "text-[#565959]"
-                  }`}
-                >
-                  Menor preço
-                </Link>
-                <Link
-                  href={`${buildPublicListPath(username, slug)}?sort=alpha`}
-                  className={`rounded-full px-4 py-2 text-sm font-bold transition ${
-                    sortMode === "alpha" ? "bg-white text-[#0F1111] shadow-sm" : "text-[#565959]"
-                  }`}
-                >
-                  Ordem alfabética
-                </Link>
-              </div>
+              <PublicListSortSelect
+                className="min-w-[280px] rounded-xl border border-zinc-200 bg-white px-3 py-2 shadow-sm"
+                defaultOrder="creator"
+                paramName="order"
+                label="Ordenar por:"
+                options={[
+                  { value: "creator", label: "Ordem do criador" },
+                  { value: "discount", label: "Maior desconto" },
+                  { value: "price", label: "Menor preço" },
+                  { value: "alpha", label: "Ordem alfabética" },
+                ]}
+              />
 
               <Link
                 href={
                   showOutOfStock
                     ? `${buildPublicListPath(username, slug)}${
-                        sortMode === "creator" ? "" : `?sort=${sortMode}`
+                        sortMode === "creator" ? "" : `?order=${sortMode}`
                       }`
                     : `${buildPublicListPath(username, slug)}?${
-                        sortMode === "creator" ? "" : `sort=${sortMode}&`
+                        sortMode === "creator" ? "" : `order=${sortMode}&`
                       }outOfStock=1`
                 }
                 className="inline-flex h-10 items-center justify-center rounded-full border border-[#d5d9d9] bg-white px-4 text-sm font-bold text-[#0F1111] transition hover:border-[#aab7b8]"
