@@ -250,13 +250,13 @@ export default function HomeV3Client({
     {
       key: "1",
       src: "/home-v3/1.png",
-      mobileSrc: "/home-v3/1m.png",
+      mobileSrc: "/home-v3/1m.png?v=2",
       alt: "Produto 1",
     },
     {
       key: "2",
       src: "/home-v3/2.png",
-      mobileSrc: "/home-v3/2m.png",
+      mobileSrc: "/home-v3/2m.png?v=2",
       alt: "Produto 2",
     },
     {
