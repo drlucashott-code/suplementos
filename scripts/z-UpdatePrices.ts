@@ -465,61 +465,55 @@ async function refreshMonitoredProducts() {
           : null;
 
       await withDatabaseRetry(`siteTrackedAmazonProduct.update:${trackedProduct.id}`, async () =>
-        prisma.$executeRaw`
-          UPDATE "SiteTrackedAmazonProduct"
-          SET
-            "totalPrice" = ${totalPrice},
-            "availabilityStatus" = ${availabilityStatus},
-            "programAndSavePrice" = ${programAndSavePrice},
-            "lastSyncedAt" = NOW(),
-            "updatedAt" = NOW()
-          WHERE "id" = ${trackedProduct.id}
-        `
+        prisma.siteTrackedAmazonProduct.updateMany({
+          where: { id: trackedProduct.id },
+          data: {
+            totalPrice,
+            availabilityStatus,
+            programAndSavePrice,
+            lastSyncedAt: new Date(),
+            updatedAt: new Date(),
+          },
+        })
       );
 
       if (totalPrice > 0) {
         trackedProductIdsWithHistory.add(trackedProduct.id);
         await withDatabaseRetry(`siteTrackedAmazonProductPriceHistory.upsert:${trackedProduct.id}`, async () =>
-          prisma.$executeRaw`
-            INSERT INTO "SiteTrackedAmazonProductPriceHistory" (
-              "id",
-              "trackedProductId",
-              "price",
-              "updateCount",
-              "date",
-              "createdAt",
-              "updatedAt"
-            )
-            VALUES (
-              ${crypto.randomUUID()},
-              ${trackedProduct.id},
-              ${totalPrice},
-              1,
-              ${historyDate},
-              NOW(),
-              NOW()
-            )
-            ON CONFLICT ("trackedProductId", "date")
-            DO UPDATE SET
-              "price" = EXCLUDED."price",
-              "updateCount" = "SiteTrackedAmazonProductPriceHistory"."updateCount" + 1,
-              "updatedAt" = NOW()
-          `
+          prisma.siteTrackedAmazonProductPriceHistory.upsert({
+            where: {
+              trackedProductId_date: {
+                trackedProductId: trackedProduct.id,
+                date: historyDate,
+              },
+            },
+            create: {
+              trackedProductId: trackedProduct.id,
+              price: totalPrice,
+              updateCount: 1,
+              date: historyDate,
+            },
+            update: {
+              price: totalPrice,
+              updateCount: { increment: 1 },
+              updatedAt: new Date(),
+            },
+          })
         );
       }
 
       await withDatabaseRetry(`siteUserMonitoredProduct.sync:${trackedProduct.id}`, async () =>
-        prisma.$executeRaw`
-          UPDATE "SiteUserMonitoredProduct"
-          SET
-            "asin" = ${trackedProduct.asin},
-            "totalPrice" = ${totalPrice},
-            "availabilityStatus" = ${availabilityStatus},
-            "programAndSavePrice" = ${programAndSavePrice},
-            "lastSyncedAt" = NOW(),
-            "updatedAt" = NOW()
-          WHERE "trackedProductId" = ${trackedProduct.id}
-        `
+        prisma.siteUserMonitoredProduct.updateMany({
+          where: { trackedProductId: trackedProduct.id },
+          data: {
+            asin: trackedProduct.asin,
+            totalPrice,
+            availabilityStatus,
+            programAndSavePrice,
+            lastSyncedAt: new Date(),
+            updatedAt: new Date(),
+          },
+        })
       );
 
       await withDatabaseRetry(`siteTrackedAmazonProduct.scheduler:${trackedProduct.id}`, async () =>
