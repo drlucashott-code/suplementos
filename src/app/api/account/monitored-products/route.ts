@@ -325,7 +325,22 @@ export async function POST(request: Request) {
       });
     }
 
-    const snapshot = await fetchMonitoredAmazonProductSnapshot(amazonUrl);
+    let snapshot;
+    try {
+      snapshot = await fetchMonitoredAmazonProductSnapshot(amazonUrl);
+    } catch (error) {
+      const errorDetail = error instanceof Error ? error.message : String(error);
+      console.warn("monitored_product_snapshot_fallback", { asin, errorDetail });
+      snapshot = {
+        asin,
+        amazonUrl: `https://www.amazon.com.br/dp/${asin}`,
+        name: `Produto Amazon ${asin}`,
+        imageUrl: null,
+        totalPrice: 0,
+        availabilityStatus: "OUT_OF_STOCK",
+        programAndSavePrice: null,
+      };
+    }
     const suggestionRows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
       SELECT s."id"
       FROM "SiteProductSuggestion" s
@@ -398,15 +413,13 @@ export async function POST(request: Request) {
       throw new Error("tracked_amazon_product_upsert_failed");
     }
 
-    await seedTrackedSchedulerState(trackedProduct.id);
-
     const maxSortOrderRows = await prisma.$queryRaw<Array<{ maxSortOrder: number | null }>>(Prisma.sql`
       SELECT MAX(mp."sortOrder")::int AS "maxSortOrder"
       FROM "SiteUserMonitoredProduct" mp
       WHERE mp."userId" = ${user.id}
     `);
 
-    const monitoredProduct = await prisma.$queryRaw<
+    const existingMonitoredProductRows = await prisma.$queryRaw<
       Array<{
         id: string;
         trackedProductId: string | null;
@@ -422,127 +435,253 @@ export async function POST(request: Request) {
         createdAt: Date;
       }>
     >(Prisma.sql`
-      INSERT INTO "SiteUserMonitoredProduct" (
-        "id",
-        "userId",
-        "trackedProductId",
-        "asin",
-        "amazonUrl",
-        "name",
-        "imageUrl",
-        "totalPrice",
-        "availabilityStatus",
-        "programAndSavePrice",
-        "sortOrder",
-        "lastTrackedPrice",
-        "lastTrackedAvailability",
-        "lastSyncedAt",
-        "createdAt",
-        "updatedAt"
-      )
-      VALUES (
-        ${randomUUID()},
-        ${user.id},
-        ${trackedProduct.id},
-        ${snapshot.asin},
-        ${snapshot.amazonUrl},
-        ${snapshot.name},
-        ${snapshot.imageUrl},
-        ${snapshot.totalPrice},
-        ${snapshot.availabilityStatus},
-        ${snapshot.programAndSavePrice},
-        ${(maxSortOrderRows[0]?.maxSortOrder ?? -1) + 1},
-        ${snapshot.totalPrice > 0 ? snapshot.totalPrice : null},
-        ${snapshot.availabilityStatus},
-        NOW(),
-        NOW(),
-        NOW()
-      )
-      ON CONFLICT ("userId", "asin")
-      DO UPDATE SET
-        "trackedProductId" = EXCLUDED."trackedProductId",
-        "amazonUrl" = EXCLUDED."amazonUrl",
-        "name" = EXCLUDED."name",
-        "imageUrl" = EXCLUDED."imageUrl",
-        "totalPrice" = EXCLUDED."totalPrice",
-        "availabilityStatus" = EXCLUDED."availabilityStatus",
-        "programAndSavePrice" = EXCLUDED."programAndSavePrice",
-        "lastSyncedAt" = NOW(),
-        "updatedAt" = NOW()
-      RETURNING
-        "id",
-        "trackedProductId",
-        "asin",
-        "amazonUrl",
-        "name",
-        "imageUrl",
-        "totalPrice",
-        "averagePrice30d",
-        "availabilityStatus",
-        "programAndSavePrice",
-        "sortOrder",
-        "createdAt"
+      SELECT
+        mp."id",
+        mp."trackedProductId",
+        mp."asin",
+        mp."amazonUrl",
+        mp."name",
+        mp."imageUrl",
+        mp."totalPrice",
+        mp."averagePrice30d",
+        mp."availabilityStatus",
+        mp."programAndSavePrice",
+        mp."sortOrder",
+        mp."createdAt"
+      FROM "SiteUserMonitoredProduct" mp
+      WHERE mp."userId" = ${user.id}
+        AND (mp."trackedProductId" = ${trackedProduct.id} OR mp."asin" = ${snapshot.asin})
+      ORDER BY mp."updatedAt" DESC, mp."createdAt" DESC
+      LIMIT 1
     `);
-    const row = monitoredProduct[0];
-    if (!row) {
-      throw new Error("monitored_product_upsert_failed");
-    }
 
-    if (trackedProduct.totalPrice > 0) {
-      const historyDate = getPriceHistoryCanonicalDate();
-      await prisma.$executeRaw(Prisma.sql`
-        INSERT INTO "SiteTrackedAmazonProductPriceHistory" (
+    const existingMonitoredProduct = existingMonitoredProductRows[0] ?? null;
+
+    let row = existingMonitoredProduct;
+    let created = false;
+
+    if (existingMonitoredProduct) {
+      const updatedRows = await prisma.$queryRaw<
+        Array<{
+          id: string;
+          trackedProductId: string | null;
+          asin: string;
+          amazonUrl: string;
+          name: string;
+          imageUrl: string | null;
+          totalPrice: number;
+          averagePrice30d: number | null;
+          availabilityStatus: string | null;
+          programAndSavePrice: number | null;
+          sortOrder: number;
+          createdAt: Date;
+        }>
+      >(Prisma.sql`
+        UPDATE "SiteUserMonitoredProduct"
+        SET
+          "trackedProductId" = ${trackedProduct.id},
+          "amazonUrl" = ${snapshot.amazonUrl},
+          "name" = ${snapshot.name},
+          "imageUrl" = ${snapshot.imageUrl},
+          "totalPrice" = ${snapshot.totalPrice},
+          "availabilityStatus" = ${snapshot.availabilityStatus},
+          "programAndSavePrice" = ${snapshot.programAndSavePrice},
+          "lastTrackedPrice" = ${snapshot.totalPrice > 0 ? snapshot.totalPrice : null},
+          "lastTrackedAvailability" = ${snapshot.availabilityStatus},
+          "lastSyncedAt" = NOW(),
+          "updatedAt" = NOW()
+        WHERE "id" = ${existingMonitoredProduct.id}
+        RETURNING
           "id",
           "trackedProductId",
-          "price",
-          "updateCount",
-          "date",
+          "asin",
+          "amazonUrl",
+          "name",
+          "imageUrl",
+          "totalPrice",
+          "averagePrice30d",
+          "availabilityStatus",
+          "programAndSavePrice",
+          "sortOrder",
+          "createdAt"
+      `);
+
+      row = updatedRows[0] ?? existingMonitoredProduct;
+    } else {
+      const monitoredProduct = await prisma.$queryRaw<
+        Array<{
+          id: string;
+          trackedProductId: string | null;
+          asin: string;
+          amazonUrl: string;
+          name: string;
+          imageUrl: string | null;
+          totalPrice: number;
+          averagePrice30d: number | null;
+          availabilityStatus: string | null;
+          programAndSavePrice: number | null;
+          sortOrder: number;
+          createdAt: Date;
+        }>
+      >(Prisma.sql`
+        INSERT INTO "SiteUserMonitoredProduct" (
+          "id",
+          "userId",
+          "trackedProductId",
+          "asin",
+          "amazonUrl",
+          "name",
+          "imageUrl",
+          "totalPrice",
+          "availabilityStatus",
+          "programAndSavePrice",
+          "sortOrder",
+          "lastTrackedPrice",
+          "lastTrackedAvailability",
+          "lastSyncedAt",
           "createdAt",
           "updatedAt"
         )
         VALUES (
           ${randomUUID()},
+          ${user.id},
           ${trackedProduct.id},
-          ${trackedProduct.totalPrice},
-          1,
-          ${historyDate},
+          ${snapshot.asin},
+          ${snapshot.amazonUrl},
+          ${snapshot.name},
+          ${snapshot.imageUrl},
+          ${snapshot.totalPrice},
+          ${snapshot.availabilityStatus},
+          ${snapshot.programAndSavePrice},
+          ${(maxSortOrderRows[0]?.maxSortOrder ?? -1) + 1},
+          ${snapshot.totalPrice > 0 ? snapshot.totalPrice : null},
+          ${snapshot.availabilityStatus},
+          NOW(),
           NOW(),
           NOW()
         )
-        ON CONFLICT ("trackedProductId", "date")
+        ON CONFLICT ("userId", "asin")
         DO UPDATE SET
-          "price" = EXCLUDED."price",
-          "updateCount" = "SiteTrackedAmazonProductPriceHistory"."updateCount" + 1,
+          "trackedProductId" = EXCLUDED."trackedProductId",
+          "amazonUrl" = EXCLUDED."amazonUrl",
+          "name" = EXCLUDED."name",
+          "imageUrl" = EXCLUDED."imageUrl",
+          "totalPrice" = EXCLUDED."totalPrice",
+          "availabilityStatus" = EXCLUDED."availabilityStatus",
+          "programAndSavePrice" = EXCLUDED."programAndSavePrice",
+          "lastSyncedAt" = NOW(),
           "updatedAt" = NOW()
+        RETURNING
+          "id",
+          "trackedProductId",
+          "asin",
+          "amazonUrl",
+          "name",
+          "imageUrl",
+          "totalPrice",
+          "averagePrice30d",
+          "availabilityStatus",
+          "programAndSavePrice",
+          "sortOrder",
+          "createdAt"
       `);
-
-      await refreshTrackedAmazonProductPriceStatsBulk([trackedProduct.id]);
+      row = monitoredProduct[0] ?? null;
+      created = true;
     }
 
-    await prisma.$executeRaw`
-      UPDATE "SiteTrackedAmazonProduct"
-      SET "monitorCount" = (
-        SELECT COUNT(*)::int
-        FROM "SiteUserMonitoredProduct"
-        WHERE "trackedProductId" = ${trackedProduct.id}
-      )
-      WHERE "id" = ${trackedProduct.id}
-    `;
+    if (!row) {
+      throw new Error("monitored_product_upsert_failed");
+    }
 
-    await touchTrackedProductPriority({
-      trackedProductId: trackedProduct.id,
-      signal: "monitored",
-    });
+    try {
+      await seedTrackedSchedulerState(trackedProduct.id);
+    } catch (error) {
+      console.warn("tracked_scheduler_seed_failed", {
+        asin: snapshot.asin,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    try {
+      if (trackedProduct.totalPrice > 0) {
+        const historyDate = getPriceHistoryCanonicalDate();
+        await prisma.$executeRaw(Prisma.sql`
+          INSERT INTO "SiteTrackedAmazonProductPriceHistory" (
+            "id",
+            "trackedProductId",
+            "price",
+            "updateCount",
+            "date",
+            "createdAt",
+            "updatedAt"
+          )
+          VALUES (
+            ${randomUUID()},
+            ${trackedProduct.id},
+            ${trackedProduct.totalPrice},
+            1,
+            ${historyDate},
+            NOW(),
+            NOW()
+          )
+          ON CONFLICT ("trackedProductId", "date")
+          DO UPDATE SET
+            "price" = EXCLUDED."price",
+            "updateCount" = "SiteTrackedAmazonProductPriceHistory"."updateCount" + 1,
+            "updatedAt" = NOW()
+        `);
+
+        await refreshTrackedAmazonProductPriceStatsBulk([trackedProduct.id]);
+      }
+    } catch (error) {
+      console.warn("tracked_price_stats_update_failed", {
+        asin: snapshot.asin,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    try {
+      await prisma.$executeRaw`
+        UPDATE "SiteTrackedAmazonProduct"
+        SET "monitorCount" = (
+          SELECT COUNT(*)::int
+          FROM "SiteUserMonitoredProduct"
+          WHERE "trackedProductId" = ${trackedProduct.id}
+        )
+        WHERE "id" = ${trackedProduct.id}
+      `;
+    } catch (error) {
+      console.warn("tracked_monitor_count_update_failed", {
+        asin: snapshot.asin,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    try {
+      await touchTrackedProductPriority({
+        trackedProductId: trackedProduct.id,
+        signal: "monitored",
+      });
+    } catch (error) {
+      console.warn("tracked_priority_touch_failed", {
+        asin: snapshot.asin,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     return NextResponse.json({
       ok: true,
       source: "amazon",
       canSuggestComparator: suggestionRows.length === 0,
       listId,
+      created,
       monitoredProduct: {
         id: row.id,
         trackedProductId: row.trackedProductId,
-        savedAt: row.createdAt.toISOString(),
+        savedAt:
+          row.createdAt instanceof Date
+            ? row.createdAt.toISOString()
+            : new Date(row.createdAt).toISOString(),
         sortOrder: row.sortOrder,
         product: {
           id: trackedProduct.id,

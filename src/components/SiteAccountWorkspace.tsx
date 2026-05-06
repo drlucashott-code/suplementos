@@ -620,20 +620,20 @@ export default function SiteAccountWorkspace({
       }
 
       if (data.alreadyVerified) {
-        setVerificationMessage("Seu email jÃ¡ foi confirmado. Atualize a pÃ¡gina para seguir normalmente.");
+        setVerificationMessage("Seu email já foi confirmado. Atualize a página para seguir normalmente.");
         return;
       }
 
       setVerificationMessage(
         data.sent
-          ? "Enviamos um novo link de confirmaÃ§Ã£o para o seu email."
-          : "NÃ£o foi possÃ­vel reenviar a confirmaÃ§Ã£o agora."
+          ? "Enviamos um novo link de confirmação para o seu email."
+          : "Não foi possível reenviar a confirmação agora."
       );
     } catch (error) {
       setVerificationMessage(
         error instanceof Error && error.message !== "resend_failed"
           ? error.message
-          : "NÃ£o foi possÃ­vel reenviar a confirmaÃ§Ã£o agora."
+          : "Não foi possível reenviar a confirmação agora."
       );
     } finally {
       setResendingVerification(false);
@@ -775,7 +775,10 @@ export default function SiteAccountWorkspace({
             throw new Error(data.errorDetail || data.error || "monitored_product_create_failed");
           }
 
-          if (data.source === "catalog" && data.favorite) {
+          const isCatalogResponse = data.source === "catalog" && Boolean(data.favorite);
+          const isAmazonResponse = data.source === "amazon" && Boolean(data.monitoredProduct);
+
+          if (isCatalogResponse && data.favorite) {
             const favoriteAsin = data.favorite.product.asin.toUpperCase();
             const resolvedListId = data.listId ?? targetList?.id ?? null;
             setFavorites((current) => {
@@ -822,7 +825,7 @@ export default function SiteAccountWorkspace({
               productName: data.favorite.product.name,
               initialSelectedListIds: resolvedListId ? [resolvedListId] : [],
             };
-          } else if (data.source === "amazon" && data.monitoredProduct) {
+          } else if (isAmazonResponse && data.monitoredProduct) {
             const monitoredAsin = data.monitoredProduct.product.asin.toUpperCase();
             const resolvedProduct = data.monitoredProduct.product;
             const resolvedListId = data.listId ?? targetList?.id ?? null;
@@ -832,13 +835,21 @@ export default function SiteAccountWorkspace({
               );
               return [data.monitoredProduct!, ...withoutSameAsin];
             });
-            if (!resolvedListId) {
-              throw new Error("list_not_found");
+            let addedToList: { created: boolean } | null = null;
+            if (resolvedListId) {
+              try {
+                addedToList = await addTrackedProductToList(resolvedListId, {
+                  monitoredProductId: data.monitoredProduct.id,
+                  resolvedProduct,
+                });
+              } catch (listError) {
+                console.warn("monitored_product_list_link_failed", {
+                  asin: monitoredAsin,
+                  listId: resolvedListId,
+                  listError,
+                });
+              }
             }
-            const addedToList = await addTrackedProductToList(resolvedListId, {
-              monitoredProductId: data.monitoredProduct.id,
-              resolvedProduct,
-            });
             latestComparatorPrompt = data.canSuggestComparator
               ? {
                   asin: data.monitoredProduct.product.asin,
@@ -846,10 +857,57 @@ export default function SiteAccountWorkspace({
                   name: data.monitoredProduct.product.name,
                 }
               : null;
-            if (addedToList.created) {
+            if (addedToList?.created) {
               pushUnique(addedAsins, monitoredAsin);
-            } else {
+            } else if (addedToList) {
               pushUnique(existingAsins, monitoredAsin);
+            } else {
+              pushUnique(addedAsins, monitoredAsin);
+            }
+            targetListKnownAsins.add(monitoredAsin);
+            lastSuccessfulContext = {
+              monitoredProductId: data.monitoredProduct.id,
+              productName: data.monitoredProduct.product.name,
+              initialSelectedListIds: [resolvedListId],
+            };
+          } else if (data.monitoredProduct) {
+            const monitoredAsin = data.monitoredProduct.product.asin.toUpperCase();
+            const resolvedProduct = data.monitoredProduct.product;
+            const resolvedListId = data.listId ?? targetList?.id ?? null;
+            setMonitoredProducts((current) => {
+              const withoutSameAsin = current.filter(
+                (entry) => entry.product.asin !== data.monitoredProduct!.product.asin
+              );
+              return [data.monitoredProduct!, ...withoutSameAsin];
+            });
+            let addedToList: { created: boolean } | null = null;
+            if (resolvedListId) {
+              try {
+                addedToList = await addTrackedProductToList(resolvedListId, {
+                  monitoredProductId: data.monitoredProduct.id,
+                  resolvedProduct,
+                });
+              } catch (listError) {
+                console.warn("monitored_product_list_link_failed", {
+                  asin: monitoredAsin,
+                  listId: resolvedListId,
+                  listError,
+                });
+              }
+            }
+            latestComparatorPrompt = data.canSuggestComparator
+              ? {
+                  asin: data.monitoredProduct.product.asin,
+                  amazonUrl: data.monitoredProduct.product.url,
+                  name: data.monitoredProduct.product.name,
+                }
+              : null;
+            if (addedToList?.created) {
+              pushUnique(addedAsins, monitoredAsin);
+            } else if (addedToList) {
+              pushUnique(existingAsins, monitoredAsin);
+            } else {
+              pushUnique(addedAsins, monitoredAsin);
             }
             targetListKnownAsins.add(monitoredAsin);
             lastSuccessfulContext = {
@@ -858,7 +916,9 @@ export default function SiteAccountWorkspace({
               initialSelectedListIds: [resolvedListId],
             };
           } else {
-            throw new Error("monitored_product_create_failed");
+            throw new Error(
+              data.errorDetail || data.error || "monitored_product_create_failed"
+            );
           }
         } catch (error) {
           const cause = error instanceof Error ? error.message : "monitored_product_create_failed";
@@ -1770,7 +1830,15 @@ export default function SiteAccountWorkspace({
     const currentList = listDetailsMap[openListId];
     if (!currentList) return;
 
-    await flushListOrderSave();
+    const orderedItemIds = currentList.items.map((item) => item.id);
+
+    if (listOrderSaveTimerRef.current) {
+      window.clearTimeout(listOrderSaveTimerRef.current);
+      listOrderSaveTimerRef.current = null;
+    }
+    listOrderSaveRequestRef.current = null;
+
+    await saveListOrder(openListId, orderedItemIds, { silent: true });
     setActiveListItemId(null);
     setListOrderMode(false);
     if (listOrderShowOutOfStockBeforeEditRef.current !== null) {
@@ -1859,22 +1927,7 @@ export default function SiteAccountWorkspace({
     if (fromIndex < 0 || toIndex < 0) return;
 
     const nextIds = arrayMove(currentIds, fromIndex, toIndex);
-    queueListOrderSave(openListId, nextIds);
-  }
-
-  function handleListDragOver(event: DragOverEvent) {
-    const { active, over } = event;
-    if (!openListId || !openedList || !over) return;
-    if (active.id === over.id) return;
-
-    const currentIds = getCurrentListItemIds(openListId);
-    const fromIndex = currentIds.indexOf(String(active.id));
-    const toIndex = currentIds.indexOf(String(over.id));
-
-    if (fromIndex < 0 || toIndex < 0) return;
-
-    const nextIds = arrayMove(currentIds, fromIndex, toIndex);
-    commitListOrder(openListId, nextIds, { persist: false });
+    commitListOrder(openListId, nextIds);
   }
 
   return (
@@ -1970,7 +2023,7 @@ export default function SiteAccountWorkspace({
                 <MessageCircle className="h-4 w-4 shrink-0 text-[#FFD37A] sm:h-5 sm:w-5" />
                 <div>
                   <p className="text-[10px] font-bold text-white/60 sm:text-xs sm:uppercase sm:tracking-[0.16em]">
-                    ComentÃ¡rios
+                    Comentários
                   </p>
                   <p className="mt-1 text-sm font-black text-white sm:text-lg">
                     {profileStats.commentsCount}
@@ -1988,8 +2041,8 @@ export default function SiteAccountWorkspace({
                 <Heart className="h-4 w-4 shrink-0 text-[#FFD37A] sm:h-5 sm:w-5" />
                 <div>
                   <p className="text-[10px] font-bold text-white/60 sm:text-xs sm:uppercase sm:tracking-[0.16em]">
-                    <span className="sm:hidden">ReaÃ§Ãµes</span>
-                    <span className="hidden sm:inline">ReaÃ§Ãµes a comentÃ¡rios</span>
+                    <span className="sm:hidden">Reações</span>
+                    <span className="hidden sm:inline">Reações a comentários</span>
                   </p>
                   <p className="mt-1 text-sm font-black text-white sm:text-lg">
                     {profileStats.commentReactionsCount}
@@ -2012,8 +2065,8 @@ export default function SiteAccountWorkspace({
                   endereco de email em <span className="font-bold">{currentUser.email}</span>.
                 </p>
                 <p className="mt-2 text-sm text-[#7A2E0E]">
-                  Enquanto essa confirmaÃ§Ã£o nÃ£o for feita, listas, produtos salvos, comentÃ¡rios e
-                  outras interaÃ§Ãµes ficam bloqueadas.
+                  Enquanto essa confirmação não for feita, listas, produtos salvos, comentários e
+                  outras interações ficam bloqueadas.
                 </p>
                 {verificationMessage ? (
                   <p className="mt-2 text-sm font-semibold text-[#B54708]">{verificationMessage}</p>
@@ -2151,7 +2204,7 @@ export default function SiteAccountWorkspace({
                     : "border-[#D0D5DD] bg-white text-[#0F1111] hover:bg-[#F8FAFA]"
                 }`}
               >
-                {trackedReorderMode ? "Concluir organizaÃ§Ã£o" : "Personalizar ordem"}
+                {trackedReorderMode ? "Concluir organização" : "Personalizar ordem"}
               </button>
             ) : null}
             {trackedReorderMode ? (
@@ -2325,7 +2378,7 @@ export default function SiteAccountWorkspace({
                           type="button"
                           onClick={() => toggleTrackedReorderSelection(trackedItem.key)}
                           className="absolute inset-0 z-20 rounded-xl"
-                          aria-label={`Definir posiÃ§Ã£o para ${trackedItem.card.name}`}
+                          aria-label={`Definir posição para ${trackedItem.card.name}`}
                         />
                         <div className="pointer-events-none absolute inset-0 z-10 rounded-xl border-2 border-dashed border-[#16A34A] bg-[#DCFCE7]/30" />
                         {trackedReorderSelection.includes(trackedItem.key) ? (
@@ -2458,7 +2511,7 @@ export default function SiteAccountWorkspace({
               </div>
             ) : null}
             <p className="mt-3 text-sm text-[#565959]">
-              Cole um link da Amazon ou ASIN para acompanhar variaÃ§Ãµes de preÃ§o, estoque e ofertas. Para varios produtos, separe por virgula.
+              Cole um link da Amazon ou ASIN para acompanhar variações de preço, estoque e ofertas. Para vários produtos, separe por vírgula.
             </p>
           </form>
 
@@ -2745,7 +2798,7 @@ export default function SiteAccountWorkspace({
                                   : "border-[#D0D5DD] text-[#344054] hover:bg-white"
                               }`}
                             >
-                              {listOrderMode ? "Concluir ediÃƒÂ§ÃƒÂ£o" : "Reordenar lista"}
+                              {listOrderMode ? "Concluir edição" : "Reordenar lista"}
                             </button>
                             {openedList.items.length > 1 ? (
                               listOrderMode ? (
@@ -2756,7 +2809,7 @@ export default function SiteAccountWorkspace({
                                     className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
                                   >
                                     <ArrowUp className="h-4 w-4" />
-                                    <span>Ordenar por preÃƒÂ§o</span>
+                                    <span>Ordenar por preço</span>
                                   </button>
                                   <button
                                     type="button"
@@ -2772,7 +2825,7 @@ export default function SiteAccountWorkspace({
                                     className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
                                   >
                                     <GripVertical className="h-4 w-4" />
-                                    <span>Ordem alfabÃƒÂ©tica</span>
+                                    <span>Ordem alfabética</span>
                                   </button>
                                 </>
                               ) : (
@@ -2843,7 +2896,6 @@ export default function SiteAccountWorkspace({
                                 sensors={listOrderSensors}
                                 collisionDetection={closestCenter}
                                 onDragStart={handleListDragStart}
-                                onDragOver={listOrderMode ? handleListDragOver : undefined}
                                 onDragEnd={listOrderMode ? handleListDragEnd : undefined}
                               >
                                 <SortableContext
