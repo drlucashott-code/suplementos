@@ -52,15 +52,15 @@ export async function refreshTrackedAmazonProductPriceStatsBulk(trackedProductId
 
   for (const trackedProductId of uniqueTrackedProductIds) {
     const row = statsByTrackedProductId.get(trackedProductId);
-    await prisma.$executeRaw(Prisma.sql`
-      UPDATE "SiteTrackedAmazonProduct"
-      SET
-        "averagePrice30d" = ${row?.averagePrice30d ?? null},
-        "lowestPrice30d" = ${row?.lowestPrice30d ?? null},
-        "highestPrice30d" = ${row?.highestPrice30d ?? null},
-        "lowestPrice365d" = ${row?.lowestPrice365d ?? null},
-        "updatedAt" = NOW()
-      WHERE "id" = ${trackedProductId}
-    `);
+    await prisma.siteTrackedAmazonProduct.updateMany({
+      where: { id: trackedProductId },
+      data: {
+        averagePrice30d: row?.averagePrice30d ?? null,
+        lowestPrice30d: row?.lowestPrice30d ?? null,
+        highestPrice30d: row?.highestPrice30d ?? null,
+        lowestPrice365d: row?.lowestPrice365d ?? null,
+        updatedAt: new Date(),
+      },
+    });
   }
 }

@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { BarChart3, Dumbbell, Home, ShieldCheck, TrendingUp, PawPrint } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import FeedbackModal from "./FeedbackModal";
 import BestDealProductCard from "@/components/BestDealProductCard";
 import type { BestDeal } from "@/lib/bestDeals";
 import { buildPublicListPath } from "@/lib/siteSocial";
@@ -496,7 +495,6 @@ export default function HomePageClient({
         </section>
 
         <footer className="mt-8 flex flex-col items-center px-4 pb-4 pt-6 text-center">
-          <FeedbackModal />
           <div className="mx-auto mb-4 mt-6 w-16 border-t border-gray-300" />
           <p className="px-6 text-[11px] leading-tight text-[#565959]">
             Participamos do Programa de Associados da Amazon Services LLC.
