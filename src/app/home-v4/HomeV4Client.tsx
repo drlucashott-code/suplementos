@@ -304,10 +304,10 @@ export default function HomePageClient({
           <div className="grid gap-4 px-4 py-4 md:grid-cols-[1fr_1fr] md:items-center md:gap-8 md:px-8 md:py-8 lg:gap-10">
             <div className="md:pt-1 lg:pt-2">
               <h1 className="max-w-2xl text-[20px] font-bold leading-tight md:text-[34px]">
-                Compare pelo custo real e escolha melhor
+                Compare produtos pelo custo real e descubra a melhor opção
               </h1>
               <p className="mt-2 max-w-xl text-[12px] leading-relaxed text-white/84 md:mt-3 md:text-[14px]">
-                Selecione uma categoria e compare o que realmente importa.
+                Escolha a categoria e compare pelo critério que realmente importa.
               </p>
 
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:max-w-2xl">
