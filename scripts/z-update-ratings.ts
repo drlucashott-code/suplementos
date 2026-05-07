@@ -11,7 +11,7 @@ const REQUEST_DELAY_MIN_MS = 4500;
 const REQUEST_DELAY_MAX_MS = 9000;
 const RETRY_DELAY_MIN_MS = 20000;
 const RETRY_DELAY_MAX_MS = 45000;
-const MAX_CONSECUTIVE_ERRORS = 3;
+const MAX_CONSECUTIVE_ERRORS = 5;
 
 const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
@@ -79,8 +79,11 @@ function isBlockedResponse(html: string) {
     "insira os caracteres que você vê abaixo",
     "sorry, we just need to make sure you're not a robot",
     "enter the characters you see below",
-    "automated access to amazon data",
   ].some((signal) => normalized.includes(signal));
+}
+
+function hasSoftBlockSignal(html: string) {
+  return html.toLowerCase().includes("automated access to amazon data");
 }
 
 function hasProductPageSignals($: cheerio.CheerioAPI) {
@@ -115,7 +118,8 @@ async function fetchAmazonRatings(asin: string): Promise<RatingResult> {
     }
 
     if (isBlockedResponse(data)) {
-      return { rating: null, count: null, status: "blocked" };
+      console.warn(`  [warn] Resposta com captcha/robot para ${asin}. Tratando como erro temporario.`);
+      return { rating: null, count: null, status: "error" };
     }
 
     const $ = cheerio.load(data);
@@ -141,9 +145,16 @@ async function fetchAmazonRatings(asin: string): Promise<RatingResult> {
     const count = countRaw ? parseInt(countRaw.replace(/[^0-9]/g, ""), 10) : null;
 
     if (rating === null && count === null) {
+      if (hasSoftBlockSignal(data)) {
+        console.warn(
+          `  [warn] Sinal fraco de bloqueio em ${asin}. Tratando como erro temporario.`
+        );
+        return { rating: null, count: null, status: "error" };
+      }
+
       if (!hasProductPageSignals($)) {
-        console.warn(`  [warn] HTML suspeito para ${asin}. Tratando como possivel bloqueio.`);
-        return { rating: null, count: null, status: "blocked" };
+        console.warn(`  [warn] HTML suspeito para ${asin}. Tratando como erro temporario.`);
+        return { rating: null, count: null, status: "error" };
       }
 
       console.warn(`  [warn] Nenhuma avaliacao encontrada no HTML do ASIN ${asin}.`);
@@ -244,11 +255,6 @@ async function processProduct(product: RatingTarget) {
 
     console.log("  [warn] Produto sem avaliacoes. Marcado como checado.");
     return "no_rating" as const;
-  }
-
-  if (result.status === "blocked") {
-    console.log("  [warn] Sinal forte de bloqueio detectado. Encerrando a rodada.");
-    return "blocked" as const;
   }
 
   console.log("  [warn] Erro temporario. Vai para fila de nova tentativa.");
@@ -360,13 +366,6 @@ async function main() {
   for (const product of products) {
     const status = await processProduct(product);
 
-    if (status === "blocked") {
-      console.log(
-        "\n[stop] Rodada interrompida por suspeita de bloqueio. O script foi encerrado para proteger o IP."
-      );
-      return;
-    }
-
     if (status === "success") {
       atualizados++;
       consecutiveErrors = 0;
@@ -395,13 +394,6 @@ async function main() {
 
     for (const product of retryQueue) {
       const status = await processProduct(product);
-
-      if (status === "blocked") {
-        console.log(
-          "\n[stop] Bloqueio detectado durante a fila de retry. Encerrando a rodada."
-        );
-        return;
-      }
 
       if (status === "success") {
         atualizados++;

@@ -561,6 +561,14 @@ export async function runDiscoveryForCategory(formData: FormData) {
     });
   };
 
+  const isRunCanceled = async () => {
+    const current = await prisma.dynamicDiscoveryRun.findUnique({
+      where: { id: run.id },
+      select: { status: true },
+    });
+    return current?.status === "canceled";
+  };
+
   try {
     const discovery = await runAmazonDiscoveryPlan({
       searchTerms,
@@ -577,7 +585,52 @@ export async function runDiscoveryForCategory(formData: FormData) {
       maxItemsPerQuery,
       knownBrands: knownBrands.map((brand) => brand.brandName),
       onProgress: updateProgress,
+      isCancelled: isRunCanceled,
     });
+
+    if (discovery.canceled) {
+      await prisma.dynamicDiscoveryRun.update({
+        where: { id: run.id },
+        data: {
+          status: "canceled",
+          queryCount: discovery.queryStats.length,
+          asinCount: discovery.aggregated.length,
+          newCount: 0,
+          existingCount: 0,
+          pendingCount: 0,
+          rejectedCount: 0,
+          approvedCount: 0,
+          exportAsins: [],
+          previewSummary: {
+            progress: {
+              phase: "finalizing",
+              completedQueries: discovery.queryStats.length,
+              totalQueries: totalQueriesEstimate,
+              currentQuery: "Processo cancelado",
+              currentPage: 0,
+              currentUrl: "",
+              currentCards: 0,
+              currentAsins: 0,
+              renderer: "browser",
+            },
+            queries: discovery.queryStats,
+            counts: {
+              discovered: 0,
+              existing: 0,
+              rejected: 0,
+              approved: 0,
+              pendingReview: 0,
+            },
+          },
+        },
+      });
+
+      revalidatePath(DISCOVERY_PATH);
+      redirectWithNotice({
+        categoryId,
+        notice: "Descoberta cancelada.",
+      });
+    }
 
     const aggregatedHits = discovery.aggregated;
     const discoveredAsins = aggregatedHits.map((hit) => hit.asin);
@@ -849,6 +902,66 @@ export async function runDiscoveryForCategory(formData: FormData) {
     });
     throw error;
   }
+}
+
+export async function cancelDiscoveryRun(formData: FormData) {
+  const categoryId = parseString(formData, "categoryId");
+  const runId = parseString(formData, "runId");
+  if (!categoryId || !runId) {
+    redirectWithNotice({
+      categoryId,
+      notice: "Selecione uma categoria e um run valido.",
+    });
+  }
+
+  await loadCategoryOrRedirect(categoryId);
+
+  const currentRun = await prisma.dynamicDiscoveryRun.findUnique({
+    where: { id: runId },
+    select: { id: true, categoryId: true, status: true },
+  });
+
+  if (!currentRun || currentRun.categoryId !== categoryId) {
+    redirectWithNotice({
+      categoryId,
+      notice: "Run nao encontrado para esta categoria.",
+    });
+  }
+
+  const runRecord = currentRun!;
+
+  if (runRecord.status !== "running") {
+    redirectWithNotice({
+      categoryId,
+      notice: "Este run nao esta em execucao.",
+    });
+  }
+
+  await prisma.dynamicDiscoveryRun.update({
+    where: { id: runRecord.id },
+    data: {
+      status: "canceled",
+      previewSummary: {
+        progress: {
+          phase: "finalizing",
+          completedQueries: 0,
+          totalQueries: 0,
+          currentQuery: "Processo cancelado",
+          currentPage: 0,
+          currentUrl: "",
+          currentCards: 0,
+          currentAsins: 0,
+          renderer: "browser",
+        },
+      },
+    },
+  });
+
+  revalidatePath(DISCOVERY_PATH);
+  redirectWithNotice({
+    categoryId,
+    notice: "Descoberta cancelada.",
+  });
 }
 
 export async function updateDiscoveryProductStatus(formData: FormData) {

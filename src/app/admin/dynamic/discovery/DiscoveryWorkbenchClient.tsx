@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, Plus, Search, WandSparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useFormStatus } from "react-dom";
 import {
   clearDiscoveryPendingProducts,
+  cancelDiscoveryRun,
   runDiscoveryForCategory,
   refreshDiscoveryApprovedProducts,
   saveDiscoveryCategoryConfig,
@@ -185,6 +187,26 @@ function goSelectClass(active: boolean) {
     : "border-gray-200 bg-white text-gray-700 hover:border-gray-300";
 }
 
+function PendingSubmitButton({
+  children,
+  pendingLabel,
+  className,
+  disabled,
+}: {
+  children: ReactNode;
+  pendingLabel: string;
+  className: string;
+  disabled?: boolean;
+}) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button type="submit" disabled={disabled || pending} className={className}>
+      {pending ? pendingLabel : children}
+    </button>
+  );
+}
+
 export default function DiscoveryWorkbenchClient({
   categories,
   selectedCategoryId,
@@ -342,20 +364,48 @@ export default function DiscoveryWorkbenchClient({
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className={`h-2.5 w-2.5 rounded-full ${latestRun.status === "running" ? "bg-amber-500" : latestRun.status === "error" ? "bg-rose-500" : "bg-emerald-500"}`} />
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      latestRun.status === "running"
+                        ? "bg-amber-500"
+                        : latestRun.status === "error"
+                          ? "bg-rose-500"
+                          : latestRun.status === "canceled"
+                            ? "bg-gray-400"
+                            : "bg-emerald-500"
+                    }`}
+                  />
                   <span className="text-[11px] font-black uppercase tracking-[0.22em] text-gray-500">
                     Status do run
                   </span>
                   <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-bold text-gray-700">
-                    {latestRun.status}
+                    {latestRun.status === "running"
+                      ? "running"
+                      : latestRun.status === "error"
+                        ? "error"
+                        : latestRun.status === "canceled"
+                          ? "canceled"
+                          : "done"}
                   </span>
                 </div>
                 <div className="text-sm font-semibold text-gray-900">
                   {progress?.currentQuery ?? "Preparando descoberta"}
                 </div>
                 <div className="text-[12px] text-gray-500">
-                  P?gina {progress?.currentPage ?? 0} ? {progress?.renderer ?? "browser"} ? {progress?.currentCards ?? 0} cards ? {progress?.currentAsins ?? 0} ASINs v?lidos
+                  Página {progress?.currentPage ?? 0} • {progress?.renderer ?? "browser"} • {progress?.currentCards ?? 0} cards • {progress?.currentAsins ?? 0} ASINs válidos
                 </div>
+                {latestRun.status === "running" ? (
+                  <form action={cancelDiscoveryRun} className="pt-2">
+                    <input type="hidden" name="categoryId" value={selectedCategoryId} />
+                    <input type="hidden" name="runId" value={latestRun.id} />
+                    <PendingSubmitButton
+                      pendingLabel="Cancelando..."
+                      className="rounded-full border border-rose-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-rose-700 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      Cancelar processo
+                    </PendingSubmitButton>
+                  </form>
+                ) : null}
               </div>
 
               <div className="min-w-[220px] flex-1 max-w-xl">
@@ -970,7 +1020,9 @@ function ChipPicker({
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
-          {(selected.length > 0 ? selected : values).map((value) => {
+          {Array.from(new Set([...values, ...selected])).sort((a, b) =>
+            a.localeCompare(b, "pt-BR", { sensitivity: "base" })
+          ).map((value) => {
             const active = selected.includes(value);
             return (
               <button

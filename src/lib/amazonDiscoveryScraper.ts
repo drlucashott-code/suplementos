@@ -958,7 +958,9 @@ export async function runAmazonDiscoveryPlan(input: {
   maxItemsPerQuery?: number;
   knownBrands?: string[];
   onProgress?: (progress: AmazonDiscoveryProgress) => void | Promise<void>;
+  isCancelled?: () => Promise<boolean> | boolean;
 }) {
+  const isCancelled = async () => Boolean(await input.isCancelled?.());
   const plans = buildAmazonDiscoveryQueryPlans(input);
   const knownBrands = input.knownBrands ?? [];
   const totalQueries = plans.reduce((sum, plan) => sum + plan.pageLimit, 0);
@@ -977,6 +979,10 @@ export async function runAmazonDiscoveryPlan(input: {
   const reviewCache = new Map<string, Promise<AmazonReviewSnapshot>>();
 
   async function resolveBrandFiltersForTerm(plan: AmazonDiscoveryQueryPlan) {
+    if (await isCancelled()) {
+      return new Map<string, string>();
+    }
+
     const cacheKey = [
       normalizeText(plan.term),
       plan.primeOnly ? "prime" : "all",
@@ -1031,6 +1037,16 @@ export async function runAmazonDiscoveryPlan(input: {
   }
 
   for (const [planIndex, plan] of plans.entries()) {
+    if (await isCancelled()) {
+      return {
+        plans,
+        rawHits,
+        aggregated: aggregateAmazonDiscoveryHits(rawHits),
+        queryStats,
+        canceled: true,
+      };
+    }
+
     if (input.onProgress) {
       await input.onProgress({
         phase: "searching",
@@ -1046,6 +1062,15 @@ export async function runAmazonDiscoveryPlan(input: {
     }
 
     const brandFacetMap = plan.brands.length > 0 ? await resolveBrandFiltersForTerm(plan) : null;
+    if (await isCancelled()) {
+      return {
+        plans,
+        rawHits,
+        aggregated: aggregateAmazonDiscoveryHits(rawHits),
+        queryStats,
+        canceled: true,
+      };
+    }
     const brandFilters = brandFacetMap
       ? plan.brands
           .map((brand) => brandFacetMap.get(normalizeText(brand)) ?? null)
@@ -1058,6 +1083,16 @@ export async function runAmazonDiscoveryPlan(input: {
     };
 
     for (let page = 1; page <= plan.pageLimit; page += 1) {
+      if (await isCancelled()) {
+        return {
+          plans,
+          rawHits,
+          aggregated: aggregateAmazonDiscoveryHits(rawHits),
+          queryStats,
+          canceled: true,
+        };
+      }
+
       const url = buildSearchUrl(effectivePlan, page);
       if (input.onProgress) {
         await input.onProgress({
@@ -1073,6 +1108,15 @@ export async function runAmazonDiscoveryPlan(input: {
         });
       }
       const { html, renderer, cards } = await fetchSearchPage(url);
+      if (await isCancelled()) {
+        return {
+          plans,
+          rawHits,
+          aggregated: aggregateAmazonDiscoveryHits(rawHits),
+          queryStats,
+          canceled: true,
+        };
+      }
       const filteredPageHits = parseSearchResults(html, effectivePlan, page, knownBrands)
         .filter((hit) => !(plan.ignoreInternational && hit.isInternational))
         .filter((hit) => (plan.primeOnly ? hit.isPrime : true))
@@ -1118,6 +1162,15 @@ export async function runAmazonDiscoveryPlan(input: {
     }
 
     if (planIndex < plans.length - 1) {
+      if (await isCancelled()) {
+        return {
+          plans,
+          rawHits,
+          aggregated: aggregateAmazonDiscoveryHits(rawHits),
+          queryStats,
+          canceled: true,
+        };
+      }
       await sleep(1200);
     }
   }
@@ -1127,5 +1180,6 @@ export async function runAmazonDiscoveryPlan(input: {
     rawHits,
     aggregated: aggregateAmazonDiscoveryHits(rawHits),
     queryStats,
+    canceled: false,
   };
 }
