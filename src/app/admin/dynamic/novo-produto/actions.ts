@@ -1,6 +1,7 @@
 'use server';
 
 import { enrichDynamicAttributesForCategory } from '@/lib/dynamicCategoryMetrics';
+import { resolveAmazonReviewDataWithDiscoveryFallback } from '@/lib/dynamicDiscoveryMetadata';
 import { getDynamicVisibilityBoolean } from '@/lib/dynamicVisibility';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
@@ -18,6 +19,8 @@ export interface AmazonImportResult {
   totalPrice: number;
   imageUrl: string;
   url: string;
+  ratingAverage?: number | null;
+  ratingCount?: number | null;
   error?: string;
 }
 
@@ -33,12 +36,16 @@ export async function fetchAmazonProductData(
   asin: string
 ): Promise<AmazonImportResult | { error: string }> {
   try {
+    const reviewSnapshot = await resolveAmazonReviewDataWithDiscoveryFallback(asin);
+
     return {
       asin,
       name: `Produto Amazon ${asin}`,
       totalPrice: 0,
       imageUrl: `https://m.media-amazon.com/images/I/${asin}.jpg`,
       url: `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_LINK_TAG}`,
+      ratingAverage: reviewSnapshot.ratingAverage,
+      ratingCount: reviewSnapshot.ratingCount,
     };
   } catch (err) {
     console.error('Erro ao buscar dados da Amazon:', err);
@@ -88,6 +95,9 @@ export async function importBulkProducts(data: {
           imageUrl: scraped.imageUrl,
           url: scraped.url,
           totalPrice: 0,
+          ratingAverage: scraped.ratingAverage ?? null,
+          ratingCount: scraped.ratingCount ?? null,
+          ratingsUpdatedAt: scraped.ratingAverage !== undefined || scraped.ratingCount !== undefined ? new Date() : null,
           categoryId: data.categoryId,
           visibilityStatus: NEW_PRODUCT_DEFAULT_VISIBILITY,
           isVisibleOnSite: getDynamicVisibilityBoolean(NEW_PRODUCT_DEFAULT_VISIBILITY),
@@ -139,6 +149,8 @@ export async function createDynamicProduct(data: {
       return { error: 'Este ASIN já está cadastrado.' };
     }
 
+    const reviewSnapshot = await resolveAmazonReviewDataWithDiscoveryFallback(data.asin);
+
     await prisma.dynamicProduct.create({
       data: {
         asin: data.asin,
@@ -146,6 +158,12 @@ export async function createDynamicProduct(data: {
         totalPrice: data.totalPrice,
         url: data.url,
         imageUrl: data.imageUrl,
+        ratingAverage: reviewSnapshot.ratingAverage,
+        ratingCount: reviewSnapshot.ratingCount,
+        ratingsUpdatedAt:
+          reviewSnapshot.ratingAverage !== null || reviewSnapshot.ratingCount !== null
+            ? new Date()
+            : null,
         categoryId: data.categoryId,
         visibilityStatus: NEW_PRODUCT_DEFAULT_VISIBILITY,
         isVisibleOnSite: getDynamicVisibilityBoolean(NEW_PRODUCT_DEFAULT_VISIBILITY),

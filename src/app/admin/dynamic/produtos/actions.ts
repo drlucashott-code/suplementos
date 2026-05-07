@@ -1,6 +1,7 @@
 'use server';
 
 import { enrichDynamicAttributesForCategory } from '@/lib/dynamicCategoryMetrics';
+import { resolveAmazonReviewDataWithDiscoveryFallback } from '@/lib/dynamicDiscoveryMetadata';
 import { type DynamicCatalogCategoryRef } from '@/lib/dynamicCatalogCache';
 import { revalidateDynamicCatalogCategoryRefs } from '@/lib/dynamicCatalogRevalidation';
 import {
@@ -44,6 +45,8 @@ export interface AmazonImportResult {
   imageUrl: string;
   url: string;
   brand?: string;
+  ratingAverage?: number | null;
+  ratingCount?: number | null;
   error?: string;
 }
 
@@ -67,6 +70,8 @@ export async function fetchAmazonProductData(
   asin: string
 ): Promise<AmazonImportResult | { error: string }> {
   try {
+    const reviewSnapshot = await resolveAmazonReviewDataWithDiscoveryFallback(asin);
+
     return {
       asin,
       name: `Produto Amazon ${asin}`,
@@ -74,6 +79,8 @@ export async function fetchAmazonProductData(
       brand: 'Marca Amazon',
       imageUrl: `https://m.media-amazon.com/images/I/${asin}.jpg`,
       url: `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_LINK_TAG}`,
+      ratingAverage: reviewSnapshot.ratingAverage,
+      ratingCount: reviewSnapshot.ratingCount,
     };
   } catch (err) {
     console.error('Erro ao buscar dados da Amazon:', err);
@@ -97,7 +104,7 @@ export async function importBulkProducts(data: {
   });
 
   if (!category) {
-    return { error: 'Categoria nÃƒÂ£o encontrada.' };
+    return { error: 'Categoria não encontrada.' };
   }
 
   for (const asin of asinList) {
@@ -107,7 +114,20 @@ export async function importBulkProducts(data: {
       });
 
       if (alreadyExists) {
-        results.push({ asin, status: 'skipped', message: 'JÃƒÂ¡ cadastrado' });
+        const reviewSnapshot = await resolveAmazonReviewDataWithDiscoveryFallback(asin);
+
+        if (reviewSnapshot.ratingAverage !== null || reviewSnapshot.ratingCount !== null) {
+          await prisma.dynamicProduct.update({
+            where: { asin },
+            data: {
+              ratingAverage: reviewSnapshot.ratingAverage,
+              ratingCount: reviewSnapshot.ratingCount,
+              ratingsUpdatedAt: new Date(),
+            },
+          });
+        }
+
+        results.push({ asin, status: 'skipped', message: 'Já cadastrado' });
         continue;
       }
 
@@ -123,6 +143,12 @@ export async function importBulkProducts(data: {
           imageUrl: scraped.imageUrl,
           url: scraped.url,
           totalPrice: scraped.totalPrice || 0,
+          ratingAverage: scraped.ratingAverage ?? null,
+          ratingCount: scraped.ratingCount ?? null,
+          ratingsUpdatedAt:
+            scraped.ratingAverage !== undefined || scraped.ratingCount !== undefined
+              ? new Date()
+              : null,
           categoryId: data.categoryId,
           visibilityStatus: NEW_PRODUCT_DEFAULT_VISIBILITY,
           isVisibleOnSite: getDynamicVisibilityBoolean(NEW_PRODUCT_DEFAULT_VISIBILITY),
@@ -132,7 +158,7 @@ export async function importBulkProducts(data: {
             productName: scraped.name,
             totalPrice: scraped.totalPrice || 0,
             attributes: {
-              marca: scraped.brand || 'NÃƒÂ£o Informada',
+              marca: scraped.brand || 'Não Informada',
               asin,
             },
           }) as Prisma.InputJsonValue,
@@ -149,7 +175,6 @@ export async function importBulkProducts(data: {
   revalidatePath('/admin/dynamic/produtos');
   return { success: true, results };
 }
-
 export async function updateManyProducts(
   ids: string[],
   key: string,
@@ -170,8 +195,7 @@ export async function updateManyProducts(
     });
 
     const updates = products.map((product) => {
-      const currentAttributes =
-        ((product.attributes as DynamicAttributes | null | undefined) ?? {});
+      const currentAttributes = ((product.attributes as DynamicAttributes | null | undefined) ?? {});
 
       const nextAttributes: DynamicAttributes = {
         ...currentAttributes,
@@ -193,7 +217,6 @@ export async function updateManyProducts(
         productName: product.name,
         totalPrice: product.totalPrice,
         attributes: nextAttributes,
-        allowTitleExtraction: false,
       });
 
       return prisma.dynamicProduct.update({
@@ -218,7 +241,6 @@ export async function updateManyProducts(
     return { error: 'Falha ao atualizar em massa.' };
   }
 }
-
 export async function updateDynamicProduct(
   id: string,
   data: {
@@ -299,11 +321,12 @@ export async function updateDynamicProduct(
     return { success: true };
   } catch (err) {
     console.error('Erro ao atualizar produto:', err);
-    return { error: 'Falha ao salvar alteraÃƒÂ§ÃƒÂµes.' };
+    return { error: 'Falha ao salvar alterações.' };
   }
 }
 
 export async function createDynamicProduct(data: {
+  asin: string;
   name: string;
   totalPrice: number;
   url: string;
@@ -318,31 +341,32 @@ export async function createDynamicProduct(data: {
     });
 
     if (!category) {
-      return { error: 'Categoria nÃƒÂ£o encontrada.' };
-    }
-
-    const asinMatch = data.url.match(/\/dp\/([A-Z0-9]{10})/);
-    const extractedAsin = asinMatch ? asinMatch[1] : undefined;
-    const finalAsin = (data.attributes?.asin as string) || extractedAsin;
-
-    if (!finalAsin) {
-      return { error: 'NÃƒÂ£o foi possÃƒÂ­vel identificar o ASIN do produto.' };
+      return { error: 'Categoria não encontrada.' };
     }
 
     const existing = await prisma.dynamicProduct.findUnique({
-      where: { asin: finalAsin },
+      where: { asin: data.asin },
     });
+
     if (existing) {
-      return { error: 'Este produto (ASIN) jÃƒÂ¡ estÃƒÂ¡ cadastrado.' };
+      return { error: 'Este ASIN já está cadastrado.' };
     }
+
+    const reviewSnapshot = await resolveAmazonReviewDataWithDiscoveryFallback(data.asin);
 
     await prisma.dynamicProduct.create({
       data: {
-        asin: finalAsin,
+        asin: data.asin,
         name: data.name,
         totalPrice: data.totalPrice,
         url: data.url,
         imageUrl: data.imageUrl,
+        ratingAverage: reviewSnapshot.ratingAverage,
+        ratingCount: reviewSnapshot.ratingCount,
+        ratingsUpdatedAt:
+          reviewSnapshot.ratingAverage !== null || reviewSnapshot.ratingCount !== null
+            ? new Date()
+            : null,
         categoryId: data.categoryId,
         visibilityStatus: NEW_PRODUCT_DEFAULT_VISIBILITY,
         isVisibleOnSite: getDynamicVisibilityBoolean(NEW_PRODUCT_DEFAULT_VISIBILITY),
@@ -353,7 +377,7 @@ export async function createDynamicProduct(data: {
           totalPrice: data.totalPrice,
           attributes: {
             ...data.attributes,
-            asin: finalAsin,
+            asin: data.asin,
           },
         }) as Prisma.InputJsonValue,
       },
@@ -369,7 +393,6 @@ export async function createDynamicProduct(data: {
     return { error: 'Erro ao salvar produto no banco.' };
   }
 }
-
 export async function getDynamicProducts() {
   try {
     return await prisma.dynamicProduct.findMany({

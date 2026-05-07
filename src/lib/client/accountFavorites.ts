@@ -15,6 +15,7 @@ export type AccountFavoriteCardItem = {
     name: string;
     imageUrl: string | null;
     url: string;
+    createdAt?: string | null;
     totalPrice: number;
     averagePrice30d: number | null;
     lowestPrice30d: number | null;

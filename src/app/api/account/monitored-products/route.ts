@@ -189,6 +189,8 @@ export async function POST(request: Request) {
         imageUrl: string | null;
         url: string;
         averagePrice30d: number | null;
+        ratingAverage: number | null;
+        ratingCount: number | null;
         availabilityStatus: string | null;
         categoryName: string;
         categoryGroup: string;
@@ -203,6 +205,8 @@ export async function POST(request: Request) {
         p."imageUrl",
         p."url",
         p."averagePrice30d",
+        p."ratingAverage",
+        p."ratingCount",
         p."availabilityStatus",
         c."name" AS "categoryName",
         c."group" AS "categoryGroup",
@@ -306,16 +310,18 @@ export async function POST(request: Request) {
         favorite: {
           id: existingFavorite.favoriteId,
           savedAt: existingFavorite.createdAt.toISOString(),
-          product: {
-            id: catalogProduct.id,
-            asin: catalogProduct.asin,
-            name: catalogProduct.name,
-            totalPrice: catalogProduct.totalPrice,
-            imageUrl: catalogProduct.imageUrl,
-            url: catalogProduct.url,
-            averagePrice30d: catalogProduct.averagePrice30d,
-            availabilityStatus: catalogProduct.availabilityStatus,
-            category: {
+        product: {
+          id: catalogProduct.id,
+          asin: catalogProduct.asin,
+          name: catalogProduct.name,
+          totalPrice: catalogProduct.totalPrice,
+          imageUrl: catalogProduct.imageUrl,
+          ratingAverage: catalogProduct.ratingAverage,
+          ratingCount: catalogProduct.ratingCount,
+          url: catalogProduct.url,
+          averagePrice30d: catalogProduct.averagePrice30d,
+          availabilityStatus: catalogProduct.availabilityStatus,
+          category: {
               name: catalogProduct.categoryName,
               group: catalogProduct.categoryGroup,
               slug: catalogProduct.categorySlug,
@@ -336,6 +342,8 @@ export async function POST(request: Request) {
         amazonUrl: `https://www.amazon.com.br/dp/${asin}`,
         name: `Produto Amazon ${asin}`,
         imageUrl: null,
+        ratingAverage: null,
+        ratingCount: null,
         totalPrice: 0,
         availabilityStatus: "OUT_OF_STOCK",
         programAndSavePrice: null,
@@ -355,6 +363,8 @@ export async function POST(request: Request) {
         amazonUrl: string;
         name: string;
         imageUrl: string | null;
+        ratingAverage: number | null;
+        ratingCount: number | null;
         totalPrice: number;
         averagePrice30d: number | null;
         availabilityStatus: string | null;
@@ -367,6 +377,8 @@ export async function POST(request: Request) {
         "amazonUrl",
         "name",
         "imageUrl",
+        "ratingAverage",
+        "ratingCount",
         "totalPrice",
         "availabilityStatus",
         "programAndSavePrice",
@@ -380,6 +392,8 @@ export async function POST(request: Request) {
         ${snapshot.amazonUrl},
         ${snapshot.name},
         ${snapshot.imageUrl},
+        ${snapshot.ratingAverage},
+        ${snapshot.ratingCount},
         ${snapshot.totalPrice},
         ${snapshot.availabilityStatus},
         ${snapshot.programAndSavePrice},
@@ -392,6 +406,8 @@ export async function POST(request: Request) {
         "amazonUrl" = EXCLUDED."amazonUrl",
         "name" = EXCLUDED."name",
         "imageUrl" = EXCLUDED."imageUrl",
+        "ratingAverage" = EXCLUDED."ratingAverage",
+        "ratingCount" = EXCLUDED."ratingCount",
         "totalPrice" = EXCLUDED."totalPrice",
         "availabilityStatus" = EXCLUDED."availabilityStatus",
         "programAndSavePrice" = EXCLUDED."programAndSavePrice",
@@ -403,6 +419,8 @@ export async function POST(request: Request) {
         "amazonUrl",
         "name",
         "imageUrl",
+        "ratingAverage",
+        "ratingCount",
         "totalPrice",
         "averagePrice30d",
         "availabilityStatus",

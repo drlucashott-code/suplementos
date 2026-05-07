@@ -138,6 +138,10 @@ model DynamicCategory {
   displayConfig Json
   products      DynamicProduct[]
   asinDecisions DynamicCategoryAsinDecision[]
+  discoveryConfig DynamicDiscoveryCategoryConfig?
+  discoveryBrands DynamicDiscoveryBrandStatus[]
+  discoveryProducts DynamicDiscoveryProductStatus[]
+  discoveryRuns DynamicDiscoveryRun[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
@@ -217,6 +221,127 @@ model DynamicCategoryAsinDecision {
   @@index([categoryId, status, lastSeenAt(sort: Desc)])
   @@index([asin])
   @@index([status, lastSeenAt(sort: Desc)])
+}
+
+model DynamicDiscoveryCategoryConfig {
+  id                    String   @id @default(cuid())
+  categoryId            String   @unique
+  category              DynamicCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  mode                  String   @default("individual")
+  primeOnlyDefault      Boolean  @default(false)
+  ignoreInternationalDefault Boolean @default(true)
+  multiBrandDefault     Boolean  @default(true)
+  broadDiscoveryDefault Boolean  @default(false)
+  defaultSortBy         String   @default("featured")
+  autoMaxPages          Boolean  @default(true)
+  maxPages              Int      @default(2)
+  autoMaxItemsPerQuery  Boolean  @default(true)
+  maxItemsPerQuery      Int      @default(30)
+  searchTerms           String[] @default([])
+  seedBrands            String[] @default([])
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model DynamicDiscoveryBrandStatus {
+  id             String         @id @default(cuid())
+  categoryId     String
+  category       DynamicCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  brandName      String
+  status         String         @default("pending")
+  relevanceScore Float          @default(0)
+  timesDetected  Int            @default(0)
+  firstSeenAt    DateTime       @default(now())
+  lastSeenAt     DateTime       @default(now())
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([categoryId, brandName])
+  @@index([categoryId, status, relevanceScore(sort: Desc)])
+  @@index([categoryId, lastSeenAt(sort: Desc)])
+}
+
+model DynamicDiscoveryProductStatus {
+  id              String         @id @default(cuid())
+  categoryId      String
+  category        DynamicCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  asin            String
+  title           String?
+  status          String         @default("pending")
+  catalogState    String         @default("new")
+  reason          String?
+  source          String         @default("relevance")
+  query           String
+  brandName       String?
+  ratingAverage   Float?
+  reviewCount     Int?
+  searchPosition  Int?
+  sponsored       Boolean        @default(false)
+  isPrime         Boolean        @default(false)
+  isInternational Boolean        @default(false)
+  timesDetected   Int            @default(1)
+  relevanceScore  Float          @default(0)
+  queriesDetected String[]       @default([])
+  sources         String[]       @default([])
+  firstSeenAt     DateTime       @default(now())
+  lastSeenAt      DateTime       @default(now())
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([categoryId, asin])
+  @@index([categoryId, status, relevanceScore(sort: Desc)])
+  @@index([categoryId, catalogState, lastSeenAt(sort: Desc)])
+  @@index([asin])
+}
+
+model DynamicDiscoveryRun {
+  id                 String         @id @default(cuid())
+  categoryId         String
+  category           DynamicCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  mode               String
+  primeOnly          Boolean        @default(false)
+  ignoreInternational Boolean        @default(true)
+  multiBrand         Boolean        @default(true)
+  broadDiscovery     Boolean        @default(false)
+  sortBy             String[]
+  searchTerms        String[]
+  seedBrands         String[]
+  status             String         @default("done")
+  queryCount         Int            @default(0)
+  asinCount          Int            @default(0)
+  newCount           Int            @default(0)
+  existingCount      Int            @default(0)
+  pendingCount       Int            @default(0)
+  rejectedCount      Int            @default(0)
+  approvedCount      Int            @default(0)
+  exportAsins        String[]       @default([])
+  previewSummary     Json?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@index([categoryId, createdAt(sort: Desc)])
+  @@index([categoryId, status, createdAt(sort: Desc)])
+  @@map("DynamicDiscoveryExecution")
+}
+
+model LegacyDynamicDiscoveryRun {
+  id                  String   @id @default(cuid())
+  status              String
+  totalSearches       Int      @default(0)
+  processedSearches   Int      @default(0)
+  foundItems          Int      @default(0)
+  cancelRequested     Boolean  @default(false)
+  inputs              Json?
+  items               Json?
+  logs                Json?
+  startedAt           DateTime @default(now())
+  finishedAt          DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([status, startedAt(sort: Desc)])
+  @@index([startedAt(sort: Desc)])
+  @@map("DynamicDiscoveryRun")
 }
 
 model DynamicProductIssueReport {
@@ -378,25 +503,6 @@ model DynamicImportRun {
   errorItems          Int      @default(0)
   cancelRequested     Boolean  @default(false)
   filters             Json?
-  logs                Json?
-  startedAt           DateTime @default(now())
-  finishedAt          DateTime?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-
-  @@index([status, startedAt(sort: Desc)])
-  @@index([startedAt(sort: Desc)])
-}
-
-model DynamicDiscoveryRun {
-  id                  String   @id @default(cuid())
-  status              String
-  totalSearches       Int      @default(0)
-  processedSearches   Int      @default(0)
-  foundItems          Int      @default(0)
-  cancelRequested     Boolean  @default(false)
-  inputs              Json?
-  items               Json?
   logs                Json?
   startedAt           DateTime @default(now())
   finishedAt          DateTime?

@@ -17,6 +17,7 @@ type SavedDeal = {
   name: string;
   imageUrl: string;
   url: string;
+  createdAt: string;
   totalPrice: number;
   averagePrice30d: number;
   discountPercent: number;
@@ -43,6 +44,7 @@ function mapAccountFavoriteToSavedDeal(item: AccountFavoriteCardItem): SavedDeal
     name: item.product.name,
     imageUrl: item.product.imageUrl ?? "",
     url: item.product.url,
+    createdAt: item.product.createdAt ?? item.savedAt,
     totalPrice: item.product.totalPrice,
     averagePrice30d,
     discountPercent,

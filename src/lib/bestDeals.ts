@@ -6,6 +6,7 @@ export type BestDeal = {
   asin: string;
   name: string;
   imageUrl: string | null;
+  createdAt?: Date | string | null;
   url: string;
   totalPrice: number;
   averagePrice30d: number;
@@ -43,6 +44,7 @@ export async function getBestDeals(
       asin: string;
       name: string;
       imageUrl: string | null;
+      createdAt: Date;
       url: string;
       totalPrice: number;
       averagePrice30d: number;
@@ -62,6 +64,7 @@ export async function getBestDeals(
       p."asin",
       p."name",
       p."imageUrl",
+      p."createdAt",
       p."url",
       p."totalPrice",
       p."averagePrice30d",
@@ -101,6 +104,7 @@ export async function getBestDeals(
     name: row.name,
     imageUrl:
       row.imageUrl || "https://m.media-amazon.com/images/I/61NJbm2a9tL._AC_SL1200_.jpg",
+    createdAt: row.createdAt,
     url: row.url,
     totalPrice: row.totalPrice,
     averagePrice30d: row.averagePrice30d,

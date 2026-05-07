@@ -4,6 +4,7 @@ import { createHash } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { enrichDynamicAttributesForCategory } from '@/lib/dynamicCategoryMetrics';
+import { resolveAmazonReviewDataWithDiscoveryFallback } from '@/lib/dynamicDiscoveryMetadata';
 import { prisma } from '@/lib/prisma';
 import {
   getAmazonItemAffiliateUrl,
@@ -1468,6 +1469,19 @@ async function runDynamicImportJob(
       });
 
       if (existing) {
+        const reviewSnapshot = await resolveAmazonReviewDataWithDiscoveryFallback(asin);
+
+        if (reviewSnapshot.ratingAverage !== null || reviewSnapshot.ratingCount !== null) {
+          await prisma.dynamicProduct.update({
+            where: { asin },
+            data: {
+              ratingAverage: reviewSnapshot.ratingAverage,
+              ratingCount: reviewSnapshot.ratingCount,
+              ratingsUpdatedAt: new Date(),
+            },
+          });
+        }
+
         if (existing.categoryId === categoryId) {
           await upsertCategoryAsinDecision({
             categoryId,
@@ -1584,6 +1598,7 @@ async function runDynamicImportJob(
       const url =
         (item ? getAmazonItemAffiliateUrl(item) : "") ||
         `https://www.amazon.com.br/dp/${asin}?tag=${AMAZON_PARTNER_TAG}`;
+      const reviewSnapshot = await resolveAmazonReviewDataWithDiscoveryFallback(asin);
 
       const baseAttributes: Record<string, string | number> = {
         brand,
@@ -1615,6 +1630,12 @@ async function runDynamicImportJob(
           imageUrl,
           url,
           totalPrice: price,
+          ratingAverage: reviewSnapshot.ratingAverage,
+          ratingCount: reviewSnapshot.ratingCount,
+          ratingsUpdatedAt:
+            reviewSnapshot.ratingAverage !== null || reviewSnapshot.ratingCount !== null
+              ? new Date()
+              : null,
           categoryId,
           visibilityStatus: IMPORT_DEFAULT_VISIBILITY,
           isVisibleOnSite: getDynamicVisibilityBoolean(IMPORT_DEFAULT_VISIBILITY),

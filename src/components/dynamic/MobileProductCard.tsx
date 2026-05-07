@@ -39,6 +39,7 @@ export type DynamicProductType = {
   priceDecision?: PriceDecision | null;
   historyAvailableRanges?: PriceHistoryChartRange[];
   attributes: Record<string, string | number | undefined>;
+  createdAt?: string | Date | null;
 };
 
 interface DisplayConfigField {
@@ -214,6 +215,17 @@ function formatNumberForDisplay(value: number, useOneDecimal: boolean) {
 function formatPriceParts(value: number) {
   const [whole, cents] = value.toFixed(2).split(".");
   return { whole, cents };
+}
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+function isFreshProduct(createdAt?: string | Date | null) {
+  if (!createdAt) return false;
+
+  const date = createdAt instanceof Date ? createdAt : new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return false;
+
+  return Date.now() - date.getTime() <= ONE_DAY_MS;
 }
 
 function ProgramAndSaveIcon() {
@@ -434,6 +446,7 @@ export function MobileProductCard({
     canShowPriceHistory &&
     typeof product.avgPrice === "number" &&
     Math.round(product.avgPrice * 100) > Math.round(product.price * 100);
+  const freshProduct = isFreshProduct(product.createdAt);
   const programAndSavePrice = getProgramAndSavePrice(product.attributes);
   const programAndSaveParts = programAndSavePrice
     ? formatPriceParts(programAndSavePrice)
@@ -822,11 +835,12 @@ export function MobileProductCard({
                     </span>
                   </div>
 
-                  {!showReferencePrice && canShowPriceHistory ? (
+                  {!showReferencePrice ? (
                     <div className="ml-2 mt-1 shrink-0">
                       <PriceHistoryButton
                         productId={product.id}
                         productName={product.name}
+                        freshProduct={freshProduct}
                       />
                     </div>
                   ) : null}
@@ -838,12 +852,11 @@ export function MobileProductCard({
                     <span className="line-through">
                       R$ {product.avgPrice!.toFixed(2).replace(".", ",")}
                     </span>
-                    {canShowPriceHistory ? (
-                      <PriceHistoryButton
-                        productId={product.id}
-                        productName={product.name}
-                      />
-                    ) : null}
+                    <PriceHistoryButton
+                      productId={product.id}
+                      productName={product.name}
+                      freshProduct={freshProduct}
+                    />
                   </div>
                 ) : null}
 

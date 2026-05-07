@@ -20,6 +20,7 @@ type PublicUserListRow = {
   ownerDisplayName: string;
   ownerUsername: string | null;
   itemId: string | null;
+  itemCreatedAt: Date | null;
   note: string | null;
   productId: string | null;
   monitoredProductId: string | null;
@@ -70,6 +71,7 @@ export default async function PublicUserListPage({
       u."displayName" AS "ownerDisplayName",
       u."username" AS "ownerUsername",
       i."id" AS "itemId",
+      i."createdAt" AS "itemCreatedAt",
       i."note",
       p."id" AS "productId",
       mp."id" AS "monitoredProductId",
@@ -142,6 +144,7 @@ export default async function PublicUserListPage({
         totalPrice,
         averagePrice30d,
         discountPercent,
+        createdAt: row.itemCreatedAt,
         ratingAverage: row.productRatingAverage,
         ratingCount: row.productRatingCount,
         likeCount: 0,

@@ -6,6 +6,8 @@ type TrackedAmazonProductRow = {
   asin: string;
   name: string | null;
   imageUrl: string | null;
+  ratingAverage: number | null;
+  ratingCount: number | null;
   amazonUrl: string | null;
   totalPrice: number | null;
   availabilityStatus: string | null;
@@ -14,7 +16,8 @@ type TrackedAmazonProductRow = {
 
 function needsMetadataRepair(row: TrackedAmazonProductRow) {
   const fallbackName = `Produto Amazon ${row.asin}`;
-  return !row.name || row.name === fallbackName || !row.imageUrl;
+  const hasRatings = typeof row.ratingAverage === "number" && typeof row.ratingCount === "number";
+  return !row.name || row.name === fallbackName || !row.imageUrl || !hasRatings;
 }
 
 export async function repairTrackedAmazonProductMetadataIfNeeded(trackedProductId: string) {
@@ -24,6 +27,8 @@ export async function repairTrackedAmazonProductMetadataIfNeeded(trackedProductI
       tp."asin",
       tp."name",
       tp."imageUrl",
+      tp."ratingAverage",
+      tp."ratingCount",
       tp."amazonUrl",
       tp."totalPrice",
       tp."availabilityStatus",
@@ -47,6 +52,8 @@ export async function repairTrackedAmazonProductMetadataIfNeeded(trackedProductI
         amazonUrl: snapshot.amazonUrl,
         name: snapshot.name,
         imageUrl: snapshot.imageUrl,
+        ratingAverage: snapshot.ratingAverage,
+        ratingCount: snapshot.ratingCount,
         totalPrice: snapshot.totalPrice,
         availabilityStatus: snapshot.availabilityStatus,
         programAndSavePrice: snapshot.programAndSavePrice,
@@ -59,6 +66,8 @@ export async function repairTrackedAmazonProductMetadataIfNeeded(trackedProductI
       amazonUrl: snapshot.amazonUrl,
       name: snapshot.name,
       imageUrl: snapshot.imageUrl,
+      ratingAverage: snapshot.ratingAverage,
+      ratingCount: snapshot.ratingCount,
       totalPrice: snapshot.totalPrice,
       availabilityStatus: snapshot.availabilityStatus,
       programAndSavePrice: snapshot.programAndSavePrice,

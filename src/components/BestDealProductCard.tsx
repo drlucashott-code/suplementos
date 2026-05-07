@@ -87,6 +87,7 @@ export default function BestDealProductCard({
   insightText?: string;
   decisionTone?: "emerald" | "amber" | "rose";
 }) {
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
   const hasPrice = item.totalPrice > 0;
   const hasReferencePrice =
     item.averagePrice30d > item.totalPrice && hasPrice && item.discountPercent > 0;
@@ -109,6 +110,12 @@ export default function BestDealProductCard({
   const imageSrc = item.imageUrl?.trim()
     ? getOptimizedAmazonUrl(item.imageUrl, compact ? 240 : 320)
     : null;
+  const freshProduct = (() => {
+    if (!item.createdAt) return false;
+    const createdAt = item.createdAt instanceof Date ? item.createdAt : new Date(item.createdAt);
+    if (Number.isNaN(createdAt.getTime())) return false;
+    return Date.now() - createdAt.getTime() <= ONE_DAY_MS;
+  })();
 
   const decisionStyles = {
     emerald: "border-emerald-100 bg-emerald-50 text-emerald-700",
@@ -410,7 +417,11 @@ export default function BestDealProductCard({
                     }}
                     className="inline-flex shrink-0"
                   >
-                    <PriceHistoryButton productId={item.id} productName={item.name} />
+                    <PriceHistoryButton
+                      productId={item.id}
+                      productName={item.name}
+                      freshProduct={freshProduct}
+                    />
                   </div>
                 </div>
                 {insightText ? (

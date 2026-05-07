@@ -90,6 +90,7 @@ export type CatalogProduct = {
   id: string;
   name: string;
   imageUrl: string;
+  createdAt?: string | Date | null;
   price: number;
   affiliateUrl: string;
   pricePerUnit: number;
@@ -1469,6 +1470,7 @@ export async function getDynamicCatalogData({
       id: p.id,
       name: p.name,
       imageUrl: p.imageUrl || "",
+      createdAt: p.createdAt,
       price: p.displayPrice,
       affiliateUrl: p.url,
       pricePerUnit,

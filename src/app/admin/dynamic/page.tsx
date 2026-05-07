@@ -360,6 +360,14 @@ export default async function AdminDynamicDashboard() {
           />
 
           <AdminCard
+            title="Discovery Scraping"
+            description="Descubra novos ASINs por categoria, marcas e termos manuais antes da importação."
+            href="/admin/dynamic/discovery"
+            icon="D"
+            color="amber"
+          />
+
+          <AdminCard
             title="Gerenciar Produtos"
             description="Edicao de atributos, revisao de categorias e ajustes finos por item."
             href="/admin/dynamic/produtos"

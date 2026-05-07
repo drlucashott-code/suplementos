@@ -113,11 +113,15 @@ function formatDeltaPercent(value: number | null) {
 type PriceHistoryButtonProps = {
   productId: string;
   productName: string;
+  freshProduct?: boolean;
+  emptyMessage?: string;
 };
 
 export function PriceHistoryButton({
   productId,
   productName,
+  freshProduct = false,
+  emptyMessage = "Sem histórico. Produto adicionado hoje ao banco de dados.",
 }: PriceHistoryButtonProps) {
   const [open, setOpen] = useState(false);
   const [range, setRange] = useState<SupportedRange>(30);
@@ -127,6 +131,7 @@ export function PriceHistoryButton({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const showFreshMessage = Boolean(freshProduct);
 
   const data = cache[range] ?? null;
   const availableRanges = useMemo(() => {
@@ -141,6 +146,7 @@ export function PriceHistoryButton({
     () => getVisiblePriceHistoryChartRanges(availableRanges),
     [availableRanges]
   );
+
   const visibleRangeSections = useMemo(() => {
     const sections: Array<{ horizon: RangeHorizon; ranges: SupportedRange[] }> = [];
 
@@ -184,7 +190,7 @@ export function PriceHistoryButton({
   }, [open]);
 
   useEffect(() => {
-    if (!open || cache[range]) return;
+    if (!open || showFreshMessage || cache[range]) return;
 
     let cancelled = false;
 
@@ -232,7 +238,7 @@ export function PriceHistoryButton({
     return () => {
       cancelled = true;
     };
-  }, [cache, open, productId, range]);
+  }, [cache, open, productId, range, showFreshMessage]);
 
   useEffect(() => {
     if (!open || availableRanges.length === 0) return;
@@ -365,8 +371,11 @@ export function PriceHistoryButton({
     };
   }, [data]);
 
+  const priceHistoryData = showFreshMessage ? null : data;
+  const chartData = showFreshMessage ? null : chart;
+
   const hoveredPoint =
-    chart && hoveredIndex !== null && hoveredIndex >= 0 ? chart.points[hoveredIndex] : null;
+    chartData && hoveredIndex !== null && hoveredIndex >= 0 ? chartData!.points[hoveredIndex] : null;
 
   const deltaFromAverage =
     data?.stats.avg && data.stats.avg > 0
@@ -441,7 +450,11 @@ export function PriceHistoryButton({
             </div>
 
             <div className="space-y-4 overflow-y-auto bg-[#FCFDFD] px-4 py-4 sm:px-6 sm:py-5">
-              {visibleRanges.length > 1 ? (
+              {showFreshMessage ? (
+                <div className="rounded-[24px] border border-dashed border-[#D5D9D9] bg-white px-4 py-10 text-center text-sm text-zinc-600">
+                  {emptyMessage}
+                </div>
+              ) : visibleRanges.length > 1 ? (
                 <div className="flex flex-wrap items-start gap-3">
                   {visibleRangeSections.map((section) => {
                     const sectionMeta = RANGE_HORIZON_META[section.horizon];
@@ -480,7 +493,7 @@ export function PriceHistoryButton({
                     );
                   })}
                 </div>
-              ) : visibleRanges.length === 1 ? (
+              ) : !showFreshMessage && visibleRanges.length === 1 ? (
                 <div className="flex items-center">
                   <span className="inline-flex rounded-full border border-[#E5E7EB] bg-white px-3 py-1 text-[11px] font-medium text-[#6B7280]">
                     Histórico de {formatPriceHistoryRangeLabel(visibleRanges[0])}
@@ -488,18 +501,18 @@ export function PriceHistoryButton({
                 </div>
               ) : null}
 
-              {loading && !data ? (
+              {showFreshMessage ? null : loading && !data ? (
                 <div className="flex min-h-[320px] items-center justify-center rounded-[24px] border border-[#E6ECEC] bg-white">
                   <div className="flex flex-col items-center gap-2 text-sm text-zinc-600">
                     <Loader2 className="h-5 w-5 animate-spin text-[#007185]" />
                     Carregando histórico...
                   </div>
                 </div>
-              ) : error ? (
+              ) : !showFreshMessage && error ? (
                 <div className="rounded-[24px] border border-red-100 bg-red-50 px-4 py-10 text-center text-sm font-medium text-red-600">
                   {error}
                 </div>
-              ) : !data || !chart ? (
+              ) : !showFreshMessage && (!data || !chart) ? (
                 <div className="rounded-[24px] border border-dashed border-[#D5D9D9] bg-white px-4 py-10 text-center text-sm text-zinc-500">
                   Ainda não há histórico suficiente para exibir.
                 </div>
@@ -511,7 +524,7 @@ export function PriceHistoryButton({
                         Preço atual
                       </p>
                       <p className="mt-1 text-[17px] font-bold tracking-tight text-[#0F1111]">
-                        {formatCurrency(data.currentPrice)}
+                        {formatCurrency(priceHistoryData!.currentPrice)}
                       </p>
                     </div>
 
@@ -520,7 +533,7 @@ export function PriceHistoryButton({
                         Mínimo
                       </p>
                       <p className="mt-1 text-[17px] font-bold tracking-tight text-[#166534]">
-                        {formatCurrency(data.stats.min)}
+                        {formatCurrency(priceHistoryData!.stats.min)}
                       </p>
                     </div>
 
@@ -529,7 +542,7 @@ export function PriceHistoryButton({
                         Média
                       </p>
                       <p className="mt-1 text-[17px] font-bold tracking-tight text-[#0F1111]">
-                        {formatCurrency(data.stats.avg)}
+                        {formatCurrency(priceHistoryData!.stats.avg)}
                       </p>
                     </div>
 
@@ -538,7 +551,7 @@ export function PriceHistoryButton({
                         Máximo
                       </p>
                       <p className="mt-1 text-[17px] font-bold tracking-tight text-[#0F1111]">
-                        {formatCurrency(data.stats.max)}
+                        {formatCurrency(priceHistoryData!.stats.max)}
                       </p>
                     </div>
                   </div>
@@ -573,43 +586,43 @@ export function PriceHistoryButton({
                   <div className="rounded-[24px] bg-white px-2 py-2 sm:px-3">
                     <div className="relative rounded-[18px] bg-[#FBFDFD] px-2 py-3 sm:px-3">
                       <svg
-                        viewBox={`0 0 ${chart.width} ${chart.height}`}
+                        viewBox={`0 0 ${chartData!.width} ${chartData!.height}`}
                         className="block aspect-[16/7] w-full"
                         role="img"
                         aria-label={`Historico de preco de ${productName}`}
                       >
-                        {chart.gridLines.map((line, index) => (
+                        {chartData!.gridLines.map((line, index) => (
                           <line
                             key={`grid-${index}`}
-                            x1={chart.padding.left}
+                            x1={chartData!.padding.left}
                             y1={line.y}
-                            x2={chart.width - chart.padding.right}
+                            x2={chartData!.width - chartData!.padding.right}
                             y2={line.y}
                             stroke="#F1F5F5"
                           />
                         ))}
 
                         <line
-                          x1={chart.padding.left}
-                          y1={chart.height - chart.padding.bottom}
-                          x2={chart.width - chart.padding.right}
-                          y2={chart.height - chart.padding.bottom}
+                          x1={chartData!.padding.left}
+                          y1={chartData!.height - chartData!.padding.bottom}
+                          x2={chartData!.width - chartData!.padding.right}
+                          y2={chartData!.height - chartData!.padding.bottom}
                           stroke="#E4E4E7"
                         />
 
-                        {chart.averageY !== null ? (
+                        {chartData!.averageY !== null ? (
                           <line
-                            x1={chart.padding.left}
-                            y1={chart.averageY}
-                            x2={chart.width - chart.padding.right}
-                            y2={chart.averageY}
+                            x1={chartData!.padding.left}
+                            y1={chartData!.averageY}
+                            x2={chartData!.width - chartData!.padding.right}
+                            y2={chartData!.averageY}
                             stroke="#94A3B8"
                             strokeDasharray="5 4"
                             strokeWidth="1.25"
                           />
                         ) : null}
 
-                        {chart.pathSegments.map((segment, index) => (
+                        {chartData!.pathSegments.map((segment, index) => (
                           <path
                             key={`segment-${index}`}
                             d={segment}
@@ -621,7 +634,7 @@ export function PriceHistoryButton({
                           />
                         ))}
 
-                        {chart.missingRanges.map((range, index) => {
+                        {chartData!.missingRanges.map((range, index) => {
                           const centerX = (range.startX + range.endX) / 2;
                           const canShowLabel = range.endX - range.startX > 52;
 
@@ -629,18 +642,18 @@ export function PriceHistoryButton({
                             <g key={`missing-${index}`}>
                               <line
                                 x1={range.startX}
-                                y1={chart.padding.top}
+                                y1={chartData!.padding.top}
                                 x2={range.startX}
-                                y2={chart.height - chart.padding.bottom}
+                                y2={chartData!.height - chartData!.padding.bottom}
                                 stroke="#F59E0B"
                                 strokeDasharray="3 4"
                                 strokeOpacity={0.65}
                               />
                               <line
                                 x1={range.endX}
-                                y1={chart.padding.top}
+                                y1={chartData!.padding.top}
                                 x2={range.endX}
-                                y2={chart.height - chart.padding.bottom}
+                                y2={chartData!.height - chartData!.padding.bottom}
                                 stroke="#F59E0B"
                                 strokeDasharray="3 4"
                                 strokeOpacity={0.65}
@@ -648,7 +661,7 @@ export function PriceHistoryButton({
                               {canShowLabel ? (
                                 <text
                                   x={centerX}
-                                  y={chart.padding.top + 12}
+                                  y={chartData!.padding.top + 12}
                                   textAnchor="middle"
                                   fontSize="10"
                                   fontWeight="700"
@@ -661,8 +674,8 @@ export function PriceHistoryButton({
                           );
                         })}
 
-                        {chart.points.map((point, index) => {
-                          const isCurrent = index === chart.currentIndex;
+                        {chartData!.points.map((point, index) => {
+                          const isCurrent = index === chartData!.currentIndex;
 
                           return (
                             <g key={`${point.date}-${point.price}-${index}`}>
@@ -690,48 +703,48 @@ export function PriceHistoryButton({
                           );
                         })}
 
-                        <text x={10} y={chart.padding.top + 6} fontSize="11" fill="#71717A">
-                          {chart.maxLabel}
+                        <text x={10} y={chartData!.padding.top + 6} fontSize="11" fill="#71717A">
+                          {chartData!.maxLabel}
                         </text>
                         <text
                           x={10}
-                          y={chart.height - chart.padding.bottom}
+                          y={chartData!.height - chartData!.padding.bottom}
                           fontSize="11"
                           fill="#71717A"
                         >
-                          {chart.minLabel}
+                          {chartData!.minLabel}
                         </text>
 
-                        {chart.points.length > 1 ? (
+                        {chartData!.points.length > 1 ? (
                           <>
                             <text
-                              x={chart.points[0]?.x ?? chart.padding.left}
-                              y={chart.height - 8}
+                              x={chartData!.points[0]?.x ?? chartData!.padding.left}
+                              y={chartData!.height - 8}
                               fontSize="11"
                               textAnchor="start"
                               fill="#71717A"
                             >
-                              {formatDateLabel(chart.points[0]?.date ?? "")}
+                              {formatDateLabel(chartData!.points[0]?.date ?? "")}
                             </text>
                             <text
-                              x={chart.points[Math.floor(chart.points.length / 2)]?.x ?? chart.width / 2}
-                              y={chart.height - 8}
+                              x={chartData!.points[Math.floor(chartData!.points.length / 2)]?.x ?? chartData!.width / 2}
+                              y={chartData!.height - 8}
                               fontSize="11"
                               textAnchor="middle"
                               fill="#A1A1AA"
                             >
                               {formatDateLabel(
-                                chart.points[Math.floor(chart.points.length / 2)]?.date ?? ""
+                                chartData!.points[Math.floor(chartData!.points.length / 2)]?.date ?? ""
                               )}
                             </text>
                             <text
-                              x={chart.points[chart.points.length - 1]?.x ?? chart.width}
-                              y={chart.height - 8}
+                              x={chartData!.points[chartData!.points.length - 1]?.x ?? chartData!.width}
+                              y={chartData!.height - 8}
                               fontSize="11"
                               textAnchor="end"
                               fill="#71717A"
                             >
-                              {formatDateLabel(chart.points[chart.points.length - 1]?.date ?? "")}
+                              {formatDateLabel(chartData!.points[chartData!.points.length - 1]?.date ?? "")}
                             </text>
                           </>
                         ) : null}
