@@ -45,6 +45,7 @@ const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 const PRIORITY_HALF_LIFE_MS = 12 * HOUR_MS;
+const CLICK_PRIORITY_REENQUEUE_MS = 5 * MINUTE_MS;
 
 const SIGNAL_WEIGHTS: Record<RefreshSignal, number> = {
   click: 4,
@@ -219,10 +220,13 @@ export function applyPrioritySignal(
     priceChangeFrequency: base.priceChangeFrequency,
     refreshFailCount: base.refreshFailCount,
   });
-  const nextPriorityEnqueueAt = computeNextEnqueueAt({
-    now,
-    refreshTier,
-  });
+  const nextPriorityEnqueueAt =
+    signal === "click"
+      ? new Date(now.getTime() + CLICK_PRIORITY_REENQUEUE_MS)
+      : computeNextEnqueueAt({
+          now,
+          refreshTier,
+        });
 
   return {
     ...base,
@@ -307,5 +311,23 @@ export function shouldAttemptEnqueue(params: {
   if (params.refreshLockUntil && params.refreshLockUntil.getTime() > now.getTime()) return false;
   if (params.nextPriorityEnqueueAt && params.nextPriorityEnqueueAt.getTime() > now.getTime()) return false;
   if (params.nextPriceRefreshAt && params.nextPriceRefreshAt.getTime() > now.getTime()) return false;
+  return true;
+}
+
+export function shouldAttemptClickEnqueue(params: {
+  now?: Date;
+  refreshLockUntil?: Date | null;
+  nextPriorityEnqueueAt?: Date | null;
+  lastSuccessfulRefreshAt?: Date | null;
+}) {
+  const now = params.now ?? new Date();
+  if (params.refreshLockUntil && params.refreshLockUntil.getTime() > now.getTime()) return false;
+  if (
+    params.lastSuccessfulRefreshAt &&
+    now.getTime() - params.lastSuccessfulRefreshAt.getTime() < HOUR_MS
+  ) {
+    return false;
+  }
+  if (params.nextPriorityEnqueueAt && params.nextPriorityEnqueueAt.getTime() > now.getTime()) return false;
   return true;
 }

@@ -207,11 +207,7 @@ export async function touchDynamicProductPriority(params: {
 
   return {
     asin: row.asin,
-    shouldEnqueue: shouldAttemptEnqueue({
-      refreshLockUntil: row.refreshLockUntil,
-      nextPriorityEnqueueAt: row.nextPriorityEnqueueAt,
-      nextPriceRefreshAt: row.nextPriceRefreshAt,
-    }),
+    shouldEnqueue: true,
   };
 }
 

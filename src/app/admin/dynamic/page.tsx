@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { revalidateDynamicCatalogCategoryRefs } from "@/lib/dynamicCatalogRevalidation";
-import { getPriceRefreshBudgetSnapshot } from "@/lib/priceRefreshBudget";
 import CacheResetButton, { type CacheResetState } from "@/components/admin/CacheResetButton";
 
 type CardColor = "blue" | "emerald" | "purple" | "sky" | "orange" | "yellow" | "red" | "amber" | "gray";
@@ -138,23 +137,23 @@ function BudgetCard({
         </span>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-          <span className="block text-[10px] font-black uppercase tracking-widest text-gray-400">
-            Hora atual
-          </span>
-          <div className="mt-2 flex items-end gap-2">
-            <span className="text-3xl font-black text-gray-900">{hourlyUsed}</span>
-            <span className="pb-1 text-sm font-semibold text-gray-500">/ {hourlyLimit}</span>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+            <span className="block text-[10px] font-black uppercase tracking-widest text-gray-400">
+            Atualizados na hora
+            </span>
+            <div className="mt-2 flex items-end gap-2">
+              <span className="text-3xl font-black text-gray-900">{hourlyUsed}</span>
+              <span className="pb-1 text-sm font-semibold text-gray-500">/ {hourlyLimit}</span>
+            </div>
           </div>
-        </div>
-        <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-          <span className="block text-[10px] font-black uppercase tracking-widest text-gray-400">
-            Dia atual
-          </span>
-          <div className="mt-2 flex items-end gap-2">
-            <span className="text-3xl font-black text-gray-900">{dailyUsed}</span>
-            <span className="pb-1 text-sm font-semibold text-gray-500">/ {dailyLimit}</span>
+          <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+            <span className="block text-[10px] font-black uppercase tracking-widest text-gray-400">
+            Atualizados hoje
+            </span>
+            <div className="mt-2 flex items-end gap-2">
+              <span className="text-3xl font-black text-gray-900">{dailyUsed}</span>
+              <span className="pb-1 text-sm font-semibold text-gray-500">/ {dailyLimit}</span>
           </div>
         </div>
       </div>
@@ -225,6 +224,10 @@ async function revalidateAllDynamicCatalog(
 
 export default async function AdminDynamicDashboard() {
   const now = new Date();
+  const startOfHour = new Date(now);
+  startOfHour.setMinutes(0, 0, 0);
+  const startOfDay = new Date(now);
+  startOfDay.setHours(0, 0, 0, 0);
   const GLOBAL_HOURLY_REQUEST_LIMIT = Math.max(
     50,
     Number(process.env.AMAZON_GLOBAL_HOURLY_REQUEST_LIMIT ?? 800)
@@ -245,7 +248,10 @@ export default async function AdminDynamicDashboard() {
   const [
     totalProducts,
     totalCategories,
-    budgetSnapshots,
+    globalHourUpdated,
+    globalDayUpdated,
+    priorityHourUpdated,
+    priorityDayUpdated,
     dynamicDueCount,
     trackedDueCount,
     dynamicLockedCount,
@@ -261,8 +267,21 @@ export default async function AdminDynamicDashboard() {
   ] = await Promise.all([
     prisma.dynamicProduct.count(),
     prisma.dynamicCategory.count(),
-    getPriceRefreshBudgetSnapshot({
-      scopes: ["global_dynamic_refresh", "priority_dynamic_refresh"],
+    prisma.globalPriceRefreshRun.aggregate({
+      _sum: { updatedOffers: true },
+      where: { startedAt: { gte: startOfHour } },
+    }),
+    prisma.globalPriceRefreshRun.aggregate({
+      _sum: { updatedOffers: true },
+      where: { startedAt: { gte: startOfDay } },
+    }),
+    prisma.priorityRefreshRun.aggregate({
+      _sum: { updatedProducts: true },
+      where: { startedAt: { gte: startOfHour } },
+    }),
+    prisma.priorityRefreshRun.aggregate({
+      _sum: { updatedProducts: true },
+      where: { startedAt: { gte: startOfDay } },
     }),
     prisma.dynamicProduct.count({
       where: {
@@ -303,11 +322,6 @@ export default async function AdminDynamicDashboard() {
     prisma.dynamicProduct.count({ where: { refreshFailCount: { gt: 0 } } }),
     prisma.siteTrackedAmazonProduct.count({ where: { refreshFailCount: { gt: 0 } } }),
   ]);
-
-  const globalBudget =
-    budgetSnapshots.find((snapshot) => snapshot.scope === "global_dynamic_refresh") ?? null;
-  const priorityBudget =
-    budgetSnapshots.find((snapshot) => snapshot.scope === "priority_dynamic_refresh") ?? null;
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 text-black">
@@ -483,17 +497,17 @@ export default async function AdminDynamicDashboard() {
         <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-2">
           <BudgetCard
             title="Global scheduler"
-            hourlyUsed={globalBudget?.hourRequestCount ?? 0}
+            hourlyUsed={globalHourUpdated._sum.updatedOffers ?? 0}
             hourlyLimit={GLOBAL_HOURLY_REQUEST_LIMIT}
-            dailyUsed={globalBudget?.dayRequestCount ?? 0}
+            dailyUsed={globalDayUpdated._sum.updatedOffers ?? 0}
             dailyLimit={GLOBAL_DAILY_REQUEST_LIMIT}
             tone="blue"
           />
           <BudgetCard
             title="Priority refresh"
-            hourlyUsed={priorityBudget?.hourRequestCount ?? 0}
+            hourlyUsed={priorityHourUpdated._sum.updatedProducts ?? 0}
             hourlyLimit={PRIORITY_HOURLY_REQUEST_LIMIT}
-            dailyUsed={priorityBudget?.dayRequestCount ?? 0}
+            dailyUsed={priorityDayUpdated._sum.updatedProducts ?? 0}
             dailyLimit={PRIORITY_DAILY_REQUEST_LIMIT}
             tone="emerald"
           />
