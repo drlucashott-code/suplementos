@@ -121,6 +121,7 @@ type ProductRow = {
   queriesDetected: string[];
   sources: string[];
   lastSeenAt: string;
+  ratingsUpdatedAt?: string | null;
 };
 
 type DiscoveryWorkbenchProps = {
@@ -1064,6 +1065,11 @@ function CompactAsinSection({
           <div
             key={row.asin}
             className="group inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12px] font-semibold text-emerald-800 transition hover:border-emerald-300 hover:bg-emerald-100"
+            title={
+              row.ratingsUpdatedAt
+                ? `Última atualização da nota: ${formatDate(row.ratingsUpdatedAt)}`
+                : "Sem atualização de nota registrada"
+            }
           >
             <a
               href={`https://www.amazon.com.br/dp/${row.asin}`}
@@ -1119,6 +1125,11 @@ function CompactAsinSection({
             href={`https://www.amazon.com.br/dp/${row.asin}`}
             target="_blank"
             rel="noreferrer"
+            title={
+              row.ratingsUpdatedAt
+                ? `Última atualização da nota: ${formatDate(row.ratingsUpdatedAt)}`
+                : "Sem atualização de nota registrada"
+            }
             className="group inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-[12px] font-semibold text-gray-700 transition hover:border-gray-300"
           >
             <span className="font-mono text-[11px] font-bold text-gray-900">{row.asin}</span>
@@ -1137,20 +1148,34 @@ function CompactAsinSection({
   const [selectedAsins, setSelectedAsins] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"reviews" | "product" | "brand" | "date">("reviews");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [searchText, setSearchText] = useState("");
 
   useEffect(() => {
-    setSelectedAsins([]);
-  }, [categoryId, rows.length]);
+    const availableAsins = new Set(rows.map((row) => row.asin));
+    setSelectedAsins((current) => current.filter((asin) => availableAsins.has(asin)));
+  }, [categoryId, rows]);
 
   useEffect(() => {
     setSortBy("reviews");
     setSortDirection("desc");
   }, [categoryId]);
 
+  useEffect(() => {
+    setSearchText("");
+  }, [categoryId]);
+
   const sortedRows = useMemo(() => {
     const directionFactor = sortDirection === "asc" ? 1 : -1;
 
-    return [...rows].sort((a, b) => {
+    const normalizedSearch = searchText.trim().toLowerCase();
+    const sourceRows = normalizedSearch
+      ? rows.filter((row) => {
+          const haystacks = [row.title ?? "", row.brandName ?? "", row.asin, row.query, row.source, row.reason ?? ""];
+          return haystacks.some((value) => value.toLowerCase().includes(normalizedSearch));
+        })
+      : rows;
+
+    return [...sourceRows].sort((a, b) => {
       if (sortBy === "reviews") {
         const aValue = a.reviewCount ?? -1;
         const bValue = b.reviewCount ?? -1;
@@ -1169,7 +1194,7 @@ function CompactAsinSection({
       const bTime = new Date(b.lastSeenAt).getTime();
       return (aTime - bTime) * directionFactor;
     });
-  }, [rows, sortBy, sortDirection]);
+  }, [rows, searchText, sortBy, sortDirection]);
 
   function toggleOne(asin: string) {
     setSelectedAsins((current) =>
@@ -1178,7 +1203,7 @@ function CompactAsinSection({
   }
 
   function toggleAll() {
-    setSelectedAsins((current) => (current.length === rows.length ? [] : rows.map((row) => row.asin)));
+    setSelectedAsins((current) => (current.length === sortedRows.length ? [] : sortedRows.map((row) => row.asin)));
   }
 
   function setSort(column: "reviews" | "product" | "brand" | "date") {
@@ -1205,12 +1230,22 @@ function CompactAsinSection({
         ))}
 
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2">
+          <div className="relative min-w-[220px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="search"
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              placeholder="Buscar por produto, marca, ASIN..."
+              className="w-full rounded-full border border-gray-200 bg-white py-2 pl-9 pr-3 text-[11px] font-medium text-gray-700 outline-none transition focus:border-gray-300"
+            />
+          </div>
           <button
             type="button"
             onClick={toggleAll}
             className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-gray-600"
           >
-            {selectedAsins.length === rows.length ? "Desmarcar tudo" : "Selecionar tudo"}
+            {selectedAsins.length > 0 && selectedAsins.length === sortedRows.length ? "Desmarcar tudo" : "Selecionar tudo"}
           </button>
           <button
             type="button"
@@ -1244,7 +1279,7 @@ function CompactAsinSection({
             type="submit"
             formAction={clearDiscoveryPendingProducts}
             className="rounded-full border border-gray-200 bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-700 disabled:opacity-40"
-            disabled={rows.length === 0}
+            disabled={sortedRows.length === 0}
           >
             Limpar fila
           </button>
@@ -1258,7 +1293,7 @@ function CompactAsinSection({
               <th className="w-12 p-2.5">
                 <input
                   type="checkbox"
-                  checked={rows.length > 0 && selectedAsins.length === rows.length}
+                  checked={sortedRows.length > 0 && selectedAsins.length === sortedRows.length}
                   onChange={toggleAll}
                   className="h-4 w-4 accent-indigo-600"
                 />

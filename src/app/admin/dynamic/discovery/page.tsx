@@ -87,7 +87,7 @@ export default async function AdminDynamicDiscoveryPage({
     );
   }
 
-  const [config, latestRun, runHistory, brands, products] = await Promise.all([
+  const [config, latestRun, runHistory, brands, products, catalogRatings] = await Promise.all([
     prisma.dynamicDiscoveryCategoryConfig.findUnique({
       where: { categoryId: selectedCategoryId },
     }),
@@ -110,7 +110,15 @@ export default async function AdminDynamicDiscoveryPage({
       orderBy: [{ relevanceScore: "desc" }, { lastSeenAt: "desc" }],
       take: 600,
     }),
+    prisma.dynamicProduct.findMany({
+      where: { categoryId: selectedCategoryId },
+      select: { asin: true, ratingsUpdatedAt: true },
+    }),
   ]);
+
+  const ratingsUpdatedAtByAsin = new Map(
+    catalogRatings.map((product) => [product.asin, product.ratingsUpdatedAt?.toISOString() ?? null])
+  );
 
   return (
     <DiscoveryWorkbenchClient
@@ -203,6 +211,7 @@ export default async function AdminDynamicDiscoveryPage({
         queriesDetected: product.queriesDetected,
         sources: product.sources,
         lastSeenAt: product.lastSeenAt.toISOString(),
+        ratingsUpdatedAt: ratingsUpdatedAtByAsin.get(product.asin) ?? null,
       }))}
     />
   );

@@ -192,6 +192,39 @@ function buildReasonFromStatus(status: DiscoveryProductStatus, existingReason: s
   return null;
 }
 
+async function refreshCatalogRatingsFromDiscoveryHit(params: {
+  asin: string;
+  ratingAverage: number | null;
+  reviewCount: number | null;
+}) {
+  const updateData: {
+    ratingAverage?: number;
+    ratingCount?: number;
+    ratingsUpdatedAt?: Date;
+  } = {};
+
+  if (typeof params.ratingAverage === "number" && Number.isFinite(params.ratingAverage)) {
+    updateData.ratingAverage = params.ratingAverage;
+  }
+
+  if (typeof params.reviewCount === "number" && Number.isFinite(params.reviewCount)) {
+    updateData.ratingCount = params.reviewCount;
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return false;
+  }
+
+  updateData.ratingsUpdatedAt = new Date();
+
+  await prisma.dynamicProduct.updateMany({
+    where: { asin: params.asin },
+    data: updateData,
+  });
+
+  return true;
+}
+
 async function loadCategoryOrRedirect(categoryId: string) {
   const category = await prisma.dynamicCategory.findUnique({
     where: { id: categoryId },
@@ -731,7 +764,7 @@ export async function runDiscoveryForCategory(formData: FormData) {
       },
     };
 
-    const upserts = aggregatedHits.map((hit) => {
+    const upserts = aggregatedHits.map(async (hit) => {
     const currentRow = existingProductMap.get(hit.asin);
     const storedStatus = currentRow?.status ?? null;
     const resolvedStatus = resolveProductStatus(storedStatus, siteCatalogAsins.has(hit.asin));
@@ -746,6 +779,14 @@ export async function runDiscoveryForCategory(formData: FormData) {
         previousTimesDetected: currentRow?.timesDetected ?? 0,
       })
     );
+
+    if (siteCatalogAsins.has(hit.asin)) {
+      await refreshCatalogRatingsFromDiscoveryHit({
+        asin: hit.asin,
+        ratingAverage: hit.ratingAverage,
+        reviewCount: hit.reviewCount,
+      });
+    }
 
     if (resolvedStatus === "existing") {
       runPreview.counts.existing += 1;

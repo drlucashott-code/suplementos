@@ -2,6 +2,7 @@ import Link from "next/link";
 import BestDealProductCard from "@/components/BestDealProductCard";
 import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
 import ListCommentsSheet from "@/components/dynamic/ListCommentsSheet";
+import PublicListAsinSearch from "@/components/PublicListAsinSearch";
 import SavePublicListButton from "@/components/SavePublicListButton";
 import PublicListSortSelect from "@/components/PublicListSortSelect";
 import { notFound } from "next/navigation";
@@ -45,7 +46,13 @@ export default async function PublicUserListPage({
   searchParams,
 }: {
   params: Promise<{ username: string; slug: string }>;
-  searchParams?: Promise<{ sort?: string; order?: string; comments?: string; outOfStock?: string }>;
+  searchParams?: Promise<{
+    sort?: string;
+    order?: string;
+    comments?: string;
+    outOfStock?: string;
+    asin?: string;
+  }>;
 }) {
   const { username, slug } = await params;
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
@@ -61,6 +68,15 @@ export default async function PublicUserListPage({
       : "creator";
   const openComments = resolvedSearchParams?.comments === "1";
   const showOutOfStock = resolvedSearchParams?.outOfStock === "1";
+  const asinSearch = resolvedSearchParams?.asin?.trim().toUpperCase() ?? "";
+  const clearSearchHref = (() => {
+    const params = new URLSearchParams();
+    if (sortMode !== "creator") params.set("order", sortMode);
+    if (openComments) params.set("comments", "1");
+    if (showOutOfStock) params.set("outOfStock", "1");
+    const query = params.toString();
+    return query ? `${buildPublicListPath(username, slug)}?${query}` : buildPublicListPath(username, slug);
+  })();
 
   const rows = await prisma.$queryRaw<PublicUserListRow[]>(Prisma.sql`
     SELECT
@@ -191,6 +207,9 @@ export default async function PublicUserListPage({
         (item) =>
           item.attributes.availabilityStatus !== "OUT_OF_STOCK" && item.totalPrice > 0
       );
+  const filteredItems = asinSearch
+    ? visibleItems.filter((item) => item.asin.toUpperCase().includes(asinSearch))
+    : visibleItems;
 
   const firstRow = rows[0]!;
   const list = {
@@ -272,15 +291,31 @@ export default async function PublicUserListPage({
             </div>
           </div>
 
-          {visibleItems.length === 0 ? (
+          <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div className="flex-1">
+              <PublicListAsinSearch className="max-w-[360px]" />
+            </div>
+            {asinSearch ? (
+              <Link
+                href={clearSearchHref}
+                className="inline-flex h-10 items-center justify-center rounded-full border border-[#d5d9d9] bg-white px-4 text-sm font-bold text-[#0F1111] transition hover:border-[#aab7b8]"
+              >
+                Limpar busca
+              </Link>
+            ) : null}
+          </div>
+
+          {filteredItems.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-[#d5d9d9] bg-[#F8FAFA] px-4 py-12 text-center text-sm text-[#565959]">
               {list.items.length === 0
                 ? "Essa lista ainda nao tem produtos."
-                : "Todos os produtos desta lista estao sem estoque no momento."}
+                : asinSearch
+                  ? "Nenhum produto encontrado para esse ASIN."
+                  : "Todos os produtos desta lista estao sem estoque no momento."}
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-              {visibleItems.map((item) => (
+              {filteredItems.map((item) => (
                 <BestDealProductCard key={item.id} item={item} category="lista_publica" />
               ))}
             </div>

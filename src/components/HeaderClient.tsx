@@ -59,7 +59,15 @@ export default function HeaderClient({
       };
     });
 
-    return [...BASE_CATEGORIES, ...normalizedExtras];
+    const deduped = new Map<string, SearchCategory>();
+
+    for (const category of [...BASE_CATEGORIES, ...normalizedExtras]) {
+      if (!deduped.has(category.path)) {
+        deduped.set(category.path, category);
+      }
+    }
+
+    return Array.from(deduped.values());
   }, [extraCategories]);
 
   useEffect(() => {
@@ -149,7 +157,7 @@ export default function HeaderClient({
               <div className="absolute left-0 top-[46px] z-[100] w-full overflow-hidden rounded-md border border-gray-200 bg-white shadow-xl">
                 {suggestions.map((cat) => (
                   <div
-                    key={cat.path}
+                    key={`${cat.path}-${cat.name}`}
                     onClick={() => {
                       router.push(cat.path);
                       setQuery("");

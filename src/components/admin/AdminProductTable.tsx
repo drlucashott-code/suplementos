@@ -399,9 +399,18 @@ export function AdminProductTable({
       const matchesSearch =
         searchTerms.length === 0 ||
         searchTerms.some((term) => {
+          const asinValues = [
+            String(attrs.asin || ""),
+            String(attrs.ASIN || ""),
+            String((p as Product & { asin?: string }).asin || ""),
+            p.url || "",
+          ]
+            .join(" ")
+            .toLowerCase();
+
           return (
             p.name.toLowerCase().includes(term) ||
-            String(attrs.asin || "").toLowerCase().includes(term) ||
+            asinValues.includes(term) ||
             brandValue.toLowerCase().includes(term)
           );
         });

@@ -321,10 +321,7 @@ async function importExpansionDecisionIntoCatalog(params: {
     decision.title?.trim() ||
     sourceProduct?.name?.trim() ||
     `Produto Amazon ${decision.asin}`;
-  const totalPrice =
-    typeof decision.observedPrice === "number" && decision.observedPrice > 0
-      ? decision.observedPrice
-      : sourceProduct?.totalPrice ?? 0;
+  const totalPrice = typeof decision.observedPrice === "number" && decision.observedPrice > 0 ? decision.observedPrice : 0;
   const visibilityStatus = "pending" as const;
 
   const attributes = enrichDynamicAttributesForCategory({

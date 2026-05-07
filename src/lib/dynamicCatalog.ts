@@ -88,6 +88,7 @@ type VisibleProductWithStats = ProductWithStats & {
 
 export type CatalogProduct = {
   id: string;
+  asin: string;
   name: string;
   imageUrl: string;
   createdAt?: string | Date | null;
@@ -1268,7 +1269,7 @@ export async function getDynamicCatalogData({
     const pSeller = String(attrs.seller || "").trim().toLowerCase();
 
     if (searchWords.length > 0) {
-      const productText = removeAccents(`${p.name} ${pBrand}`.toLowerCase());
+      const productText = removeAccents(`${p.name} ${p.asin} ${pBrand}`.toLowerCase());
       if (!searchWords.every((word) => productText.includes(word))) return false;
     }
 
@@ -1468,6 +1469,7 @@ export async function getDynamicCatalogData({
     });
     return {
       id: p.id,
+      asin: p.asin,
       name: p.name,
       imageUrl: p.imageUrl || "",
       createdAt: p.createdAt,
