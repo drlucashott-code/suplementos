@@ -202,6 +202,7 @@ model DynamicCategoryAsinDecision {
   categoryId    String
   category      DynamicCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   asin          String
+  sourceAsin    String?
   status        String
   reasonCode    String?
   reasonText    String?
@@ -229,6 +230,7 @@ model DynamicDiscoveryCategoryConfig {
   category              DynamicCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   mode                  String   @default("individual")
   primeOnlyDefault      Boolean  @default(false)
+  freeDeliveryDefault   Boolean  @default(false)
   ignoreInternationalDefault Boolean @default(true)
   multiBrandDefault     Boolean  @default(true)
   broadDiscoveryDefault Boolean  @default(false)
@@ -300,6 +302,7 @@ model DynamicDiscoveryRun {
   category           DynamicCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   mode               String
   primeOnly          Boolean        @default(false)
+  freeDelivery       Boolean        @default(false)
   ignoreInternational Boolean        @default(true)
   multiBrand         Boolean        @default(true)
   broadDiscovery     Boolean        @default(false)

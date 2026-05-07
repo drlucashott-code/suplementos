@@ -122,6 +122,7 @@ export default async function AdminDynamicDiscoveryPage({
           ? {
               mode: config.mode,
               primeOnlyDefault: config.primeOnlyDefault,
+              freeDeliveryDefault: config.freeDeliveryDefault,
               ignoreInternationalDefault: config.ignoreInternationalDefault,
               broadDiscoveryDefault: config.broadDiscoveryDefault,
               defaultSortBy: config.defaultSortBy,

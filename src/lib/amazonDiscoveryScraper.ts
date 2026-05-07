@@ -12,6 +12,7 @@ export type AmazonDiscoveryQueryPlan = {
   mode: AmazonDiscoveryMode;
   broadDiscovery: boolean;
   primeOnly: boolean;
+  freeDeliveryOnly: boolean;
   ignoreInternational: boolean;
   sortBy: AmazonDiscoverySortBy;
   autoPaging: boolean;
@@ -33,6 +34,7 @@ export type AmazonDiscoveryRawHit = {
   reviewCount: number | null;
   sponsored: boolean;
   isPrime: boolean;
+  hasFreeDelivery: boolean;
   isInternational: boolean;
   brandGuess: string | null;
 };
@@ -47,6 +49,7 @@ export type AmazonDiscoveryAggregate = {
   position: number | null;
   sponsored: boolean;
   isPrime: boolean;
+  hasFreeDelivery: boolean;
   isInternational: boolean;
   brandGuess: string | null;
   timesDetected: number;
@@ -129,7 +132,7 @@ function buildSearchUrl(plan: AmazonDiscoveryQueryPlan, page: number) {
   }
 
   if (plan.brandFilters.length > 0) {
-    rhValues.push(`p_123:${plan.brandFilters.join("|")}`);
+    rhValues.push(`p_123:${plan.brandFilters.map((value) => encodeURIComponent(value)).join("%7C")}`);
   }
 
   if (rhValues.length > 0) {
@@ -139,7 +142,7 @@ function buildSearchUrl(plan: AmazonDiscoveryQueryPlan, page: number) {
   if (plan.primeOnly) {
     params.set("dc", "");
     params.set("rnid", "19171727011");
-    params.set("ref", "sr_nr_p_85_1");
+    params.set("ref", `sr_st_${sortParam ?? "featured"}`);
   }
 
   const qid = Math.floor(Date.now() / 1000);
@@ -197,6 +200,21 @@ function detectInternationalListing($: cheerio.CheerioAPI, element: cheerio.Chee
   return internationalSignals.some((signal) => signal.test(cardText) || signal.test(cardHtml) || signal.test(imageSrcs));
 }
 
+function detectFreeDeliveryListing($: cheerio.CheerioAPI, element: cheerio.Cheerio<any>) {
+  const cardText = element.text();
+  const cardHtml = element.html() ?? "";
+  const cardCombined = `${cardText}\n${cardHtml}`;
+
+  const deliverySignals = [
+    /entrega\s+gr[áa]tis/i,
+    /frete\s+gr[áa]tis/i,
+    /free\s+delivery/i,
+    /free\s+shipping/i,
+  ];
+
+  return deliverySignals.some((signal) => signal.test(cardCombined));
+}
+
 function extractBrandGuess(title: string, knownBrands: string[]) {
   const normalizedTitle = normalizeText(title);
   const matchedBrand = knownBrands.find((brand) => normalizedTitle.includes(normalizeText(brand)));
@@ -226,7 +244,7 @@ function extractBrandFacetFilters(html: string) {
     if (!match || !text) return;
 
     const brandName = text.replace(/\s+\(\d+\)\s*$/u, "").trim();
-    const filterValue = decodeURIComponent(match[1] ?? "").trim();
+    const filterValue = decodeFacetValue(match[1] ?? "").trim();
     if (!brandName || !filterValue) return;
 
     const normalized = normalizeText(brandName);
@@ -236,6 +254,24 @@ function extractBrandFacetFilters(html: string) {
   });
 
   return facets;
+}
+
+function decodeFacetValue(value: string) {
+  let current = value.trim();
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const next = decodeURIComponent(current);
+      if (next === current) {
+        break;
+      }
+      current = next;
+    } catch {
+      break;
+    }
+  }
+
+  return current.replace(/%7C/gi, "|");
 }
 
 function hasNextSearchPage(html: string) {
@@ -493,6 +529,7 @@ function parseSearchResults(
 
     const isInternational = detectInternationalListing($, $(element));
     const isPrime = /prime/i.test(text);
+    const hasFreeDelivery = detectFreeDeliveryListing($, $(element));
     const brandGuess = title ? extractBrandGuess(title, knownBrands) : null;
 
     results.push({
@@ -509,6 +546,7 @@ function parseSearchResults(
       reviewCount: parseReviewCount(reviewTextFallback),
       sponsored,
       isPrime,
+      hasFreeDelivery,
       isInternational,
       brandGuess,
     });
@@ -641,13 +679,13 @@ async function fetchBrandFacetMap(url: string, wantedBrands: string[]) {
       if (!href) continue;
 
       const decodedHref = decodeURIComponent(href);
-      const match = decodedHref.match(/p_123[:=]([^,&]+)/i);
-      if (!match) continue;
+        const match = decodedHref.match(/p_123[:=]([^,&]+)/i);
+        if (!match) continue;
 
-      const filterValues = decodeURIComponent(match[1] ?? "")
-        .split("|")
-        .map((value) => value.trim())
-        .filter(Boolean);
+        const filterValues = decodeFacetValue(match[1] ?? "")
+          .split("|")
+          .map((value) => value.trim())
+          .filter(Boolean);
 
       if (filterValues.length === 0) continue;
       observedSets.set(normalizeText(brandName), new Set(filterValues));
@@ -685,6 +723,7 @@ export function buildAmazonDiscoveryQueryPlans(input: {
   mode: AmazonDiscoveryMode;
   broadDiscovery: boolean;
   primeOnly: boolean;
+  freeDeliveryOnly: boolean;
   ignoreInternational: boolean;
   sortModes: AmazonDiscoverySortBy[];
   autoMaxPages?: boolean;
@@ -731,6 +770,7 @@ export function buildAmazonDiscoveryQueryPlans(input: {
           mode: input.mode,
           broadDiscovery: input.broadDiscovery,
           primeOnly: input.primeOnly,
+          freeDeliveryOnly: input.freeDeliveryOnly,
           ignoreInternational: input.ignoreInternational,
           sortBy,
           autoPaging,
@@ -750,6 +790,7 @@ export function buildAmazonDiscoveryQueryPlans(input: {
           mode: input.mode,
           broadDiscovery: input.broadDiscovery,
           primeOnly: input.primeOnly,
+          freeDeliveryOnly: input.freeDeliveryOnly,
           ignoreInternational: input.ignoreInternational,
           sortBy,
           autoPaging,
@@ -770,6 +811,7 @@ export function buildAmazonDiscoveryQueryPlans(input: {
       plan.mode,
       plan.broadDiscovery ? "broad" : "narrow",
       plan.primeOnly ? "prime" : "all",
+      plan.freeDeliveryOnly ? "delivery" : "delivery-off",
       plan.ignoreInternational ? "international-off" : "international-on",
       plan.brands.join("\u0001"),
       plan.brandFilters.join("\u0001"),
@@ -796,6 +838,7 @@ export function aggregateAmazonDiscoveryHits(hits: AmazonDiscoveryRawHit[]) {
       position: null,
       sponsored: false,
       isPrime: false,
+      hasFreeDelivery: false,
       isInternational: false,
       brandGuess: null,
       timesDetected: 0,
@@ -809,6 +852,7 @@ export function aggregateAmazonDiscoveryHits(hits: AmazonDiscoveryRawHit[]) {
     current.sourcesSet.add(hit.sortBy);
     current.sponsored = current.sponsored || hit.sponsored;
     current.isPrime = current.isPrime || hit.isPrime;
+    current.hasFreeDelivery = current.hasFreeDelivery || hit.hasFreeDelivery;
     current.isInternational = current.isInternational || hit.isInternational;
     current.position = current.position === null ? hit.position : Math.min(current.position, hit.position);
     current.ratingAverage = current.ratingAverage ?? hit.ratingAverage;
@@ -829,6 +873,7 @@ export function aggregateAmazonDiscoveryHits(hits: AmazonDiscoveryRawHit[]) {
       position: current.position,
       sponsored: current.sponsored,
       isPrime: current.isPrime,
+      hasFreeDelivery: current.hasFreeDelivery,
       isInternational: current.isInternational,
       brandGuess: current.brandGuess,
       timesDetected: current.timesDetected,
@@ -853,6 +898,7 @@ export function scoreDiscoveryAggregate(input: {
   position: number | null;
   sponsored: boolean;
   isPrime: boolean;
+  hasFreeDelivery?: boolean;
   isInternational: boolean;
   timesDetected: number;
   sources: AmazonDiscoverySortBy[];
@@ -903,6 +949,7 @@ export async function runAmazonDiscoveryPlan(input: {
   mode: AmazonDiscoveryMode;
   broadDiscovery: boolean;
   primeOnly: boolean;
+  freeDeliveryOnly: boolean;
   ignoreInternational: boolean;
   sortModes: AmazonDiscoverySortBy[];
   autoMaxPages?: boolean;
@@ -930,24 +977,57 @@ export async function runAmazonDiscoveryPlan(input: {
   const reviewCache = new Map<string, Promise<AmazonReviewSnapshot>>();
 
   async function resolveBrandFiltersForTerm(plan: AmazonDiscoveryQueryPlan) {
-    const cacheKey = `${plan.term}::${plan.primeOnly ? "prime" : "all"}`;
+    const cacheKey = [
+      normalizeText(plan.term),
+      plan.primeOnly ? "prime" : "all",
+      plan.sortBy,
+        [...plan.brands].map((brand) => normalizeText(brand)).sort().join("|"),
+      ].join("::");
     const cached = facetCache.get(cacheKey);
     if (cached) return cached;
 
-    const lookupPlan: AmazonDiscoveryQueryPlan = {
-      ...plan,
-      query: plan.term,
-      brands: [],
-      brandFilters: [],
-      autoPaging: false,
-      pageLimit: 1,
-      maxItemsPerQuery: 1,
-      sortBy: "best_sellers",
-    };
+    const wantedBrands = Array.from(
+      new Set(plan.brands.map((brand) => normalizeText(brand)).filter(Boolean))
+    );
+    const referenceSorts = Array.from(
+      new Set<AmazonDiscoverySortBy>([
+        plan.sortBy,
+        "featured",
+        "best_sellers",
+        "top_rated",
+        "newest",
+      ])
+    );
 
-    const facets = await fetchBrandFacetMap(buildSearchUrl(lookupPlan, 1), plan.brands);
-    facetCache.set(cacheKey, facets);
-    return facets;
+    let bestFacets = new Map<string, string>();
+
+    for (const referenceSort of referenceSorts) {
+      const lookupPlan: AmazonDiscoveryQueryPlan = {
+        ...plan,
+        query: plan.term,
+        brands: [],
+        brandFilters: [],
+        autoPaging: false,
+        pageLimit: 1,
+        maxItemsPerQuery: 1,
+        sortBy: referenceSort,
+      };
+
+      const facets = await fetchBrandFacetMap(buildSearchUrl(lookupPlan, 1), plan.brands);
+      if (facets.size > bestFacets.size) {
+        bestFacets = facets;
+      }
+
+      const hasAllWantedBrands =
+        wantedBrands.length > 0 && wantedBrands.every((brand) => facets.has(brand));
+      if (hasAllWantedBrands || wantedBrands.length === 0) {
+        facetCache.set(cacheKey, facets);
+        return facets;
+      }
+    }
+
+    facetCache.set(cacheKey, bestFacets);
+    return bestFacets;
   }
 
   for (const [planIndex, plan] of plans.entries()) {
@@ -995,6 +1075,8 @@ export async function runAmazonDiscoveryPlan(input: {
       const { html, renderer, cards } = await fetchSearchPage(url);
       const filteredPageHits = parseSearchResults(html, effectivePlan, page, knownBrands)
         .filter((hit) => !(plan.ignoreInternational && hit.isInternational))
+        .filter((hit) => (plan.primeOnly ? hit.isPrime : true))
+        .filter((hit) => (plan.freeDeliveryOnly ? hit.hasFreeDelivery : true))
         .slice(0, plan.maxItemsPerQuery);
       const pageHits = filteredPageHits;
 

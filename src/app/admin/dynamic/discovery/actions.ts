@@ -231,6 +231,11 @@ export async function saveDiscoveryCategoryConfig(formData: FormData) {
     parseString(formData, "defaultSortBy", existingConfig?.defaultSortBy ?? "featured"),
     "featured"
   );
+  const freeDeliveryDefault = parseBoolean(
+    formData,
+    "freeDeliveryDefault",
+    existingConfig?.freeDeliveryDefault ?? false
+  );
   const autoMaxPages = parseBoolean(formData, "autoMaxPages", existingConfig?.autoMaxPages ?? true);
   const maxPages = parseInteger(formData, "maxPages", existingConfig?.maxPages ?? 2, 1, 10);
   const autoMaxItemsPerQuery = parseBoolean(
@@ -256,6 +261,7 @@ export async function saveDiscoveryCategoryConfig(formData: FormData) {
         "primeOnlyDefault",
         existingConfig?.primeOnlyDefault ?? false
       ),
+      freeDeliveryDefault,
       ignoreInternationalDefault: parseBoolean(
         formData,
         "ignoreInternationalDefault",
@@ -281,6 +287,7 @@ export async function saveDiscoveryCategoryConfig(formData: FormData) {
         "primeOnlyDefault",
         existingConfig?.primeOnlyDefault ?? false
       ),
+      freeDeliveryDefault,
       ignoreInternationalDefault: parseBoolean(
         formData,
         "ignoreInternationalDefault",
@@ -449,11 +456,14 @@ export async function runDiscoveryForCategory(formData: FormData) {
     existingConfig?.mode === "multi_brand" ? "multi_brand" : "individual"
   );
   const multiBrand = mode === "multi_brand";
-  const primeOnly = parseBoolean(
+  const freeDeliveryOnly = parseBoolean(
     formData,
-    "primeOnlyDefault",
-    existingConfig?.primeOnlyDefault ?? false
+    "freeDeliveryDefault",
+    existingConfig?.freeDeliveryDefault ?? false
   );
+  const primeOnly = freeDeliveryOnly
+    ? false
+    : parseBoolean(formData, "primeOnlyDefault", existingConfig?.primeOnlyDefault ?? false);
   const ignoreInternational = parseBoolean(
     formData,
     "ignoreInternationalDefault",
@@ -498,6 +508,7 @@ export async function runDiscoveryForCategory(formData: FormData) {
       categoryId,
       mode,
       primeOnly,
+      freeDelivery: freeDeliveryOnly,
       ignoreInternational,
       multiBrand,
       broadDiscovery,
@@ -556,8 +567,9 @@ export async function runDiscoveryForCategory(formData: FormData) {
       brands: seedBrands,
       mode,
       broadDiscovery,
-      primeOnly,
-      ignoreInternational,
+    primeOnly,
+    freeDeliveryOnly,
+    ignoreInternational,
       sortModes,
       autoMaxPages,
       maxPages,
@@ -955,6 +967,104 @@ export async function clearDiscoveryPendingProducts(formData: FormData) {
   });
 
   finishDiscoveryFlow(categoryId, `Fila pendente limpa (${deleted.count} item(ns) removido(s)).`);
+}
+
+export async function refreshDiscoveryApprovedProducts(formData: FormData) {
+  const categoryId = parseString(formData, "categoryId");
+  if (!categoryId) {
+    redirectWithNotice({
+      notice: "Selecione uma categoria antes de atualizar os aprovados.",
+    });
+  }
+
+  await loadCategoryOrRedirect(categoryId);
+
+  const approvedRows = await prisma.dynamicDiscoveryProductStatus.findMany({
+    where: {
+      categoryId,
+      status: "approved",
+    },
+    select: {
+      asin: true,
+      title: true,
+    },
+  });
+
+  if (approvedRows.length === 0) {
+    finishDiscoveryFlow(categoryId, "Nenhum item aprovado para atualizar.");
+    return;
+  }
+
+  const approvedAsins = approvedRows.map((row) => row.asin);
+  const existingCatalog = await prisma.dynamicProduct.findMany({
+    where: { asin: { in: approvedAsins } },
+    select: { asin: true },
+  });
+
+  const existingAsins = new Set(existingCatalog.map((row) => row.asin));
+  const now = new Date();
+
+  const moved = await prisma.dynamicDiscoveryProductStatus.updateMany({
+    where: {
+      categoryId,
+      asin: { in: [...existingAsins] },
+      status: "approved",
+    },
+    data: {
+      status: "existing",
+      lastSeenAt: now,
+      reason: "Produto ja cadastrado no catalogo",
+    },
+  });
+
+  const latestRun = await prisma.dynamicDiscoveryRun.findFirst({
+    where: { categoryId },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (latestRun) {
+    const currentApproved = await prisma.dynamicDiscoveryProductStatus.findMany({
+      where: { categoryId, status: "approved" },
+      select: { asin: true },
+    });
+    const currentExisting = await prisma.dynamicDiscoveryProductStatus.findMany({
+      where: { categoryId, status: "existing" },
+      select: { asin: true },
+    });
+    const currentRejected = await prisma.dynamicDiscoveryProductStatus.findMany({
+      where: { categoryId, status: "rejected" },
+      select: { asin: true },
+    });
+    const currentPending = await prisma.dynamicDiscoveryProductStatus.findMany({
+      where: { categoryId, status: "pending_review" },
+      select: { asin: true },
+    });
+
+    await prisma.dynamicDiscoveryRun.update({
+      where: { id: latestRun.id },
+      data: {
+        approvedCount: currentApproved.length,
+        existingCount: currentExisting.length,
+        rejectedCount: currentRejected.length,
+        pendingCount: currentPending.length,
+        exportAsins: currentApproved.map((row) => row.asin),
+        previewSummary: {
+          ...(latestRun.previewSummary as Record<string, unknown> | null ?? {}),
+          finalCounts: {
+            approved: currentApproved.length,
+            existing: currentExisting.length,
+            rejected: currentRejected.length,
+            pendingReview: currentPending.length,
+          },
+        },
+      },
+    });
+  }
+
+  finishDiscoveryFlow(
+    categoryId,
+    `Aprovados atualizados: ${moved.count} item(ns) movido(s) para existentes.`
+  );
 }
 
 export async function updateDiscoveryBrandStatus(formData: FormData) {

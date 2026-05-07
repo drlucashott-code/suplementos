@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   clearDiscoveryPendingProducts,
   runDiscoveryForCategory,
+  refreshDiscoveryApprovedProducts,
   saveDiscoveryCategoryConfig,
   syncDiscoveryBrandsFromCatalog,
   updateDiscoveryBrandStatus,
@@ -23,6 +24,7 @@ type CategoryOption = {
 type DiscoveryConfig = {
   mode: string;
   primeOnlyDefault: boolean;
+  freeDeliveryDefault: boolean;
   ignoreInternationalDefault: boolean;
   broadDiscoveryDefault: boolean;
   defaultSortBy: string;
@@ -578,6 +580,11 @@ export default function DiscoveryWorkbenchClient({
                       defaultChecked={config?.primeOnlyDefault ?? false}
                     />
                     <InlineToggle
+                      name="freeDeliveryDefault"
+                      label="Entrega grátis"
+                      defaultChecked={config?.freeDeliveryDefault ?? false}
+                    />
+                    <InlineToggle
                       name="ignoreInternationalDefault"
                       label="Ignorar compra internacional"
                       defaultChecked={config?.ignoreInternationalDefault ?? true}
@@ -678,14 +685,25 @@ export default function DiscoveryWorkbenchClient({
                     <p className="text-sm text-gray-500">
                       Clique no ASIN para abrir a Amazon ou use o x para retirar da lista de aprovados.
                     </p>
-                    <button
-                      type="button"
-                      onClick={copyApprovedAsins}
-                      disabled={exportAsins.length === 0}
-                      className="rounded-full border border-gray-200 bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-gray-700 transition hover:border-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Copiar ASINs
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={copyApprovedAsins}
+                        disabled={exportAsins.length === 0}
+                        className="rounded-full border border-gray-200 bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-gray-700 transition hover:border-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Copiar ASINs
+                      </button>
+                      <form action={refreshDiscoveryApprovedProducts}>
+                        <input type="hidden" name="categoryId" value={selectedCategoryId} />
+                        <button
+                          type="submit"
+                          className="rounded-full border border-gray-200 bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-gray-700 transition hover:border-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Atualizar
+                        </button>
+                      </form>
+                    </div>
                   </div>
                   <CompactAsinSection rows={approvedProducts} categoryId={selectedCategoryId} interactive />
                 </div>
