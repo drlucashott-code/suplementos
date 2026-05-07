@@ -840,6 +840,7 @@ export function MobileProductCard({
                       <PriceHistoryButton
                         productId={product.id}
                         productName={product.name}
+                        createdAt={product.createdAt}
                         freshProduct={freshProduct}
                       />
                     </div>
@@ -855,6 +856,7 @@ export function MobileProductCard({
                     <PriceHistoryButton
                       productId={product.id}
                       productName={product.name}
+                      createdAt={product.createdAt}
                       freshProduct={freshProduct}
                     />
                   </div>
@@ -1084,5 +1086,6 @@ export function MobileProductCard({
     </>
   );
 }
+
 
 

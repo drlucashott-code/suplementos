@@ -420,6 +420,7 @@ export default function BestDealProductCard({
                     <PriceHistoryButton
                       productId={item.id}
                       productName={item.name}
+                      createdAt={item.createdAt}
                       freshProduct={freshProduct}
                     />
                   </div>
@@ -612,4 +613,5 @@ export default function BestDealProductCard({
     </>
   );
 }
+
 

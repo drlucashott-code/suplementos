@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   ArrowDownRight,
@@ -11,6 +11,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import {
   formatPriceHistoryRangeLabel,
+  getPriceHistoryBusinessDateKey,
   getVisiblePriceHistoryChartRanges,
   type PriceHistoryChartRange,
 } from "@/lib/dynamicPriceHistory";
@@ -110,10 +111,33 @@ function formatDeltaPercent(value: number | null) {
   return Math.round(Math.abs(value));
 }
 
+function uniqueDateLabels(points: Array<{ x: number; date: string }>) {
+  if (points.length === 0) return [];
+
+  const first = points[0];
+  const middle = points[Math.floor(points.length / 2)];
+  const last = points[points.length - 1];
+
+  const labels: Array<{ key: string; point: { x: number; date: string }; anchor: "start" | "middle" | "end" }> = [
+    { key: first.date, point: first, anchor: "start" },
+  ];
+
+  if (middle && middle.date !== first.date && middle.date !== last.date) {
+    labels.push({ key: `${middle.date}-middle`, point: middle, anchor: "middle" });
+  }
+
+  if (last.date !== first.date) {
+    labels.push({ key: `${last.date}-last`, point: last, anchor: "end" });
+  }
+
+  return labels;
+}
+
 type PriceHistoryButtonProps = {
   productId: string;
   productName: string;
   freshProduct?: boolean;
+  createdAt?: string | Date | null;
   emptyMessage?: string;
 };
 
@@ -121,6 +145,7 @@ export function PriceHistoryButton({
   productId,
   productName,
   freshProduct = false,
+  createdAt,
   emptyMessage = "Sem histórico. Produto adicionado hoje ao banco de dados.",
 }: PriceHistoryButtonProps) {
   const [open, setOpen] = useState(false);
@@ -131,7 +156,13 @@ export function PriceHistoryButton({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const showFreshMessage = Boolean(freshProduct);
+  const todayBusinessKey = getPriceHistoryBusinessDateKey();
+  const createdBusinessKey = createdAt
+    ? getPriceHistoryBusinessDateKey(createdAt instanceof Date ? createdAt : new Date(createdAt))
+    : null;
+  const showFreshMessage = createdBusinessKey
+    ? createdBusinessKey === todayBusinessKey
+    : Boolean(freshProduct);
 
   const data = cache[range] ?? null;
   const availableRanges = useMemo(() => {
@@ -715,39 +746,18 @@ export function PriceHistoryButton({
                           {chartData!.minLabel}
                         </text>
 
-                        {chartData!.points.length > 1 ? (
-                          <>
-                            <text
-                              x={chartData!.points[0]?.x ?? chartData!.padding.left}
-                              y={chartData!.height - 8}
-                              fontSize="11"
-                              textAnchor="start"
-                              fill="#71717A"
-                            >
-                              {formatDateLabel(chartData!.points[0]?.date ?? "")}
-                            </text>
-                            <text
-                              x={chartData!.points[Math.floor(chartData!.points.length / 2)]?.x ?? chartData!.width / 2}
-                              y={chartData!.height - 8}
-                              fontSize="11"
-                              textAnchor="middle"
-                              fill="#A1A1AA"
-                            >
-                              {formatDateLabel(
-                                chartData!.points[Math.floor(chartData!.points.length / 2)]?.date ?? ""
-                              )}
-                            </text>
-                            <text
-                              x={chartData!.points[chartData!.points.length - 1]?.x ?? chartData!.width}
-                              y={chartData!.height - 8}
-                              fontSize="11"
-                              textAnchor="end"
-                              fill="#71717A"
-                            >
-                              {formatDateLabel(chartData!.points[chartData!.points.length - 1]?.date ?? "")}
-                            </text>
-                          </>
-                        ) : null}
+                        {uniqueDateLabels(chartData!.points).map((label) => (
+                          <text
+                            key={label.key}
+                            x={label.point.x}
+                            y={chartData!.height - 8}
+                            fontSize="11"
+                            textAnchor={label.anchor}
+                            fill={label.anchor === "middle" ? "#A1A1AA" : "#71717A"}
+                          >
+                            {formatDateLabel(label.point.date)}
+                          </text>
+                        ))}
                       </svg>
 
                       {hoveredPoint ? (
