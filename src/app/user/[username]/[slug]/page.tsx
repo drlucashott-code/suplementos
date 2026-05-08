@@ -2,7 +2,6 @@
 import BestDealProductCard from "@/components/BestDealProductCard";
 import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
 import ListCommentsSheet from "@/components/dynamic/ListCommentsSheet";
-import PublicListAsinSearch from "@/components/PublicListAsinSearch";
 import SavePublicListButton from "@/components/SavePublicListButton";
 import PublicListSortSelect from "@/components/PublicListSortSelect";
 import { notFound } from "next/navigation";
@@ -52,7 +51,6 @@ export default async function PublicUserListPage({
     order?: string;
     comments?: string;
     outOfStock?: string;
-    asin?: string;
     q?: string;
     show?: string;
   }>;
@@ -77,9 +75,6 @@ export default async function PublicUserListPage({
       : resolvedSearchParams?.outOfStock === "1"
         ? "out_of_stock"
         : "in_stock";
-  const searchQuery = (resolvedSearchParams?.q ?? resolvedSearchParams?.asin ?? "").trim();
-  const normalizedSearchQuery = searchQuery.toLowerCase();
-
   const rows = await prisma.$queryRaw<PublicUserListRow[]>(Prisma.sql`
     SELECT
       l."id" AS "listId",
@@ -223,14 +218,7 @@ export default async function PublicUserListPage({
             (item) =>
               item.attributes.availabilityStatus !== "OUT_OF_STOCK" && item.totalPrice > 0
           );
-  const filteredItems = normalizedSearchQuery
-    ? visibleItems.filter((item) => {
-        const haystack = [item.name, item.asin, String(item.attributes.brand ?? "")]
-          .join(" ")
-          .toLowerCase();
-        return haystack.includes(normalizedSearchQuery);
-      })
-    : visibleItems;
+  const filteredItems = visibleItems;
 
   const firstRow = rows[0]!;
   const list = {
@@ -253,7 +241,14 @@ export default async function PublicUserListPage({
           <div className="mb-5 flex flex-col gap-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
               <div className="min-w-0">
-                <h1 className="text-[24px] font-bold text-[#0F1111]">{list.title}</h1>
+                <div className="flex flex-wrap items-center gap-3">
+                  <h1 className="text-[24px] font-bold text-[#0F1111]">{list.title}</h1>
+                  <SavePublicListButton
+                    listId={list.id}
+                    initialSaved={savedRows.length > 0}
+                    compact
+                  />
+                </div>
                 {list.description ? (
                   <p className="mt-1 text-[13px] text-[#565959]">{list.description}</p>
                 ) : null}
@@ -280,11 +275,9 @@ export default async function PublicUserListPage({
                 </p>
               </div>
 
-              <SavePublicListButton listId={list.id} initialSaved={savedRows.length > 0} />
             </div>
 
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_240px_280px]">
-              <PublicListAsinSearch className="w-full" />
               <PublicListSortSelect
                 className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 shadow-sm"
                 defaultOrder="in_stock"
@@ -315,11 +308,9 @@ export default async function PublicUserListPage({
             <div className="rounded-2xl border border-dashed border-[#d5d9d9] bg-[#F8FAFA] px-4 py-12 text-center text-sm text-[#565959]">
               {list.items.length === 0
                 ? "Essa lista ainda nao tem produtos."
-                : normalizedSearchQuery
-                  ? "Nenhum produto encontrado nesta busca."
-                  : visibilityMode === "out_of_stock"
-                    ? "Nenhum produto sem estoque encontrado nesta lista."
-                    : "Todos os produtos desta lista estao sem estoque no momento."}
+                : visibilityMode === "out_of_stock"
+                  ? "Nenhum produto sem estoque encontrado nesta lista."
+                  : "Todos os produtos desta lista estao sem estoque no momento."}
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">

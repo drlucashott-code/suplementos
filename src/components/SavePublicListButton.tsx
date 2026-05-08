@@ -7,9 +7,11 @@ import { useState } from "react";
 export default function SavePublicListButton({
   listId,
   initialSaved,
+  compact = false,
 }: {
   listId: string;
   initialSaved: boolean;
+  compact?: boolean;
 }) {
   const router = useRouter();
   const [saved, setSaved] = useState(initialSaved);
@@ -48,14 +50,18 @@ export default function SavePublicListButton({
       type="button"
       onClick={() => void handleToggle()}
       disabled={pending}
-      className={`inline-flex h-10 items-center justify-center gap-2 rounded-full border px-4 text-sm font-bold transition ${
-        saved
-          ? "border-[#f0c14b] bg-[#fff7d6] text-[#b77900]"
-          : "border-[#d5d9d9] bg-white text-[#0F1111] hover:border-[#aab7b8]"
-      } disabled:opacity-60`}
+      className={
+        compact
+          ? `inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[13px] font-medium text-[#2162A1] transition hover:text-[#174e87] disabled:opacity-60`
+          : `inline-flex h-10 items-center justify-center gap-2 rounded-full border px-4 text-sm font-bold transition ${
+              saved
+                ? "border-[#f0c14b] bg-[#fff7d6] text-[#b77900]"
+                : "border-[#d5d9d9] bg-white text-[#0F1111] hover:border-[#aab7b8]"
+            } disabled:opacity-60`
+      }
     >
       <Heart className={`h-4 w-4 ${saved ? "fill-current" : ""}`} />
-      {pending ? "Salvando..." : saved ? "Lista salva" : "Salvar lista"}
+      {pending ? "Salvando..." : compact ? (saved ? "Salvo" : "Salvar") : saved ? "Lista salva" : "Salvar lista"}
     </button>
   );
 }
