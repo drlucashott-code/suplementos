@@ -6,8 +6,8 @@ import { useEffect, useState } from "react";
 
 export default function PublicListAsinSearch({
   className = "",
-  paramName = "asin",
-  placeholder = "Buscar por ASIN",
+  paramName = "q",
+  placeholder = "Buscar nesta lista",
 }: {
   className?: string;
   paramName?: string;
