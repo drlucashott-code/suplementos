@@ -32,8 +32,10 @@ import {
   ListPlus,
   Lock,
   MessageCircle,
+  MoreHorizontal,
   Pencil,
   Plus,
+  Search,
   Trash2,
   Upload,
   X,
@@ -43,7 +45,6 @@ import { useRouter } from "next/navigation";
 import AccountListPickerModal from "@/components/AccountListPickerModal";
 import BestDealProductCard from "@/components/BestDealProductCard";
 import ListOrderProductCard from "@/components/ListOrderProductCard";
-import { getAccountLastUsedListStorageKey } from "@/lib/client/accountFavorites";
 import { buildPublicListPath } from "@/lib/siteSocial";
 
 type FavoriteEntry = {
@@ -171,6 +172,7 @@ type SiteAccountWorkspaceProps = {
 type ListFormState = {
   title: string;
   description: string;
+  isPublic: boolean;
 };
 
 type ComparatorPromptState = {
@@ -179,11 +181,13 @@ type ComparatorPromptState = {
   name: string;
 };
 
-type ListPickerContext = {
-  productId?: string;
-  monitoredProductId?: string;
+type ListMoveContext = {
+  listId: string;
+  itemId: string;
+  productId?: string | null;
+  monitoredProductId?: string | null;
+  resolvedProduct?: FavoriteEntry["product"] | MonitoredProductEntry["product"] | null;
   productName: string;
-  initialSelectedListIds: string[];
 };
 
 type ListItemOrderChange = {
@@ -346,6 +350,7 @@ function createInitialListForms(lists: ListEntry[]) {
     accumulator[list.id] = {
       title: list.title,
       description: list.description ?? "",
+      isPublic: list.isPublic,
     };
     return accumulator;
   }, {});
@@ -391,15 +396,9 @@ export default function SiteAccountWorkspace({
 
   const [showCreateList, setShowCreateList] = useState(false);
   const [listTitle, setListTitle] = useState("");
-  const [listDescription, setListDescription] = useState("");
-  const [listPublic, setListPublic] = useState(false);
   const [creatingList, setCreatingList] = useState(false);
-  const [quickListTitle, setQuickListTitle] = useState("");
-  const [creatingQuickList, setCreatingQuickList] = useState(false);
-
   const [selectedListId, setSelectedListId] = useState<string | null>(initialLists[0]?.id ?? null);
-  const [addProductListId, setAddProductListId] = useState<string | null>(null);
-  const [showAddProductListComposer, setShowAddProductListComposer] = useState(false);
+  const [showInlineListAddProduct, setShowInlineListAddProduct] = useState(false);
   const [selectedTrackedKeys, setSelectedTrackedKeys] = useState<string[]>([]);
   const [listPickerOpen, setListPickerOpen] = useState(false);
   const [trackedReorderMode, setTrackedReorderMode] = useState(false);
@@ -408,10 +407,7 @@ export default function SiteAccountWorkspace({
   const [showOutOfStockInTracked, setShowOutOfStockInTracked] = useState(false);
   const [monitoredProductUrl, setMonitoredProductUrl] = useState("");
   const [addingMonitoredProduct, setAddingMonitoredProduct] = useState(false);
-  const [postAddListPickerContext, setPostAddListPickerContext] = useState<ListPickerContext | null>(
-    null
-  );
-  const [postAddListPickerOpen, setPostAddListPickerOpen] = useState(false);
+  const [listMoveContext, setListMoveContext] = useState<ListMoveContext | null>(null);
   const [comparatorPrompt, setComparatorPrompt] = useState<ComparatorPromptState | null>(null);
 
   const [listEditorId, setListEditorId] = useState<string | null>(null);
@@ -419,10 +415,16 @@ export default function SiteAccountWorkspace({
     createInitialListForms(initialLists)
   );
   const [listOrderMode, setListOrderMode] = useState(false);
-  const [listSortMode, setListSortMode] = useState<"manual" | "discount">("manual");
-  const [showOutOfStockInList, setShowOutOfStockInList] = useState(false);
+  const [listSortMode, setListSortMode] = useState<
+    "manual" | "discount" | "price_asc" | "price_desc" | "alpha"
+  >("manual");
+  const [listStockFilter, setListStockFilter] = useState<"in_stock" | "out_of_stock" | "all">(
+    "in_stock"
+  );
+  const [listSearchQuery, setListSearchQuery] = useState("");
   const [listTab, setListTab] = useState<"mine" | "saved">("mine");
   const [activeListItemId, setActiveListItemId] = useState<string | null>(null);
+  const [activeListMenuId, setActiveListMenuId] = useState<string | null>(null);
 
   const [activityMode, setActivityMode] = useState<"comments" | "reactions" | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
@@ -436,7 +438,42 @@ export default function SiteAccountWorkspace({
   const listOrderSaveTimerRef = useRef<number | null>(null);
   const listOrderSaveRequestRef = useRef<ListItemOrderChange | null>(null);
   const listOrderSavingRef = useRef(false);
-  const listOrderShowOutOfStockBeforeEditRef = useRef<boolean | null>(null);
+  const listOrderStockFilterBeforeEditRef = useRef<"in_stock" | "out_of_stock" | "all" | null>(
+    null
+  );
+
+  useEffect(() => {
+    if (!activeListMenuId) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      const menuRoot = target.closest("[data-list-menu-root]");
+      if (!menuRoot || menuRoot.getAttribute("data-list-menu-root") !== activeListMenuId) {
+        setActiveListMenuId(null);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [activeListMenuId]);
+  useEffect(() => {
+    if (!activeListItemId) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      const menuRoot = target.closest("[data-list-item-menu-root]");
+      if (!menuRoot || menuRoot.getAttribute("data-list-item-menu-root") !== activeListItemId) {
+        setActiveListItemId(null);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [activeListItemId]);
   const defaultList = lists.find((list) => list.isDefault) ?? null;
   const otherLists = lists.filter((list) => !list.isDefault);
   const addListOptions = useMemo(() => {
@@ -451,8 +488,6 @@ export default function SiteAccountWorkspace({
 
     return Array.from(uniqueLists.values());
   }, [defaultList, otherLists]);
-  const addProductListStorageKey = getAccountLastUsedListStorageKey(currentUser.id);
-
   const trackedProductCards = useMemo(() => {
     const favoriteEntries = favorites.map((favorite) => ({
       key: `favorite:${favorite.product.id}`,
@@ -509,12 +544,9 @@ export default function SiteAccountWorkspace({
   }, [favorites, monitoredProducts, trackedReorderMode, trackedSortMode]);
   const openedList = openListId ? listDetailsMap[openListId] ?? null : null;
   const selectedList = selectedListId ? lists.find((list) => list.id === selectedListId) : null;
-  const addProductList = addProductListId
-    ? lists.find((list) => list.id === addProductListId) ?? addListOptions[0] ?? null
-    : addListOptions[0] ?? null;
   const sortedOpenedListItems = useMemo(() => {
     if (!openedList) return [];
-    if (listSortMode !== "discount" || listOrderMode) return openedList.items;
+    if (listOrderMode || listSortMode === "manual") return openedList.items;
 
     return [...openedList.items].sort((left, right) => {
       const leftAverage = left.product.averagePrice30d ?? left.product.totalPrice;
@@ -535,21 +567,60 @@ export default function SiteAccountWorkspace({
       if (leftOutOfStock !== rightOutOfStock) {
         return leftOutOfStock ? 1 : -1;
       }
+
+      if (listSortMode === "price_asc") {
+        return left.product.totalPrice - right.product.totalPrice;
+      }
+
+      if (listSortMode === "price_desc") {
+        return right.product.totalPrice - left.product.totalPrice;
+      }
+
+      if (listSortMode === "alpha") {
+        return left.product.name.localeCompare(right.product.name, "pt-BR");
+      }
+
       if (rightDiscount !== leftDiscount) {
         return rightDiscount - leftDiscount;
       }
+
       return left.product.totalPrice - right.product.totalPrice;
     });
   }, [openedList, listSortMode, listOrderMode]);
   const visibleOpenedListItems = useMemo(() => {
     if (!sortedOpenedListItems.length) return [];
-    if (showOutOfStockInList) return sortedOpenedListItems;
+    if (listStockFilter === "all") return sortedOpenedListItems;
+
+    if (listStockFilter === "out_of_stock") {
+      return sortedOpenedListItems.filter(
+        (item) =>
+          item.product.availabilityStatus === "OUT_OF_STOCK" || item.product.totalPrice <= 0
+      );
+    }
+
     return sortedOpenedListItems.filter(
       (item) =>
         item.product.availabilityStatus !== "OUT_OF_STOCK" &&
         item.product.totalPrice > 0
     );
-  }, [sortedOpenedListItems, showOutOfStockInList]);
+  }, [listStockFilter, sortedOpenedListItems]);
+  const filteredOpenedListItems = useMemo(() => {
+    const query = listSearchQuery.trim().toLowerCase();
+    if (!query) return visibleOpenedListItems;
+
+    return visibleOpenedListItems.filter((item) => {
+      const searchTarget = [
+        item.product.name,
+        item.product.asin,
+        item.product.category.name,
+        item.note ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return searchTarget.includes(query);
+    });
+  }, [visibleOpenedListItems, listSearchQuery]);
   const visibleTrackedProductCards = useMemo(() => {
     if (showOutOfStockInTracked || trackedSortMode === "discount" || trackedReorderMode) {
       return trackedProductCards;
@@ -561,6 +632,25 @@ export default function SiteAccountWorkspace({
         item.card.totalPrice > 0
     );
   }, [trackedProductCards, trackedSortMode, trackedReorderMode, showOutOfStockInTracked]);
+  const currentOpenedList =
+    selectedListId && openListId === selectedListId ? listDetailsMap[selectedListId] ?? null : null;
+  const editingList = listEditorId ? listDetailsMap[listEditorId] ?? null : null;
+  const canDragListItems = listSortMode === "manual";
+  const isCurrentListLoading = Boolean(
+    selectedListId && loadingListId === selectedListId && openListId !== selectedListId
+  );
+
+  useEffect(() => {
+    if (listTab !== "mine" || !selectedListId || openListId === selectedListId || loadingListId) {
+      return;
+    }
+
+    void openListViewer(selectedListId);
+  }, [listTab, selectedListId, openListId, loadingListId]);
+  useEffect(() => {
+    if (!currentOpenedList) return;
+    setShowInlineListAddProduct(false);
+  }, [currentOpenedList]);
   const listOrderSensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 160, tolerance: 8 } }),
@@ -577,32 +667,6 @@ export default function SiteAccountWorkspace({
     },
     []
   );
-
-  useEffect(() => {
-    if (lists.length === 0) return;
-
-    const visibleIds = new Set(addListOptions.map((list) => list.id));
-
-    if (addProductListId && visibleIds.has(addProductListId)) {
-      return;
-    }
-
-    const storedListId =
-      typeof window !== "undefined" ? window.localStorage.getItem(addProductListStorageKey) : null;
-    const nextListId =
-      (storedListId && visibleIds.has(storedListId) ? storedListId : null) ??
-      addListOptions[0]?.id ??
-      null;
-
-    if (nextListId && nextListId !== addProductListId) {
-      setAddProductListId(nextListId);
-    }
-  }, [addListOptions, addProductListId, addProductListStorageKey, defaultList?.id, lists]);
-
-  useEffect(() => {
-    if (!addProductListId || typeof window === "undefined") return;
-    window.localStorage.setItem(addProductListStorageKey, addProductListId);
-  }, [addProductListId, addProductListStorageKey]);
 
   function setMessage(message: string) {
     setWorkspaceMessage(message);
@@ -716,6 +780,10 @@ export default function SiteAccountWorkspace({
 
   async function addMonitoredProduct(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!currentOpenedList) {
+      setMessage("Abra uma lista para adicionar produtos.");
+      return;
+    }
     const amazonInputs = monitoredProductUrl
       .split(",")
       .map((input) => input.trim())
@@ -726,9 +794,9 @@ export default function SiteAccountWorkspace({
       return;
     }
 
-    const targetList = addProductList ?? addListOptions[0] ?? null;
+    const targetList = currentOpenedList;
     const targetListKnownAsins = new Set<string>();
-    const targetListDetails = targetList ? listDetailsMap[targetList.id] : null;
+    const targetListDetails = listDetailsMap[targetList.id];
     if (targetListDetails) {
       for (const item of targetListDetails.items) {
         targetListKnownAsins.add(item.product.asin.toUpperCase());
@@ -737,7 +805,6 @@ export default function SiteAccountWorkspace({
 
     setAddingMonitoredProduct(true);
     setMessage("");
-    setPostAddListPickerContext(null);
 
     try {
       const seenAsinsInBatch = new Set<string>();
@@ -745,8 +812,7 @@ export default function SiteAccountWorkspace({
       const existingAsins: string[] = [];
       const errorAsins: string[] = [];
       let latestComparatorPrompt: ComparatorPromptState | null = null;
-      let lastSuccessfulContext: ListPickerContext | null = null;
-      const selectedListTitle = targetList?.title ?? "Minha lista";
+      const selectedListTitle = targetList.title;
 
       for (const amazonInput of amazonInputs) {
         const asin = extractAmazonAsinFromInput(amazonInput) ?? amazonInput;
@@ -831,11 +897,6 @@ export default function SiteAccountWorkspace({
             } else {
               pushUnique(existingAsins, favoriteAsin);
             }
-            lastSuccessfulContext = {
-              productId: data.favorite.product.id,
-              productName: data.favorite.product.name,
-              initialSelectedListIds: resolvedListId ? [resolvedListId] : [],
-            };
           } else if (isAmazonResponse && data.monitoredProduct) {
             const monitoredAsin = data.monitoredProduct.product.asin.toUpperCase();
             const resolvedProduct = data.monitoredProduct.product;
@@ -876,11 +937,6 @@ export default function SiteAccountWorkspace({
               pushUnique(addedAsins, monitoredAsin);
             }
             targetListKnownAsins.add(monitoredAsin);
-            lastSuccessfulContext = {
-              monitoredProductId: data.monitoredProduct.id,
-              productName: data.monitoredProduct.product.name,
-              initialSelectedListIds: [resolvedListId],
-            };
           } else if (data.monitoredProduct) {
             const monitoredAsin = data.monitoredProduct.product.asin.toUpperCase();
             const resolvedProduct = data.monitoredProduct.product;
@@ -921,11 +977,6 @@ export default function SiteAccountWorkspace({
               pushUnique(addedAsins, monitoredAsin);
             }
             targetListKnownAsins.add(monitoredAsin);
-            lastSuccessfulContext = {
-              monitoredProductId: data.monitoredProduct.id,
-              productName: data.monitoredProduct.product.name,
-              initialSelectedListIds: [resolvedListId],
-            };
           } else {
             throw new Error(
               data.errorDetail || data.error || "monitored_product_create_failed"
@@ -950,8 +1001,7 @@ export default function SiteAccountWorkspace({
       setComparatorPrompt(latestComparatorPrompt);
 
       setMonitoredProductUrl("");
-      setPostAddListPickerContext(lastSuccessfulContext);
-      setPostAddListPickerOpen(false);
+      setShowInlineListAddProduct(false);
 
       const addedPart = `${addedAsins.length} produto${
         addedAsins.length === 1 ? "" : "s"
@@ -1101,6 +1151,7 @@ export default function SiteAccountWorkspace({
       [data.list!.id]: {
         title: data.list!.title,
         description: data.list!.description ?? "",
+        isPublic: data.list!.isPublic,
       },
     }));
 
@@ -1115,13 +1166,10 @@ export default function SiteAccountWorkspace({
     try {
       const createdList = await createListRecord({
         title: listTitle,
-        description: listDescription,
-        isPublic: listPublic,
+        isPublic: false,
       });
       setSelectedListId((current) => current ?? createdList.id);
       setListTitle("");
-      setListDescription("");
-      setListPublic(false);
       setShowCreateList(false);
       setMessage("Lista criada com sucesso.");
     } catch (error) {
@@ -1129,30 +1177,6 @@ export default function SiteAccountWorkspace({
       setMessage("Nao foi possivel criar a lista agora.");
     } finally {
       setCreatingList(false);
-    }
-  }
-
-  async function createQuickAddList() {
-    const title = quickListTitle.trim();
-    if (title.length < 2) {
-      setMessage("Digite um nome para a nova lista.");
-      return;
-    }
-
-    setCreatingQuickList(true);
-    setMessage("");
-
-    try {
-      const createdList = await createListRecord({ title });
-      setAddProductListId(createdList.id);
-      setQuickListTitle("");
-      setShowAddProductListComposer(false);
-      setMessage(`Lista "${createdList.title}" criada e selecionada.`);
-    } catch (error) {
-      console.error("quick_list_create_failed", error);
-      setMessage("Nao foi possivel criar a lista agora.");
-    } finally {
-      setCreatingQuickList(false);
     }
   }
 
@@ -1186,6 +1210,27 @@ export default function SiteAccountWorkspace({
   async function openListEditor(listId: string) {
     await loadListDetails(listId);
     setListEditorId(listId);
+    setListOrderMode(false);
+    setActiveListItemId(null);
+  }
+
+  async function openListViewer(listId: string) {
+    await loadListDetails(listId);
+    setListEditorId(null);
+    setListOrderMode(false);
+    setActiveListItemId(null);
+  }
+
+  async function openListReorder(listId: string) {
+    await loadListDetails(listId);
+    setListEditorId(listId);
+    setListSortMode("manual");
+    setListOrderMode(true);
+    setListSearchQuery("");
+    setActiveListItemId(null);
+    listOrderStockFilterBeforeEditRef.current = listStockFilter;
+    setListStockFilter("all");
+    setMessage("");
   }
 
   async function toggleListPublic(listId: string, nextValue: boolean) {
@@ -1243,6 +1288,7 @@ export default function SiteAccountWorkspace({
         body: JSON.stringify({
           title: form.title,
           description: form.description,
+          isPublic: form.isPublic,
         }),
       });
 
@@ -1255,11 +1301,12 @@ export default function SiteAccountWorkspace({
         current.map((list) =>
           list.id === listId
             ? {
-                ...list,
-                slug: data.list!.slug,
-                title: data.list!.title,
-                description: data.list!.description ?? null,
-              }
+              ...list,
+              slug: data.list!.slug,
+              title: data.list!.title,
+              description: data.list!.description ?? null,
+              isPublic: data.list!.isPublic,
+            }
             : list
         )
       );
@@ -1273,6 +1320,7 @@ export default function SiteAccountWorkspace({
             slug: data.list!.slug,
             title: data.list!.title,
             description: data.list!.description ?? null,
+            isPublic: data.list!.isPublic,
           },
         };
       });
@@ -1728,6 +1776,41 @@ export default function SiteAccountWorkspace({
     }
   }
 
+  async function moveListItemToList(
+    targetListId: string,
+    input: ListMoveContext
+  ) {
+    if (targetListId === input.listId) {
+      setMessage("O produto já está nessa lista.");
+      return;
+    }
+
+    setPendingAction(`move:${input.itemId}`);
+    setMessage("");
+
+    try {
+      await addTrackedProductToList(targetListId, {
+        productId: input.productId,
+        monitoredProductId: input.monitoredProductId,
+        resolvedProduct: input.resolvedProduct,
+      });
+
+      await removeListItem(input.listId, {
+        itemId: input.itemId,
+        productId: input.productId,
+        monitoredProductId: input.monitoredProductId,
+      });
+
+      setMessage("Produto movido para a outra lista.");
+    } catch (error) {
+      console.error("move_list_item_failed", error);
+      setMessage("Nao foi possivel mover o produto agora.");
+    } finally {
+      setPendingAction(null);
+      setListMoveContext(null);
+    }
+  }
+
   function updateListOrderInState(listId: string, orderedItemIds: string[]) {
     setListDetailsMap((current) => {
       const details = current[listId];
@@ -1831,8 +1914,8 @@ export default function SiteAccountWorkspace({
     if (!openedList) return;
     setListSortMode("manual");
     setListOrderMode(true);
-    listOrderShowOutOfStockBeforeEditRef.current = showOutOfStockInList;
-    setShowOutOfStockInList(true);
+    listOrderStockFilterBeforeEditRef.current = listStockFilter;
+    setListStockFilter("all");
     setMessage("");
   }
 
@@ -1852,9 +1935,9 @@ export default function SiteAccountWorkspace({
     await saveListOrder(openListId, orderedItemIds, { silent: true });
     setActiveListItemId(null);
     setListOrderMode(false);
-    if (listOrderShowOutOfStockBeforeEditRef.current !== null) {
-      setShowOutOfStockInList(listOrderShowOutOfStockBeforeEditRef.current);
-      listOrderShowOutOfStockBeforeEditRef.current = null;
+    if (listOrderStockFilterBeforeEditRef.current !== null) {
+      setListStockFilter(listOrderStockFilterBeforeEditRef.current);
+      listOrderStockFilterBeforeEditRef.current = null;
     }
   }
 
@@ -2173,457 +2256,108 @@ export default function SiteAccountWorkspace({
       <section className="rounded-[32px] border border-[#d5d9d9] bg-white p-6 shadow-sm md:p-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#FF8F1F]">
-              Adicionar produto
-            </p>
-            <h3 className="mt-2 text-3xl font-black text-[#0F1111]">Salvar na sua lista</h3>
-            <p className="mt-2 max-w-3xl text-sm text-[#565959]">
-              Cole o link ou o ASIN do produto da Amazon. Selecione a lista antes de salvar ou
-              deixe em Minha lista como fallback.
-            </p>
-          </div>
-
-          <div className="hidden flex-wrap gap-3">
-            {trackedProductCards.length > 1 ? (
-              <button
-                type="button"
-                onClick={() =>
-                  setTrackedSortMode((current) => (current === "manual" ? "discount" : "manual"))
-                }
-                disabled={trackedReorderMode}
-                className="inline-flex h-11 items-center justify-center rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-bold text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
-              >
-                {trackedSortMode === "discount" ? "Ordem manual" : "Maior desconto"}
-              </button>
-            ) : null}
-
-            {trackedProductCards.length > 1 ? (
-              <button
-                type="button"
-                onClick={() => {
-                  if (trackedReorderMode) {
-                    void finishTrackedReorder();
-                    return;
-                  }
-                  setTrackedSortMode("manual");
-                  setTrackedReorderMode(true);
-                  setTrackedReorderSelection([]);
-                }}
-                className={`inline-flex h-11 items-center justify-center rounded-2xl border px-4 text-sm font-bold transition ${
-                  trackedReorderMode
-                    ? "border-[#16A34A] bg-[#ECFDF3] text-[#166534] hover:bg-[#DCFCE7]"
-                    : "border-[#D0D5DD] bg-white text-[#0F1111] hover:bg-[#F8FAFA]"
-                }`}
-              >
-                {trackedReorderMode ? "Concluir organização" : "Personalizar ordem"}
-              </button>
-            ) : null}
-            {trackedReorderMode ? (
-              <button
-                type="button"
-                onClick={() => setTrackedReorderSelection([])}
-                className="inline-flex h-11 items-center justify-center rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-bold text-[#344054] transition hover:bg-[#F8FAFA]"
-              >
-                Limpar sequencia
-              </button>
-            ) : null}
-
-            <button
-              type="button"
-              onClick={() => setShowOutOfStockInTracked((current) => !current)}
-              className="inline-flex h-11 items-center justify-center rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-bold text-[#0F1111] transition hover:bg-[#F8FAFA]"
-            >
-              {showOutOfStockInTracked ? "Ocultar sem estoque" : "Exibir sem estoque"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setListPickerOpen((current) => !current);
-                setSelectedTrackedKeys([]);
-              }}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#0F1111] px-4 text-sm font-bold text-[#0F1111] transition hover:bg-[#F8FAFA]"
-            >
-              <ListPlus className="h-4 w-4" />
-              {listPickerOpen ? "Fechar listas" : "Adicionar a lista"}
-            </button>
-          </div>
-        </div>
-
-        {listPickerOpen ? (
-          <div className="mt-6 rounded-[28px] border border-[#E4E7EC] bg-[#FFF9E8] p-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#B54708]">
-                  Adicionar produtos a uma lista
-                </p>
-                <p className="mt-2 text-sm text-[#7A271A]">
-                  Escolha uma lista e clique nos produtos que voce quer incluir.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {lists.map((list) => (
-                  <button
-                    key={list.id}
-                    type="button"
-                    onClick={() => setSelectedListId(list.id)}
-                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                      selectedListId === list.id
-                        ? "bg-[#FF8F1F] text-white"
-                        : "border border-[#F3D6A3] bg-white text-[#7A271A]"
-                    }`}
-                  >
-                    {list.title}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <div className="rounded-full border border-[#F3D6A3] bg-white px-4 py-2 text-sm text-[#7A271A]">
-                Lista atual: <span className="font-bold">{selectedList?.title ?? "Nenhuma"}</span>
-              </div>
-              <div className="rounded-full border border-[#F3D6A3] bg-white px-4 py-2 text-sm text-[#7A271A]">
-                Selecionados: <span className="font-bold">{selectedTrackedKeys.length}</span>
-              </div>
-              <button
-                type="button"
-                onClick={addSelectedFavoritesToList}
-                disabled={!selectedListId || selectedTrackedKeys.length === 0 || !!pendingAction}
-                className="inline-flex h-10 items-center justify-center rounded-full bg-[#FF8F1F] px-4 text-sm font-bold text-white transition hover:bg-[#E07A13] disabled:opacity-60"
-              >
-                {pendingAction?.startsWith("bulk-add:") ? "Adicionando..." : "Adicionar selecionados"}
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {trackedProductCards.length === 0 ? (
-          <div className="hidden mt-6 rounded-3xl border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-4 py-10 text-center text-sm text-[#565959]">
-            Nenhum produto monitorado ainda.
-          </div>
-        ) : visibleTrackedProductCards.length === 0 ? (
-          <div className="hidden mt-6 rounded-3xl border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-4 py-10 text-center text-sm text-[#565959]">
-            Todos os produtos monitorados estao sem estoque no momento.
-          </div>
-        ) : (
-          <div className="hidden mt-6">
-            <div className="mb-4 flex flex-wrap items-center gap-3">
-              {!showOutOfStockInTracked ? (
-                <span className="text-sm text-[#667085]">
-                  Produtos sem estoque ficam ocultos por padrao.
-                </span>
-              ) : null}
-            </div>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-            {visibleTrackedProductCards.map((trackedItem, index) => {
-              const favorite = trackedItem.productId
-                ? favorites.find((entry) => entry.product.id === trackedItem.productId) ?? null
-                : null;
-              const isSelected = selectedTrackedKeys.includes(trackedItem.key);
-              const selectionOrder = selectedTrackedKeys.indexOf(trackedItem.key) + 1;
-
-              return (
-                <div
-                  key={trackedItem.key}
-                  data-tracked-key={trackedItem.key}
-                  className={`space-y-2 rounded-2xl transition ${
-                    trackedReorderMode
-                      ? "bg-[#ECFDF3] ring-2 ring-[#16A34A] ring-offset-2 ring-offset-[#E3E6E6]"
-                      : ""
-                  }`}
-                >
-                  <div
-                    className={`relative rounded-xl transition ${
-                      isSelected ? "ring-2 ring-[#FF8F1F] ring-offset-2 ring-offset-[#E3E6E6]" : ""
-                    }`}
-                  >
-                    <BestDealProductCard
-                      item={trackedItem.card}
-                      category="produtos_monitorados"
-                      showActions={false}
-                      disableNavigation={trackedReorderMode || listPickerOpen}
-                    />
-
-                    <div className="pointer-events-none absolute left-2 top-2 z-30">
-                      <div className="inline-flex items-center gap-1 rounded-full border border-[#D0D5DD] bg-white px-2.5 py-1 text-xs font-bold text-[#344054] shadow-sm">
-                        <GripVertical className="h-3.5 w-3.5" />
-                        {`Pos. ${index + 1}`}
-                      </div>
-                    </div>
-
-                    {listPickerOpen ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => toggleTrackedSelection(trackedItem.key)}
-                          className="absolute inset-0 z-20 rounded-xl"
-                          aria-label={`Selecionar ${trackedItem.card.name}`}
-                        />
-                        <div className="pointer-events-none absolute right-2 top-2 z-30">
-                          <div
-                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold shadow-sm ${
-                              isSelected
-                                ? "bg-[#FF8F1F] text-white"
-                                : "border border-[#D0D5DD] bg-white text-[#344054]"
-                            }`}
-                          >
-                            {isSelected ? (
-                              <>
-                                <Check className="h-3.5 w-3.5" />
-                                {`#${selectionOrder}`}
-                              </>
-                            ) : (
-                              <>
-                                <Plus className="h-3.5 w-3.5" />
-                                Selecionar
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </>
-                    ) : trackedReorderMode ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => toggleTrackedReorderSelection(trackedItem.key)}
-                          className="absolute inset-0 z-20 rounded-xl"
-                          aria-label={`Definir posição para ${trackedItem.card.name}`}
-                        />
-                        <div className="pointer-events-none absolute inset-0 z-10 rounded-xl border-2 border-dashed border-[#16A34A] bg-[#DCFCE7]/30" />
-                        {trackedReorderSelection.includes(trackedItem.key) ? (
-                          <div className="pointer-events-none absolute right-2 top-2 z-30 rounded-full bg-[#16A34A] px-2.5 py-1 text-xs font-black text-white shadow-sm">
-                            Nova pos. {trackedReorderSelection.indexOf(trackedItem.key) + 1}
-                          </div>
-                        ) : null}
-                      </>
-                    ) : null}
-                  </div>
-
-                  {!trackedReorderMode ? (
-                    trackedItem.source === "favorite" && favorite ? (
-                      <button
-                        type="button"
-                        onClick={() => removeFavorite(favorite.product.id)}
-                        disabled={pendingAction === `favorite:${favorite.product.id}`}
-                        className="w-full rounded-xl border border-[#FECDCA] bg-[#FEF3F2] px-3 py-2 text-xs font-bold text-[#B42318] transition hover:bg-[#FEE4E2] disabled:opacity-60"
-                      >
-                        {pendingAction === `favorite:${favorite.product.id}`
-                          ? "Removendo..."
-                          : "Remover"}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => removeMonitoredProduct(trackedItem.entryId)}
-                        disabled={pendingAction === `monitored:${trackedItem.entryId}`}
-                        className="w-full rounded-xl border border-[#FECDCA] bg-[#FEF3F2] px-3 py-2 text-xs font-bold text-[#B42318] transition hover:bg-[#FEE4E2] disabled:opacity-60"
-                      >
-                        {pendingAction === `monitored:${trackedItem.entryId}`
-                          ? "Removendo..."
-                          : "Remover"}
-                      </button>
-                    )
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-          </div>
-        )}
-
-        <div className="mt-6 space-y-4">
-          <form
-            onSubmit={addMonitoredProduct}
-            className="rounded-[28px] border border-[#E4E7EC] bg-[#F8FAFA] p-5"
-          >
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
-              <label className="block flex-1">
-                <span className="mb-2 block text-sm font-bold uppercase tracking-[0.14em] text-[#475467]">
-                  Adicionar produto
-                </span>
-                <input
-                  type="text"
-                  value={monitoredProductUrl}
-                  onChange={(event) => setMonitoredProductUrl(event.target.value)}
-                  placeholder="Cole o link ou o ASIN do produto da Amazon"
-                  className="h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm text-[#0F1111] outline-none transition focus:border-[#F3A847]"
-                />
-              </label>
-
-              <label className="block min-w-0 lg:w-[230px]">
-                <span className="mb-2 block text-sm font-bold uppercase tracking-[0.14em] text-[#475467]">
-                  Lista
-                </span>
-                <select
-                  value={addProductListId && addListOptions.some((list) => list.id === addProductListId)
-                    ? addProductListId
-                    : addListOptions[0]?.id ?? ""}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    if (value === "__new__") {
-                      setShowAddProductListComposer(true);
-                      return;
-                    }
-                    setShowAddProductListComposer(false);
-                    setAddProductListId(value);
-                  }}
-                  className="h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm text-[#0F1111] outline-none transition focus:border-[#F3A847]"
-                >
-                  {addListOptions.map((list) => (
-                    <option key={list.id} value={list.id}>
-                      {list.isDefault ? "Minha lista" : list.title}
-                    </option>
-                  ))}
-                  <option value="__new__">+ Nova lista</option>
-                </select>
-              </label>
-
-              <button
-                type="submit"
-                disabled={addingMonitoredProduct}
-                className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#FFD814] px-5 text-sm font-black text-[#0F1111] transition hover:bg-[#F7CA00] disabled:opacity-70"
-              >
-                {addingMonitoredProduct ? "Adicionando..." : "Adicionar"}
-              </button>
-            </div>
-            {showAddProductListComposer ? (
-              <div className="mt-3 flex flex-col gap-2 rounded-2xl border border-[#D0D5DD] bg-white p-3 sm:flex-row sm:items-center">
-                <input
-                  autoFocus
-                  type="text"
-                  value={quickListTitle}
-                  onChange={(event) => setQuickListTitle(event.target.value)}
-                  placeholder="Nome da nova lista"
-                  className="h-11 flex-1 rounded-xl border border-[#D0D5DD] px-4 text-sm outline-none transition focus:border-[#F3A847]"
-                />
-                <button
-                  type="button"
-                  onClick={() => void createQuickAddList()}
-                  disabled={creatingQuickList}
-                  className="inline-flex h-11 items-center justify-center rounded-xl bg-[#0F1111] px-4 text-sm font-bold text-white transition hover:bg-[#1F2937] disabled:opacity-60"
-                >
-                  {creatingQuickList ? "Criando..." : "Criar e usar"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddProductListComposer(false);
-                    setQuickListTitle("");
-                  }}
-                  className="inline-flex h-11 items-center justify-center rounded-xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-[#F8FAFA]"
-                >
-                  Cancelar
-                </button>
-              </div>
-            ) : null}
-            <p className="mt-3 text-sm text-[#565959]">
-              Cole um link da Amazon ou ASIN para acompanhar variações de preço, estoque e ofertas. Para vários produtos, separe por vírgula.
-            </p>
-          </form>
-
-          {workspaceMessage ? (
-            <div className="flex flex-col gap-3 rounded-2xl border border-[#d5d9d9] bg-white px-4 py-3 text-sm font-medium text-[#475467] shadow-sm sm:flex-row sm:items-center sm:justify-between">
-              <p>{workspaceMessage}</p>
-              {postAddListPickerContext ? (
-                <button
-                  type="button"
-                  onClick={() => setPostAddListPickerOpen(true)}
-                  className="inline-flex h-9 items-center justify-center rounded-full bg-[#FFD814] px-3 text-xs font-black text-[#0F1111] transition hover:bg-[#F7CA00]"
-                >
-                  Alterar
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-
-        </div>
-      </section>
-
-      <section className="rounded-[32px] border border-[#d5d9d9] bg-white p-6 shadow-sm md:p-8">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
             <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#FF8F1F]">Listas</p>
-            <h3 className="mt-2 text-3xl font-black text-[#0F1111]">Organize e compartilhe</h3>
+            <h3 className="mt-2 text-3xl font-black text-[#0F1111]">Suas listas</h3>
             <p className="mt-2 max-w-3xl text-sm text-[#565959]">
-              Crie listas proprias, edite ordem de produtos e acompanhe tambem as listas que voce salvou.
+              Crie e organize suas listas.
             </p>
           </div>
 
           <button
             type="button"
-            onClick={() => setShowCreateList((current) => !current)}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#FFD814] px-4 text-sm font-black text-[#0F1111] transition hover:bg-[#F7CA00]"
+            onClick={() => setShowCreateList(true)}
+            className="inline-flex h-10 items-center justify-center rounded-full px-1 text-sm font-semibold text-[#2162A1] transition hover:text-[#174e87]"
           >
-            <Plus className="h-4 w-4" />
-            {showCreateList ? "Fechar criacao" : "Nova lista"}
+            Criar uma lista
           </button>
         </div>
 
-        <div className="mt-6 flex gap-2">
-          <button
-            type="button"
-            onClick={() => setListTab("mine")}
-            className={`rounded-full px-4 py-2 text-sm font-bold transition ${
-              listTab === "mine"
-                ? "bg-[#0F1111] text-white"
-                : "border border-[#D0D5DD] bg-white text-[#344054]"
-            }`}
-          >
-            Minhas listas
-          </button>
-          <button
-            type="button"
-            onClick={() => setListTab("saved")}
-            className={`rounded-full px-4 py-2 text-sm font-bold transition ${
-              listTab === "saved"
-                ? "bg-[#0F1111] text-white"
-                : "border border-[#D0D5DD] bg-white text-[#344054]"
-            }`}
-          >
-            Listas salvas
-          </button>
+        <div className="mt-6 border-b border-[#EAECF0]">
+          <div className="-mb-px flex gap-6 overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => setListTab("mine")}
+              className={`border-b-2 px-1 pb-3 text-base font-bold transition ${
+                listTab === "mine"
+                  ? "border-[#2162A1] text-[#0F1111]"
+                  : "border-transparent text-[#667085] hover:text-[#0F1111]"
+              }`}
+            >
+              Minhas listas
+            </button>
+            <button
+              type="button"
+              onClick={() => setListTab("saved")}
+              className={`border-b-2 px-1 pb-3 text-base font-bold transition ${
+                listTab === "saved"
+                  ? "border-[#2162A1] text-[#0F1111]"
+                  : "border-transparent text-[#667085] hover:text-[#0F1111]"
+              }`}
+            >
+              Listas salvas
+            </button>
+          </div>
         </div>
 
         {showCreateList && listTab === "mine" ? (
-          <form onSubmit={createList} className="mt-6 rounded-[28px] border border-[#EAECF0] bg-[#F8FAFA] p-5">
-            <div className="grid gap-4 lg:grid-cols-[1fr_1fr_auto]">
-              <input
-                type="text"
-                value={listTitle}
-                onChange={(event) => setListTitle(event.target.value)}
-                placeholder="Ex.: Wheys para testar"
-                className="h-12 rounded-2xl border border-[#D0D5DD] px-4 text-sm outline-none transition focus:border-[#F3A847]"
-                required
-              />
-              <input
-                type="text"
-                value={listDescription}
-                onChange={(event) => setListDescription(event.target.value)}
-                placeholder="Descricao opcional"
-                className="h-12 rounded-2xl border border-[#D0D5DD] px-4 text-sm outline-none transition focus:border-[#F3A847]"
-              />
-              <label className="inline-flex items-center gap-2 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-medium text-[#344054]">
-                <input
-                  type="checkbox"
-                  checked={listPublic}
-                  onChange={(event) => setListPublic(event.target.checked)}
-                />
-                Publica
-              </label>
-            </div>
+          <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/55 px-4 py-6">
+            <div className="w-full max-w-[640px] overflow-hidden rounded-[18px] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+              <div className="flex items-center justify-between border-b border-[#D5D9D9] px-5 py-4">
+                <h4 className="text-[22px] font-black text-[#0F1111]">Criar uma nova lista</h4>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateList(false)}
+                  className="rounded-full p-1 text-[#565959] transition hover:bg-[#F5F5F5] hover:text-[#0F1111]"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
 
-            <div className="mt-4 flex justify-end">
-              <button
-                type="submit"
-                disabled={creatingList}
-                className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#0F1111] px-5 text-sm font-bold text-white transition hover:bg-[#1F2937] disabled:opacity-70"
+              <form
+                onSubmit={createList}
+                className="space-y-5 px-5 py-5 md:px-6 md:py-6"
               >
-                {creatingList ? "Criando..." : "Criar lista"}
-              </button>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-[#0F1111]">
+                    Nome da lista (obrigatório)
+                  </label>
+                  <input
+                    type="text"
+                    value={listTitle}
+                    onChange={(event) => setListTitle(event.target.value)}
+                    placeholder="Lista de Compras 3"
+                    className="h-12 w-full rounded-2xl border border-[#D0D5DD] px-4 text-sm outline-none transition focus:border-[#2162A1]"
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <p className="text-sm leading-6 text-[#0F1111]">
+                    Use listas para salvar itens para mais tarde. Todas as listas são privadas,
+                    a menos que você as compartilhe com outras pessoas.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateList(false)}
+                    className="inline-flex h-11 items-center justify-center rounded-full border border-[#D0D5DD] bg-white px-5 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creatingList}
+                    className="inline-flex h-11 items-center justify-center rounded-full bg-[#FFD814] px-5 text-sm font-black text-[#0F1111] transition hover:bg-[#F7CA00] disabled:opacity-70"
+                  >
+                    {creatingList ? "Criando..." : "Criar"}
+                  </button>
+                </div>
+              </form>
             </div>
-          </form>
+          </div>
         ) : null}
 
         {listTab === "mine" ? (
@@ -2632,318 +2366,707 @@ export default function SiteAccountWorkspace({
               Nenhuma lista criada ainda.
             </div>
           ) : (
-            <div className="mt-6 space-y-4">
-              {lists.map((list) => {
-                const isEditing = listEditorId === list.id;
-                const form = listForms[list.id] ?? {
-                  title: list.title,
-                  description: list.description ?? "",
-                };
+            <div className="mt-6 overflow-hidden rounded-[30px] border border-[#D8DEE6] bg-white shadow-sm">
+              <div className="grid xl:grid-cols-[280px_minmax(0,1fr)]">
+                <aside className="border-b border-[#EAECF0] bg-[#FAFBFC] xl:border-b-0 xl:border-r">
+                  <div className="border-b border-[#EAECF0] px-4 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#007185]">
+                        Suas listas
+                      </p>
+                    </div>
+                  </div>
 
-                return (
-                  <div key={list.id}>
-                    <div className="rounded-[28px] border border-[#EAECF0] bg-[#FCFCFD] p-5">
-                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                      <div className="min-w-0 flex-1">
-                        {isEditing ? (
-                          <div className="grid gap-3 md:grid-cols-[1.2fr_1fr]">
-                            <input
-                              type="text"
-                              value={form.title}
-                              onChange={(event) =>
-                                setListForms((current) => ({
-                                  ...current,
-                                  [list.id]: { ...form, title: event.target.value },
-                                }))
-                              }
-                              className="h-11 rounded-2xl border border-[#D0D5DD] px-4 text-sm outline-none transition focus:border-[#F3A847]"
-                            />
-                            <input
-                              type="text"
-                              value={form.description}
-                              onChange={(event) =>
-                                setListForms((current) => ({
-                                  ...current,
-                                  [list.id]: { ...form, description: event.target.value },
-                                }))
-                              }
-                              className="h-11 rounded-2xl border border-[#D0D5DD] px-4 text-sm outline-none transition focus:border-[#F3A847]"
-                              placeholder="Descricao"
-                            />
-                          </div>
-                        ) : (
-                          <>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h4 className="text-2xl font-black text-[#0F1111]">{list.title}</h4>
+                  <div className="px-3 py-3">
+                    <div className="flex gap-3 overflow-x-auto pb-1 xl:flex-col xl:overflow-visible">
+                      {lists.map((list) => {
+                        const selected = selectedListId === list.id;
+                        return (
+                          <button
+                            key={list.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedListId(list.id);
+                              void openListViewer(list.id);
+                            }}
+                            className={`min-w-[240px] rounded-[18px] border px-4 py-3 text-left transition xl:min-w-0 ${
+                              selected
+                                ? "border-[#D8DEE6] bg-[#F3F4F6]"
+                                : "border-[#E5E7EB] bg-white hover:border-[#D0D5DD] hover:bg-[#FCFCFD]"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-bold text-[#0F1111]">
+                                  {list.title}
+                                </p>
+                                <p className="mt-1 line-clamp-1 text-xs text-[#667085]">
+                                  {list.description ?? (list.isDefault ? "Lista padrão" : "Sem descrição")}
+                                </p>
+                              </div>
                               <span
-                                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${
+                                className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${
                                   list.isPublic
                                     ? "bg-[#ECFDF3] text-[#027A48]"
                                     : "bg-[#F2F4F7] text-[#475467]"
                                 }`}
                               >
-                                {list.isPublic ? <Globe className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
-                                {list.isPublic ? "Publica" : "Privada"}
-                              </span>
-                              <span className="rounded-full bg-[#F2F4F7] px-3 py-1 text-xs font-bold text-[#344054]">
-                                {list.itemsCount} produto{list.itemsCount === 1 ? "" : "s"}
+                                {list.isPublic ? "Pública" : "Privada"}
                               </span>
                             </div>
-                            {list.description ? (
-                              <p className="mt-2 text-sm text-[#565959]">{list.description}</p>
-                            ) : (
-                              <p className="mt-2 text-sm text-[#98A2B3]">Sem descricao.</p>
-                            )}
-                          </>
-                        )}
-                      </div>
+                            {selected ? (
+                              <div className="mt-2 text-xs font-semibold text-[#2162A1]">Selecionada</div>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </aside>
 
-                      <div className="flex flex-wrap gap-2">
-                        {isEditing ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => saveListEdits(list.id)}
-                              disabled={pendingAction === `edit:${list.id}`}
-                              className="inline-flex h-10 items-center justify-center rounded-2xl bg-[#0F1111] px-4 text-sm font-bold text-white transition hover:bg-[#1F2937] disabled:opacity-60"
-                            >
-                              {pendingAction === `edit:${list.id}` ? "Salvando..." : "Salvar"}
-                            </button>
+                <div className="min-w-0 bg-white">
+                  {isCurrentListLoading ? (
+                    <div className="space-y-4 p-4 md:p-5">
+                      <div className="h-6 w-32 animate-pulse rounded-full bg-[#EEF2F6]" />
+                      <div className="h-10 w-72 animate-pulse rounded-2xl bg-[#EEF2F6]" />
+                      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_220px]">
+                        <div className="h-11 animate-pulse rounded-2xl bg-[#EEF2F6]" />
+                        <div className="h-11 animate-pulse rounded-2xl bg-[#EEF2F6]" />
+                        <div className="h-11 animate-pulse rounded-2xl bg-[#EEF2F6]" />
+                      </div>
+                      <div className="space-y-3">
+                        {[0, 1].map((item) => (
+                          <div
+                            key={item}
+                            className="grid gap-4 rounded-[24px] border border-[#EAECF0] p-4 lg:grid-cols-[104px_minmax(0,1fr)_210px]"
+                          >
+                            <div className="aspect-square animate-pulse rounded-2xl bg-[#EEF2F6]" />
+                            <div className="space-y-2">
+                              <div className="h-4 w-24 animate-pulse rounded-full bg-[#EEF2F6]" />
+                              <div className="h-6 w-3/4 animate-pulse rounded-full bg-[#EEF2F6]" />
+                              <div className="h-4 w-1/2 animate-pulse rounded-full bg-[#EEF2F6]" />
+                            </div>
+                            <div className="space-y-2">
+                              <div className="h-14 animate-pulse rounded-2xl bg-[#EEF2F6]" />
+                              <div className="h-10 animate-pulse rounded-full bg-[#EEF2F6]" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : currentOpenedList ? (
+                    <>
+                      <div className="border-b border-[#EAECF0] px-4 py-4 md:px-5">
+                        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${
+                                  currentOpenedList.isPublic
+                                    ? "bg-[#ECFDF3] text-[#027A48]"
+                                    : "bg-[#F2F4F7] text-[#475467]"
+                                }`}
+                              >
+                                {currentOpenedList.isPublic ? (
+                                  <Globe className="h-3.5 w-3.5" />
+                                ) : (
+                                  <Lock className="h-3.5 w-3.5" />
+                                )}
+                                {currentOpenedList.isPublic ? "Pública" : "Privada"}
+                              </span>
+                            </div>
+                            <h4 className="mt-3 text-[24px] font-black leading-tight text-[#0F1111]">
+                              {currentOpenedList.title}
+                            </h4>
+                            {currentOpenedList.description ? (
+                              <p className="mt-2 max-w-3xl text-sm text-[#565959]">
+                                {currentOpenedList.description}
+                              </p>
+                            ) : (
+                              <p className="mt-2 text-sm text-[#98A2B3]">Sem descrição.</p>
+                            )}
+                          </div>
+
+                          <div className="relative flex flex-wrap items-start gap-2" data-list-menu-root={currentOpenedList.id}>
+                            {!listOrderMode ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMonitoredProductUrl("");
+                                  setShowInlineListAddProduct(true);
+                                }}
+                                className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                              >
+                                <Plus className="h-4 w-4" />
+                                Adicionar produto
+                              </button>
+                            ) : null}
+
+                            {listEditorId === currentOpenedList.id && !listOrderMode ? (
+                              <button
+                                type="button"
+                                onClick={() => setListEditorId(null)}
+                                className="inline-flex h-10 items-center justify-center rounded-full border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#344054] transition hover:bg-[#F8FAFA]"
+                              >
+                                Cancelar edição
+                              </button>
+                            ) : null}
+
+                            {listOrderMode ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setListOrderMode(false);
+                                  setListEditorId(null);
+                                  setActiveListItemId(null);
+                                  if (listOrderStockFilterBeforeEditRef.current !== null) {
+                                    setListStockFilter(listOrderStockFilterBeforeEditRef.current);
+                                    listOrderStockFilterBeforeEditRef.current = null;
+                                  }
+                                }}
+                                className="inline-flex h-10 items-center justify-center rounded-full bg-[#0F1111] px-4 text-sm font-bold text-white transition hover:bg-[#1F2937]"
+                                >
+                                Concluir reordenação
+                              </button>
+                            ) : null}
+
                             <button
                               type="button"
                               onClick={() => {
-                                setListEditorId(null);
-                                setListForms((current) => ({
-                                  ...current,
-                                  [list.id]: {
-                                    title: list.title,
-                                    description: list.description ?? "",
-                                  },
-                                }));
+                                setActiveListMenuId(null);
+                                void openListEditor(currentOpenedList.id);
                               }}
-                              className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
-                            >
-                              Cancelar
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => void openListEditor(list.id)}
-                              disabled={loadingListId === list.id}
-                              className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-white disabled:opacity-60"
+                              aria-label="Editar lista"
+                              disabled={loadingListId === currentOpenedList.id}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#D0D5DD] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
                             >
                               <Pencil className="h-4 w-4" />
-                              {loadingListId === list.id ? "Abrindo..." : "Editar"}
                             </button>
 
                             <button
                               type="button"
-                              onClick={() => toggleListPublic(list.id, !list.isPublic)}
-                              disabled={pendingAction === `visibility:${list.id}`}
-                              className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-white disabled:opacity-60"
+                              onClick={() =>
+                                setActiveListMenuId((current) =>
+                                  current === currentOpenedList.id ? null : currentOpenedList.id
+                                )
+                              }
+                              aria-haspopup="menu"
+                              aria-expanded={activeListMenuId === currentOpenedList.id}
+                              disabled={loadingListId === currentOpenedList.id}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#D0D5DD] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
                             >
-                              {list.isPublic ? <Lock className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
-                              {list.isPublic ? "Privada" : "Publica"}
+                              <MoreHorizontal className="h-4 w-4" />
                             </button>
 
-                            <button
-                              type="button"
-                              onClick={() => deleteList(list.id)}
-                              disabled={pendingAction === `delete:${list.id}`}
-                              className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#FECDCA] bg-[#FEF3F2] px-4 text-sm font-bold text-[#B42318] transition hover:bg-[#FEE4E2] disabled:opacity-60"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              {pendingAction === `delete:${list.id}` ? "Excluindo..." : "Excluir"}
-                            </button>
-
-                            {list.isPublic ? (
-                              <Link
-                                href={
-                                  currentUser.username
-                                    ? buildPublicListPath(currentUser.username, list.slug)
-                                    : `/listas/${list.slug}`
-                                }
-                                className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-white"
-                              >
-                                <ExternalLink className="h-4 w-4" />
-                                Abrir link
-                              </Link>
-                            ) : null}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    </div>
-
-                    {openedList && listEditorId === list.id ? (
-                      <div className="mt-4 rounded-[28px] border border-[#EAECF0] bg-[#F8FAFA] p-5">
-                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                          <div>
-                            <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#FF8F1F]">
-                              Editando lista
-                            </p>
-                            <h4 className="mt-2 text-2xl font-black text-[#0F1111]">{openedList.title}</h4>
-                            <p className="mt-1 text-sm text-[#565959]">
-                              Organize os produtos na ordem em que eles devem aparecer na lista publica.
-                            </p>
-                          </div>
-
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                if (listOrderMode) {
-                                  await finishListReorder();
-                                  return;
-                                }
-                                beginListReorder();
-                              }}
-                              className={`inline-flex h-10 items-center justify-center rounded-2xl border px-4 text-sm font-semibold transition ${
-                                listOrderMode
-                                  ? "border-[#16A34A] bg-[#ECFDF3] text-[#166534] hover:bg-[#D1FADF]"
-                                  : "border-[#D0D5DD] text-[#344054] hover:bg-white"
-                              }`}
-                            >
-                              {listOrderMode ? "Concluir edição" : "Reordenar lista"}
-                            </button>
-                            {openedList.items.length > 1 ? (
-                              listOrderMode ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={() => sortCurrentList(openedList.id, "price")}
-                                    className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
-                                  >
-                                    <ArrowUp className="h-4 w-4" />
-                                    <span>Ordenar por preço</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => sortCurrentList(openedList.id, "discount")}
-                                    className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
-                                  >
-                                    <ArrowDown className="h-4 w-4" />
-                                    <span>Ordenar por desconto</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => sortCurrentList(openedList.id, "alpha")}
-                                    className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
-                                  >
-                                    <GripVertical className="h-4 w-4" />
-                                    <span>Ordem alfabética</span>
-                                  </button>
-                                </>
-                              ) : (
+                            {activeListMenuId === currentOpenedList.id ? (
+                              <div className="absolute right-0 top-12 z-20 w-60 overflow-hidden rounded-2xl border border-[#D0D5DD] bg-white shadow-[0_18px_40px_rgba(15,17,17,0.12)]">
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    setListSortMode((current) => (current === "manual" ? "discount" : "manual"))
-                                  }
-                                  disabled={listOrderMode}
-                                  className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white disabled:opacity-60"
+                                  onClick={async () => {
+                                    setActiveListMenuId(null);
+                                    await openListReorder(currentOpenedList.id);
+                                  }}
+                                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
                                 >
-                                  {listSortMode === "discount" ? "Ordem manual" : "Maior desconto"}
+                                  <GripVertical className="h-4 w-4 text-[#667085]" />
+                                  Reordenar
                                 </button>
-                              )
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    setActiveListMenuId(null);
+                                    await toggleListPublic(
+                                      currentOpenedList.id,
+                                      !currentOpenedList.isPublic
+                                    );
+                                  }}
+                                  disabled={pendingAction === `visibility:${currentOpenedList.id}`}
+                                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
+                                >
+                                  {currentOpenedList.isPublic ? (
+                                    <Lock className="h-4 w-4 text-[#667085]" />
+                                  ) : (
+                                    <Globe className="h-4 w-4 text-[#667085]" />
+                                  )}
+                                  {currentOpenedList.isPublic ? "Tornar privada" : "Tornar pública"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    setActiveListMenuId(null);
+                                    await deleteList(currentOpenedList.id);
+                                  }}
+                                  disabled={pendingAction === `delete:${currentOpenedList.id}`}
+                                  className="flex w-full items-center gap-3 border-t border-[#EAECF0] px-4 py-3 text-left text-sm font-semibold text-[#B42318] transition hover:bg-[#FEF3F2] disabled:opacity-60"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  {pendingAction === `delete:${currentOpenedList.id}`
+                                    ? "Excluindo..."
+                                    : "Excluir"}
+                                </button>
+                              </div>
                             ) : null}
-                            {listOrderMode ? (
-                              <span className="inline-flex h-10 items-center rounded-2xl border border-dashed border-[#86EFAC] bg-[#F0FDF4] px-4 text-sm font-semibold text-[#166534]">
-                                Arraste pelo icone ou use as setas
-                              </span>
-                            ) : null}
-
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                if (listOrderMode) {
-                                  await flushListOrderSave();
-                                  if (listOrderShowOutOfStockBeforeEditRef.current !== null) {
-                                    setShowOutOfStockInList(listOrderShowOutOfStockBeforeEditRef.current);
-                                    listOrderShowOutOfStockBeforeEditRef.current = null;
-                                  }
-                                }
-                                setListEditorId(null);
-                                setOpenListId(null);
-                                setListOrderMode(false);
-                              }}
-                              className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-white"
-                            >
-                              Fechar edicao
-                            </button>
                           </div>
                         </div>
 
-                        {visibleOpenedListItems.length === 0 ? (
-                          <div className="mt-5 rounded-3xl border border-dashed border-[#D0D5DD] bg-white px-4 py-10 text-center text-sm text-[#565959]">
-                            {openedList.items.length === 0
-                              ? "Essa lista ainda nao tem produtos."
-                              : "Todos os produtos desta lista estao sem estoque no momento."}
+                        {showInlineListAddProduct && !listOrderMode ? (
+                          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[#0F1111]/45 px-4 py-6">
+                            <div className="w-full max-w-xl overflow-hidden rounded-[28px] border border-[#D8DEE6] bg-white shadow-[0_24px_70px_rgba(15,17,17,0.22)]">
+                              <div className="flex items-start justify-between gap-4 border-b border-[#EAECF0] px-5 py-4">
+                                <div>
+                                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#007185]">
+                                    Adicionar à lista
+                                  </p>
+                                  <h4 className="mt-2 text-[20px] font-black text-[#0F1111]">
+                                    {currentOpenedList.title}
+                                  </h4>
+                                  <p className="mt-1 text-sm text-[#667085]">
+                                    Cole um link da Amazon ou o ASIN. O produto entra direto nesta lista.
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowInlineListAddProduct(false)}
+                                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#D0D5DD] text-[#344054] transition hover:bg-[#F8FAFA]"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+
+                              <form onSubmit={addMonitoredProduct} className="space-y-4 px-5 py-5">
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  value={monitoredProductUrl}
+                                  onChange={(event) => setMonitoredProductUrl(event.target.value)}
+                                  placeholder="Cole o link ou o ASIN do produto da Amazon"
+                                  className="h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm text-[#0F1111] outline-none transition focus:border-[#F3A847]"
+                                />
+
+                                <div className="flex items-center justify-end gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowInlineListAddProduct(false)}
+                                    className="inline-flex h-11 items-center justify-center rounded-full border border-[#D0D5DD] px-4 text-sm font-semibold text-[#344054] transition hover:bg-[#F8FAFA]"
+                                  >
+                                    Cancelar
+                                  </button>
+                                  <button
+                                    type="submit"
+                                    disabled={addingMonitoredProduct}
+                                    className="inline-flex h-11 items-center justify-center rounded-full bg-[#FFD814] px-5 text-sm font-black text-[#0F1111] transition hover:bg-[#F7CA00] disabled:opacity-70"
+                                  >
+                                    {addingMonitoredProduct ? "Adicionando..." : "Adicionar"}
+                                  </button>
+                                </div>
+                              </form>
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {editingList && listEditorId === editingList.id && !listOrderMode ? (
+                          <div className="fixed inset-0 z-[125] flex items-center justify-center bg-[#0F1111]/45 px-4 py-6">
+                            <div className="w-full max-w-[640px] overflow-hidden rounded-[18px] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+                              <div className="flex items-center justify-between border-b border-[#D5D9D9] px-5 py-4">
+                                <h4 className="text-[22px] font-black text-[#0F1111]">Editar lista</h4>
+                                <button
+                                  type="button"
+                                  onClick={() => setListEditorId(null)}
+                                  className="rounded-full p-1 text-[#565959] transition hover:bg-[#F5F5F5] hover:text-[#0F1111]"
+                                >
+                                  <X className="h-5 w-5" />
+                                </button>
+                              </div>
+
+                              <form
+                                onSubmit={(event) => {
+                                  event.preventDefault();
+                                  void saveListEdits(editingList.id);
+                                }}
+                                className="space-y-5 px-5 py-5 md:px-6 md:py-6"
+                              >
+                                <div>
+                                  <label className="mb-2 block text-sm font-semibold text-[#0F1111]">
+                                    Nome da lista
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={listForms[editingList.id]?.title ?? editingList.title}
+                                    onChange={(event) =>
+                                      setListForms((current) => ({
+                                        ...current,
+                                        [editingList.id]: {
+                                          title: event.target.value,
+                                          description:
+                                            current[editingList.id]?.description ??
+                                            editingList.description ??
+                                            "",
+                                          isPublic:
+                                            current[editingList.id]?.isPublic ?? editingList.isPublic,
+                                        },
+                                      }))
+                                    }
+                                    className="h-12 w-full rounded-2xl border border-[#D0D5DD] px-4 text-sm outline-none transition focus:border-[#2162A1]"
+                                    placeholder="Nome da lista"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="mb-2 block text-sm font-semibold text-[#0F1111]">
+                                    Privacidade
+                                  </label>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    {[
+                                      { value: false, label: "Particular" },
+                                      { value: true, label: "Pública" },
+                                    ].map((option) => {
+                                      const checked =
+                                        (listForms[editingList.id]?.isPublic ?? editingList.isPublic) ===
+                                        option.value;
+
+                                      return (
+                                        <label
+                                          key={option.label}
+                                          className={`flex cursor-pointer items-center justify-between rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                                            checked
+                                              ? "border-[#2162A1] bg-[#EEF5FC] text-[#0F1111]"
+                                              : "border-[#D0D5DD] bg-white text-[#344054] hover:bg-[#F8FAFA]"
+                                          }`}
+                                        >
+                                          <span>{option.label}</span>
+                                          <input
+                                            type="radio"
+                                            name={`list-privacy-${editingList.id}`}
+                                            checked={checked}
+                                            onChange={() =>
+                                              setListForms((current) => ({
+                                                ...current,
+                                                [editingList.id]: {
+                                                  title:
+                                                    current[editingList.id]?.title ?? editingList.title,
+                                                  description:
+                                                    current[editingList.id]?.description ??
+                                                    editingList.description ??
+                                                    "",
+                                                  isPublic: option.value,
+                                                },
+                                              }))
+                                            }
+                                            className="h-4 w-4 accent-[#2162A1]"
+                                          />
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="mb-2 block text-sm font-semibold text-[#0F1111]">
+                                    Descrição
+                                  </label>
+                                  <textarea
+                                    value={
+                                      listForms[editingList.id]?.description ??
+                                      editingList.description ??
+                                      ""
+                                    }
+                                    onChange={(event) =>
+                                      setListForms((current) => ({
+                                        ...current,
+                                        [editingList.id]: {
+                                          title:
+                                            current[editingList.id]?.title ?? editingList.title,
+                                          description: event.target.value,
+                                          isPublic:
+                                            current[editingList.id]?.isPublic ?? editingList.isPublic,
+                                        },
+                                      }))
+                                    }
+                                    rows={4}
+                                    placeholder="Descrição opcional"
+                                    className="w-full rounded-2xl border border-[#D0D5DD] px-4 py-3 text-sm outline-none transition focus:border-[#2162A1]"
+                                  />
+                                </div>
+
+                                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setListEditorId(null);
+                                      setActiveListMenuId(null);
+                                    }}
+                                    className="inline-flex h-11 items-center justify-center rounded-full border border-[#D0D5DD] bg-white px-5 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                                  >
+                                    Cancelar
+                                  </button>
+
+                                  <div className="flex flex-wrap items-center gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        setListEditorId(null);
+                                        await deleteList(editingList.id);
+                                      }}
+                                      className="inline-flex h-11 items-center justify-center rounded-full border border-[#FECDCA] bg-white px-5 text-sm font-semibold text-[#B42318] transition hover:bg-[#FEF3F2]"
+                                    >
+                                      Excluir lista
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => void saveListEdits(editingList.id)}
+                                      disabled={pendingAction === `edit:${editingList.id}`}
+                                      className="inline-flex h-11 items-center justify-center rounded-full bg-[#FFD814] px-5 text-sm font-black text-[#0F1111] transition hover:bg-[#F7CA00] disabled:opacity-60"
+                                    >
+                                      {pendingAction === `edit:${editingList.id}`
+                                        ? "Salvando..."
+                                        : "Salvar alterações"}
+                                    </button>
+                                  </div>
+                                </div>
+                              </form>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div className="px-4 py-4 md:px-5">
+                        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_190px_220px]">
+                          <label className="relative block">
+                            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98A2B3]" />
+                            <input
+                              type="search"
+                              value={listSearchQuery}
+                              onChange={(event) => setListSearchQuery(event.target.value)}
+                              placeholder="Buscar nesta lista"
+                              disabled={listOrderMode}
+                              className="h-11 w-full rounded-2xl border border-[#D0D5DD] bg-white pl-11 pr-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
+                            />
+                          </label>
+                          <select
+                            value={listStockFilter}
+                            onChange={(event) =>
+                              setListStockFilter(
+                                event.target.value === "out_of_stock" ||
+                                  event.target.value === "all"
+                                  ? event.target.value
+                                  : "in_stock"
+                              )
+                            }
+                            disabled={listOrderMode}
+                            className="h-11 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
+                          >
+                            <option value="in_stock">Mostrar: Em estoque</option>
+                            <option value="out_of_stock">Mostrar: Sem estoque</option>
+                            <option value="all">Mostrar: Todos os itens</option>
+                          </select>
+                          <select
+                            value={listSortMode}
+                            onChange={(event) =>
+                              event.target.value === "manual"
+                                ? beginListReorder()
+                                : setListSortMode(
+                                    event.target.value === "discount" ||
+                                      event.target.value === "price_asc" ||
+                                      event.target.value === "price_desc" ||
+                                      event.target.value === "alpha"
+                                      ? event.target.value
+                                      : "manual"
+                                  )
+                            }
+                            disabled={listOrderMode}
+                            className="h-11 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
+                          >
+                            <option value="manual">Classificar por: personalizado</option>
+                            <option value="discount">Classificar por: melhor desconto</option>
+                            <option value="price_asc">Classificar por: preço menor</option>
+                            <option value="price_desc">Classificar por: preço maior</option>
+                            <option value="alpha">Classificar por: nome</option>
+                          </select>
+                        </div>
+
+                        {listOrderMode ? (
+                          <div className="mt-4 rounded-2xl border border-[#D8DEE6] bg-[#F8FAFA] px-4 py-3 text-sm text-[#667085]">
+                            Arraste os cards para reorganizar. A ordenação manual substitui a ordem anterior da lista.
+                          </div>
+                        ) : null}
+
+                        {currentOpenedList.items.length === 0 ? (
+                          <div className="mt-5 rounded-3xl border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-4 py-10 text-center text-sm text-[#565959]">
+                            Essa lista ainda nao tem produtos.
+                          </div>
+                        ) : listOrderMode ? (
+                          <div className="mt-5">
+                            <DndContext
+                              sensors={listOrderSensors}
+                              collisionDetection={closestCenter}
+                              onDragStart={handleListDragStart}
+                              onDragEnd={listOrderMode ? handleListDragEnd : undefined}
+                            >
+                              <SortableContext
+                                items={filteredOpenedListItems.map((item) => item.id)}
+                                strategy={rectSortingStrategy}
+                              >
+                                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+                                  {filteredOpenedListItems.map((item, index) => (
+                                    <ListOrderProductCard
+                                      key={item.id}
+                                      sortableId={item.id}
+                                      item={getListItemBestDeal(item)}
+                                      index={index}
+                                      editMode={listOrderMode}
+                                      disableNavigation={listOrderMode}
+                                      canMoveDown={index < filteredOpenedListItems.length - 1}
+                                      onMoveUp={() => moveListItem(currentOpenedList.id, item.id, -1)}
+                                      onMoveDown={() => moveListItem(currentOpenedList.id, item.id, 1)}
+                                      onRemove={() =>
+                                        removeListItem(currentOpenedList.id, {
+                                          itemId: item.id,
+                                          productId: item.source === "catalog" ? item.product.id : null,
+                                          monitoredProductId:
+                                            item.source === "monitored" ? item.product.id : null,
+                                        })
+                                      }
+                                      removeDisabled={pendingAction === `item:${currentOpenedList.id}:${item.id}`}
+                                    />
+                                  ))}
+                                </div>
+                              </SortableContext>
+                            </DndContext>
+                          </div>
+                        ) : filteredOpenedListItems.length === 0 ? (
+                          <div className="mt-5 rounded-3xl border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-4 py-10 text-center text-sm text-[#565959]">
+                            Nenhum produto encontrado com estes filtros.
                           </div>
                         ) : (
-                          <>
-                            <div className="mt-5 flex flex-wrap items-center gap-3">
-                              <button
-                                type="button"
-                                onClick={() => setShowOutOfStockInList((current) => !current)}
-                                disabled={listOrderMode}
-                                className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#344054] transition hover:bg-white disabled:opacity-60"
-                              >
-                                {showOutOfStockInList ? "Ocultar sem estoque" : "Exibir sem estoque"}
-                              </button>
-                              {!showOutOfStockInList ? (
-                                <span className="text-sm text-[#667085]">
-                                  Produtos sem estoque ficam ocultos por padrao.
-                                </span>
-                              ) : null}
-                            </div>
-                            <div className="mt-6">
-                              <DndContext
-                                sensors={listOrderSensors}
-                                collisionDetection={closestCenter}
-                                onDragStart={handleListDragStart}
-                                onDragEnd={listOrderMode ? handleListDragEnd : undefined}
-                              >
-                                <SortableContext
-                                  items={visibleOpenedListItems.map((item) => item.id)}
-                                  strategy={rectSortingStrategy}
+                          <div className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-3 2xl:grid-cols-4">
+                            {filteredOpenedListItems.map((item, index) => {
+                              const itemMenuOpen = activeListItemId === item.id;
+                              const bestDealItem = getListItemBestDeal(item);
+
+                              return (
+                                <div
+                                  key={item.id}
+                                  className="overflow-hidden rounded-[24px] border border-[#E6EAF0] bg-white shadow-[0_6px_18px_rgba(15,17,17,0.03)]"
                                 >
-                                  <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-                                    {visibleOpenedListItems.map((item, index) => (
-                                      <ListOrderProductCard
-                                        key={item.id}
-                                        sortableId={item.id}
-                                        item={getListItemBestDeal(item)}
-                                        index={index}
-                                        editMode={listOrderMode}
-                                        disableNavigation={listOrderMode}
-                                        canMoveDown={index < visibleOpenedListItems.length - 1}
-                                        onMoveUp={() => moveListItem(openedList.id, item.id, -1)}
-                                        onMoveDown={() => moveListItem(openedList.id, item.id, 1)}
-                                        onRemove={() =>
-                                          removeListItem(openedList.id, {
-                                            itemId: item.id,
-                                            productId: item.source === "catalog" ? item.product.id : null,
-                                            monitoredProductId:
-                                              item.source === "monitored" ? item.product.id : null,
-                                          })
+                                  <div className="relative" data-list-item-menu-root={item.id}>
+                                    <div className="absolute right-3 top-3 z-30">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setActiveListItemId((current) =>
+                                            current === item.id ? null : item.id
+                                          )
                                         }
-                                        removeDisabled={pendingAction === `item:${openedList.id}:${item.id}`}
-                                      />
-                                    ))}
+                                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#D0D5DD] bg-white text-[#344054] shadow-sm transition hover:bg-[#F8FAFA]"
+                                        aria-haspopup="menu"
+                                        aria-expanded={itemMenuOpen}
+                                      >
+                                        <MoreHorizontal className="h-4 w-4" />
+                                      </button>
+
+                                      {itemMenuOpen ? (
+                                        <div className="absolute right-0 top-11 z-20 w-56 overflow-hidden rounded-2xl border border-[#D0D5DD] bg-white shadow-[0_18px_40px_rgba(15,17,17,0.12)]">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setActiveListItemId(null);
+                                              setListMoveContext({
+                                                listId: currentOpenedList.id,
+                                                itemId: item.id,
+                                                productId: item.source === "catalog" ? item.product.id : null,
+                                                monitoredProductId:
+                                                  item.source === "monitored" ? item.product.id : null,
+                                                resolvedProduct: item.product,
+                                                productName: item.product.name,
+                                              });
+                                            }}
+                                            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                                          >
+                                            <ListPlus className="h-4 w-4 text-[#667085]" />
+                                            Mover para outra lista
+                                          </button>
+                                          {listEditorId === currentOpenedList.id ? (
+                                            <>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setActiveListItemId(null);
+                                                  moveListItem(currentOpenedList.id, item.id, -1);
+                                                }}
+                                                className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                                                disabled={index === 0}
+                                              >
+                                                <ArrowUp className="h-4 w-4 text-[#667085]" />
+                                                Mover para cima
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setActiveListItemId(null);
+                                                  moveListItem(currentOpenedList.id, item.id, 1);
+                                                }}
+                                                className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                                                disabled={index >= filteredOpenedListItems.length - 1}
+                                              >
+                                                <ArrowDown className="h-4 w-4 text-[#667085]" />
+                                                Mover para baixo
+                                              </button>
+                                            </>
+                                          ) : null}
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setActiveListItemId(null);
+                                              void removeListItem(currentOpenedList.id, {
+                                                itemId: item.id,
+                                                productId: item.source === "catalog" ? item.product.id : null,
+                                                monitoredProductId:
+                                                  item.source === "monitored" ? item.product.id : null,
+                                              });
+                                            }}
+                                            disabled={pendingAction === `item:${currentOpenedList.id}:${item.id}`}
+                                            className="flex w-full items-center gap-3 border-t border-[#EAECF0] px-4 py-3 text-left text-sm font-semibold text-[#B42318] transition hover:bg-[#FEF3F2] disabled:opacity-60"
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                            {pendingAction === `item:${currentOpenedList.id}:${item.id}`
+                                              ? "Removendo..."
+                                              : "Excluir"}
+                                          </button>
+                                        </div>
+                                      ) : null}
+                                    </div>
+
+                                    <BestDealProductCard
+                                      item={bestDealItem}
+                                      category="lista_aberta"
+                                      compact
+                                      showActions={false}
+                                    />
                                   </div>
-                                </SortableContext>
-                              </DndContext>
-                            </div>
-                          </>
+                                </div>
+                              );
+                            })}
+                          </div>
                         )}
                       </div>
-                    ) : null}
-                  </div>
-                );
-              })}
+                    </>
+                  ) : (
+                    <div className="flex min-h-[420px] items-center justify-center px-6 py-10 text-center">
+                      <div className="max-w-md">
+                        <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#007185]">
+                          Selecione uma lista
+                        </p>
+                        <h4 className="mt-2 text-2xl font-black text-[#0F1111]">
+                          Abra uma lista para visualizar os produtos
+                        </h4>
+                        <p className="mt-2 text-sm leading-6 text-[#667085]">
+                          Use a lateral para trocar entre as suas listas. O conteúdo abre aqui na mesma tela.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )
         ) : savedLists.length === 0 ? (
@@ -2951,15 +3074,24 @@ export default function SiteAccountWorkspace({
             Nenhuma lista salva ainda.
           </div>
         ) : (
-          <div className="mt-6 space-y-4">
-            {savedLists.map((list) => (
-              <div key={list.id} className="rounded-[28px] border border-[#EAECF0] bg-[#FCFCFD] p-5">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="mt-6 overflow-hidden rounded-[30px] border border-[#D8DEE6] bg-white shadow-sm">
+            <div className="border-b border-[#EAECF0] px-4 py-4 md:px-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#007185]">
+                Listas salvas
+              </p>
+              <p className="mt-1 text-sm text-[#667085]">
+                Acompanhe coleções públicas sem misturar com as suas listas principais.
+              </p>
+            </div>
+
+            <div className="divide-y divide-[#EAECF0]">
+              {savedLists.map((list) => (
+                <div key={list.id} className="flex flex-col gap-4 px-4 py-4 md:px-5 lg:flex-row lg:items-center lg:justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="text-2xl font-black text-[#0F1111]">{list.title}</h4>
+                      <h4 className="text-xl font-black text-[#0F1111]">{list.title}</h4>
                       <span className="rounded-full bg-[#F2F4F7] px-3 py-1 text-xs font-bold text-[#344054]">
-                        {list.itemsCount} produto{list.itemsCount === 1 ? "" : "s"}
+                        {list.itemsCount} item{list.itemsCount === 1 ? "" : "s"}
                       </span>
                     </div>
                     {list.description ? (
@@ -2976,7 +3108,7 @@ export default function SiteAccountWorkspace({
                       type="button"
                       onClick={() => toggleSaveList(list.id, true)}
                       disabled={pendingAction === `save-list:${list.id}`}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-white disabled:opacity-60"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#D0D5DD] px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
                     >
                       <Heart className="h-4 w-4" />
                       Remover das salvas
@@ -2987,15 +3119,15 @@ export default function SiteAccountWorkspace({
                           ? buildPublicListPath(list.ownerUsername, list.slug)
                           : `/listas/${list.slug}`
                       }
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-white"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#D0D5DD] px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
                     >
                       <ExternalLink className="h-4 w-4" />
-                      Abrir link
+                      Abrir lista
                     </Link>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 
@@ -3280,17 +3412,19 @@ export default function SiteAccountWorkspace({
         </section>
       ) : null}
 
-      {postAddListPickerContext ? (
+      {listMoveContext ? (
         <AccountListPickerModal
-          open={postAddListPickerOpen}
-          productId={postAddListPickerContext.productId}
-          monitoredProductId={postAddListPickerContext.monitoredProductId}
-          productName={postAddListPickerContext.productName}
-          initialSelectedListIds={postAddListPickerContext.initialSelectedListIds}
-          onClose={() => {
-            setPostAddListPickerOpen(false);
-            setPostAddListPickerContext(null);
+          open={Boolean(listMoveContext)}
+          productId={listMoveContext.productId ?? undefined}
+          monitoredProductId={listMoveContext.monitoredProductId ?? undefined}
+          productName={listMoveContext.productName}
+          initialSelectedListIds={[]}
+          selectionMode="single"
+          actionLabel="Mover"
+          onConfirmSingleList={async (list) => {
+            await moveListItemToList(list.id, listMoveContext);
           }}
+          onClose={() => setListMoveContext(null)}
         />
       ) : null}
     </div>
