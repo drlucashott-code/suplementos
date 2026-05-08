@@ -16,8 +16,10 @@ import {
   SortableContext,
   arrayMove,
   rectSortingStrategy,
+  useSortable,
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -44,7 +46,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AccountListPickerModal from "@/components/AccountListPickerModal";
 import BestDealProductCard from "@/components/BestDealProductCard";
-import ListOrderProductCard from "@/components/ListOrderProductCard";
 import { buildPublicListPath } from "@/lib/siteSocial";
 
 type FavoriteEntry = {
@@ -107,6 +108,7 @@ type ListEntry = {
 type SavedListEntry = ListEntry & {
   ownerDisplayName: string;
   ownerUsername: string | null;
+  items: ListDetails["items"];
 };
 
 type ListDetails = {
@@ -283,6 +285,103 @@ function getListItemBestDeal(item: ListDetails["items"][number]) {
   };
 }
 
+function SortableListCard({
+  sortableId,
+  item,
+  menuOpen,
+  onToggleMenu,
+  onMoveToAnotherList,
+  onRemove,
+  removeDisabled,
+}: {
+  sortableId: string;
+  item: ReturnType<typeof getListItemBestDeal>;
+  menuOpen: boolean;
+  onToggleMenu: () => void;
+  onMoveToAnotherList: () => void;
+  onRemove: () => void;
+  removeDisabled?: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({
+      id: sortableId,
+    });
+
+  const transformStyle = transform
+    ? CSS.Transform.toString({
+        ...transform,
+        scaleX: isDragging ? (transform.scaleX ?? 1) * 1.02 : transform.scaleX,
+        scaleY: isDragging ? (transform.scaleY ?? 1) * 1.02 : transform.scaleY,
+      })
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: transformStyle,
+        transition,
+        opacity: isDragging ? 0.92 : 1,
+        zIndex: isDragging ? 20 : 0,
+      }}
+      className="overflow-hidden rounded-[24px] border border-[#E6EAF0] bg-white shadow-[0_6px_18px_rgba(15,17,17,0.03)]"
+      data-list-item-menu-root={sortableId}
+    >
+      <div className="relative">
+        <div className="absolute left-3 top-3 z-30">
+          <button
+            ref={setActivatorNodeRef}
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="inline-flex h-9 w-9 cursor-grab items-center justify-center rounded-full border border-[#D0D5DD] bg-white text-[#344054] shadow-sm transition hover:bg-[#F8FAFA] active:cursor-grabbing"
+            aria-label="Arraste para reordenar"
+            title="Arraste para reordenar"
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="absolute right-3 top-3 z-30">
+          <button
+            type="button"
+            onClick={onToggleMenu}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#D0D5DD] bg-white text-[#344054] shadow-sm transition hover:bg-[#F8FAFA]"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
+
+          {menuOpen ? (
+            <div className="absolute right-0 top-11 z-20 w-56 overflow-hidden rounded-2xl border border-[#D0D5DD] bg-white shadow-[0_18px_40px_rgba(15,17,17,0.12)]">
+              <button
+                type="button"
+                onClick={onMoveToAnotherList}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+              >
+                <ListPlus className="h-4 w-4 text-[#667085]" />
+                Mover para outra lista
+              </button>
+              <button
+                type="button"
+                onClick={onRemove}
+                disabled={removeDisabled}
+                className="flex w-full items-center gap-3 border-t border-[#EAECF0] px-4 py-3 text-left text-sm font-semibold text-[#B42318] transition hover:bg-[#FEF3F2] disabled:opacity-60"
+              >
+                <Trash2 className="h-4 w-4" />
+                {removeDisabled ? "Removendo..." : "Excluir"}
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        <BestDealProductCard item={item} category="lista_aberta" compact showActions={false} />
+      </div>
+    </div>
+  );
+}
+
 function favoriteToCardItem(favorite: FavoriteEntry) {
   const averagePrice30d = favorite.product.averagePrice30d ?? favorite.product.totalPrice;
   const discountPercent =
@@ -398,6 +497,9 @@ export default function SiteAccountWorkspace({
   const [listTitle, setListTitle] = useState("");
   const [creatingList, setCreatingList] = useState(false);
   const [selectedListId, setSelectedListId] = useState<string | null>(initialLists[0]?.id ?? null);
+  const [selectedSavedListId, setSelectedSavedListId] = useState<string | null>(
+    initialSavedLists[0]?.id ?? null
+  );
   const [showInlineListAddProduct, setShowInlineListAddProduct] = useState(false);
   const [selectedTrackedKeys, setSelectedTrackedKeys] = useState<string[]>([]);
   const [listPickerOpen, setListPickerOpen] = useState(false);
@@ -424,7 +526,6 @@ export default function SiteAccountWorkspace({
   const [listSearchQuery, setListSearchQuery] = useState("");
   const [listTab, setListTab] = useState<"mine" | "saved">("mine");
   const [activeListItemId, setActiveListItemId] = useState<string | null>(null);
-  const [activeListMenuId, setActiveListMenuId] = useState<string | null>(null);
 
   const [activityMode, setActivityMode] = useState<"comments" | "reactions" | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
@@ -442,22 +543,6 @@ export default function SiteAccountWorkspace({
     null
   );
 
-  useEffect(() => {
-    if (!activeListMenuId) return;
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
-
-      const menuRoot = target.closest("[data-list-menu-root]");
-      if (!menuRoot || menuRoot.getAttribute("data-list-menu-root") !== activeListMenuId) {
-        setActiveListMenuId(null);
-      }
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [activeListMenuId]);
   useEffect(() => {
     if (!activeListItemId) return;
 
@@ -544,6 +629,9 @@ export default function SiteAccountWorkspace({
   }, [favorites, monitoredProducts, trackedReorderMode, trackedSortMode]);
   const openedList = openListId ? listDetailsMap[openListId] ?? null : null;
   const selectedList = selectedListId ? lists.find((list) => list.id === selectedListId) : null;
+  const selectedSavedList = selectedSavedListId
+    ? savedLists.find((list) => list.id === selectedSavedListId)
+    : null;
   const sortedOpenedListItems = useMemo(() => {
     if (!openedList) return [];
     if (listOrderMode || listSortMode === "manual") return openedList.items;
@@ -621,6 +709,83 @@ export default function SiteAccountWorkspace({
       return searchTarget.includes(query);
     });
   }, [visibleOpenedListItems, listSearchQuery]);
+  const sortedSavedListItems = useMemo(() => {
+    if (!selectedSavedList) return [];
+    if (listSortMode === "manual") return selectedSavedList.items;
+
+    return [...selectedSavedList.items].sort((left, right) => {
+      const leftAverage = left.product.averagePrice30d ?? left.product.totalPrice;
+      const rightAverage = right.product.averagePrice30d ?? right.product.totalPrice;
+      const leftDiscount =
+        left.product.totalPrice > 0 && leftAverage > left.product.totalPrice
+          ? Math.round(((leftAverage - left.product.totalPrice) / leftAverage) * 100)
+          : 0;
+      const rightDiscount =
+        right.product.totalPrice > 0 && rightAverage > right.product.totalPrice
+          ? Math.round(((rightAverage - right.product.totalPrice) / rightAverage) * 100)
+          : 0;
+      const leftOutOfStock =
+        left.product.availabilityStatus === "OUT_OF_STOCK" || left.product.totalPrice <= 0;
+      const rightOutOfStock =
+        right.product.availabilityStatus === "OUT_OF_STOCK" || right.product.totalPrice <= 0;
+
+      if (leftOutOfStock !== rightOutOfStock) {
+        return leftOutOfStock ? 1 : -1;
+      }
+
+      if (listSortMode === "price_asc") {
+        return left.product.totalPrice - right.product.totalPrice;
+      }
+
+      if (listSortMode === "price_desc") {
+        return right.product.totalPrice - left.product.totalPrice;
+      }
+
+      if (listSortMode === "alpha") {
+        return left.product.name.localeCompare(right.product.name, "pt-BR");
+      }
+
+      if (rightDiscount !== leftDiscount) {
+        return rightDiscount - leftDiscount;
+      }
+
+      return left.product.totalPrice - right.product.totalPrice;
+    });
+  }, [selectedSavedList, listSortMode]);
+  const visibleSavedListItems = useMemo(() => {
+    if (!sortedSavedListItems.length) return [];
+    if (listStockFilter === "all") return sortedSavedListItems;
+
+    if (listStockFilter === "out_of_stock") {
+      return sortedSavedListItems.filter(
+        (item) =>
+          item.product.availabilityStatus === "OUT_OF_STOCK" || item.product.totalPrice <= 0
+      );
+    }
+
+    return sortedSavedListItems.filter(
+      (item) =>
+        item.product.availabilityStatus !== "OUT_OF_STOCK" &&
+        item.product.totalPrice > 0
+    );
+  }, [listStockFilter, sortedSavedListItems]);
+  const filteredSavedListItems = useMemo(() => {
+    const query = listSearchQuery.trim().toLowerCase();
+    if (!query) return visibleSavedListItems;
+
+    return visibleSavedListItems.filter((item) => {
+      const searchTarget = [
+        item.product.name,
+        item.product.asin,
+        item.product.category.name,
+        item.note ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return searchTarget.includes(query);
+    });
+  }, [visibleSavedListItems, listSearchQuery]);
   const visibleTrackedProductCards = useMemo(() => {
     if (showOutOfStockInTracked || trackedSortMode === "discount" || trackedReorderMode) {
       return trackedProductCards;
@@ -647,6 +812,11 @@ export default function SiteAccountWorkspace({
 
     void openListViewer(selectedListId);
   }, [listTab, selectedListId, openListId, loadingListId]);
+  useEffect(() => {
+    if (listTab !== "saved") return;
+    if (selectedSavedListId && savedLists.some((list) => list.id === selectedSavedListId)) return;
+    setSelectedSavedListId(savedLists[0]?.id ?? null);
+  }, [listTab, savedLists, selectedSavedListId]);
   useEffect(() => {
     if (!currentOpenedList) return;
     setShowInlineListAddProduct(false);
@@ -1394,6 +1564,10 @@ export default function SiteAccountWorkspace({
 
       if (isSaved) {
         setSavedLists((current) => current.filter((list) => list.id !== listId));
+        if (selectedSavedListId === listId) {
+          const remaining = savedLists.filter((list) => list.id !== listId);
+          setSelectedSavedListId(remaining[0]?.id ?? null);
+        }
         setMessage("Lista removida das salvas.");
       } else {
         const sourceList = lists.find((list) => list.id === listId);
@@ -1403,6 +1577,7 @@ export default function SiteAccountWorkspace({
               ...sourceList,
               ownerDisplayName: currentUser.displayName,
               ownerUsername: currentUser.username,
+              items: [],
             },
             ...current,
           ]);
@@ -2256,16 +2431,18 @@ export default function SiteAccountWorkspace({
       <section className="rounded-[32px] border border-[#d5d9d9] bg-white p-6 shadow-sm md:p-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#FF8F1F]">Listas</p>
-            <h3 className="mt-2 text-3xl font-black text-[#0F1111]">Suas listas</h3>
+            <h3 className="mt-2 text-3xl font-black text-[#0F1111]">Listas</h3>
             <p className="mt-2 max-w-3xl text-sm text-[#565959]">
-              Crie e organize suas listas.
+              Crie listas personalizadas, acompanhe produtos e compartilhe facilmente quando quiser.
             </p>
           </div>
 
           <button
             type="button"
-            onClick={() => setShowCreateList(true)}
+            onClick={() => {
+              setListTab("mine");
+              setShowCreateList(true);
+            }}
             className="inline-flex h-10 items-center justify-center rounded-full px-1 text-sm font-semibold text-[#2162A1] transition hover:text-[#174e87]"
           >
             Criar uma lista
@@ -2276,18 +2453,24 @@ export default function SiteAccountWorkspace({
           <div className="-mb-px flex gap-6 overflow-x-auto">
             <button
               type="button"
-              onClick={() => setListTab("mine")}
+              onClick={() => {
+                setListTab("mine");
+                setShowCreateList(false);
+              }}
               className={`border-b-2 px-1 pb-3 text-base font-bold transition ${
                 listTab === "mine"
-                  ? "border-[#2162A1] text-[#0F1111]"
+              ? "border-[#2162A1] text-[#0F1111]"
                   : "border-transparent text-[#667085] hover:text-[#0F1111]"
               }`}
             >
-              Minhas listas
+              Suas listas
             </button>
             <button
               type="button"
-              onClick={() => setListTab("saved")}
+              onClick={() => {
+                setListTab("saved");
+                setShowCreateList(false);
+              }}
               className={`border-b-2 px-1 pb-3 text-base font-bold transition ${
                 listTab === "saved"
                   ? "border-[#2162A1] text-[#0F1111]"
@@ -2369,14 +2552,6 @@ export default function SiteAccountWorkspace({
             <div className="mt-6 overflow-hidden rounded-[30px] border border-[#D8DEE6] bg-white shadow-sm">
               <div className="grid xl:grid-cols-[280px_minmax(0,1fr)]">
                 <aside className="border-b border-[#EAECF0] bg-[#FAFBFC] xl:border-b-0 xl:border-r">
-                  <div className="border-b border-[#EAECF0] px-4 py-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#007185]">
-                        Suas listas
-                      </p>
-                    </div>
-                  </div>
-
                   <div className="px-3 py-3">
                     <div className="flex gap-3 overflow-x-auto pb-1 xl:flex-col xl:overflow-visible">
                       {lists.map((list) => {
@@ -2474,6 +2649,22 @@ export default function SiteAccountWorkspace({
                                 )}
                                 {currentOpenedList.isPublic ? "Pública" : "Privada"}
                               </span>
+                              {currentOpenedList.isPublic ? (
+                                <Link
+                                  href={
+                                    currentUser.username
+                                      ? buildPublicListPath(
+                                          currentUser.username,
+                                          currentOpenedList.slug
+                                        )
+                                      : `/listas/${currentOpenedList.slug}`
+                                  }
+                                  className="inline-flex h-8 items-center justify-center gap-2 rounded-full border border-[#D0D5DD] bg-white px-3 text-xs font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                  Abrir link
+                                </Link>
+                              ) : null}
                             </div>
                             <h4 className="mt-3 text-[24px] font-black leading-tight text-[#0F1111]">
                               {currentOpenedList.title}
@@ -2487,7 +2678,7 @@ export default function SiteAccountWorkspace({
                             )}
                           </div>
 
-                          <div className="relative flex flex-wrap items-start gap-2" data-list-menu-root={currentOpenedList.id}>
+                          <div className="relative flex flex-wrap items-start gap-2">
                             {!listOrderMode ? (
                               <button
                                 type="button"
@@ -2512,28 +2703,9 @@ export default function SiteAccountWorkspace({
                               </button>
                             ) : null}
 
-                            {listOrderMode ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setListOrderMode(false);
-                                  setListEditorId(null);
-                                  setActiveListItemId(null);
-                                  if (listOrderStockFilterBeforeEditRef.current !== null) {
-                                    setListStockFilter(listOrderStockFilterBeforeEditRef.current);
-                                    listOrderStockFilterBeforeEditRef.current = null;
-                                  }
-                                }}
-                                className="inline-flex h-10 items-center justify-center rounded-full bg-[#0F1111] px-4 text-sm font-bold text-white transition hover:bg-[#1F2937]"
-                                >
-                                Concluir reordenação
-                              </button>
-                            ) : null}
-
                             <button
                               type="button"
                               onClick={() => {
-                                setActiveListMenuId(null);
                                 void openListEditor(currentOpenedList.id);
                               }}
                               aria-label="Editar lista"
@@ -2542,70 +2714,6 @@ export default function SiteAccountWorkspace({
                             >
                               <Pencil className="h-4 w-4" />
                             </button>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setActiveListMenuId((current) =>
-                                  current === currentOpenedList.id ? null : currentOpenedList.id
-                                )
-                              }
-                              aria-haspopup="menu"
-                              aria-expanded={activeListMenuId === currentOpenedList.id}
-                              disabled={loadingListId === currentOpenedList.id}
-                              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#D0D5DD] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </button>
-
-                            {activeListMenuId === currentOpenedList.id ? (
-                              <div className="absolute right-0 top-12 z-20 w-60 overflow-hidden rounded-2xl border border-[#D0D5DD] bg-white shadow-[0_18px_40px_rgba(15,17,17,0.12)]">
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    setActiveListMenuId(null);
-                                    await openListReorder(currentOpenedList.id);
-                                  }}
-                                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
-                                >
-                                  <GripVertical className="h-4 w-4 text-[#667085]" />
-                                  Reordenar
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    setActiveListMenuId(null);
-                                    await toggleListPublic(
-                                      currentOpenedList.id,
-                                      !currentOpenedList.isPublic
-                                    );
-                                  }}
-                                  disabled={pendingAction === `visibility:${currentOpenedList.id}`}
-                                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
-                                >
-                                  {currentOpenedList.isPublic ? (
-                                    <Lock className="h-4 w-4 text-[#667085]" />
-                                  ) : (
-                                    <Globe className="h-4 w-4 text-[#667085]" />
-                                  )}
-                                  {currentOpenedList.isPublic ? "Tornar privada" : "Tornar pública"}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    setActiveListMenuId(null);
-                                    await deleteList(currentOpenedList.id);
-                                  }}
-                                  disabled={pendingAction === `delete:${currentOpenedList.id}`}
-                                  className="flex w-full items-center gap-3 border-t border-[#EAECF0] px-4 py-3 text-left text-sm font-semibold text-[#B42318] transition hover:bg-[#FEF3F2] disabled:opacity-60"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  {pendingAction === `delete:${currentOpenedList.id}`
-                                    ? "Excluindo..."
-                                    : "Excluir"}
-                                </button>
-                              </div>
-                            ) : null}
                           </div>
                         </div>
 
@@ -2793,7 +2901,6 @@ export default function SiteAccountWorkspace({
                                     type="button"
                                     onClick={() => {
                                       setListEditorId(null);
-                                      setActiveListMenuId(null);
                                     }}
                                     className="inline-flex h-11 items-center justify-center rounded-full border border-[#D0D5DD] bg-white px-5 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
                                   >
@@ -2838,7 +2945,6 @@ export default function SiteAccountWorkspace({
                               value={listSearchQuery}
                               onChange={(event) => setListSearchQuery(event.target.value)}
                               placeholder="Buscar nesta lista"
-                              disabled={listOrderMode}
                               className="h-11 w-full rounded-2xl border border-[#D0D5DD] bg-white pl-11 pr-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
                             />
                           </label>
@@ -2852,7 +2958,6 @@ export default function SiteAccountWorkspace({
                                   : "in_stock"
                               )
                             }
-                            disabled={listOrderMode}
                             className="h-11 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
                           >
                             <option value="in_stock">Mostrar: Em estoque</option>
@@ -2862,18 +2967,16 @@ export default function SiteAccountWorkspace({
                           <select
                             value={listSortMode}
                             onChange={(event) =>
-                              event.target.value === "manual"
-                                ? beginListReorder()
-                                : setListSortMode(
-                                    event.target.value === "discount" ||
-                                      event.target.value === "price_asc" ||
-                                      event.target.value === "price_desc" ||
-                                      event.target.value === "alpha"
-                                      ? event.target.value
-                                      : "manual"
-                                  )
+                              setListSortMode(
+                                event.target.value === "discount" ||
+                                  event.target.value === "price_asc" ||
+                                  event.target.value === "price_desc" ||
+                                  event.target.value === "alpha" ||
+                                  event.target.value === "manual"
+                                  ? event.target.value
+                                  : "manual"
+                              )
                             }
-                            disabled={listOrderMode}
                             className="h-11 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
                           >
                             <option value="manual">Classificar por: personalizado</option>
@@ -2884,23 +2987,17 @@ export default function SiteAccountWorkspace({
                           </select>
                         </div>
 
-                        {listOrderMode ? (
-                          <div className="mt-4 rounded-2xl border border-[#D8DEE6] bg-[#F8FAFA] px-4 py-3 text-sm text-[#667085]">
-                            Arraste os cards para reorganizar. A ordenação manual substitui a ordem anterior da lista.
-                          </div>
-                        ) : null}
-
                         {currentOpenedList.items.length === 0 ? (
                           <div className="mt-5 rounded-3xl border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-4 py-10 text-center text-sm text-[#565959]">
                             Essa lista ainda nao tem produtos.
                           </div>
-                        ) : listOrderMode ? (
+                        ) : canDragListItems ? (
                           <div className="mt-5">
                             <DndContext
                               sensors={listOrderSensors}
                               collisionDetection={closestCenter}
                               onDragStart={handleListDragStart}
-                              onDragEnd={listOrderMode ? handleListDragEnd : undefined}
+                              onDragEnd={handleListDragEnd}
                             >
                               <SortableContext
                                 items={filteredOpenedListItems.map((item) => item.id)}
@@ -2908,24 +3005,37 @@ export default function SiteAccountWorkspace({
                               >
                                 <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
                                   {filteredOpenedListItems.map((item, index) => (
-                                    <ListOrderProductCard
+                                    <SortableListCard
                                       key={item.id}
                                       sortableId={item.id}
                                       item={getListItemBestDeal(item)}
-                                      index={index}
-                                      editMode={listOrderMode}
-                                      disableNavigation={listOrderMode}
-                                      canMoveDown={index < filteredOpenedListItems.length - 1}
-                                      onMoveUp={() => moveListItem(currentOpenedList.id, item.id, -1)}
-                                      onMoveDown={() => moveListItem(currentOpenedList.id, item.id, 1)}
-                                      onRemove={() =>
-                                        removeListItem(currentOpenedList.id, {
+                                      menuOpen={activeListItemId === item.id}
+                                      onToggleMenu={() =>
+                                        setActiveListItemId((current) =>
+                                          current === item.id ? null : item.id
+                                        )
+                                      }
+                                      onMoveToAnotherList={() => {
+                                        setActiveListItemId(null);
+                                        setListMoveContext({
+                                          listId: currentOpenedList.id,
                                           itemId: item.id,
                                           productId: item.source === "catalog" ? item.product.id : null,
                                           monitoredProductId:
                                             item.source === "monitored" ? item.product.id : null,
-                                        })
-                                      }
+                                          resolvedProduct: item.product,
+                                          productName: item.product.name,
+                                        });
+                                      }}
+                                      onRemove={() => {
+                                        setActiveListItemId(null);
+                                        void removeListItem(currentOpenedList.id, {
+                                          itemId: item.id,
+                                          productId: item.source === "catalog" ? item.product.id : null,
+                                          monitoredProductId:
+                                            item.source === "monitored" ? item.product.id : null,
+                                        });
+                                      }}
                                       removeDisabled={pendingAction === `item:${currentOpenedList.id}:${item.id}`}
                                     />
                                   ))}
@@ -2985,34 +3095,6 @@ export default function SiteAccountWorkspace({
                                             <ListPlus className="h-4 w-4 text-[#667085]" />
                                             Mover para outra lista
                                           </button>
-                                          {listEditorId === currentOpenedList.id ? (
-                                            <>
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  setActiveListItemId(null);
-                                                  moveListItem(currentOpenedList.id, item.id, -1);
-                                                }}
-                                                className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
-                                                disabled={index === 0}
-                                              >
-                                                <ArrowUp className="h-4 w-4 text-[#667085]" />
-                                                Mover para cima
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  setActiveListItemId(null);
-                                                  moveListItem(currentOpenedList.id, item.id, 1);
-                                                }}
-                                                className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
-                                                disabled={index >= filteredOpenedListItems.length - 1}
-                                              >
-                                                <ArrowDown className="h-4 w-4 text-[#667085]" />
-                                                Mover para baixo
-                                              </button>
-                                            </>
-                                          ) : null}
                                           <button
                                             type="button"
                                             onClick={() => {
@@ -3075,58 +3157,199 @@ export default function SiteAccountWorkspace({
           </div>
         ) : (
           <div className="mt-6 overflow-hidden rounded-[30px] border border-[#D8DEE6] bg-white shadow-sm">
-            <div className="border-b border-[#EAECF0] px-4 py-4 md:px-5">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#007185]">
-                Listas salvas
-              </p>
-              <p className="mt-1 text-sm text-[#667085]">
-                Acompanhe coleções públicas sem misturar com as suas listas principais.
-              </p>
-            </div>
-
-            <div className="divide-y divide-[#EAECF0]">
-              {savedLists.map((list) => (
-                <div key={list.id} className="flex flex-col gap-4 px-4 py-4 md:px-5 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="text-xl font-black text-[#0F1111]">{list.title}</h4>
-                      <span className="rounded-full bg-[#F2F4F7] px-3 py-1 text-xs font-bold text-[#344054]">
-                        {list.itemsCount} item{list.itemsCount === 1 ? "" : "s"}
-                      </span>
-                    </div>
-                    {list.description ? (
-                      <p className="mt-2 text-sm text-[#565959]">{list.description}</p>
-                    ) : null}
-                    <p className="mt-2 text-sm text-[#667085]">
-                      Lista criada por {list.ownerDisplayName}
-                      {list.ownerUsername ? ` @${list.ownerUsername}` : ""}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => toggleSaveList(list.id, true)}
-                      disabled={pendingAction === `save-list:${list.id}`}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#D0D5DD] px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
-                    >
-                      <Heart className="h-4 w-4" />
-                      Remover das salvas
-                    </button>
-                    <Link
-                      href={
-                        list.ownerUsername
-                          ? buildPublicListPath(list.ownerUsername, list.slug)
-                          : `/listas/${list.slug}`
-                      }
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#D0D5DD] px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      Abrir lista
-                    </Link>
+            <div className="grid xl:grid-cols-[280px_minmax(0,1fr)]">
+              <aside className="border-b border-[#EAECF0] bg-[#FAFBFC] xl:border-b-0 xl:border-r">
+                <div className="px-3 py-3">
+                  <div className="flex gap-3 overflow-x-auto pb-1 xl:flex-col xl:overflow-visible">
+                    {savedLists.map((list) => {
+                      const selected = selectedSavedListId === list.id;
+                      return (
+                        <button
+                          key={list.id}
+                          type="button"
+                          onClick={() => setSelectedSavedListId(list.id)}
+                          className={`min-w-[240px] rounded-[18px] border px-4 py-3 text-left transition xl:min-w-0 ${
+                            selected
+                              ? "border-[#D8DEE6] bg-[#F3F4F6]"
+                              : "border-[#E5E7EB] bg-white hover:border-[#D0D5DD] hover:bg-[#FCFCFD]"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-bold text-[#0F1111]">{list.title}</p>
+                              <p className="mt-1 line-clamp-1 text-xs text-[#667085]">
+                                {list.ownerDisplayName}
+                                {list.ownerUsername ? ` @${list.ownerUsername}` : ""}
+                              </p>
+                            </div>
+                            <span className="shrink-0 rounded-full bg-[#F2F4F7] px-2.5 py-1 text-[10px] font-bold text-[#344054]">
+                              {list.itemsCount}
+                            </span>
+                          </div>
+                          {selected ? (
+                            <div className="mt-2 text-xs font-semibold text-[#2162A1]">Selecionada</div>
+                          ) : null}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-              ))}
+              </aside>
+
+              <div className="min-w-0 bg-white">
+                {selectedSavedList ? (
+                  <>
+                    <div className="border-b border-[#EAECF0] px-4 py-4 md:px-5">
+                      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#ECFDF3] px-3 py-1 text-xs font-bold text-[#027A48]">
+                              <Globe className="h-3.5 w-3.5" />
+                              Pública
+                            </span>
+                            <span className="rounded-full bg-[#F2F4F7] px-3 py-1 text-xs font-bold text-[#344054]">
+                              {selectedSavedList.itemsCount} item
+                              {selectedSavedList.itemsCount === 1 ? "" : "s"}
+                            </span>
+                            <Link
+                              href={
+                                selectedSavedList.ownerUsername
+                                  ? buildPublicListPath(
+                                      selectedSavedList.ownerUsername,
+                                      selectedSavedList.slug
+                                    )
+                                  : `/listas/${selectedSavedList.slug}`
+                              }
+                              className="inline-flex h-8 items-center justify-center gap-2 rounded-full border border-[#D0D5DD] bg-white px-3 text-xs font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              Abrir link
+                            </Link>
+                          </div>
+                          <h4 className="mt-3 text-[24px] font-black leading-tight text-[#0F1111]">
+                            {selectedSavedList.title}
+                          </h4>
+                          {selectedSavedList.description ? (
+                            <p className="mt-2 max-w-3xl text-sm text-[#565959]">
+                              {selectedSavedList.description}
+                            </p>
+                          ) : (
+                            <p className="mt-2 text-sm text-[#98A2B3]">Sem descrição.</p>
+                          )}
+                          <p className="mt-2 text-sm text-[#667085]">
+                            Lista criada por {selectedSavedList.ownerDisplayName}
+                            {selectedSavedList.ownerUsername
+                              ? ` @${selectedSavedList.ownerUsername}`
+                              : ""}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap items-start gap-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleSaveList(selectedSavedList.id, true)}
+                            disabled={pendingAction === `save-list:${selectedSavedList.id}`}
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
+                          >
+                            <Heart className="h-4 w-4" />
+                            Remover
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="px-4 py-4 md:px-5">
+                      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_190px_220px]">
+                        <label className="relative block">
+                          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98A2B3]" />
+                          <input
+                            type="search"
+                            value={listSearchQuery}
+                            onChange={(event) => setListSearchQuery(event.target.value)}
+                            placeholder="Buscar nesta lista"
+                            className="h-11 w-full rounded-2xl border border-[#D0D5DD] bg-white pl-11 pr-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
+                          />
+                        </label>
+                        <select
+                          value={listStockFilter}
+                          onChange={(event) =>
+                            setListStockFilter(
+                              event.target.value === "out_of_stock" || event.target.value === "all"
+                                ? event.target.value
+                                : "in_stock"
+                            )
+                          }
+                          className="h-11 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
+                        >
+                          <option value="in_stock">Mostrar: Em estoque</option>
+                          <option value="out_of_stock">Mostrar: Sem estoque</option>
+                          <option value="all">Mostrar: Todos os itens</option>
+                        </select>
+                        <select
+                          value={listSortMode}
+                          onChange={(event) =>
+                            setListSortMode(
+                              event.target.value === "discount" ||
+                                event.target.value === "price_asc" ||
+                                event.target.value === "price_desc" ||
+                                event.target.value === "alpha" ||
+                                event.target.value === "manual"
+                                ? event.target.value
+                                : "manual"
+                            )
+                          }
+                          className="h-11 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
+                        >
+                          <option value="manual">Classificar por: personalizado</option>
+                          <option value="discount">Classificar por: melhor desconto</option>
+                          <option value="price_asc">Classificar por: preço menor</option>
+                          <option value="price_desc">Classificar por: preço maior</option>
+                          <option value="alpha">Classificar por: nome</option>
+                        </select>
+                      </div>
+
+                      {filteredSavedListItems.length === 0 ? (
+                        <div className="mt-5 rounded-3xl border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-4 py-10 text-center text-sm text-[#565959]">
+                          {selectedSavedList.items.length === 0
+                            ? "Essa lista ainda nao tem produtos."
+                            : listSearchQuery
+                              ? "Nenhum produto encontrado com estes filtros."
+                              : "Todos os produtos desta lista estao sem estoque no momento."}
+                        </div>
+                      ) : (
+                        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+                          {filteredSavedListItems.map((item) => {
+                            const bestDealItem = getListItemBestDeal(item);
+                            return (
+                              <BestDealProductCard
+                                key={item.id}
+                                item={bestDealItem}
+                                category="lista_salva"
+                                compact
+                                showActions={false}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex min-h-[240px] items-center justify-center rounded-[24px] border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-6 py-10 text-center">
+                    <div className="max-w-sm">
+                      <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#007185]">
+                        Selecione uma lista salva
+                      </p>
+                      <h4 className="mt-2 text-2xl font-black text-[#0F1111]">
+                        Abra uma lista para ver os produtos
+                      </h4>
+                      <p className="mt-2 text-sm leading-6 text-[#667085]">
+                        Escolha uma coleção salva na lateral para abrir a visualização à direita.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

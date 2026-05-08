@@ -6,6 +6,28 @@ import { isMissingRelationError } from "@/lib/prismaSchemaCompat";
 import { requireCurrentSiteUser } from "@/lib/siteAuth";
 import { findDefaultList } from "@/lib/siteDefaultList";
 
+type SavedListItemRow = {
+  listId: string;
+  itemId: string | null;
+  itemCreatedAt: Date | null;
+  note: string | null;
+  productId: string | null;
+  monitoredProductId: string | null;
+  trackedAmazonProductId: string | null;
+  productAsin: string | null;
+  productName: string | null;
+  productImageUrl: string | null;
+  productTotalPrice: number | null;
+  productAveragePrice30d: number | null;
+  productUrl: string | null;
+  productAvailabilityStatus: string | null;
+  productRatingAverage: number | null;
+  productRatingCount: number | null;
+  categoryName: string | null;
+  categoryGroup: string | null;
+  categorySlug: string | null;
+};
+
 export default async function MyAccountPage() {
   const user = await requireCurrentSiteUser();
   const defaultList = await findDefaultList(user.id);
@@ -51,7 +73,54 @@ export default async function MyAccountPage() {
       throw error;
     });
 
-  const [favorites, lists, savedLists, monitoredProducts, profileStats] = await Promise.all([
+  const savedListItemsPromise = prisma
+    .$queryRaw<SavedListItemRow[]>(Prisma.sql`
+      SELECT
+        l."id" AS "listId",
+        i."id" AS "itemId",
+        i."createdAt" AS "itemCreatedAt",
+        i."note",
+        p."id" AS "productId",
+        mp."id" AS "monitoredProductId",
+        tp."id" AS "trackedAmazonProductId",
+        COALESCE(p."asin", tp."asin", mp."asin") AS "productAsin",
+        COALESCE(p."name", tp."name", mp."name") AS "productName",
+        COALESCE(p."imageUrl", tp."imageUrl", mp."imageUrl") AS "productImageUrl",
+        COALESCE(p."totalPrice", tp."totalPrice", mp."totalPrice") AS "productTotalPrice",
+        COALESCE(p."averagePrice30d", tp."averagePrice30d", mp."averagePrice30d") AS "productAveragePrice30d",
+        COALESCE(p."url", tp."amazonUrl", mp."amazonUrl") AS "productUrl",
+        COALESCE(p."availabilityStatus", tp."availabilityStatus", mp."availabilityStatus") AS "productAvailabilityStatus",
+        COALESCE(p."ratingAverage", tp."ratingAverage") AS "productRatingAverage",
+        COALESCE(p."ratingCount", tp."ratingCount") AS "productRatingCount",
+        c."name" AS "categoryName",
+        c."group" AS "categoryGroup",
+        c."slug" AS "categorySlug"
+      FROM "SiteUserSavedList" s
+      INNER JOIN "SiteUserList" l ON l."id" = s."listId"
+      LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
+      LEFT JOIN "DynamicProduct" p ON p."id" = i."productId"
+      LEFT JOIN "SiteUserMonitoredProduct" mp ON mp."id" = i."monitoredProductId"
+      LEFT JOIN "SiteTrackedAmazonProduct" tp ON tp."id" = COALESCE(i."trackedAmazonProductId", mp."trackedProductId")
+      LEFT JOIN "DynamicCategory" c ON c."id" = p."categoryId"
+      WHERE s."userId" = ${user.id}
+      ORDER BY s."createdAt" DESC, i."sortOrder" ASC NULLS LAST, i."createdAt" DESC NULLS LAST
+    `)
+    .catch((error) => {
+      if (isMissingRelationError(error, "SiteUserSavedList")) {
+        return [];
+      }
+
+      throw error;
+    });
+
+  const [
+    favorites,
+    lists,
+    savedLists,
+    savedListItems,
+    monitoredProducts,
+    profileStats,
+  ] = await Promise.all([
     prisma.$queryRaw<
       Array<{
         id: string;
@@ -128,6 +197,7 @@ export default async function MyAccountPage() {
       ORDER BY l."updatedAt" DESC
     `),
     savedListsPromise,
+    savedListItemsPromise,
     prisma.$queryRaw<
       Array<{
         id: string;
@@ -201,6 +271,79 @@ export default async function MyAccountPage() {
     `),
   ]);
 
+  const savedListItemsByListId = new Map<
+    string,
+    Array<{
+      id: string;
+      note: string | null;
+      sortOrder: number;
+      source: "catalog" | "monitored";
+      product: {
+        id: string;
+        asin: string;
+        name: string;
+        imageUrl: string | null;
+        totalPrice: number;
+        averagePrice30d: number | null;
+        ratingAverage: number | null;
+        ratingCount: number | null;
+        url: string;
+        availabilityStatus?: string | null;
+        category: {
+          name: string;
+          group: string;
+          slug: string;
+        };
+      };
+    }>
+  >();
+
+  for (const row of savedListItems) {
+    if (!row.itemId || !row.productAsin || !row.productName || !row.productUrl) {
+      continue;
+    }
+
+    const items = savedListItemsByListId.get(row.listId) ?? [];
+    items.push({
+      id: row.itemId ?? row.productId ?? row.trackedAmazonProductId ?? row.monitoredProductId!,
+      note: row.note,
+      sortOrder: items.length,
+      source: row.productId ? "catalog" : "monitored",
+      product: {
+        id: row.productId ?? row.trackedAmazonProductId ?? row.monitoredProductId ?? row.itemId!,
+        asin: row.productAsin,
+        name: row.productName,
+        imageUrl:
+          row.productImageUrl || "https://m.media-amazon.com/images/I/61NJbm2a9tL._AC_SL1200_.jpg",
+        totalPrice: row.productTotalPrice ?? 0,
+        averagePrice30d: row.productAveragePrice30d ?? row.productTotalPrice ?? 0,
+        ratingAverage: row.productRatingAverage ?? null,
+        ratingCount: row.productRatingCount ?? null,
+        url: row.productUrl,
+        availabilityStatus: row.productAvailabilityStatus ?? null,
+        category: {
+          name: row.categoryName ?? "Amazon",
+          group: row.categoryGroup ?? "amazon",
+          slug: row.categorySlug ?? "monitorado",
+        },
+      },
+    });
+    savedListItemsByListId.set(row.listId, items);
+  }
+
+  const savedListsWithItems = savedLists.map((list) => ({
+    id: list.id,
+    slug: list.slug,
+    title: list.title,
+    description: list.description,
+    isPublic: list.isPublic,
+    isDefault: list.isDefault,
+    itemsCount: list.itemsCount,
+    ownerDisplayName: list.ownerDisplayName,
+    ownerUsername: list.ownerUsername,
+    items: savedListItemsByListId.get(list.id) ?? [],
+  }));
+
   const stats = profileStats[0];
 
   return (
@@ -234,17 +377,7 @@ export default async function MyAccountPage() {
           isDefault: list.isDefault,
           itemsCount: list.itemsCount,
         }))}
-          savedLists={savedLists.map((list: (typeof savedLists)[number]) => ({
-            id: list.id,
-            slug: list.slug,
-            title: list.title,
-            description: list.description,
-            isPublic: list.isPublic,
-            isDefault: list.isDefault,
-            itemsCount: list.itemsCount,
-            ownerDisplayName: list.ownerDisplayName,
-            ownerUsername: list.ownerUsername,
-          }))}
+          savedLists={savedListsWithItems}
           monitoredProducts={monitoredProducts.map((product) => ({
             id: product.id,
             savedAt: product.createdAt.toISOString(),

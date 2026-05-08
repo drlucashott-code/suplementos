@@ -11,6 +11,7 @@ type ListOrderProductCardProps = {
   item: BestDeal;
   index: number;
   editMode: boolean;
+  showQuickActions?: boolean;
   disableNavigation?: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;
@@ -24,6 +25,7 @@ export default function ListOrderProductCard({
   item,
   index,
   editMode,
+  showQuickActions = true,
   disableNavigation = false,
   onMoveUp,
   onMoveDown,
@@ -92,7 +94,7 @@ export default function ListOrderProductCard({
         ) : null}
       </div>
 
-      {editMode ? (
+      {editMode && showQuickActions ? (
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
@@ -115,7 +117,7 @@ export default function ListOrderProductCard({
             <span>Descer</span>
           </button>
         </div>
-      ) : (
+      ) : !editMode ? (
         <button
           type="button"
           onClick={onRemove}
@@ -124,7 +126,7 @@ export default function ListOrderProductCard({
         >
           Remover da lista
         </button>
-      )}
+      ) : null}
     </div>
   );
 }
