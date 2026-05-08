@@ -249,17 +249,17 @@ export default function HomePremiumClient({
       <TrackHomeView />
 
       <div className="border-b border-[#E5EBF0] bg-[#F8FAFC]">
-        <div className="mx-auto flex max-w-[1440px] items-center justify-center gap-2 px-4 py-2 text-center text-[12px] font-medium text-[#475467] md:px-8">
+        <div className="mx-auto flex max-w-[1440px] items-center justify-center gap-2 px-4 py-1.5 text-center text-[12px] font-medium text-[#475467] md:px-8 md:py-1">
           <ShieldCheck className="h-3.5 w-3.5 text-[#007185]" />
           <span>Comparador verificado de ofertas Amazon.</span>
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1440px] px-4 pb-8 pt-5 md:px-8 md:pt-6">
+      <div className="mx-auto max-w-[1440px] px-4 pb-8 pt-0.5 md:px-8 md:pt-1">
         <section className="overflow-hidden rounded-[28px] border border-[#D8DEE6] bg-[linear-gradient(135deg,#131921_0%,#18283A_52%,#21405F_100%)] shadow-[0_20px_60px_rgba(15,17,17,0.10)]">
           <div className="grid gap-8 px-5 py-6 md:px-8 md:py-8 lg:grid-cols-[minmax(0,1.05fr)_420px] lg:items-center lg:px-10 lg:py-10">
             <div className="max-w-[720px]">
-              <h1 className="mt-4 max-w-[680px] text-[32px] font-bold leading-[1.04] text-white md:text-[44px] lg:text-[50px]">
+              <h1 className="mt-4 max-w-[640px] text-[29px] font-bold leading-[1.04] text-white md:text-[40px] lg:text-[48px]">
                 Compare produtos da Amazon pelo custo real
               </h1>
               <p className="mt-4 max-w-[620px] text-[15px] leading-7 text-white/76 md:text-[17px]">
