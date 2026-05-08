@@ -1,2 +1,2 @@
-export { default } from "./home-v4/page";
+export { default } from "./home-premium/page";
 export const revalidate = 600;

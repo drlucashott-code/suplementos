@@ -437,9 +437,20 @@ export default function SiteAccountWorkspace({
   const listOrderSaveRequestRef = useRef<ListItemOrderChange | null>(null);
   const listOrderSavingRef = useRef(false);
   const listOrderShowOutOfStockBeforeEditRef = useRef<boolean | null>(null);
-  const defaultList = lists.find((list) => list.isDefault) ?? lists[0] ?? null;
+  const defaultList = lists.find((list) => list.isDefault) ?? null;
   const otherLists = lists.filter((list) => !list.isDefault);
-  const addListOptions = otherLists.length > 0 ? otherLists : defaultList ? [defaultList] : [];
+  const addListOptions = useMemo(() => {
+    const orderedLists = defaultList ? [defaultList, ...otherLists] : otherLists;
+    const uniqueLists = new Map<string, (typeof orderedLists)[number]>();
+
+    for (const list of orderedLists) {
+      if (!uniqueLists.has(list.id)) {
+        uniqueLists.set(list.id, list);
+      }
+    }
+
+    return Array.from(uniqueLists.values());
+  }, [defaultList, otherLists]);
   const addProductListStorageKey = getAccountLastUsedListStorageKey(currentUser.id);
 
   const trackedProductCards = useMemo(() => {
@@ -2460,12 +2471,9 @@ export default function SiteAccountWorkspace({
                   }}
                   className="h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm text-[#0F1111] outline-none transition focus:border-[#F3A847]"
                 >
-                  {defaultList && otherLists.length === 0 ? (
-                    <option value={defaultList.id}>Minha lista</option>
-                  ) : null}
-                  {otherLists.map((list) => (
+                  {addListOptions.map((list) => (
                     <option key={list.id} value={list.id}>
-                      {list.title}
+                      {list.isDefault ? "Minha lista" : list.title}
                     </option>
                   ))}
                   <option value="__new__">+ Nova lista</option>

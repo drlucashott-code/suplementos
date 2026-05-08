@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import Header from "@/app/Header";
 import SiteAuthForm from "@/components/SiteAuthForm";
+import AuthShell from "@/components/auth/AuthShell";
 import { getCurrentSiteUser } from "@/lib/siteAuthSession";
 
 export default async function LoginPage() {
@@ -8,24 +8,29 @@ export default async function LoginPage() {
   if (user) redirect("/minha-conta");
 
   return (
-    <main className="min-h-screen bg-[#E3E6E6] pb-10">
-      <Header />
-
-      <div className="mx-auto max-w-[560px] px-4 py-8">
-        <div className="rounded-3xl border border-[#d5d9d9] bg-white p-6 shadow-sm md:p-8">
-          <p className="text-sm font-black uppercase tracking-[0.18em] text-[#CC0C39]">
-            Comunidade
-          </p>
-          <h1 className="mt-3 text-3xl font-black text-[#0F1111]">Entrar na sua conta</h1>
-          <p className="mt-2 text-sm text-[#565959]">
-            Entre para comentar, responder, montar listas e acompanhar seus produtos favoritos.
-          </p>
-
-          <div className="mt-6">
-            <SiteAuthForm mode="login" />
-          </div>
-        </div>
-      </div>
-    </main>
+    <AuthShell
+      eyebrow="Comunidade"
+      title="Entrar na sua conta"
+      description="Entre para comentar, responder, montar listas e acompanhar seus produtos favoritos em um único lugar."
+      asideEyebrow="Acesso"
+      asideTitle="Tudo o que sua conta libera"
+      asideDescription="Uma entrada limpa e segura para salvar produtos, montar listas públicas e acompanhar o que vale a pena de verdade."
+      highlights={[
+        {
+          title: "Favoritos e listas",
+          description: "Salve produtos, organize listas e volte neles quando quiser sem perder contexto.",
+        },
+        {
+          title: "Comentário e comunidade",
+          description: "Participe das listas públicas, responda comentários e acompanhe as interações.",
+        },
+        {
+          title: "Login rápido e seguro",
+          description: "Entre com email, senha ou Google com mensagens claras e fluxo de confirmação visível.",
+        },
+      ]}
+    >
+      <SiteAuthForm mode="login" />
+    </AuthShell>
   );
 }

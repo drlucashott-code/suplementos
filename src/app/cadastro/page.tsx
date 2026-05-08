@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import Header from "@/app/Header";
 import SiteAuthForm from "@/components/SiteAuthForm";
+import AuthShell from "@/components/auth/AuthShell";
 import { getCurrentSiteUser } from "@/lib/siteAuthSession";
 
 export default async function RegisterPage() {
@@ -8,25 +8,32 @@ export default async function RegisterPage() {
   if (user) redirect("/minha-conta");
 
   return (
-    <main className="min-h-screen bg-[#E3E6E6] pb-10">
-      <Header />
-
-      <div className="mx-auto max-w-[560px] px-4 py-8">
-        <div className="rounded-3xl border border-[#d5d9d9] bg-white p-6 shadow-sm md:p-8">
-          <p className="text-sm font-black uppercase tracking-[0.18em] text-[#CC0C39]">
-            Comunidade
-          </p>
-          <h1 className="mt-3 text-3xl font-black text-[#0F1111]">Criar conta</h1>
-          <p className="mt-2 text-sm text-[#565959]">
-            Comece com favoritos, comentários e listas compartilháveis. A parte social do site
-            cresce em cima disso.
-          </p>
-
-          <div className="mt-6">
-            <SiteAuthForm mode="register" />
-          </div>
-        </div>
-      </div>
-    </main>
+    <AuthShell
+      eyebrow="Comunidade"
+      title="Criar conta"
+      description="Comece com favoritos, comentários e listas compartilháveis. A parte social do site cresce em cima disso."
+      asideEyebrow="Primeiro passo"
+      asideTitle="Conta pronta para usar no dia a dia"
+      asideDescription="A conta organiza sua navegação, seus produtos salvos e suas listas públicas sem transformar isso num formulário cansativo."
+      highlights={[
+        {
+          title: "Cadastro rápido",
+          description:
+            "Nome, username, email e senha em um fluxo direto, com mensagens claras quando algo precisa de ajuste.",
+        },
+        {
+          title: "Confirmação visível",
+          description:
+            "Se o email ainda não foi validado, o próximo passo fica explícito no próprio fluxo.",
+        },
+        {
+          title: "Pronto para listas e comentários",
+          description:
+            "A conta já nasce preparada para uso social, favoritos e acompanhamento dos produtos.",
+        },
+      ]}
+    >
+      <SiteAuthForm mode="register" />
+    </AuthShell>
   );
 }

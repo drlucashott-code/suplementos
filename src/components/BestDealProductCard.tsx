@@ -219,7 +219,7 @@ export default function BestDealProductCard({
         return;
       }
       if (!result.ok) {
-        toast.error(result.errorDetail ?? result.error ?? "Nao foi possivel salvar agora.");
+        toast.error(result.errorDetail ?? result.error ?? "Não foi possível salvar agora.");
         return;
       }
 
@@ -253,7 +253,7 @@ export default function BestDealProductCard({
       }
     } catch (error) {
       console.error("best_deal_save_failed", error);
-      toast.error("Nao foi possivel salvar agora.");
+      toast.error("Não foi possível salvar agora.");
     }
   }
 
@@ -613,5 +613,3 @@ export default function BestDealProductCard({
     </>
   );
 }
-
-
