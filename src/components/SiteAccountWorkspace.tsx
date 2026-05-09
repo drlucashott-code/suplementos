@@ -27,6 +27,7 @@ import {
   Check,
   ArrowDown,
   ArrowUp,
+  ChevronLeft,
   ExternalLink,
   Globe,
   GripVertical,
@@ -35,7 +36,6 @@ import {
   Lock,
   MessageCircle,
   MoreHorizontal,
-  Pencil,
   Plus,
   Search,
   Trash2,
@@ -319,12 +319,13 @@ function SortableListCard({
     <div
       ref={setNodeRef}
       style={{
+        position: "relative",
         transform: transformStyle,
         transition,
         opacity: isDragging ? 0.92 : 1,
-        zIndex: isDragging ? 20 : 0,
+        zIndex: isDragging ? 20 : menuOpen ? 40 : 0,
       }}
-      className="overflow-hidden rounded-[18px] border border-[#E5E7EB] bg-white shadow-[0_2px_10px_rgba(15,17,17,0.03)]"
+      className="overflow-visible rounded-[18px] border border-[#E5E7EB] bg-white shadow-[0_2px_10px_rgba(15,17,17,0.03)]"
       data-list-item-menu-root={sortableId}
     >
       <div className="relative">
@@ -342,7 +343,7 @@ function SortableListCard({
           </button>
         </div>
 
-        <div className="absolute right-3 top-3 z-30">
+        <div className="absolute right-3 top-3 z-30 flex flex-col items-end">
           <button
             type="button"
             onClick={onToggleMenu}
@@ -354,25 +355,28 @@ function SortableListCard({
           </button>
 
           {menuOpen ? (
-            <div className="absolute right-0 top-10 z-20 w-56 overflow-hidden rounded-xl border border-[#D0D5DD] bg-white shadow-[0_12px_28px_rgba(15,17,17,0.10)]">
-              <button
-                type="button"
-                onClick={onMoveToAnotherList}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
-              >
-                <ListPlus className="h-4 w-4 text-[#667085]" />
-                Mover para outra lista
-              </button>
-              <button
-                type="button"
-                onClick={onRemove}
-                disabled={removeDisabled}
-                className="flex w-full items-center gap-3 border-t border-[#EAECF0] px-4 py-3 text-left text-sm font-semibold text-[#B42318] transition hover:bg-[#FEF3F2] disabled:opacity-60"
-              >
-                <Trash2 className="h-4 w-4" />
-                {removeDisabled ? "Removendo..." : "Excluir"}
-              </button>
-            </div>
+            <>
+              <div className="fixed inset-0 z-40 bg-black/45 sm:hidden" onClick={onToggleMenu} />
+              <div className="fixed bottom-20 left-4 right-4 z-50 max-h-[calc(100vh-11rem)] overflow-auto rounded-2xl border border-[#D0D5DD] bg-white shadow-[0_18px_40px_rgba(15,17,17,0.22)] sm:absolute sm:right-0 sm:top-full sm:mt-2 sm:w-56 sm:rounded-xl sm:shadow-[0_12px_28px_rgba(15,17,17,0.10)]">
+                <button
+                  type="button"
+                  onClick={onMoveToAnotherList}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                >
+                  <ListPlus className="h-4 w-4 text-[#667085]" />
+                  Mover para outra lista
+                </button>
+                <button
+                  type="button"
+                  onClick={onRemove}
+                  disabled={removeDisabled}
+                  className="flex w-full items-center gap-3 border-t border-[#EAECF0] px-4 py-3 text-left text-sm font-semibold text-[#B42318] transition hover:bg-[#FEF3F2] disabled:opacity-60"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {removeDisabled ? "Removendo..." : "Excluir"}
+                </button>
+              </div>
+            </>
           ) : null}
         </div>
 
@@ -496,10 +500,8 @@ export default function SiteAccountWorkspace({
   const [showCreateList, setShowCreateList] = useState(false);
   const [listTitle, setListTitle] = useState("");
   const [creatingList, setCreatingList] = useState(false);
-  const [selectedListId, setSelectedListId] = useState<string | null>(initialLists[0]?.id ?? null);
-  const [selectedSavedListId, setSelectedSavedListId] = useState<string | null>(
-    initialSavedLists[0]?.id ?? null
-  );
+  const [selectedListId, setSelectedListId] = useState<string | null>(null);
+  const [selectedSavedListId, setSelectedSavedListId] = useState<string | null>(null);
   const [showInlineListAddProduct, setShowInlineListAddProduct] = useState(false);
   const [selectedTrackedKeys, setSelectedTrackedKeys] = useState<string[]>([]);
   const [listPickerOpen, setListPickerOpen] = useState(false);
@@ -527,6 +529,10 @@ export default function SiteAccountWorkspace({
   const [listTab, setListTab] = useState<"mine" | "saved">("mine");
   const [activeListItemId, setActiveListItemId] = useState<string | null>(null);
   const [savedListMenuOpen, setSavedListMenuOpen] = useState(false);
+  const [isMobileLayout, setIsMobileLayout] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 767px)").matches;
+  });
 
   const [activityMode, setActivityMode] = useState<"comments" | "reactions" | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
@@ -543,6 +549,31 @@ export default function SiteAccountWorkspace({
   const listOrderStockFilterBeforeEditRef = useRef<"in_stock" | "out_of_stock" | "all" | null>(
     null
   );
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+
+    const updateLayout = () => {
+      setIsMobileLayout(mediaQuery.matches);
+    };
+
+    updateLayout();
+    mediaQuery.addEventListener("change", updateLayout);
+
+    return () => mediaQuery.removeEventListener("change", updateLayout);
+  }, []);
+
+  useEffect(() => {
+    if (isMobileLayout) {
+      setOpenListId(null);
+      setSavedListMenuOpen(false);
+      setSelectedSavedListId(null);
+      return;
+    }
+
+    setSelectedListId((current) => current ?? initialLists[0]?.id ?? null);
+    setSelectedSavedListId((current) => current ?? initialSavedLists[0]?.id ?? null);
+  }, [isMobileLayout, initialLists, initialSavedLists]);
 
   useEffect(() => {
     if (!activeListItemId) return;
@@ -580,6 +611,14 @@ export default function SiteAccountWorkspace({
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [savedListMenuOpen]);
+
+  function toggleSavedListMenu(button: HTMLButtonElement) {
+    if (savedListMenuOpen) {
+      setSavedListMenuOpen(false);
+      return;
+    }
+    setSavedListMenuOpen(true);
+  }
   const defaultList = lists.find((list) => list.isDefault) ?? null;
   const otherLists = lists.filter((list) => !list.isDefault);
   const addListOptions = useMemo(() => {
@@ -827,17 +866,24 @@ export default function SiteAccountWorkspace({
   );
 
   useEffect(() => {
-    if (listTab !== "mine" || !selectedListId || openListId === selectedListId || loadingListId) {
+    if (
+      isMobileLayout ||
+      listTab !== "mine" ||
+      !selectedListId ||
+      openListId === selectedListId ||
+      loadingListId
+    ) {
       return;
     }
 
     void openListViewer(selectedListId);
-  }, [listTab, selectedListId, openListId, loadingListId]);
+  }, [isMobileLayout, listTab, selectedListId, openListId, loadingListId]);
   useEffect(() => {
     if (listTab !== "saved") return;
+    if (isMobileLayout) return;
     if (selectedSavedListId && savedLists.some((list) => list.id === selectedSavedListId)) return;
     setSelectedSavedListId(savedLists[0]?.id ?? null);
-  }, [listTab, savedLists, selectedSavedListId]);
+  }, [isMobileLayout, listTab, savedLists, selectedSavedListId]);
   useEffect(() => {
     if (!currentOpenedList) return;
     setShowInlineListAddProduct(false);
@@ -1410,6 +1456,36 @@ export default function SiteAccountWorkspace({
     setListEditorId(null);
     setListOrderMode(false);
     setActiveListItemId(null);
+  }
+
+  async function sharePublicList(list: {
+    title: string;
+    slug: string;
+    ownerUsername?: string | null;
+  }) {
+    const relativePath = list.ownerUsername
+      ? buildPublicListPath(list.ownerUsername, list.slug)
+      : `/listas/${list.slug}`;
+    const shareUrl = new URL(relativePath, window.location.origin).toString();
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+    } catch {
+      // Clipboard may be unavailable in some browsers; sharing can still proceed.
+    }
+
+    try {
+      if (typeof navigator.share === "function") {
+        await navigator.share({
+          title: list.title,
+          text: `Confira a lista ${list.title} na Amazonpicks.`,
+          url: shareUrl,
+        });
+        return;
+      }
+    } catch {
+      // Fall back to the copied link message below.
+    }
   }
 
   async function openListReorder(listId: string) {
@@ -2232,8 +2308,8 @@ export default function SiteAccountWorkspace({
 
       <section className="overflow-hidden rounded-[18px] border border-[#D5D9D9] bg-white shadow-none">
         <div className="px-5 py-5 sm:px-6 sm:py-6 md:px-8 md:py-7">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex items-center gap-4 sm:gap-5">
+          <div className="relative flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="flex items-start gap-4 sm:gap-5">
               <div className="relative">
                 {profileAvatarUrl ? (
                   <Image
@@ -2270,52 +2346,57 @@ export default function SiteAccountWorkspace({
                 <p className="mt-1 text-base font-semibold text-[#667085] sm:mt-2 sm:text-lg">
                   @{profileUsername || "sem-username"}
                 </p>
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[#667085] sm:mt-4">
+                  <span className="inline-flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4 text-[#98A2B3]" />
+                    <span className="font-medium">
+                      Membro desde{" "}
+                      <span className="font-semibold text-[#0F1111]">
+                        {formatDate(profileStats.memberSince)}
+                      </span>
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void loadActivity("comments")}
+                    className="inline-flex items-center gap-2 font-medium text-[#667085] transition hover:text-[#0F1111]"
+                  >
+                    <MessageCircle className="h-4 w-4 text-[#98A2B3]" />
+                    <span>
+                      <span className="font-semibold text-[#0F1111]">
+                        {profileStats.commentsCount}
+                      </span>{" "}
+                      comentários
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void loadActivity("reactions")}
+                    className="inline-flex items-center gap-2 font-medium text-[#667085] transition hover:text-[#0F1111]"
+                  >
+                    <Heart className="h-4 w-4 text-[#98A2B3]" />
+                    <span>
+                      <span className="font-semibold text-[#0F1111]">
+                        {profileStats.commentReactionsCount}
+                      </span>{" "}
+                      reações
+                    </span>
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className="w-full sm:max-w-[320px]">
-              <button
-                type="button"
-                onClick={() => setShowProfileEditor((current) => !current)}
-                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] sm:h-11 sm:px-5"
-              >
-                <Pencil className="h-4 w-4" />
-                <span className="sm:hidden">{showProfileEditor ? "Fechar" : "Editar"}</span>
-                <span className="hidden sm:inline">
-                  {showProfileEditor ? "Fechar edicao" : "Editar perfil"}
-                </span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowProfileEditor((current) => !current)}
+              className="absolute right-0 top-0 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#D0D5DD] bg-white text-[#0F1111] shadow-[0_1px_3px_rgba(15,17,17,0.08)] transition hover:bg-[#F8FAFA] sm:h-10 sm:w-10"
+              aria-label={showProfileEditor ? "Fechar edição" : "Editar perfil"}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[#EAECF0] pt-4 text-sm text-[#667085] sm:mt-5 sm:pt-5">
-            <span className="inline-flex items-center gap-2">
-              <CalendarDays className="h-4 w-4 text-[#98A2B3]" />
-              <span className="font-medium">
-                Membro desde <span className="font-semibold text-[#0F1111]">{formatDate(profileStats.memberSince)}</span>
-              </span>
-            </span>
-            <button
-              type="button"
-              onClick={() => void loadActivity("comments")}
-              className="inline-flex items-center gap-2 font-medium text-[#667085] transition hover:text-[#0F1111]"
-            >
-              <MessageCircle className="h-4 w-4 text-[#98A2B3]" />
-              <span>
-                <span className="font-semibold text-[#0F1111]">{profileStats.commentsCount}</span> comentários
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => void loadActivity("reactions")}
-              className="inline-flex items-center gap-2 font-medium text-[#667085] transition hover:text-[#0F1111]"
-            >
-              <Heart className="h-4 w-4 text-[#98A2B3]" />
-              <span>
-                <span className="font-semibold text-[#0F1111]">{profileStats.commentReactionsCount}</span> reações
-              </span>
-            </button>
-          </div>
         </div>
 
         {!currentUser.isEmailVerified ? (
@@ -2447,6 +2528,12 @@ export default function SiteAccountWorkspace({
           </button>
         </div>
 
+        {workspaceMessage ? (
+          <div className="mt-4 rounded-2xl border border-[#D0D5DD] bg-[#F8FAFA] px-4 py-3 text-sm font-medium text-[#0F1111]">
+            {workspaceMessage}
+          </div>
+        ) : null}
+
         <div className="mt-4 border-b border-[#D5D9D9]">
           <div className="-mb-px flex gap-7 overflow-x-auto">
             <button
@@ -2549,9 +2636,13 @@ export default function SiteAccountWorkspace({
           ) : (
             <div className="mt-5 overflow-hidden rounded-[16px] border border-[#D5D9D9] bg-white">
               <div className="grid xl:grid-cols-[248px_minmax(0,1fr)]">
-                <aside className="border-b border-[#EAECF0] bg-[#F8FAFB] xl:border-b-0 xl:border-r">
+                <aside
+                  className={`border-b border-[#EAECF0] bg-[#F8FAFB] xl:border-b-0 xl:border-r ${
+                    currentOpenedList ? "hidden md:block" : "block"
+                  }`}
+                >
                   <div className="px-2 py-2">
-                    <div className="flex gap-3 overflow-x-auto pb-1 xl:flex-col xl:overflow-visible">
+                    <div className="flex flex-col gap-2 pb-1">
                       {lists.map((list) => {
                         const selected = selectedListId === list.id;
                         return (
@@ -2562,7 +2653,7 @@ export default function SiteAccountWorkspace({
                               setSelectedListId(list.id);
                               void openListViewer(list.id);
                             }}
-                            className={`min-w-[220px] rounded-[14px] border px-4 py-2.5 text-left transition xl:min-w-0 ${
+                            className={`w-full rounded-[14px] border px-4 py-2.5 text-left transition ${
                               selected
                                 ? "border-[#D5D9D9] bg-[#F3F4F6] shadow-[inset_3px_0_0_0_#2162A1]"
                                 : "border-transparent bg-transparent hover:border-[#E5E7EB] hover:bg-white"
@@ -2573,7 +2664,7 @@ export default function SiteAccountWorkspace({
                                 <p className="truncate text-sm font-bold text-[#0F1111]">
                                   {list.title}
                                 </p>
-                                <p className="mt-1 line-clamp-1 text-[12px] text-[#667085]">
+                                <p className="mt-1 hidden line-clamp-1 text-[12px] text-[#667085] md:block">
                                   {list.description ?? (list.isDefault ? "Lista padrão" : "Sem descrição")}
                                 </p>
                               </div>
@@ -2629,7 +2720,59 @@ export default function SiteAccountWorkspace({
                       <div className="border-b border-[#EAECF0] px-4 py-3.5 md:px-5">
                         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                           <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="mb-2 flex items-center gap-2 md:hidden">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedListId(null);
+                                  setOpenListId(null);
+                                  setActiveListItemId(null);
+                                  setShowInlineListAddProduct(false);
+                                  setListEditorId(null);
+                                  setListOrderMode(false);
+                                }}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#D0D5DD] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                                aria-label="Trocar lista"
+                              >
+                                <ChevronLeft className="h-4 w-4" />
+                              </button>
+                              <h4 className="min-w-0 flex-1 truncate text-[20px] font-black leading-tight text-[#0F1111]">
+                                {currentOpenedList.title}
+                              </h4>
+                              {currentOpenedList.isPublic ? (
+                                <>
+                                  <span className="inline-flex h-8 items-center justify-center gap-1 rounded-full bg-[#ECFDF3] px-2.5 text-[11px] font-bold text-[#027A48]">
+                                    <Globe className="h-3.5 w-3.5" />
+                                    Pública
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => void sharePublicList(currentOpenedList)}
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#D0D5DD] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                                    aria-label="Compartilhar link"
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="inline-flex h-8 items-center justify-center gap-1 rounded-full bg-[#F2F4F7] px-2.5 text-[11px] font-bold text-[#475467]">
+                                  <Lock className="h-3.5 w-3.5" />
+                                  Privada
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void openListEditor(currentOpenedList.id);
+                                }}
+                                aria-label="Editar lista"
+                                disabled={loadingListId === currentOpenedList.id}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#D0D5DD] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+                            </div>
+                            <div className="hidden flex-wrap items-center gap-2 md:flex">
                               <span
                                 className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${
                                   currentOpenedList.isPublic
@@ -2645,31 +2788,25 @@ export default function SiteAccountWorkspace({
                                 {currentOpenedList.isPublic ? "Pública" : "Privada"}
                               </span>
                               {currentOpenedList.isPublic ? (
-                                <Link
-                                  href={
-                                    currentUser.username
-                                      ? buildPublicListPath(
-                                          currentUser.username,
-                                          currentOpenedList.slug
-                                        )
-                                      : `/listas/${currentOpenedList.slug}`
-                                  }
-                                  className="inline-flex h-8 items-center justify-center gap-2 rounded-lg border border-[#D0D5DD] bg-white px-3 text-xs font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                                <button
+                                  type="button"
+                                  onClick={() => void sharePublicList(currentOpenedList)}
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#D0D5DD] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                                  aria-label="Compartilhar link"
                                 >
                                   <ExternalLink className="h-3.5 w-3.5" />
-                                  Abrir link
-                                </Link>
+                                </button>
                               ) : null}
                             </div>
-                            <h4 className="mt-2.5 text-[22px] font-black leading-tight text-[#0F1111]">
+                            <h4 className="mt-2.5 hidden text-[22px] font-black leading-tight text-[#0F1111] md:block">
                               {currentOpenedList.title}
                             </h4>
                             {currentOpenedList.description ? (
-                              <p className="mt-2 max-w-3xl text-sm text-[#565959]">
+                              <p className="mt-2 hidden max-w-3xl text-sm text-[#565959] md:block">
                                 {currentOpenedList.description}
                               </p>
                             ) : (
-                              <p className="mt-2 text-sm text-[#98A2B3]">Sem descrição.</p>
+                              <p className="mt-2 hidden text-sm text-[#98A2B3] md:block">Sem descrição.</p>
                             )}
                           </div>
 
@@ -2692,7 +2829,7 @@ export default function SiteAccountWorkspace({
                               <button
                                 type="button"
                                 onClick={() => setListEditorId(null)}
-                                className="inline-flex h-10 items-center justify-center rounded-lg border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#344054] transition hover:bg-[#F8FAFA]"
+                                className="hidden h-10 items-center justify-center rounded-lg border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#344054] transition hover:bg-[#F8FAFA] md:inline-flex"
                               >
                                 Cancelar edição
                               </button>
@@ -2705,9 +2842,9 @@ export default function SiteAccountWorkspace({
                               }}
                               aria-label="Editar lista"
                               disabled={loadingListId === currentOpenedList.id}
-                              className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#D0D5DD] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
+                              className="hidden h-10 w-10 items-center justify-center rounded-lg border border-[#D0D5DD] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60 md:inline-flex"
                             >
-                              <Pencil className="h-4 w-4" />
+                              <MoreHorizontal className="h-4 w-4" />
                             </button>
                           </div>
                         </div>
@@ -2998,7 +3135,7 @@ export default function SiteAccountWorkspace({
                                 items={filteredOpenedListItems.map((item) => item.id)}
                                 strategy={rectSortingStrategy}
                               >
-                                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+                                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                                   {filteredOpenedListItems.map((item, index) => (
                                     <SortableListCard
                                       key={item.id}
@@ -3043,18 +3180,18 @@ export default function SiteAccountWorkspace({
                             Nenhum produto encontrado com estes filtros.
                           </div>
                         ) : (
-                          <div className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-3 2xl:grid-cols-4">
+                          <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                             {filteredOpenedListItems.map((item, index) => {
                               const itemMenuOpen = activeListItemId === item.id;
                               const bestDealItem = getListItemBestDeal(item);
 
                               return (
-                                <div
-                                  key={item.id}
-                                  className="overflow-hidden rounded-[18px] border border-[#E5E7EB] bg-white shadow-[0_2px_10px_rgba(15,17,17,0.03)]"
-                                >
-                                  <div className="relative" data-list-item-menu-root={item.id}>
-                                    <div className="absolute right-3 top-3 z-30">
+                              <div
+                                key={item.id}
+                                className="overflow-visible rounded-[18px] border border-[#E5E7EB] bg-white shadow-[0_2px_10px_rgba(15,17,17,0.03)]"
+                              >
+                                  <div className="relative overflow-visible" data-list-item-menu-root={item.id}>
+                                    <div className="absolute right-3 top-3 z-30 flex flex-col items-end overflow-visible">
                                       <button
                                         type="button"
                                         onClick={() =>
@@ -3070,7 +3207,7 @@ export default function SiteAccountWorkspace({
                                       </button>
 
                                       {itemMenuOpen ? (
-                                        <div className="absolute right-0 top-10 z-20 w-56 overflow-hidden rounded-xl border border-[#D0D5DD] bg-white shadow-[0_12px_28px_rgba(15,17,17,0.10)]">
+                                        <div className="absolute right-0 top-[calc(100%+8px)] z-50 mt-2 w-[calc(100vw-2rem)] max-w-56 overflow-hidden rounded-xl border border-[#D0D5DD] bg-white shadow-[0_12px_28px_rgba(15,17,17,0.10)]">
                                           <button
                                             type="button"
                                             onClick={() => {
@@ -3128,7 +3265,7 @@ export default function SiteAccountWorkspace({
                       </div>
                     </>
                   ) : (
-                    <div className="flex min-h-[420px] items-center justify-center px-6 py-10 text-center">
+                    <div className="hidden min-h-[420px] items-center justify-center px-6 py-10 text-center md:flex">
                       <div className="max-w-md">
                         <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#007185]">
                           Selecione uma lista
@@ -3153,9 +3290,13 @@ export default function SiteAccountWorkspace({
         ) : (
           <div className="mt-5 overflow-hidden rounded-[16px] border border-[#D5D9D9] bg-white">
             <div className="grid xl:grid-cols-[248px_minmax(0,1fr)]">
-              <aside className="border-b border-[#EAECF0] bg-[#F8FAFB] xl:border-b-0 xl:border-r">
+              <aside
+                className={`border-b border-[#EAECF0] bg-[#F8FAFB] xl:border-b-0 xl:border-r ${
+                  selectedSavedList ? "hidden md:block" : "block"
+                }`}
+              >
                 <div className="px-2 py-2">
-                  <div className="flex gap-3 overflow-x-auto pb-1 xl:flex-col xl:overflow-visible">
+                  <div className="flex flex-col gap-2 pb-1">
                     {savedLists.map((list) => {
                       const selected = selectedSavedListId === list.id;
                       return (
@@ -3163,7 +3304,7 @@ export default function SiteAccountWorkspace({
                           key={list.id}
                           type="button"
                           onClick={() => setSelectedSavedListId(list.id)}
-                          className={`min-w-[220px] rounded-[14px] border px-4 py-2.5 text-left transition xl:min-w-0 ${
+                          className={`w-full rounded-[14px] border px-4 py-2.5 text-left transition ${
                             selected
                               ? "border-[#D5D9D9] bg-[#F3F4F6] shadow-[inset_3px_0_0_0_#2162A1]"
                               : "border-transparent bg-transparent hover:border-[#E5E7EB] hover:bg-white"
@@ -3172,14 +3313,11 @@ export default function SiteAccountWorkspace({
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-bold text-[#0F1111]">{list.title}</p>
-                              <p className="mt-1 line-clamp-1 text-xs text-[#667085]">
+                              <p className="mt-1 hidden line-clamp-1 text-xs text-[#667085] md:block">
                                 {list.ownerDisplayName}
                                 {list.ownerUsername ? ` @${list.ownerUsername}` : ""}
                               </p>
                             </div>
-                            <span className="shrink-0 rounded-full bg-[#F2F4F7] px-2.5 py-1 text-[10px] font-bold text-[#344054]">
-                              {list.itemsCount}
-                            </span>
                           </div>
                         </button>
                       );
@@ -3194,31 +3332,61 @@ export default function SiteAccountWorkspace({
                     <div className="border-b border-[#EAECF0] px-4 py-3.5 md:px-5">
                       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                         <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
+                          <div className="mb-2 flex items-center gap-2 md:hidden">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedSavedListId(null);
+                                setSavedListMenuOpen(false);
+                              }}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#D0D5DD] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                              aria-label="Trocar lista"
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            <h4 className="min-w-0 flex-1 truncate text-[20px] font-black leading-tight text-[#0F1111]">
+                              {selectedSavedList.title}
+                            </h4>
+                            <span className="inline-flex h-8 items-center justify-center gap-1 rounded-full bg-[#ECFDF3] px-2.5 text-[11px] font-bold text-[#027A48]">
+                              <Globe className="h-3.5 w-3.5" />
+                              Pública
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => void sharePublicList(selectedSavedList)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#D0D5DD] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                              aria-label="Compartilhar link"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </button>
+                            <div className="relative" data-saved-list-menu-root>
+                              <button
+                                type="button"
+                                onClick={(event) => toggleSavedListMenu(event.currentTarget)}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#D0D5DD] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                                aria-haspopup="menu"
+                                aria-expanded={savedListMenuOpen}
+                                aria-label="Editar lista"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="hidden flex-wrap items-center gap-2 md:flex">
                             <span className="inline-flex items-center gap-1 rounded-full bg-[#ECFDF3] px-3 py-1 text-xs font-bold text-[#027A48]">
                               <Globe className="h-3.5 w-3.5" />
                               Pública
                             </span>
-                            <span className="rounded-full bg-[#F2F4F7] px-3 py-1 text-xs font-bold text-[#344054]">
-                              {selectedSavedList.itemsCount} item
-                              {selectedSavedList.itemsCount === 1 ? "" : "s"}
-                            </span>
-                            <Link
-                              href={
-                                selectedSavedList.ownerUsername
-                                  ? buildPublicListPath(
-                                      selectedSavedList.ownerUsername,
-                                      selectedSavedList.slug
-                                    )
-                                  : `/listas/${selectedSavedList.slug}`
-                              }
-                              className="inline-flex h-8 items-center justify-center gap-2 rounded-lg border border-[#D0D5DD] bg-white px-3 text-xs font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                            <button
+                              type="button"
+                              onClick={() => void sharePublicList(selectedSavedList)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#D0D5DD] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                              aria-label="Compartilhar link"
                             >
                               <ExternalLink className="h-3.5 w-3.5" />
-                              Abrir link
-                            </Link>
+                            </button>
                           </div>
-                          <div className="mt-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                          <div className="mt-2.5 hidden flex-wrap items-baseline gap-x-3 gap-y-1 md:flex">
                             <h4 className="text-[22px] font-black leading-tight text-[#0F1111]">
                               {selectedSavedList.title}
                             </h4>
@@ -3230,31 +3398,31 @@ export default function SiteAccountWorkspace({
                             </p>
                           </div>
                           {selectedSavedList.description ? (
-                            <p className="mt-2 max-w-3xl text-sm text-[#565959]">
+                            <p className="mt-2 hidden max-w-3xl text-sm text-[#565959] md:block">
                               {selectedSavedList.description}
                             </p>
                           ) : (
-                            <p className="mt-2 text-sm text-[#98A2B3]">Sem descrição.</p>
+                            <p className="mt-2 hidden text-sm text-[#98A2B3] md:block">Sem descrição.</p>
                           )}
                         </div>
 
                         <div
-                          className="relative flex flex-wrap items-start gap-2"
+                          className="relative z-30 hidden flex-wrap items-start gap-2 overflow-visible md:flex"
                           data-saved-list-menu-root
                         >
                           <button
                             type="button"
-                            onClick={() => setSavedListMenuOpen((current) => !current)}
+                            onClick={(event) => toggleSavedListMenu(event.currentTarget)}
                             className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#D0D5DD] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
                             aria-haspopup="menu"
                             aria-expanded={savedListMenuOpen}
                             aria-label="Ações da lista salva"
                           >
-                            <Pencil className="h-4 w-4" />
+                            <MoreHorizontal className="h-4 w-4" />
                           </button>
 
                           {savedListMenuOpen ? (
-                            <div className="absolute right-0 top-12 z-20 w-48 overflow-hidden rounded-xl border border-[#D0D5DD] bg-white shadow-[0_12px_28px_rgba(15,17,17,0.10)]">
+                            <div className="absolute right-0 bottom-full mb-3 z-50 w-48 overflow-hidden rounded-xl border border-[#D0D5DD] bg-white shadow-[0_12px_28px_rgba(15,17,17,0.10)]">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -3274,6 +3442,44 @@ export default function SiteAccountWorkspace({
                         </div>
                       </div>
                     </div>
+
+                              {savedListMenuOpen ? (
+                                <div className="fixed inset-0 z-40 md:hidden">
+                                  <div
+                          className="absolute inset-0 bg-black/45"
+                          onPointerDown={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setSavedListMenuOpen(false);
+                          }}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                          }}
+                        />
+                        <div
+                          className="absolute inset-x-4 bottom-20 z-50 max-h-[calc(100vh-11rem)] overflow-auto rounded-2xl border border-[#D0D5DD] bg-white shadow-[0_18px_40px_rgba(15,17,17,0.22)]"
+                          data-saved-list-menu-root
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSavedListMenuOpen(false);
+                              void toggleSaveList(selectedSavedList.id, true);
+                            }}
+                            disabled={pendingAction === `save-list:${selectedSavedList.id}`}
+                            className="flex w-full items-center gap-3 px-4 py-4 text-left text-sm font-semibold text-[#B42318] transition hover:bg-[#FEF3F2] disabled:opacity-60"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            {pendingAction === `save-list:${selectedSavedList.id}`
+                              ? "Removendo..."
+                              : "Remover"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
 
                     <div className="px-4 py-4 md:px-5">
                       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_190px_220px]">
@@ -3334,7 +3540,7 @@ export default function SiteAccountWorkspace({
                               : "Todos os produtos desta lista estao sem estoque no momento."}
                         </div>
                       ) : (
-                        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+                        <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                           {filteredSavedListItems.map((item) => {
                             const bestDealItem = getListItemBestDeal(item);
                             return (
@@ -3352,7 +3558,7 @@ export default function SiteAccountWorkspace({
                     </div>
                   </>
                 ) : (
-                  <div className="flex min-h-[240px] items-center justify-center rounded-[18px] border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-6 py-10 text-center">
+                  <div className="hidden min-h-[240px] items-center justify-center rounded-[18px] border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-6 py-10 text-center md:flex">
                     <div className="max-w-sm">
                       <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#007185]">
                         Selecione uma lista salva
