@@ -323,9 +323,9 @@ function SortableListCard({
         transform: transformStyle,
         transition,
         opacity: isDragging ? 0.92 : 1,
-        zIndex: isDragging ? 20 : menuOpen ? 40 : 0,
+        zIndex: isDragging ? 20 : menuOpen ? 80 : 0,
       }}
-      className="overflow-visible rounded-[18px] border border-[#E5E7EB] bg-white shadow-[0_2px_10px_rgba(15,17,17,0.03)]"
+      className="isolate overflow-visible rounded-[18px] border border-[#E5E7EB] bg-white shadow-[0_2px_10px_rgba(15,17,17,0.03)]"
       data-list-item-menu-root={sortableId}
     >
       <div className="relative">
@@ -356,8 +356,8 @@ function SortableListCard({
 
           {menuOpen ? (
             <>
-              <div className="fixed inset-0 z-40 bg-black/45 sm:hidden" onClick={onToggleMenu} />
-              <div className="fixed bottom-20 left-4 right-4 z-50 max-h-[calc(100vh-11rem)] overflow-auto rounded-2xl border border-[#D0D5DD] bg-white shadow-[0_18px_40px_rgba(15,17,17,0.22)] sm:absolute sm:right-0 sm:top-full sm:mt-2 sm:w-56 sm:rounded-xl sm:shadow-[0_12px_28px_rgba(15,17,17,0.10)]">
+              <div className="fixed inset-0 z-40 bg-black/60 sm:hidden" onClick={onToggleMenu} />
+              <div className="fixed bottom-20 left-4 right-4 z-[60] max-h-[calc(100vh-11rem)] overflow-auto rounded-2xl border border-[#D0D5DD] bg-white shadow-[0_18px_40px_rgba(15,17,17,0.22)] sm:absolute sm:right-0 sm:top-full sm:mt-2 sm:w-56 sm:rounded-xl sm:shadow-[0_12px_28px_rgba(15,17,17,0.10)]">
                 <button
                   type="button"
                   onClick={onMoveToAnotherList}
@@ -3186,10 +3186,12 @@ export default function SiteAccountWorkspace({
                               const bestDealItem = getListItemBestDeal(item);
 
                               return (
-                              <div
-                                key={item.id}
-                                className="overflow-visible rounded-[18px] border border-[#E5E7EB] bg-white shadow-[0_2px_10px_rgba(15,17,17,0.03)]"
-                              >
+                                <div
+                                  key={item.id}
+                                  className={`overflow-visible rounded-[18px] border border-[#E5E7EB] bg-white shadow-[0_2px_10px_rgba(15,17,17,0.03)] ${
+                                    itemMenuOpen ? "relative z-[80] isolate" : "relative z-0"
+                                  }`}
+                                >
                                   <div className="relative overflow-visible" data-list-item-menu-root={item.id}>
                                     <div className="absolute right-3 top-3 z-30 flex flex-col items-end overflow-visible">
                                       <button
@@ -3207,7 +3209,7 @@ export default function SiteAccountWorkspace({
                                       </button>
 
                                       {itemMenuOpen ? (
-                                        <div className="absolute right-0 top-[calc(100%+8px)] z-50 mt-2 w-[calc(100vw-2rem)] max-w-56 overflow-hidden rounded-xl border border-[#D0D5DD] bg-white shadow-[0_12px_28px_rgba(15,17,17,0.10)]">
+                                      <div className="absolute right-0 top-[calc(100%+8px)] z-[100] mt-2 w-[calc(100vw-2rem)] max-w-56 overflow-hidden rounded-xl border border-[#D0D5DD] bg-white shadow-[0_12px_28px_rgba(15,17,17,0.10)]">
                                           <button
                                             type="button"
                                             onClick={() => {
@@ -3422,7 +3424,7 @@ export default function SiteAccountWorkspace({
                           </button>
 
                           {savedListMenuOpen ? (
-                            <div className="absolute right-0 bottom-full mb-3 z-50 w-48 overflow-hidden rounded-xl border border-[#D0D5DD] bg-white shadow-[0_12px_28px_rgba(15,17,17,0.10)]">
+                            <div className="absolute right-0 bottom-full mb-3 z-[60] w-48 overflow-hidden rounded-xl border border-[#D0D5DD] bg-white shadow-[0_12px_28px_rgba(15,17,17,0.10)]">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -3446,21 +3448,41 @@ export default function SiteAccountWorkspace({
                               {savedListMenuOpen ? (
                                 <div className="fixed inset-0 z-40 md:hidden">
                                   <div
-                          className="absolute inset-0 bg-black/45"
-                          onPointerDown={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            setSavedListMenuOpen(false);
-                          }}
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                          }}
-                        />
+                                    className="absolute inset-0 bg-black/60"
+                                    onPointerDownCapture={(event) => {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                    }}
+                                    onPointerDown={(event) => {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                    }}
+                                    onMouseDownCapture={(event) => {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                    }}
+                                    onTouchStartCapture={(event) => {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                    }}
+                                    onClickCapture={(event) => {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      setSavedListMenuOpen(false);
+                                    }}
+                                    onClick={(event) => {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                    }}
+                                  />
                         <div
-                          className="absolute inset-x-4 bottom-20 z-50 max-h-[calc(100vh-11rem)] overflow-auto rounded-2xl border border-[#D0D5DD] bg-white shadow-[0_18px_40px_rgba(15,17,17,0.22)]"
+                          className="absolute inset-x-4 bottom-20 z-[60] max-h-[calc(100vh-11rem)] overflow-auto rounded-2xl border border-[#D0D5DD] bg-white shadow-[0_18px_40px_rgba(15,17,17,0.22)]"
                           data-saved-list-menu-root
+                          onPointerDownCapture={(event) => event.stopPropagation()}
                           onPointerDown={(event) => event.stopPropagation()}
+                          onMouseDownCapture={(event) => event.stopPropagation()}
+                          onTouchStartCapture={(event) => event.stopPropagation()}
+                          onClickCapture={(event) => event.stopPropagation()}
                           onClick={(event) => event.stopPropagation()}
                         >
                           <button
