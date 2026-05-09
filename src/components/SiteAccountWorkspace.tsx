@@ -324,7 +324,7 @@ function SortableListCard({
         opacity: isDragging ? 0.92 : 1,
         zIndex: isDragging ? 20 : 0,
       }}
-      className="overflow-hidden rounded-[24px] border border-[#E6EAF0] bg-white shadow-[0_6px_18px_rgba(15,17,17,0.03)]"
+      className="overflow-hidden rounded-[18px] border border-[#E5E7EB] bg-white shadow-[0_2px_10px_rgba(15,17,17,0.03)]"
       data-list-item-menu-root={sortableId}
     >
       <div className="relative">
@@ -334,7 +334,7 @@ function SortableListCard({
             type="button"
             {...attributes}
             {...listeners}
-            className="inline-flex h-9 w-9 cursor-grab items-center justify-center rounded-full border border-[#D0D5DD] bg-white text-[#344054] shadow-sm transition hover:bg-[#F8FAFA] active:cursor-grabbing"
+            className="inline-flex h-8 w-8 cursor-grab items-center justify-center rounded-lg border border-[#D0D5DD] bg-white text-[#344054] transition hover:bg-[#F8FAFA] active:cursor-grabbing"
             aria-label="Arraste para reordenar"
             title="Arraste para reordenar"
           >
@@ -346,7 +346,7 @@ function SortableListCard({
           <button
             type="button"
             onClick={onToggleMenu}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#D0D5DD] bg-white text-[#344054] shadow-sm transition hover:bg-[#F8FAFA]"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D0D5DD] bg-white text-[#344054] transition hover:bg-[#F8FAFA]"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
           >
@@ -354,7 +354,7 @@ function SortableListCard({
           </button>
 
           {menuOpen ? (
-            <div className="absolute right-0 top-11 z-20 w-56 overflow-hidden rounded-2xl border border-[#D0D5DD] bg-white shadow-[0_18px_40px_rgba(15,17,17,0.12)]">
+            <div className="absolute right-0 top-10 z-20 w-56 overflow-hidden rounded-xl border border-[#D0D5DD] bg-white shadow-[0_12px_28px_rgba(15,17,17,0.10)]">
               <button
                 type="button"
                 onClick={onMoveToAnotherList}
@@ -526,6 +526,7 @@ export default function SiteAccountWorkspace({
   const [listSearchQuery, setListSearchQuery] = useState("");
   const [listTab, setListTab] = useState<"mine" | "saved">("mine");
   const [activeListItemId, setActiveListItemId] = useState<string | null>(null);
+  const [savedListMenuOpen, setSavedListMenuOpen] = useState(false);
 
   const [activityMode, setActivityMode] = useState<"comments" | "reactions" | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
@@ -559,6 +560,26 @@ export default function SiteAccountWorkspace({
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [activeListItemId]);
+
+  useEffect(() => {
+    setSavedListMenuOpen(false);
+  }, [selectedSavedListId, listTab]);
+
+  useEffect(() => {
+    if (!savedListMenuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      if (!target.closest("[data-saved-list-menu-root]")) {
+        setSavedListMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [savedListMenuOpen]);
   const defaultList = lists.find((list) => list.isDefault) ?? null;
   const otherLists = lists.filter((list) => !list.isDefault);
   const addListOptions = useMemo(() => {
@@ -2209,9 +2230,9 @@ export default function SiteAccountWorkspace({
         onChange={handleAvatarFileChange}
       />
 
-      <section className="overflow-hidden rounded-[32px] border border-[#d5d9d9] bg-white shadow-sm">
-        <div className="bg-[linear-gradient(135deg,#10131A_0%,#253243_52%,#384657_100%)] px-5 py-6 text-white sm:px-6 sm:py-7 md:px-8 md:py-8">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+      <section className="overflow-hidden rounded-[18px] border border-[#D5D9D9] bg-white shadow-none">
+        <div className="px-5 py-5 sm:px-6 sm:py-6 md:px-8 md:py-7">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex items-center gap-4 sm:gap-5">
               <div className="relative">
                 {profileAvatarUrl ? (
@@ -2220,11 +2241,11 @@ export default function SiteAccountWorkspace({
                     alt={profileDisplayName || "Perfil"}
                     width={112}
                     height={112}
-                    className="h-20 w-20 rounded-full border-4 border-white/15 object-cover sm:h-24 sm:w-24 md:h-28 md:w-28"
+                    className="h-18 w-18 rounded-full border border-[#D5D9D9] object-cover shadow-[0_1px_3px_rgba(15,17,17,0.08)] sm:h-20 sm:w-20 md:h-24 md:w-24"
                     unoptimized
                   />
                 ) : (
-                  <div className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white/15 bg-[#9F43BF] text-3xl font-black text-white sm:h-24 sm:w-24 md:h-28 md:w-28 md:text-4xl">
+                  <div className="flex h-18 w-18 items-center justify-center rounded-full border border-[#D5D9D9] bg-[#9F43BF] text-2xl font-black text-white shadow-[0_1px_3px_rgba(15,17,17,0.08)] sm:h-20 sm:w-20 sm:text-3xl md:h-24 md:w-24 md:text-4xl">
                     {(profileDisplayName || currentUser.email || "U").charAt(0).toUpperCase()}
                   </div>
                 )}
@@ -2232,7 +2253,7 @@ export default function SiteAccountWorkspace({
                 <button
                   type="button"
                   onClick={openAvatarPicker}
-                  className="absolute bottom-0 right-0 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/70 bg-white text-[#FF8F1F] shadow-sm transition hover:scale-[1.02] sm:h-9 sm:w-9 md:bottom-1 md:right-1 md:h-10 md:w-10"
+                  className="absolute bottom-0 right-0 inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#D5D9D9] bg-white text-[#FF8F1F] shadow-[0_1px_3px_rgba(15,17,17,0.08)] transition hover:bg-[#F8FAFA] hover:scale-[1.02] sm:h-9 sm:w-9 md:bottom-1 md:right-1 md:h-10 md:w-10"
                   aria-label="Trocar foto"
                 >
                   <Upload className="h-4 w-4" />
@@ -2240,13 +2261,13 @@ export default function SiteAccountWorkspace({
               </div>
 
               <div className="min-w-0">
-                <p className="text-[11px] font-bold text-[#FFD37A] sm:text-xs sm:uppercase sm:tracking-[0.22em]">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#2162A1] sm:text-xs sm:tracking-[0.22em]">
                   Minha conta
                 </p>
-                <h2 className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl md:mt-3 md:text-4xl">
+                <h2 className="mt-2 text-2xl font-black leading-tight text-[#0F1111] sm:text-3xl md:mt-3 md:text-4xl">
                   {profileDisplayName}
                 </h2>
-                <p className="mt-1 text-lg font-semibold text-white/85 sm:mt-2 sm:text-xl">
+                <p className="mt-1 text-base font-semibold text-[#667085] sm:mt-2 sm:text-lg">
                   @{profileUsername || "sem-username"}
                 </p>
               </div>
@@ -2256,7 +2277,7 @@ export default function SiteAccountWorkspace({
               <button
                 type="button"
                 onClick={() => setShowProfileEditor((current) => !current)}
-                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 text-sm font-bold text-white transition hover:bg-white/15 sm:h-12 sm:px-5"
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] sm:h-11 sm:px-5"
               >
                 <Pencil className="h-4 w-4" />
                 <span className="sm:hidden">{showProfileEditor ? "Fechar" : "Editar"}</span>
@@ -2267,57 +2288,32 @@ export default function SiteAccountWorkspace({
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-3 gap-3 sm:mt-6 md:mt-8">
-            <div className="rounded-3xl border border-white/10 bg-white/8 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-4">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <CalendarDays className="h-4 w-4 shrink-0 text-[#FFD37A] sm:h-5 sm:w-5" />
-                <div>
-                  <p className="text-[10px] font-bold text-white/60 sm:text-xs sm:uppercase sm:tracking-[0.16em]">
-                    <span className="sm:hidden">Desde</span>
-                    <span className="hidden sm:inline">Membro desde</span>
-                  </p>
-                  <p className="mt-1 text-sm font-black text-white sm:text-lg">
-                    {formatDate(profileStats.memberSince)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[#EAECF0] pt-4 text-sm text-[#667085] sm:mt-5 sm:pt-5">
+            <span className="inline-flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-[#98A2B3]" />
+              <span className="font-medium">
+                Membro desde <span className="font-semibold text-[#0F1111]">{formatDate(profileStats.memberSince)}</span>
+              </span>
+            </span>
             <button
               type="button"
               onClick={() => void loadActivity("comments")}
-              className="rounded-3xl border border-white/10 bg-white/8 px-3 py-3 text-left backdrop-blur-sm transition hover:bg-white/10 sm:px-4 sm:py-4"
+              className="inline-flex items-center gap-2 font-medium text-[#667085] transition hover:text-[#0F1111]"
             >
-              <div className="flex items-center gap-2 sm:gap-3">
-                <MessageCircle className="h-4 w-4 shrink-0 text-[#FFD37A] sm:h-5 sm:w-5" />
-                <div>
-                  <p className="text-[10px] font-bold text-white/60 sm:text-xs sm:uppercase sm:tracking-[0.16em]">
-                    Comentários
-                  </p>
-                  <p className="mt-1 text-sm font-black text-white sm:text-lg">
-                    {profileStats.commentsCount}
-                  </p>
-                </div>
-              </div>
+              <MessageCircle className="h-4 w-4 text-[#98A2B3]" />
+              <span>
+                <span className="font-semibold text-[#0F1111]">{profileStats.commentsCount}</span> comentários
+              </span>
             </button>
-
             <button
               type="button"
               onClick={() => void loadActivity("reactions")}
-              className="rounded-3xl border border-white/10 bg-white/8 px-3 py-3 text-left backdrop-blur-sm transition hover:bg-white/10 sm:px-4 sm:py-4"
+              className="inline-flex items-center gap-2 font-medium text-[#667085] transition hover:text-[#0F1111]"
             >
-              <div className="flex items-center gap-2 sm:gap-3">
-                <Heart className="h-4 w-4 shrink-0 text-[#FFD37A] sm:h-5 sm:w-5" />
-                <div>
-                  <p className="text-[10px] font-bold text-white/60 sm:text-xs sm:uppercase sm:tracking-[0.16em]">
-                    <span className="sm:hidden">Reações</span>
-                    <span className="hidden sm:inline">Reações a comentários</span>
-                  </p>
-                  <p className="mt-1 text-sm font-black text-white sm:text-lg">
-                    {profileStats.commentReactionsCount}
-                  </p>
-                </div>
-              </div>
+              <Heart className="h-4 w-4 text-[#98A2B3]" />
+              <span>
+                <span className="font-semibold text-[#0F1111]">{profileStats.commentReactionsCount}</span> reações
+              </span>
             </button>
           </div>
         </div>
@@ -2428,11 +2424,13 @@ export default function SiteAccountWorkspace({
         ) : null}
       </section>
 
-      <section className="rounded-[32px] border border-[#d5d9d9] bg-white p-6 shadow-sm md:p-8">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <section className="rounded-[18px] border border-[#D5D9D9] bg-white px-5 py-5 shadow-none md:px-6 md:py-6">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h3 className="mt-2 text-3xl font-black text-[#0F1111]">Listas</h3>
-            <p className="mt-2 max-w-3xl text-sm text-[#565959]">
+            <h3 className="text-[26px] font-black leading-none text-[#0F1111] md:text-[30px]">
+              Listas
+            </h3>
+            <p className="mt-2 max-w-3xl text-[14px] leading-6 text-[#667085] md:text-[15px]">
               Crie listas personalizadas, acompanhe produtos e compartilhe facilmente quando quiser.
             </p>
           </div>
@@ -2443,23 +2441,23 @@ export default function SiteAccountWorkspace({
               setListTab("mine");
               setShowCreateList(true);
             }}
-            className="inline-flex h-10 items-center justify-center rounded-full px-1 text-sm font-semibold text-[#2162A1] transition hover:text-[#174e87]"
+            className="inline-flex h-9 items-center justify-center self-start px-0 text-[14px] font-medium text-[#2162A1] transition hover:text-[#174e87] hover:underline"
           >
             Criar uma lista
           </button>
         </div>
 
-        <div className="mt-6 border-b border-[#EAECF0]">
-          <div className="-mb-px flex gap-6 overflow-x-auto">
+        <div className="mt-4 border-b border-[#D5D9D9]">
+          <div className="-mb-px flex gap-7 overflow-x-auto">
             <button
               type="button"
               onClick={() => {
                 setListTab("mine");
                 setShowCreateList(false);
               }}
-              className={`border-b-2 px-1 pb-3 text-base font-bold transition ${
+              className={`border-b-2 px-0 pb-3 text-[16px] font-semibold transition ${
                 listTab === "mine"
-              ? "border-[#2162A1] text-[#0F1111]"
+                  ? "border-[#2162A1] text-[#0F1111]"
                   : "border-transparent text-[#667085] hover:text-[#0F1111]"
               }`}
             >
@@ -2471,7 +2469,7 @@ export default function SiteAccountWorkspace({
                 setListTab("saved");
                 setShowCreateList(false);
               }}
-              className={`border-b-2 px-1 pb-3 text-base font-bold transition ${
+              className={`border-b-2 px-0 pb-3 text-[16px] font-semibold transition ${
                 listTab === "saved"
                   ? "border-[#2162A1] text-[#0F1111]"
                   : "border-transparent text-[#667085] hover:text-[#0F1111]"
@@ -2509,7 +2507,7 @@ export default function SiteAccountWorkspace({
                     value={listTitle}
                     onChange={(event) => setListTitle(event.target.value)}
                     placeholder="Lista de Compras 3"
-                    className="h-12 w-full rounded-2xl border border-[#D0D5DD] px-4 text-sm outline-none transition focus:border-[#2162A1]"
+                    className="h-11 w-full rounded-xl border border-[#D0D5DD] px-4 text-sm outline-none transition focus:border-[#2162A1]"
                     required
                     autoFocus
                   />
@@ -2526,14 +2524,14 @@ export default function SiteAccountWorkspace({
                   <button
                     type="button"
                     onClick={() => setShowCreateList(false)}
-                    className="inline-flex h-11 items-center justify-center rounded-full border border-[#D0D5DD] bg-white px-5 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                    className="inline-flex h-10 items-center justify-center rounded-xl border border-[#D0D5DD] bg-white px-5 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={creatingList}
-                    className="inline-flex h-11 items-center justify-center rounded-full bg-[#FFD814] px-5 text-sm font-black text-[#0F1111] transition hover:bg-[#F7CA00] disabled:opacity-70"
+                    className="inline-flex h-10 items-center justify-center rounded-xl bg-[#FFD814] px-5 text-sm font-black text-[#0F1111] transition hover:bg-[#F7CA00] disabled:opacity-70"
                   >
                     {creatingList ? "Criando..." : "Criar"}
                   </button>
@@ -2549,10 +2547,10 @@ export default function SiteAccountWorkspace({
               Nenhuma lista criada ainda.
             </div>
           ) : (
-            <div className="mt-6 overflow-hidden rounded-[30px] border border-[#D8DEE6] bg-white shadow-sm">
-              <div className="grid xl:grid-cols-[280px_minmax(0,1fr)]">
-                <aside className="border-b border-[#EAECF0] bg-[#FAFBFC] xl:border-b-0 xl:border-r">
-                  <div className="px-3 py-3">
+            <div className="mt-5 overflow-hidden rounded-[16px] border border-[#D5D9D9] bg-white">
+              <div className="grid xl:grid-cols-[248px_minmax(0,1fr)]">
+                <aside className="border-b border-[#EAECF0] bg-[#F8FAFB] xl:border-b-0 xl:border-r">
+                  <div className="px-2 py-2">
                     <div className="flex gap-3 overflow-x-auto pb-1 xl:flex-col xl:overflow-visible">
                       {lists.map((list) => {
                         const selected = selectedListId === list.id;
@@ -2564,10 +2562,10 @@ export default function SiteAccountWorkspace({
                               setSelectedListId(list.id);
                               void openListViewer(list.id);
                             }}
-                            className={`min-w-[240px] rounded-[18px] border px-4 py-3 text-left transition xl:min-w-0 ${
+                            className={`min-w-[220px] rounded-[14px] border px-4 py-2.5 text-left transition xl:min-w-0 ${
                               selected
-                                ? "border-[#D8DEE6] bg-[#F3F4F6]"
-                                : "border-[#E5E7EB] bg-white hover:border-[#D0D5DD] hover:bg-[#FCFCFD]"
+                                ? "border-[#D5D9D9] bg-[#F3F4F6] shadow-[inset_3px_0_0_0_#2162A1]"
+                                : "border-transparent bg-transparent hover:border-[#E5E7EB] hover:bg-white"
                             }`}
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -2575,7 +2573,7 @@ export default function SiteAccountWorkspace({
                                 <p className="truncate text-sm font-bold text-[#0F1111]">
                                   {list.title}
                                 </p>
-                                <p className="mt-1 line-clamp-1 text-xs text-[#667085]">
+                                <p className="mt-1 line-clamp-1 text-[12px] text-[#667085]">
                                   {list.description ?? (list.isDefault ? "Lista padrão" : "Sem descrição")}
                                 </p>
                               </div>
@@ -2589,9 +2587,6 @@ export default function SiteAccountWorkspace({
                                 {list.isPublic ? "Pública" : "Privada"}
                               </span>
                             </div>
-                            {selected ? (
-                              <div className="mt-2 text-xs font-semibold text-[#2162A1]">Selecionada</div>
-                            ) : null}
                           </button>
                         );
                       })}
@@ -2613,7 +2608,7 @@ export default function SiteAccountWorkspace({
                         {[0, 1].map((item) => (
                           <div
                             key={item}
-                            className="grid gap-4 rounded-[24px] border border-[#EAECF0] p-4 lg:grid-cols-[104px_minmax(0,1fr)_210px]"
+                            className="grid gap-4 rounded-[18px] border border-[#EAECF0] p-4 lg:grid-cols-[104px_minmax(0,1fr)_210px]"
                           >
                             <div className="aspect-square animate-pulse rounded-2xl bg-[#EEF2F6]" />
                             <div className="space-y-2">
@@ -2631,7 +2626,7 @@ export default function SiteAccountWorkspace({
                     </div>
                   ) : currentOpenedList ? (
                     <>
-                      <div className="border-b border-[#EAECF0] px-4 py-4 md:px-5">
+                      <div className="border-b border-[#EAECF0] px-4 py-3.5 md:px-5">
                         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
@@ -2659,14 +2654,14 @@ export default function SiteAccountWorkspace({
                                         )
                                       : `/listas/${currentOpenedList.slug}`
                                   }
-                                  className="inline-flex h-8 items-center justify-center gap-2 rounded-full border border-[#D0D5DD] bg-white px-3 text-xs font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                                  className="inline-flex h-8 items-center justify-center gap-2 rounded-lg border border-[#D0D5DD] bg-white px-3 text-xs font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
                                 >
                                   <ExternalLink className="h-3.5 w-3.5" />
                                   Abrir link
                                 </Link>
                               ) : null}
                             </div>
-                            <h4 className="mt-3 text-[24px] font-black leading-tight text-[#0F1111]">
+                            <h4 className="mt-2.5 text-[22px] font-black leading-tight text-[#0F1111]">
                               {currentOpenedList.title}
                             </h4>
                             {currentOpenedList.description ? (
@@ -2686,7 +2681,7 @@ export default function SiteAccountWorkspace({
                                   setMonitoredProductUrl("");
                                   setShowInlineListAddProduct(true);
                                 }}
-                                className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
                               >
                                 <Plus className="h-4 w-4" />
                                 Adicionar produto
@@ -2697,7 +2692,7 @@ export default function SiteAccountWorkspace({
                               <button
                                 type="button"
                                 onClick={() => setListEditorId(null)}
-                                className="inline-flex h-10 items-center justify-center rounded-full border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#344054] transition hover:bg-[#F8FAFA]"
+                                className="inline-flex h-10 items-center justify-center rounded-lg border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#344054] transition hover:bg-[#F8FAFA]"
                               >
                                 Cancelar edição
                               </button>
@@ -2710,7 +2705,7 @@ export default function SiteAccountWorkspace({
                               }}
                               aria-label="Editar lista"
                               disabled={loadingListId === currentOpenedList.id}
-                              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#D0D5DD] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#D0D5DD] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
                             >
                               <Pencil className="h-4 w-4" />
                             </button>
@@ -2719,7 +2714,7 @@ export default function SiteAccountWorkspace({
 
                         {showInlineListAddProduct && !listOrderMode ? (
                           <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[#0F1111]/45 px-4 py-6">
-                            <div className="w-full max-w-xl overflow-hidden rounded-[28px] border border-[#D8DEE6] bg-white shadow-[0_24px_70px_rgba(15,17,17,0.22)]">
+                            <div className="w-full max-w-xl overflow-hidden rounded-[20px] border border-[#D8DEE6] bg-white shadow-[0_24px_70px_rgba(15,17,17,0.22)]">
                               <div className="flex items-start justify-between gap-4 border-b border-[#EAECF0] px-5 py-4">
                                 <div>
                                   <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#007185]">
@@ -2735,7 +2730,7 @@ export default function SiteAccountWorkspace({
                                 <button
                                   type="button"
                                   onClick={() => setShowInlineListAddProduct(false)}
-                                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#D0D5DD] text-[#344054] transition hover:bg-[#F8FAFA]"
+                                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#D0D5DD] text-[#344054] transition hover:bg-[#F8FAFA]"
                                 >
                                   <X className="h-4 w-4" />
                                 </button>
@@ -2945,7 +2940,7 @@ export default function SiteAccountWorkspace({
                               value={listSearchQuery}
                               onChange={(event) => setListSearchQuery(event.target.value)}
                               placeholder="Buscar nesta lista"
-                              className="h-11 w-full rounded-2xl border border-[#D0D5DD] bg-white pl-11 pr-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
+                              className="h-10 w-full rounded-xl border border-[#D0D5DD] bg-white pl-11 pr-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
                             />
                           </label>
                           <select
@@ -2958,7 +2953,7 @@ export default function SiteAccountWorkspace({
                                   : "in_stock"
                               )
                             }
-                            className="h-11 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
+                            className="h-10 rounded-xl border border-[#D0D5DD] bg-white px-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
                           >
                             <option value="in_stock">Mostrar: Em estoque</option>
                             <option value="out_of_stock">Mostrar: Sem estoque</option>
@@ -2977,7 +2972,7 @@ export default function SiteAccountWorkspace({
                                   : "manual"
                               )
                             }
-                            className="h-11 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
+                            className="h-10 rounded-xl border border-[#D0D5DD] bg-white px-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
                           >
                             <option value="manual">Classificar por: personalizado</option>
                             <option value="discount">Classificar por: melhor desconto</option>
@@ -3056,7 +3051,7 @@ export default function SiteAccountWorkspace({
                               return (
                                 <div
                                   key={item.id}
-                                  className="overflow-hidden rounded-[24px] border border-[#E6EAF0] bg-white shadow-[0_6px_18px_rgba(15,17,17,0.03)]"
+                                  className="overflow-hidden rounded-[18px] border border-[#E5E7EB] bg-white shadow-[0_2px_10px_rgba(15,17,17,0.03)]"
                                 >
                                   <div className="relative" data-list-item-menu-root={item.id}>
                                     <div className="absolute right-3 top-3 z-30">
@@ -3067,7 +3062,7 @@ export default function SiteAccountWorkspace({
                                             current === item.id ? null : item.id
                                           )
                                         }
-                                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#D0D5DD] bg-white text-[#344054] shadow-sm transition hover:bg-[#F8FAFA]"
+                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D0D5DD] bg-white text-[#344054] transition hover:bg-[#F8FAFA]"
                                         aria-haspopup="menu"
                                         aria-expanded={itemMenuOpen}
                                       >
@@ -3075,7 +3070,7 @@ export default function SiteAccountWorkspace({
                                       </button>
 
                                       {itemMenuOpen ? (
-                                        <div className="absolute right-0 top-11 z-20 w-56 overflow-hidden rounded-2xl border border-[#D0D5DD] bg-white shadow-[0_18px_40px_rgba(15,17,17,0.12)]">
+                                        <div className="absolute right-0 top-10 z-20 w-56 overflow-hidden rounded-xl border border-[#D0D5DD] bg-white shadow-[0_12px_28px_rgba(15,17,17,0.10)]">
                                           <button
                                             type="button"
                                             onClick={() => {
@@ -3156,10 +3151,10 @@ export default function SiteAccountWorkspace({
             Nenhuma lista salva ainda.
           </div>
         ) : (
-          <div className="mt-6 overflow-hidden rounded-[30px] border border-[#D8DEE6] bg-white shadow-sm">
-            <div className="grid xl:grid-cols-[280px_minmax(0,1fr)]">
-              <aside className="border-b border-[#EAECF0] bg-[#FAFBFC] xl:border-b-0 xl:border-r">
-                <div className="px-3 py-3">
+          <div className="mt-5 overflow-hidden rounded-[16px] border border-[#D5D9D9] bg-white">
+            <div className="grid xl:grid-cols-[248px_minmax(0,1fr)]">
+              <aside className="border-b border-[#EAECF0] bg-[#F8FAFB] xl:border-b-0 xl:border-r">
+                <div className="px-2 py-2">
                   <div className="flex gap-3 overflow-x-auto pb-1 xl:flex-col xl:overflow-visible">
                     {savedLists.map((list) => {
                       const selected = selectedSavedListId === list.id;
@@ -3168,10 +3163,10 @@ export default function SiteAccountWorkspace({
                           key={list.id}
                           type="button"
                           onClick={() => setSelectedSavedListId(list.id)}
-                          className={`min-w-[240px] rounded-[18px] border px-4 py-3 text-left transition xl:min-w-0 ${
+                          className={`min-w-[220px] rounded-[14px] border px-4 py-2.5 text-left transition xl:min-w-0 ${
                             selected
-                              ? "border-[#D8DEE6] bg-[#F3F4F6]"
-                              : "border-[#E5E7EB] bg-white hover:border-[#D0D5DD] hover:bg-[#FCFCFD]"
+                              ? "border-[#D5D9D9] bg-[#F3F4F6] shadow-[inset_3px_0_0_0_#2162A1]"
+                              : "border-transparent bg-transparent hover:border-[#E5E7EB] hover:bg-white"
                           }`}
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -3186,9 +3181,6 @@ export default function SiteAccountWorkspace({
                               {list.itemsCount}
                             </span>
                           </div>
-                          {selected ? (
-                            <div className="mt-2 text-xs font-semibold text-[#2162A1]">Selecionada</div>
-                          ) : null}
                         </button>
                       );
                     })}
@@ -3199,7 +3191,7 @@ export default function SiteAccountWorkspace({
               <div className="min-w-0 bg-white">
                 {selectedSavedList ? (
                   <>
-                    <div className="border-b border-[#EAECF0] px-4 py-4 md:px-5">
+                    <div className="border-b border-[#EAECF0] px-4 py-3.5 md:px-5">
                       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
@@ -3220,15 +3212,23 @@ export default function SiteAccountWorkspace({
                                     )
                                   : `/listas/${selectedSavedList.slug}`
                               }
-                              className="inline-flex h-8 items-center justify-center gap-2 rounded-full border border-[#D0D5DD] bg-white px-3 text-xs font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                              className="inline-flex h-8 items-center justify-center gap-2 rounded-lg border border-[#D0D5DD] bg-white px-3 text-xs font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
                             >
                               <ExternalLink className="h-3.5 w-3.5" />
                               Abrir link
                             </Link>
                           </div>
-                          <h4 className="mt-3 text-[24px] font-black leading-tight text-[#0F1111]">
-                            {selectedSavedList.title}
-                          </h4>
+                          <div className="mt-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                            <h4 className="text-[22px] font-black leading-tight text-[#0F1111]">
+                              {selectedSavedList.title}
+                            </h4>
+                            <p className="text-sm font-medium text-[#667085]">
+                              Lista criada por {selectedSavedList.ownerDisplayName}
+                              {selectedSavedList.ownerUsername
+                                ? ` @${selectedSavedList.ownerUsername}`
+                                : ""}
+                            </p>
+                          </div>
                           {selectedSavedList.description ? (
                             <p className="mt-2 max-w-3xl text-sm text-[#565959]">
                               {selectedSavedList.description}
@@ -3236,24 +3236,41 @@ export default function SiteAccountWorkspace({
                           ) : (
                             <p className="mt-2 text-sm text-[#98A2B3]">Sem descrição.</p>
                           )}
-                          <p className="mt-2 text-sm text-[#667085]">
-                            Lista criada por {selectedSavedList.ownerDisplayName}
-                            {selectedSavedList.ownerUsername
-                              ? ` @${selectedSavedList.ownerUsername}`
-                              : ""}
-                          </p>
                         </div>
 
-                        <div className="flex flex-wrap items-start gap-2">
+                        <div
+                          className="relative flex flex-wrap items-start gap-2"
+                          data-saved-list-menu-root
+                        >
                           <button
                             type="button"
-                            onClick={() => toggleSaveList(selectedSavedList.id, true)}
-                            disabled={pendingAction === `save-list:${selectedSavedList.id}`}
-                            className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
+                            onClick={() => setSavedListMenuOpen((current) => !current)}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#D0D5DD] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                            aria-haspopup="menu"
+                            aria-expanded={savedListMenuOpen}
+                            aria-label="Ações da lista salva"
                           >
-                            <Heart className="h-4 w-4" />
-                            Remover
+                            <Pencil className="h-4 w-4" />
                           </button>
+
+                          {savedListMenuOpen ? (
+                            <div className="absolute right-0 top-12 z-20 w-48 overflow-hidden rounded-xl border border-[#D0D5DD] bg-white shadow-[0_12px_28px_rgba(15,17,17,0.10)]">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSavedListMenuOpen(false);
+                                  void toggleSaveList(selectedSavedList.id, true);
+                                }}
+                                disabled={pendingAction === `save-list:${selectedSavedList.id}`}
+                                className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-[#B42318] transition hover:bg-[#FEF3F2] disabled:opacity-60"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                {pendingAction === `save-list:${selectedSavedList.id}`
+                                  ? "Removendo..."
+                                  : "Remover"}
+                              </button>
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -3267,7 +3284,7 @@ export default function SiteAccountWorkspace({
                             value={listSearchQuery}
                             onChange={(event) => setListSearchQuery(event.target.value)}
                             placeholder="Buscar nesta lista"
-                            className="h-11 w-full rounded-2xl border border-[#D0D5DD] bg-white pl-11 pr-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
+                            className="h-10 w-full rounded-xl border border-[#D0D5DD] bg-white pl-11 pr-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
                           />
                         </label>
                         <select
@@ -3279,7 +3296,7 @@ export default function SiteAccountWorkspace({
                                 : "in_stock"
                             )
                           }
-                          className="h-11 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
+                          className="h-10 rounded-xl border border-[#D0D5DD] bg-white px-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
                         >
                           <option value="in_stock">Mostrar: Em estoque</option>
                           <option value="out_of_stock">Mostrar: Sem estoque</option>
@@ -3298,7 +3315,7 @@ export default function SiteAccountWorkspace({
                                 : "manual"
                             )
                           }
-                          className="h-11 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
+                          className="h-10 rounded-xl border border-[#D0D5DD] bg-white px-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
                         >
                           <option value="manual">Classificar por: personalizado</option>
                           <option value="discount">Classificar por: melhor desconto</option>
@@ -3335,7 +3352,7 @@ export default function SiteAccountWorkspace({
                     </div>
                   </>
                 ) : (
-                  <div className="flex min-h-[240px] items-center justify-center rounded-[24px] border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-6 py-10 text-center">
+                  <div className="flex min-h-[240px] items-center justify-center rounded-[18px] border border-dashed border-[#D0D5DD] bg-[#F8FAFA] px-6 py-10 text-center">
                     <div className="max-w-sm">
                       <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#007185]">
                         Selecione uma lista salva
