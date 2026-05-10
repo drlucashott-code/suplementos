@@ -29,6 +29,7 @@ const ATTRIBUTION_STORAGE_KEY = "amazonpicks-attribution";
 const VISITOR_ID_STORAGE_KEY = "amazonpicks-visitor-id";
 const SESSION_STORAGE_KEY = "amazonpicks-click-session";
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+const SESSION_AUTO_CLOSE_MS = 60 * 60 * 1000;
 
 type ClientClickSession = {
   sessionId: string;
@@ -37,6 +38,7 @@ type ClientClickSession = {
 };
 
 let sessionCloseListenerRegistered = false;
+let sessionAutoCloseTimer: ReturnType<typeof setTimeout> | null = null;
 
 function createRandomId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -80,6 +82,22 @@ function writeSession(session: ClientClickSession) {
   }
 }
 
+function clearSession() {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+  } catch {
+    // no-op
+  }
+}
+
+function clearSessionAutoCloseTimer() {
+  if (sessionAutoCloseTimer !== null) {
+    clearTimeout(sessionAutoCloseTimer);
+    sessionAutoCloseTimer = null;
+  }
+}
+
 function closeSessionOnServer(session: ClientClickSession, visitorId: string) {
   if (typeof navigator === "undefined") return;
   try {
@@ -94,6 +112,33 @@ function closeSessionOnServer(session: ClientClickSession, visitorId: string) {
   }
 }
 
+function closeSessionLocally(session: ClientClickSession, visitorId: string) {
+  closeSessionOnServer(session, visitorId);
+  clearSessionAutoCloseTimer();
+  clearSession();
+}
+
+function scheduleSessionAutoClose(session: ClientClickSession, visitorId?: string) {
+  if (typeof window === "undefined" || !visitorId) return;
+
+  clearSessionAutoCloseTimer();
+
+  const startedAt = new Date(session.startedAt);
+  const startedAtMs = startedAt.getTime();
+  if (!Number.isFinite(startedAtMs)) return;
+
+  const timeoutMs = Math.max(0, startedAtMs + SESSION_AUTO_CLOSE_MS - Date.now());
+
+  sessionAutoCloseTimer = window.setTimeout(() => {
+    const currentSession = readSession();
+    if (!currentSession || currentSession.sessionId !== session.sessionId) {
+      return;
+    }
+
+    closeSessionLocally(currentSession, visitorId);
+  }, timeoutMs);
+}
+
 function registerSessionCloseListener() {
   if (typeof window === "undefined" || sessionCloseListenerRegistered) return;
 
@@ -101,7 +146,7 @@ function registerSessionCloseListener() {
     const visitorId = getOrCreateVisitorId();
     const session = readSession();
     if (!visitorId || !session) return;
-    closeSessionOnServer(session, visitorId);
+    closeSessionLocally(session, visitorId);
   };
 
   window.addEventListener("pagehide", handler);
@@ -130,6 +175,7 @@ function getOrCreateSessionContext() {
     };
     writeSession(next);
     registerSessionCloseListener();
+    scheduleSessionAutoClose(next, visitorId);
     return {
       visitorId,
       sessionId: next.sessionId,
@@ -144,7 +190,7 @@ function getOrCreateSessionContext() {
 
   if (isStale) {
     if (visitorId) {
-      closeSessionOnServer(existing, visitorId);
+      closeSessionLocally(existing, visitorId);
     }
     const next: ClientClickSession = {
       sessionId: createRandomId(),
@@ -153,6 +199,7 @@ function getOrCreateSessionContext() {
     };
     writeSession(next);
     registerSessionCloseListener();
+    scheduleSessionAutoClose(next, visitorId);
     return {
       visitorId,
       sessionId: next.sessionId,
@@ -166,6 +213,7 @@ function getOrCreateSessionContext() {
   };
   writeSession(nextExisting);
   registerSessionCloseListener();
+  scheduleSessionAutoClose(nextExisting, visitorId);
   return {
     visitorId,
     sessionId: nextExisting.sessionId,
