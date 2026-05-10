@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, Check, LogOut, Shield, User, type LucideIcon } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { Bell, Check, LogOut, MoreHorizontal, Shield, User, type LucideIcon } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import AccountSettingsPanel from "@/components/AccountSettingsPanel";
 import {
@@ -101,7 +102,7 @@ function SectionCard({
           <Icon className="h-4 w-4" />
         </div>
         <div>
-          <h2 className="text-[18px] font-black leading-tight text-[#0F1111]">{title}</h2>
+          <h2 className="text-[16px] font-bold leading-tight text-[#0F1111]">{title}</h2>
           <p className="mt-1 text-[13px] leading-5 text-[#667085]">{description}</p>
         </div>
       </div>
@@ -109,6 +110,11 @@ function SectionCard({
     </section>
   );
 }
+
+type PriceMenuAnchor = {
+  left: number;
+  top: number;
+};
 
 function SwitchCell({
   checked,
@@ -151,40 +157,54 @@ function NotificationPreferencesSection({ userId }: { userId: string }) {
   const [pushSupported, setPushSupported] = useState(false);
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
+  const [priceMenuOpen, setPriceMenuOpen] = useState(false);
+  const [priceMenuAnchor, setPriceMenuAnchor] = useState<PriceMenuAnchor | null>(null);
+  const stateRef = useRef(state);
 
-  const socialRows = NOTIFICATION_ROWS.filter(
-    (row) => row.key !== "priceDrops" && row.key !== "backInStock",
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  const productRows = useMemo(
+    () => NOTIFICATION_ROWS.filter((row) => row.key === "priceDrops" || row.key === "backInStock"),
+    [],
   );
-  const productRows = NOTIFICATION_ROWS.filter(
-    (row) => row.key === "priceDrops" || row.key === "backInStock",
+  const socialRows = useMemo(
+    () => NOTIFICATION_ROWS.filter((row) => row.key !== "priceDrops" && row.key !== "backInStock"),
+    [],
   );
+
+  function clearPushPreferences(base: NotificationPreferencesState) {
+    return {
+      ...base,
+      activity: Object.fromEntries(
+        Object.entries(base.activity).map(([key, entry]) => [key, { ...entry, push: false }]),
+      ) as NotificationPreferencesState["activity"],
+    };
+  }
+
+  function hasAnyPushPreference(next: NotificationPreferencesState) {
+    return Object.values(next.activity).some((entry) => entry.push);
+  }
 
   async function loadPreferences() {
-    try {
-      const response = await fetch("/api/account/notification-preferences", { cache: "no-store" });
-      if (!response.ok) return false;
+    const response = await fetch("/api/account/notification-preferences", { cache: "no-store" });
+    if (!response.ok) return null;
 
-      const data = (await response.json()) as {
-        ok?: boolean;
-        preferences?: NotificationPreferencesState;
-      };
+    const data = (await response.json()) as {
+      ok?: boolean;
+      preferences?: NotificationPreferencesState;
+    };
 
-      if (!data.ok || !data.preferences) return false;
-      setState(data.preferences);
-      return true;
-    } catch (error) {
-      console.error("notification_preferences_load_failed", error);
-      return false;
-    }
+    if (!data.ok || !data.preferences) return null;
+    return data.preferences;
   }
 
   async function loadPushStatus() {
     try {
       const response = await fetch("/api/account/push-subscriptions", { cache: "no-store" });
       if (!response.ok) {
-        setPushSupported(false);
-        setPushSubscribed(false);
-        return false;
+        return { enabled: false, hasSubscription: false };
       }
 
       const data = (await response.json()) as {
@@ -194,37 +214,18 @@ function NotificationPreferencesSection({ userId }: { userId: string }) {
       };
 
       if (!data.ok) {
-        setPushSupported(false);
-        setPushSubscribed(false);
-        return false;
+        return { enabled: false, hasSubscription: false };
       }
 
-      setPushSupported(Boolean(data.enabled));
-      setPushSubscribed(Boolean(data.hasSubscription));
-      return true;
+      return {
+        enabled: Boolean(data.enabled),
+        hasSubscription: Boolean(data.hasSubscription),
+      };
     } catch (error) {
       console.error("push_status_load_failed", error);
-      setPushSupported(false);
-      setPushSubscribed(false);
-      return false;
+      return { enabled: false, hasSubscription: false };
     }
   }
-
-  useEffect(() => {
-    let active = true;
-
-    async function bootstrap() {
-      await Promise.all([loadPreferences(), loadPushStatus()]);
-      if (active) {
-        setHydrated(true);
-      }
-    }
-
-    void bootstrap();
-    return () => {
-      active = false;
-    };
-  }, [userId]);
 
   async function persistPreferences(next: NotificationPreferencesState) {
     setSaving(true);
@@ -246,22 +247,83 @@ function NotificationPreferencesSection({ userId }: { userId: string }) {
       }
 
       setState(data.preferences);
-      setMessage("Prefer?ncias salvas.");
     } catch (error) {
       console.error("notification_preferences_save_failed", error);
       setMessage("N?o foi poss?vel salvar agora.");
-      void loadPreferences();
+      void (async () => {
+        const preferences = await loadPreferences();
+        if (preferences) setState(preferences);
+      })();
     } finally {
       setSaving(false);
     }
   }
 
-  function hasAnyPushPreference(next: NotificationPreferencesState) {
-    return Object.values(next.activity).some((entry) => entry.push);
+  async function syncPushAvailability(basePreferences: NotificationPreferencesState) {
+    const pushStatus = await loadPushStatus();
+    setPushSupported(pushStatus.enabled);
+    setPushSubscribed(pushStatus.hasSubscription);
+
+    if (!pushStatus.enabled || !pushStatus.hasSubscription) {
+      const next = clearPushPreferences(basePreferences);
+      if (hasAnyPushPreference(basePreferences)) {
+        setState(next);
+        await persistPreferences(next);
+      } else {
+        setState(next);
+      }
+    }
   }
+
+  useEffect(() => {
+    let active = true;
+
+    async function bootstrap() {
+      const preferences = (await loadPreferences()) ?? DEFAULT_NOTIFICATION_PREFERENCES;
+      if (!active) return;
+
+      setState(preferences);
+      await syncPushAvailability(preferences);
+      if (active) {
+        setHydrated(true);
+      }
+    }
+
+    void bootstrap();
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    function handleFocusSync() {
+      void (async () => {
+        const pushStatus = await loadPushStatus();
+        setPushSupported(pushStatus.enabled);
+        setPushSubscribed(pushStatus.hasSubscription);
+
+        if (!pushStatus.enabled || !pushStatus.hasSubscription) {
+          const next = clearPushPreferences(stateRef.current);
+          if (hasAnyPushPreference(stateRef.current)) {
+            setState(next);
+            await persistPreferences(next);
+          }
+        }
+      })();
+    }
+
+    window.addEventListener("focus", handleFocusSync);
+    document.addEventListener("visibilitychange", handleFocusSync);
+    return () => {
+      window.removeEventListener("focus", handleFocusSync);
+      document.removeEventListener("visibilitychange", handleFocusSync);
+    };
+  }, []);
 
   async function enablePush(): Promise<boolean> {
     if (!isPushSupported()) {
+      setPushSubscribed(false);
+      setPushSupported(false);
       setMessage("Push n?o est? dispon?vel neste navegador.");
       return false;
     }
@@ -284,22 +346,34 @@ function NotificationPreferencesSection({ userId }: { userId: string }) {
         throw new Error(data.error ?? "push_subscription_save_failed");
       }
 
+      setPushSupported(true);
       setPushSubscribed(true);
       setMessage("Push do navegador ativado.");
       return true;
     } catch (error) {
       if (error instanceof Error) {
         if (error.message === "push_not_supported") {
+          setPushSupported(false);
+          setPushSubscribed(false);
+          const next = clearPushPreferences(stateRef.current);
+          setState(next);
+          void persistPreferences(next);
           setMessage("Push n?o est? dispon?vel neste navegador.");
           return false;
         }
 
         if (error.message === "push_denied") {
+          setPushSupported(false);
+          setPushSubscribed(false);
+          const next = clearPushPreferences(stateRef.current);
+          setState(next);
+          void persistPreferences(next);
           setMessage("Permiss?o de push bloqueada no navegador.");
           return false;
         }
 
         if (error.message === "push_permission_denied") {
+          setPushSubscribed(false);
           setMessage("Permiss?o de push n?o foi concedida.");
           return false;
         }
@@ -326,6 +400,9 @@ function NotificationPreferencesSection({ userId }: { userId: string }) {
         });
       }
       setPushSubscribed(false);
+      const next = clearPushPreferences(stateRef.current);
+      setState(next);
+      await persistPreferences(next);
       if (!silent) {
         setMessage("Push do navegador desativado.");
       }
@@ -344,8 +421,8 @@ function NotificationPreferencesSection({ userId }: { userId: string }) {
 
     const nextValue = !state.activity[key][channel];
 
-    if (channel === "push" && nextValue && !pushSubscribed) {
-      const enabled = await enablePush();
+    if (channel === "push" && nextValue) {
+      const enabled = pushSubscribed ? true : await enablePush();
       if (!enabled) {
         return;
       }
@@ -389,211 +466,223 @@ function NotificationPreferencesSection({ userId }: { userId: string }) {
     void persistPreferences(next);
   }
 
+  function openPriceMenu(event: ReactMouseEvent<HTMLButtonElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setPriceMenuAnchor({ left: rect.left, top: rect.bottom + 10 });
+    setPriceMenuOpen(true);
+  }
+
+  function closePriceMenu() {
+    setPriceMenuOpen(false);
+    setPriceMenuAnchor(null);
+  }
+
+  const priceMenu =
+    priceMenuOpen && priceMenuAnchor && typeof document !== "undefined"
+      ? createPortal(
+          <>
+            <button
+              type="button"
+              aria-label="Fechar configurações de queda de preço"
+              onClick={closePriceMenu}
+              className="fixed inset-0 z-40 cursor-default bg-black/10"
+            />
+            <div
+              className="fixed z-50 w-[min(100vw-2rem,360px)] rounded-[6px] border border-[#D9DEE3] bg-[#FCFCFD] p-3 shadow-[0_10px_22px_rgba(15,17,17,0.12)] sm:w-[360px] sm:p-3.5"
+              style={{
+                left: Math.max(16, Math.min(priceMenuAnchor.left - 12, window.innerWidth - 376)),
+                top: priceMenuAnchor.top,
+              }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => updatePriceMode("any")}
+                  className={`inline-flex h-8 items-center rounded-[6px] border px-3 text-[12px] font-semibold transition ${
+                    state.priceDropMode === "any"
+                      ? "border-[#2162A1] bg-[#EEF5FB] text-[#2162A1]"
+                      : "border-[#D9DEE3] bg-white text-[#0F1111] hover:bg-[#F8FAFA]"
+                  }`}
+                >
+                  Qualquer queda
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updatePriceMode("custom")}
+                  className={`inline-flex h-8 items-center rounded-[6px] border px-3 text-[12px] font-semibold transition ${
+                    state.priceDropMode === "custom"
+                      ? "border-[#2162A1] bg-[#EEF5FB] text-[#2162A1]"
+                      : "border-[#D9DEE3] bg-white text-[#0F1111] hover:bg-[#F8FAFA]"
+                  }`}
+                >
+                  Personalizado
+                </button>
+              </div>
+
+              {state.priceDropMode === "custom" ? (
+                <div className="mt-3.5 grid gap-3 sm:grid-cols-2">
+                  <label className="block space-y-1.5">
+                    <span className="text-[13px] font-bold text-[#0F1111]">Queda mínima (%)</span>
+                    <input
+                      type="range"
+                      min={1}
+                      max={80}
+                      value={state.priceDropThreshold}
+                      onChange={(event) => updatePriceThreshold(Number(event.target.value))}
+                      className="h-2 w-full accent-[#2162A1]"
+                    />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="text-[13px] font-bold text-[#0F1111]">Valor exato</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={80}
+                      value={state.priceDropThreshold}
+                      onChange={(event) => updatePriceThreshold(Number(event.target.value))}
+                      className="h-8 w-full rounded-[6px] border border-[#D9DEE3] px-2.5 text-[13px] text-[#0F1111] outline-none transition focus:border-[#2162A1]"
+                    />
+                  </label>
+                </div>
+              ) : null}
+            </div>
+          </>,
+          document.body,
+        )
+      : null;
+
+  if (!hydrated) {
+    return (
+      <SectionCard
+        icon={Bell}
+        title="Notificações"
+        description="Central, email e push organizados por categoria."
+      >
+        <div className="mx-auto max-w-4xl">
+          <div className="rounded-[6px] border border-dashed border-[#D9DEE3] bg-[#F8FAFA] px-4 py-6 text-[13px] text-[#565959]">
+            Carregando preferências...
+          </div>
+        </div>
+      </SectionCard>
+    );
+  }
+
   return (
     <SectionCard
       icon={Bell}
-      title="Notifica??es"
+      title="Notificações"
       description="Central, email e push organizados por categoria."
     >
-      <div className="space-y-4">
-        <div className={`${accountSectionClass} overflow-hidden p-0`}> 
-          <div className="border-b border-[#EAECF0] px-4 py-3 sm:px-5">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#2162A1]">
-              Atividade social
-            </p>
+      {priceMenu}
+
+      <div className="mx-auto max-w-4xl space-y-3">
+        <div className={`${accountSectionClass} overflow-hidden p-0`}>
+          <div className="border-b border-[#EAECF0] px-4 py-2.5 sm:px-5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#2162A1]">Produtos</p>
           </div>
           <div className="divide-y divide-[#EAECF0]">
-            {socialRows.map((row) => (
-              <div
-                key={row.key}
-                className="flex flex-col gap-3 px-4 py-3 sm:px-5 md:flex-row md:items-center md:justify-between md:gap-4"
-              >
-                <div className="min-w-0">
-                  <p className="text-[13px] font-bold leading-5 text-[#0F1111]">{row.title}</p>
-                  <p className="mt-1 text-[12px] leading-5 text-[#667085]">{row.description}</p>
+            {productRows.map((row) => (
+              <div key={row.key} className="px-4 py-2.5 sm:px-5">
+                <div className="flex flex-col gap-2.5 md:flex-row md:items-start md:justify-between md:gap-3">
+                  <div className={`min-w-0 md:max-w-[48%] ${row.key === "priceDrops" ? "relative" : ""}`}>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[13px] font-bold leading-5 text-[#0F1111]">{row.title}</p>
+                      {row.key === "priceDrops" ? (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            if (priceMenuOpen) {
+                              closePriceMenu();
+                              return;
+                            }
+                            openPriceMenu(event);
+                          }}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-[6px] border border-[#D9DEE3] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
+                          aria-expanded={priceMenuOpen}
+                          aria-label="Abrir configurações de queda de preço"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                    </div>
+                    {row.key === "priceDrops" ? priceMenu : null}
+                  </div>
+                  <div className="flex flex-col gap-2 md:shrink-0 md:items-end">
+                    <div className="grid grid-cols-3 gap-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-[#667085]">
+                      <span className="text-center">Central</span>
+                      <span className="text-center">Email</span>
+                      <span className="text-center">Push</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <SwitchCell
+                        checked={state.activity[row.key].central}
+                        onClick={() => void toggleRow(row.key, "central")}
+                        label={`${row.title} na central`}
+                      />
+                      <SwitchCell
+                        checked={state.activity[row.key].email}
+                        onClick={() => void toggleRow(row.key, "email")}
+                        label={`${row.title} por email`}
+                      />
+                      <SwitchCell
+                        checked={state.activity[row.key].push}
+                        onClick={() => void toggleRow(row.key, "push")}
+                        label={`${row.title} por push`}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 md:shrink-0">
-                  <SwitchCell
-                    checked={state.activity[row.key].central}
-                    onClick={() => void toggleRow(row.key, "central")}
-                    label={`${row.title} na central`}
-                  />
-                  <SwitchCell
-                    checked={state.activity[row.key].email}
-                    onClick={() => void toggleRow(row.key, "email")}
-                    label={`${row.title} por email`}
-                  />
-                  <SwitchCell
-                    checked={state.activity[row.key].push}
-                    onClick={() => void toggleRow(row.key, "push")}
-                    label={`${row.title} por push`}
-                  />
-                </div>
+
               </div>
             ))}
           </div>
         </div>
 
         <div className={`${accountSectionClass} overflow-hidden p-0`}>
-          <div className="border-b border-[#EAECF0] px-4 py-3 sm:px-5">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#2162A1]">
-              Produtos e alertas
-            </p>
+          <div className="border-b border-[#EAECF0] px-4 py-2.5 sm:px-5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#2162A1]">Atividade social</p>
           </div>
           <div className="divide-y divide-[#EAECF0]">
-            {productRows.map((row) => (
+            {socialRows.map((row) => (
               <div
                 key={row.key}
-                className="flex flex-col gap-3 px-4 py-3 sm:px-5 md:flex-row md:items-center md:justify-between md:gap-4"
+                className="flex flex-col gap-2.5 px-4 py-2.5 sm:px-5 md:flex-row md:items-center md:justify-between md:gap-3"
               >
                 <div className="min-w-0">
                   <p className="text-[13px] font-bold leading-5 text-[#0F1111]">{row.title}</p>
-                  <p className="mt-1 text-[12px] leading-5 text-[#667085]">{row.description}</p>
                 </div>
-                <div className="flex items-center gap-2 md:shrink-0">
-                  <SwitchCell
-                    checked={state.activity[row.key].central}
-                    onClick={() => void toggleRow(row.key, "central")}
-                    label={`${row.title} na central`}
-                  />
-                  <SwitchCell
-                    checked={state.activity[row.key].email}
-                    onClick={() => void toggleRow(row.key, "email")}
-                    label={`${row.title} por email`}
-                  />
-                  <SwitchCell
-                    checked={state.activity[row.key].push}
-                    onClick={() => void toggleRow(row.key, "push")}
-                    label={`${row.title} por push`}
-                  />
+                <div className="flex flex-col gap-2 md:shrink-0 md:items-end">
+                  <div className="grid grid-cols-3 gap-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-[#667085]">
+                    <span className="text-center">Central</span>
+                    <span className="text-center">Email</span>
+                    <span className="text-center">Push</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <SwitchCell
+                      checked={state.activity[row.key].central}
+                      onClick={() => void toggleRow(row.key, "central")}
+                      label={`${row.title} na central`}
+                    />
+                    <SwitchCell
+                      checked={state.activity[row.key].email}
+                      onClick={() => void toggleRow(row.key, "email")}
+                      label={`${row.title} por email`}
+                    />
+                    <SwitchCell
+                      checked={state.activity[row.key].push}
+                      onClick={() => void toggleRow(row.key, "push")}
+                      label={`${row.title} por push`}
+                    />
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
-          <div className={`${accountSectionClass} p-4 sm:p-5`}> 
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-[13px] font-bold text-[#0F1111]">Queda de pre?o</p>
-                <p className="mt-1 text-[12px] leading-5 text-[#667085]">
-                  Notifique quando um produto monitorado ficar mais barato.
-                </p>
-              </div>
-              <div className="shrink-0">
-                <SwitchCell
-                  checked={state.activity.priceDrops.central}
-                  onClick={() => void toggleRow("priceDrops", "central")}
-                  label="Queda de pre?o na central"
-                />
-              </div>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => updatePriceMode("any")}
-                className={`inline-flex h-8 items-center rounded-md border px-3 text-[13px] font-semibold transition ${
-                  state.priceDropMode === "any"
-                    ? "border-[#2162A1] bg-[#EEF5FB] text-[#2162A1]"
-                    : "border-[#D5D9D9] bg-white text-[#0F1111] hover:bg-[#F8FAFA]"
-                }`}
-              >
-                Qualquer queda
-              </button>
-              <button
-                type="button"
-                onClick={() => updatePriceMode("custom")}
-                className={`inline-flex h-8 items-center rounded-md border px-3 text-[13px] font-semibold transition ${
-                  state.priceDropMode === "custom"
-                    ? "border-[#2162A1] bg-[#EEF5FB] text-[#2162A1]"
-                    : "border-[#D5D9D9] bg-white text-[#0F1111] hover:bg-[#F8FAFA]"
-                }`}
-              >
-                Personalizado
-              </button>
-            </div>
-
-            {state.priceDropMode === "custom" ? (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <label className="block space-y-1.5">
-                  <span className="text-[13px] font-bold text-[#0F1111]">Queda m?nima (%)</span>
-                  <input
-                    type="range"
-                    min={1}
-                    max={80}
-                    value={state.priceDropThreshold}
-                    onChange={(event) => updatePriceThreshold(Number(event.target.value))}
-                    className="h-2 w-full accent-[#2162A1]"
-                  />
-                </label>
-                <label className="block space-y-1.5">
-                  <span className="text-[13px] font-bold text-[#0F1111]">Valor exato</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={80}
-                    value={state.priceDropThreshold}
-                    onChange={(event) => updatePriceThreshold(Number(event.target.value))}
-                    className="h-8 w-full rounded-md border border-[#D0D5DD] bg-white px-3 text-[13px] outline-none transition focus:border-[#2162A1]"
-                  />
-                </label>
-              </div>
-            ) : null}
-          </div>
-
-          <div className={`${accountSectionClass} p-4 sm:p-5`}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-[13px] font-bold text-[#0F1111]">Push do navegador</p>
-                <p className="mt-1 text-[12px] leading-5 text-[#667085]">
-                  {pushSupported
-                    ? pushSubscribed
-                      ? "Ativado neste navegador."
-                      : "Desativado neste navegador."
-                    : "Sem suporte neste navegador."}
-                </p>
-              </div>
-              <div className="shrink-0">
-                <SwitchCell
-                  checked={pushSubscribed}
-                  onClick={async () => {
-                    if (pushLoading) return;
-                    if (pushSubscribed) {
-                      await disablePush();
-                      return;
-                    }
-                    const enabled = await enablePush();
-                    if (!enabled) return;
-                  }}
-                  label="Push do navegador"
-                />
-              </div>
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="inline-flex h-7 items-center rounded-full border border-[#D5D9D9] bg-white px-3 text-[12px] font-semibold text-[#0F1111]">
-                {pushSubscribed ? "Ativo" : "Desativado"}
-              </span>
-              <button
-                type="button"
-                onClick={async () => {
-                  if (pushSubscribed) {
-                    await disablePush();
-                    return;
-                  }
-                  await enablePush();
-                }}
-                disabled={pushLoading}
-                className="inline-flex h-8 items-center rounded-md border border-[#D5D9D9] bg-white px-3 text-[13px] font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
-              >
-                {pushSubscribed ? "Gerenciar" : "Ativar push"}
-              </button>
-            </div>
-          </div>
-        </div>
-
         {hydrated && message ? (
-          <div className="rounded-[8px] border border-[#D0D5DD] bg-[#F8FAFA] px-4 py-2.5 text-[13px] font-medium text-[#0F1111]">
+          <div className="rounded-[6px] border border-[#D0D5DD] bg-[#F8FAFA] px-3.5 py-2 text-[13px] font-medium text-[#0F1111]">
             {message}
           </div>
         ) : null}
@@ -646,7 +735,7 @@ function SecuritySection({ user }: { user: AccountSettingsWorkspaceProps["user"]
       description="Email, senha e sessão atual em um bloco direto e funcional."
     >
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-[8px] border border-[#D5D9D9] bg-[#FCFCFD] p-4">
+        <div className="rounded-[6px] border border-[#D9DEE3] bg-[#FCFCFD] p-3.5">
           <p className="text-[13px] font-bold text-[#0F1111]">Email atual</p>
           <p className="mt-1 text-[13px] leading-5 text-[#667085]">{user.email}</p>
           <p className="mt-3 text-[13px] font-semibold text-[#0F1111]">
@@ -662,14 +751,14 @@ function SecuritySection({ user }: { user: AccountSettingsWorkspaceProps["user"]
               type="button"
               onClick={() => void resendVerification()}
               disabled={resendingVerification}
-              className="mt-4 inline-flex h-9 items-center rounded-md border border-[#D5D9D9] bg-white px-4 text-[13px] font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
+              className="mt-3 inline-flex h-8 items-center rounded-[6px] border border-[#D9DEE3] bg-white px-3.5 text-[13px] font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
             >
               {resendingVerification ? "Reenviando..." : "Reenviar confirmação"}
             </button>
           ) : null}
         </div>
 
-        <div className="rounded-[8px] border border-[#D5D9D9] bg-[#FCFCFD] p-4">
+        <div className="rounded-[6px] border border-[#D9DEE3] bg-[#FCFCFD] p-3.5">
           <p className="text-[13px] font-bold text-[#0F1111]">Senha e sessão</p>
           <p className="mt-1 text-[12px] leading-5 text-[#667085]">
             Troque sua senha quando quiser ou encerre a sessão atual.
@@ -677,7 +766,7 @@ function SecuritySection({ user }: { user: AccountSettingsWorkspaceProps["user"]
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
               href="/esqueci-senha"
-              className="inline-flex h-9 items-center rounded-md bg-[#FFD814] px-4 text-[13px] font-black text-[#111111] transition hover:bg-[#F7CA00]"
+              className="inline-flex h-8 items-center rounded-[6px] bg-[#FFD814] px-3.5 text-[13px] font-bold text-[#111111] transition hover:bg-[#F7CA00]"
             >
               Alterar senha
             </Link>
@@ -685,7 +774,7 @@ function SecuritySection({ user }: { user: AccountSettingsWorkspaceProps["user"]
               type="button"
               onClick={() => void logoutCurrentSession()}
               disabled={logoutPending}
-              className="inline-flex h-9 items-center rounded-md border border-[#D5D9D9] bg-white px-4 text-[13px] font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
+              className="inline-flex h-8 items-center rounded-[6px] border border-[#D9DEE3] bg-white px-3.5 text-[13px] font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
             >
               {logoutPending ? "Saindo..." : "Sair desta sessão"}
             </button>
@@ -694,7 +783,7 @@ function SecuritySection({ user }: { user: AccountSettingsWorkspaceProps["user"]
       </div>
 
       {message ? (
-        <div className="mt-4 rounded-[8px] border border-[#D0D5DD] bg-[#F8FAFA] px-4 py-3 text-[13px] font-medium text-[#0F1111]">
+        <div className="mt-3 rounded-[6px] border border-[#D0D5DD] bg-[#F8FAFA] px-3.5 py-2.5 text-[13px] font-medium text-[#0F1111]">
           {message}
         </div>
       ) : null}
@@ -706,10 +795,10 @@ export default function AccountSettingsWorkspace({ user }: AccountSettingsWorksp
   const [section, setSection] = useState<SettingsSectionId>("account");
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <section className={`${accountSectionClass} p-4 sm:p-5 md:p-6`}>
-        <div className="border-b border-[#D5D9D9]">
-          <div className="-mb-px flex gap-5 overflow-x-auto">
+        <div className="border-b border-[#D9DEE3]">
+          <div className="-mb-px flex gap-4 overflow-x-auto">
             {SETTINGS_TABS.map((item) => {
               const active = section === item.id;
               return (
@@ -717,7 +806,7 @@ export default function AccountSettingsWorkspace({ user }: AccountSettingsWorksp
                   key={item.id}
                   type="button"
                   onClick={() => setSection(item.id)}
-                  className={`border-b-2 px-0 pb-2.5 text-[14px] font-semibold transition ${
+                  className={`border-b-2 px-0 pb-2.5 text-[13px] font-semibold transition ${
                     active
                       ? "border-[#2162A1] text-[#0F1111]"
                       : "border-transparent text-[#667085] hover:text-[#0F1111]"
@@ -731,7 +820,7 @@ export default function AccountSettingsWorkspace({ user }: AccountSettingsWorksp
         </div>
       </section>
 
-      <div className="space-y-5">
+      <div className="space-y-4">
         {section === "account" ? <AccountSettingsPanel user={user} /> : null}
         {section === "notifications" ? <NotificationPreferencesSection userId={user.id} /> : null}
         {section === "security" ? <SecuritySection user={user} /> : null}

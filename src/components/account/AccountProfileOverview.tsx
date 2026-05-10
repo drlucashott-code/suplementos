@@ -130,9 +130,9 @@ function HubCard({
   return (
     <Link
       href={href}
-      className="flex gap-3 rounded-[10px] border border-[#D5D9D9] bg-white px-3 py-3 transition hover:border-[#C9D5E4] hover:bg-[#FCFCFD]"
+      className="flex gap-3 rounded-[6px] border border-[#D9DEE3] bg-white px-3 py-2.5 transition hover:border-[#C9D5E4] hover:bg-[#FCFCFD]"
     >
-      <div className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#F3F4F6] text-[#344054]">
+      <div className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] bg-[#F3F4F6] text-[#344054]">
         {icon}
       </div>
       <div className="min-w-0 flex-1">
@@ -150,17 +150,17 @@ function CompactListCard({ list }: { list: RecentListPreview }) {
   return (
     <Link
       href="/minha-conta/listas"
-      className="group flex h-full flex-col rounded-[10px] border border-[#D5D9D9] bg-white p-4 transition hover:border-[#C9D5E4] hover:bg-[#FCFCFD]"
+      className="group flex h-full flex-col rounded-[6px] border border-[#D9DEE3] bg-white p-3.5 transition hover:border-[#C9D5E4] hover:bg-[#FCFCFD]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[14px] font-bold text-[#0F1111]">{list.title}</p>
-          <p className="mt-1 line-clamp-2 text-[13px] leading-6 text-[#565959]">
+          <p className="truncate text-[13px] font-semibold text-[#0F1111]">{list.title}</p>
+          <p className="mt-1 line-clamp-2 text-[12px] leading-5 text-[#565959]">
             {list.description || "Lista pronta para acompanhar produtos com mais contexto."}
           </p>
         </div>
         <span
-          className={`shrink-0 rounded-md px-2.5 py-1 text-[10px] font-bold ${
+          className={`shrink-0 rounded-[6px] px-2 py-0.5 text-[10px] font-semibold ${
             list.isPublic ? "bg-[#ECFDF3] text-[#027A48]" : "bg-[#F2F4F7] text-[#475467]"
           }`}
         >
@@ -168,7 +168,7 @@ function CompactListCard({ list }: { list: RecentListPreview }) {
         </span>
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-3 text-[11px] font-semibold text-[#667085]">
+      <div className="mt-3 flex items-center justify-between gap-3 text-[11px] font-medium text-[#667085]">
         <span>{formatRelativeTime(list.updatedAt)}</span>
         <span className="text-[#2162A1] transition group-hover:underline">Abrir</span>
       </div>
@@ -178,9 +178,9 @@ function CompactListCard({ list }: { list: RecentListPreview }) {
 
 function SectionTitle({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
-    <div className="mb-3">
+    <div className="mb-2.5">
       <p className={accountKickerClass}>{eyebrow}</p>
-      <h3 className="mt-1 text-[18px] font-black text-[#0F1111]">{title}</h3>
+      <h3 className="mt-1 text-[16px] font-bold text-[#0F1111]">{title}</h3>
     </div>
   );
 }
@@ -239,10 +239,10 @@ export default function AccountProfileOverview({
   }, [dismissLoaded, hiddenActivityIds]);
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+    <div className="grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
       <aside className={`${accountSectionClass} overflow-hidden`}>
-        <div className="p-4 sm:p-5 md:p-6">
-          <div className="flex items-start gap-4">
+        <div className="p-4 sm:p-4.5 md:p-5">
+          <div className="flex items-start gap-3.5">
             <div className="relative shrink-0">
               {user.avatarUrl ? (
                 <Image
@@ -250,11 +250,11 @@ export default function AccountProfileOverview({
                   alt={user.displayName || "Perfil"}
                   width={96}
                   height={96}
-                  className="h-18 w-18 rounded-full border border-[#D5D9D9] object-cover shadow-[0_1px_3px_rgba(15,17,17,0.08)] sm:h-20 sm:w-20"
+                  className="h-16 w-16 rounded-full border border-[#D9DEE3] object-cover shadow-[0_1px_3px_rgba(15,17,17,0.08)] sm:h-18 sm:w-18"
                   unoptimized
                 />
               ) : (
-                <div className="flex h-18 w-18 items-center justify-center rounded-full border border-[#D5D9D9] bg-[#9F43BF] text-2xl font-black text-white shadow-[0_1px_3px_rgba(15,17,17,0.08)] sm:h-20 sm:w-20 sm:text-3xl">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full border border-[#D9DEE3] bg-[#9F43BF] text-xl font-black text-white shadow-[0_1px_3px_rgba(15,17,17,0.08)] sm:h-18 sm:w-18 sm:text-2xl">
                   {(user.displayName || user.email || "U").charAt(0).toUpperCase()}
                 </div>
               )}
@@ -262,16 +262,16 @@ export default function AccountProfileOverview({
 
             <div className="min-w-0">
               <p className={accountKickerClass}>Minha conta</p>
-              <h1 className="mt-2 truncate text-[26px] font-black leading-tight text-[#0F1111] sm:text-[32px]">
+              <h1 className="mt-1.5 truncate text-[22px] font-bold leading-tight text-[#0F1111] sm:text-[26px]">
                 {user.displayName}
               </h1>
-              <p className="mt-1 text-[14px] font-semibold text-[#667085]">
+              <p className="mt-1 text-[13px] font-semibold text-[#667085]">
                 @{user.username || "sem-username"}
               </p>
             </div>
           </div>
 
-          <div className="mt-4 space-y-2 border-t border-[#EAECF0] pt-4 text-[13px] text-[#565959]">
+          <div className="mt-3.5 space-y-1.5 border-t border-[#EAECF0] pt-3.5 text-[13px] text-[#565959]">
             <div className="flex items-center justify-between gap-3">
               <span>Membro desde</span>
               <span className="font-semibold text-[#0F1111]">{formatDate(profileStats.memberSince)}</span>
@@ -294,9 +294,9 @@ export default function AccountProfileOverview({
             </div>
           </div>
 
-          <div className="mt-4 border-t border-[#EAECF0] pt-4">
+          <div className="mt-3.5 border-t border-[#EAECF0] pt-3.5">
             <p className={accountKickerClass}>Acesso rápido</p>
-            <div className="mt-3 grid gap-2">
+            <div className="mt-2.5 grid gap-2">
               <Link href="/minha-conta/listas" className={accountSecondaryButtonClass + " w-full justify-center"}>
                 Minhas listas
               </Link>
@@ -315,9 +315,9 @@ export default function AccountProfileOverview({
       </aside>
 
       <section className={`${accountSectionClass} overflow-hidden`}>
-        <div className="border-b border-[#EAECF0] px-4 py-4 sm:px-5 md:px-6">
-          <div className="border-b border-[#D5D9D9]">
-            <div className="-mb-px flex gap-5 overflow-x-auto">
+        <div className="border-b border-[#EAECF0] px-4 py-3 sm:px-5 md:px-6">
+          <div className="border-b border-[#D9DEE3]">
+            <div className="-mb-px flex gap-4 overflow-x-auto">
               {(
                 [
                   ["activities", "Atividades"],
@@ -331,7 +331,7 @@ export default function AccountProfileOverview({
                     key={value}
                     type="button"
                     onClick={() => setTab(value)}
-                    className={`border-b-2 px-0 pb-2.5 text-[14px] font-semibold transition ${
+                    className={`border-b-2 px-0 pb-2 text-[13px] font-semibold transition ${
                       active
                         ? "border-[#2162A1] text-[#0F1111]"
                         : "border-transparent text-[#667085] hover:text-[#0F1111]"
@@ -345,11 +345,11 @@ export default function AccountProfileOverview({
           </div>
         </div>
 
-        <div className="space-y-6 p-4 sm:p-5 md:p-6">
+        <div className="space-y-5 p-4 sm:p-5 md:p-6">
           {tab === "activities" ? (
             <>
               <section>
-                <div className="mb-3 flex items-end justify-between gap-3">
+                <div className="mb-2.5 flex items-end justify-between gap-3">
                   <div>
                     <p className={accountKickerClass}>Monitoramento</p>
                   </div>
@@ -370,7 +370,7 @@ export default function AccountProfileOverview({
                 </div>
                 <div className="space-y-3">
                   {activityNotifications.length === 0 ? (
-                    <div className="rounded-[10px] border border-dashed border-[#D5D9D9] bg-[#F8FAFA] px-4 py-8 text-[13px] text-[#565959]">
+                    <div className="rounded-[6px] border border-dashed border-[#D9DEE3] bg-[#F8FAFA] px-4 py-6 text-[13px] text-[#565959]">
                       Nenhum alerta de produto por enquanto.
                     </div>
                   ) : (
@@ -389,11 +389,11 @@ export default function AccountProfileOverview({
               </section>
 
               <section>
-                <div className="mb-3">
+                <div className="mb-2.5">
                   <p className={accountKickerClass}>Suas listas recentes</p>
                 </div>
                 {recentLists.length === 0 ? (
-                  <div className="rounded-[10px] border border-dashed border-[#D5D9D9] bg-[#F8FAFA] px-4 py-8 text-[13px] text-[#565959]">
+                  <div className="rounded-[6px] border border-dashed border-[#D9DEE3] bg-[#F8FAFA] px-4 py-6 text-[13px] text-[#565959]">
                     Nenhuma lista recente por enquanto.
                   </div>
                 ) : (
@@ -428,7 +428,7 @@ export default function AccountProfileOverview({
                 ) : null}
 
                 {recentComments.length === 0 ? (
-                  <div className="rounded-[10px] border border-dashed border-[#D5D9D9] bg-[#F8FAFA] px-4 py-8 text-[13px] text-[#565959]">
+                  <div className="rounded-[6px] border border-dashed border-[#D9DEE3] bg-[#F8FAFA] px-4 py-6 text-[13px] text-[#565959]">
                     Você ainda não publicou comentários.
                   </div>
                 ) : (
@@ -455,7 +455,7 @@ export default function AccountProfileOverview({
 
               <div className="space-y-3">
                 {interactionNotifications.length === 0 ? (
-                  <div className="rounded-[10px] border border-dashed border-[#D5D9D9] bg-[#F8FAFA] px-4 py-8 text-[13px] text-[#565959]">
+                  <div className="rounded-[6px] border border-dashed border-[#D9DEE3] bg-[#F8FAFA] px-4 py-6 text-[13px] text-[#565959]">
                     Nenhuma interação recente por enquanto.
                   </div>
                 ) : (
