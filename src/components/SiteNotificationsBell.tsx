@@ -121,6 +121,13 @@ export default function SiteNotificationsBell() {
     }
   }
 
+  async function markClicked(notificationId: string) {
+    await fetch(`/api/account/notifications/${notificationId}`, {
+      method: "PATCH",
+      keepalive: true,
+    });
+  }
+
   return (
     <div className="relative shrink-0" ref={wrapperRef}>
       <button
@@ -182,7 +189,10 @@ export default function SiteNotificationsBell() {
                   <Link
                     key={notification.id}
                     href={notification.href}
-                    onClick={() => setOpen(false)}
+                    onClick={() => {
+                      void markClicked(notification.id);
+                      setOpen(false);
+                    }}
                     className={`block rounded-[10px] px-3 py-3 transition hover:bg-[#F8FAFA] ${
                       notification.isRead ? "" : "bg-[#FFF8E7]"
                     }`}

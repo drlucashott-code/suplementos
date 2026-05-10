@@ -8,6 +8,7 @@ import {
   accountPrimaryButtonClass,
   accountSecondaryButtonClass,
   accountSectionClass,
+  accountTitleClass,
 } from "@/components/account/accountUi";
 
 type AccountSettingsPanelProps = {
@@ -68,51 +69,49 @@ export default function AccountSettingsPanel({ user }: AccountSettingsPanelProps
     <section className={`${accountSectionClass} p-4 sm:p-5 md:p-6`}>
       <div>
         <p className={accountKickerClass}>Minha conta</p>
-        <h1 className="mt-2 text-[28px] font-black leading-tight text-[#0F1111] sm:text-[34px]">
-          Perfil público
-        </h1>
+        <h1 className={`mt-2 ${accountTitleClass} sm:text-[22px]`}>Perfil público</h1>
         <p className={`${accountBodyClass} mt-2 max-w-2xl`}>
           Ajuste nome, username, email e avatar sem misturar isso com notificações ou segurança.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="space-y-2">
+      <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="space-y-1.5">
             <span className="text-[13px] font-bold text-[#0F1111]">Nome</span>
             <input
               value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
-              className="h-10 w-full rounded-md border border-[#D0D5DD] bg-white px-3 text-[13px] outline-none transition focus:border-[#F3A847]"
+              className="h-9 w-full rounded-md border border-[#D0D5DD] bg-white px-3 text-[13px] outline-none transition focus:border-[#2162A1]"
             />
           </label>
-          <label className="space-y-2">
+          <label className="space-y-1.5">
             <span className="text-[13px] font-bold text-[#0F1111]">Username</span>
             <input
               value={username}
               onChange={(event) => setUsername(event.target.value)}
-              className="h-10 w-full rounded-md border border-[#D0D5DD] bg-white px-3 text-[13px] outline-none transition focus:border-[#F3A847]"
+              className="h-9 w-full rounded-md border border-[#D0D5DD] bg-white px-3 text-[13px] outline-none transition focus:border-[#2162A1]"
             />
           </label>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="space-y-2">
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="space-y-1.5">
             <span className="text-[13px] font-bold text-[#0F1111]">Email</span>
             <input
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="h-10 w-full rounded-md border border-[#D0D5DD] bg-white px-3 text-[13px] outline-none transition focus:border-[#F3A847]"
+              className="h-9 w-full rounded-md border border-[#D0D5DD] bg-white px-3 text-[13px] outline-none transition focus:border-[#2162A1]"
             />
           </label>
-          <label className="space-y-2">
+          <label className="space-y-1.5">
             <span className="text-[13px] font-bold text-[#0F1111]">Avatar URL</span>
             <input
               value={avatarUrl}
               onChange={(event) => setAvatarUrl(event.target.value)}
               placeholder="https://..."
-              className="h-10 w-full rounded-md border border-[#D0D5DD] bg-white px-3 text-[13px] outline-none transition focus:border-[#F3A847]"
+              className="h-9 w-full rounded-md border border-[#D0D5DD] bg-white px-3 text-[13px] outline-none transition focus:border-[#2162A1]"
             />
           </label>
         </div>
@@ -134,12 +133,8 @@ export default function AccountSettingsPanel({ user }: AccountSettingsPanelProps
           </div>
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="submit"
-            disabled={isPending}
-            className={accountPrimaryButtonClass}
-          >
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="submit" disabled={isPending} className={accountPrimaryButtonClass}>
             {isPending ? "Salvando..." : "Salvar alterações"}
           </button>
           <button

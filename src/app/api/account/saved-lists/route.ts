@@ -13,6 +13,7 @@ import {
   touchTrackedProductPriority,
 } from "@/lib/priceRefreshSignals";
 import { enqueuePriorityRefresh } from "@/lib/priorityRefreshQueue";
+import { notifyListFollower } from "@/lib/siteNotifications";
 
 export async function GET() {
   const user = await getCurrentSiteUser();
@@ -80,17 +81,41 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "invalid_list" }, { status: 400 });
   }
 
-  const listRows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-    SELECT "id"
-    FROM "SiteUserList"
-    WHERE "id" = ${listId}
-      AND "isPublic" = true
+  const listRows = await prisma.$queryRaw<
+    Array<{
+      id: string;
+      title: string;
+      userId: string;
+      ownerDisplayName: string;
+      ownerUsername: string | null;
+    }>
+  >(Prisma.sql`
+    SELECT
+      l."id",
+      l."title",
+      l."userId",
+      owner."displayName" AS "ownerDisplayName",
+      owner."username" AS "ownerUsername"
+    FROM "SiteUserList" l
+    INNER JOIN "SiteUser" owner ON owner."id" = l."userId"
+    WHERE l."id" = ${listId}
+      AND l."isPublic" = true
     LIMIT 1
   `);
 
-  if (!listRows[0]) {
+  const list = listRows[0];
+  if (!list) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
+
+  const existingSaved = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT "id"
+    FROM "SiteUserSavedList"
+    WHERE "userId" = ${user.id}
+      AND "listId" = ${listId}
+    LIMIT 1
+  `);
+  const wasAlreadySaved = Boolean(existingSaved[0]);
 
   try {
     await prisma.$executeRaw(Prisma.sql`
@@ -116,6 +141,16 @@ export async function POST(request: Request) {
     }
 
     throw error;
+  }
+
+  if (!wasAlreadySaved && list.userId !== user.id) {
+    await notifyListFollower({
+      ownerUserId: list.userId,
+      actorUserId: user.id,
+      actorDisplayName: user.displayName,
+      listId: list.id,
+      listTitle: list.title,
+    });
   }
 
   const listItems = await prisma.$queryRaw<

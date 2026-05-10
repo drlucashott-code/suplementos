@@ -7,7 +7,7 @@ import {
   isSiteUserVerified,
   verificationRequiredResponse,
 } from "@/lib/siteAuth";
-import { createSiteNotification } from "@/lib/siteNotifications";
+import { notifyCommentReply, notifyMentions } from "@/lib/siteNotifications";
 
 type CommentRow = {
   id: string;
@@ -178,6 +178,7 @@ export async function POST(
 
     const content = body.body?.trim() ?? "";
     const parentId = body.parentId?.trim() || null;
+    const commentId = randomUUID();
 
     if (content.length < 2) {
       return NextResponse.json({ ok: false, error: "comment_too_short" }, { status: 400 });
@@ -222,16 +223,15 @@ export async function POST(
       }
 
       if (parent[0].userId !== user.id) {
-        await createSiteNotification({
-          userId: parent[0].userId,
-          type: "comment_replied",
-          title: "Seu comentario recebeu uma resposta",
-          body: content.slice(0, 120),
+        await notifyCommentReply({
+          recipientUserId: parent[0].userId,
+          actorUserId: user.id,
+          actorDisplayName: user.displayName,
+          body: content,
           href: `/produto/${id}?comments=1`,
-          metadata: {
-            parentCommentId: parentId,
-            productId: id,
-          },
+          title: "Seu comentário recebeu uma resposta",
+          targetCommentId: parentId,
+          targetProductId: id,
         });
       }
     }
@@ -249,7 +249,7 @@ export async function POST(
         "updatedAt"
       )
       VALUES (
-        ${randomUUID()},
+        ${commentId},
         ${id},
         ${user.id},
         ${parentId},
@@ -260,6 +260,17 @@ export async function POST(
         NOW()
       )
     `);
+
+    await notifyMentions({
+      actorUserId: user.id,
+      actorDisplayName: user.displayName,
+      body: content,
+      href: `/produto/${id}?comments=1`,
+      title: "Novo comentário em produto",
+      category: "social",
+      targetProductId: id,
+      targetCommentId: commentId,
+    });
 
     const comments = await fetchComments(id, user.id, user.role);
     return NextResponse.json({ ok: true, comments, shadowBlocked: isCommentsBlocked });

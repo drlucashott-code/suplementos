@@ -83,6 +83,20 @@ export default function NotificationsCenter({ notifications }: NotificationsCent
     router.refresh();
   }
 
+  async function clearAll() {
+    if (items.length === 0) return;
+    await fetch("/api/account/notifications", { method: "DELETE" });
+    setItems([]);
+    router.refresh();
+  }
+
+  async function markClicked(notificationId: string) {
+    await fetch(`/api/account/notifications/${notificationId}`, {
+      method: "PATCH",
+      keepalive: true,
+    });
+  }
+
   return (
     <div className="space-y-6">
       <section className={`${accountSectionClass} p-4 sm:p-5 md:p-6`}>
@@ -105,6 +119,13 @@ export default function NotificationsCenter({ notifications }: NotificationsCent
             >
               <CheckCheck className="h-4 w-4 text-[#2162A1]" />
               Marcar todas como lidas
+            </button>
+            <button
+              type="button"
+              onClick={() => void clearAll()}
+              className={`${accountSecondaryButtonClass} gap-2`}
+            >
+              Limpar
             </button>
             <Link href="/minha-conta" className="inline-flex h-10 items-center rounded-md border border-transparent px-4 text-[13px] font-semibold text-[#2162A1] transition hover:bg-[#F8FAFA]">
               Voltar para minha conta
@@ -131,6 +152,7 @@ export default function NotificationsCenter({ notifications }: NotificationsCent
                   <Link
                     key={notification.id}
                     href={notification.href}
+                    onClick={() => void markClicked(notification.id)}
                     className={`flex gap-3 px-1 py-4 transition hover:bg-[#F8FAFA] ${
                       notification.isRead ? "" : "rounded-[10px] bg-[#FFF8E7]"
                     }`}

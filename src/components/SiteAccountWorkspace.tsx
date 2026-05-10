@@ -2938,42 +2938,45 @@ export default function SiteAccountWorkspace({
                                 <MoreHorizontal className="h-4 w-4" />
                               </button>
                             </div>
-                            <div className="hidden flex-wrap items-center gap-2 md:flex">
-                              <span
-                                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${
-                                  currentOpenedList.isPublic
-                                    ? "bg-[#ECFDF3] text-[#027A48]"
-                                    : "bg-[#F2F4F7] text-[#475467]"
-                                }`}
-                              >
-                                {currentOpenedList.isPublic ? (
-                                  <Globe className="h-3.5 w-3.5" />
-                                ) : (
-                                  <Lock className="h-3.5 w-3.5" />
-                                )}
-                                {currentOpenedList.isPublic ? "Pública" : "Privada"}
-                              </span>
-                              {currentOpenedList.isPublic ? (
-                                <button
-                                  type="button"
-                                  onClick={() => void sharePublicList(currentOpenedList)}
-                                  className={accountIconButtonSmallClass}
-                                  aria-label="Compartilhar link"
+                            <div className="hidden min-h-[126px] flex-col gap-2 md:flex">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${
+                                    currentOpenedList.isPublic
+                                      ? "bg-[#ECFDF3] text-[#027A48]"
+                                      : "bg-[#F2F4F7] text-[#475467]"
+                                  }`}
                                 >
-                                  <ExternalLink className="h-3.5 w-3.5" />
-                                </button>
-                              ) : null}
+                                  {currentOpenedList.isPublic ? (
+                                    <Globe className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <Lock className="h-3.5 w-3.5" />
+                                  )}
+                                  {currentOpenedList.isPublic ? "Pública" : "Privada"}
+                                </span>
+                                {currentOpenedList.isPublic ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => void sharePublicList(currentOpenedList)}
+                                    className={accountIconButtonSmallClass}
+                                    aria-label="Compartilhar link"
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                  </button>
+                                ) : null}
+                              </div>
+                              <h4 className="text-[19px] font-black leading-tight text-[#0F1111]">
+                                {currentOpenedList.title}
+                              </h4>
+                              <p className="text-sm font-medium text-[#667085]">Lista criada por você</p>
+                              {currentOpenedList.description ? (
+                                <p className="max-w-3xl text-[13px] leading-6 text-[#565959]">
+                                  {currentOpenedList.description}
+                                </p>
+                              ) : (
+                                <p className="text-[13px] text-[#98A2B3]">Sem descrição.</p>
+                              )}
                             </div>
-                            <h4 className="mt-2 hidden text-[19px] font-black leading-tight text-[#0F1111] md:block">
-                              {currentOpenedList.title}
-                            </h4>
-                            {currentOpenedList.description ? (
-                              <p className="mt-1.5 hidden max-w-3xl text-[13px] leading-6 text-[#565959] md:block">
-                                {currentOpenedList.description}
-                              </p>
-                            ) : (
-                              <p className="mt-1.5 hidden text-[13px] text-[#98A2B3] md:block">Sem descrição.</p>
-                            )}
                           </div>
 
                           <div className="relative flex flex-wrap items-start gap-2">
@@ -3468,38 +3471,36 @@ export default function SiteAccountWorkspace({
                               <MoreHorizontal className="h-4 w-4" />
                             </button>
                           </div>
-                          <div className="hidden flex-wrap items-center gap-2 md:flex">
-                            <span className="inline-flex items-center gap-1 rounded-full bg-[#ECFDF3] px-3 py-1 text-xs font-bold text-[#027A48]">
-                              <Globe className="h-3.5 w-3.5" />
-                              Pública
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => void sharePublicList(selectedSavedList)}
-                              className={accountIconButtonSmallClass}
-                              aria-label="Compartilhar link"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                          <div className="mt-2 hidden flex-wrap items-baseline gap-x-3 gap-y-1 md:flex">
+                          <div className="hidden min-h-[126px] flex-col gap-2 md:flex">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-[#ECFDF3] px-3 py-1 text-xs font-bold text-[#027A48]">
+                                <Globe className="h-3.5 w-3.5" />
+                                Pública
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => void sharePublicList(selectedSavedList)}
+                                className={accountIconButtonSmallClass}
+                                aria-label="Compartilhar link"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                             <h4 className="text-[19px] font-black leading-tight text-[#0F1111]">
                               {selectedSavedList.title}
                             </h4>
                             <p className="text-sm font-medium text-[#667085]">
                               Lista criada por {selectedSavedList.ownerDisplayName}
-                              {selectedSavedList.ownerUsername
-                                ? ` @${selectedSavedList.ownerUsername}`
-                                : ""}
+                              {selectedSavedList.ownerUsername ? ` @${selectedSavedList.ownerUsername}` : ""}
                             </p>
-                          </div>
-                          {selectedSavedList.description ? (
-                              <p className="mt-1.5 hidden max-w-3xl text-[13px] leading-6 text-[#565959] md:block">
+                            {selectedSavedList.description ? (
+                              <p className="max-w-3xl text-[13px] leading-6 text-[#565959]">
                                 {selectedSavedList.description}
                               </p>
                             ) : (
-                              <p className="mt-1.5 hidden text-[13px] text-[#98A2B3] md:block">Sem descrição.</p>
+                              <p className="text-[13px] text-[#98A2B3]">Sem descrição.</p>
                             )}
+                          </div>
                         </div>
 
                         <div className="relative z-30 hidden flex-wrap items-start gap-2 overflow-visible md:flex">

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getCurrentSiteUser } from "@/lib/siteAuth";
 import {
-  getSiteNotifications,
+  clearNotifications,
+  countUnreadNotifications,
+  listSiteNotifications,
   markAllNotificationsRead,
   syncFavoriteNotifications,
 } from "@/lib/siteNotifications";
@@ -13,10 +15,21 @@ export async function GET() {
   }
 
   await syncFavoriteNotifications(user.id);
-  const notifications = await getSiteNotifications(user.id);
-  const unreadCount = notifications.filter((item) => !item.isRead).length;
+  const [page, unreadCount] = await Promise.all([
+    listSiteNotifications({
+      userId: user.id,
+      limit: 20,
+    }),
+    countUnreadNotifications(user.id),
+  ]);
 
-  return NextResponse.json({ ok: true, notifications, unreadCount });
+  return NextResponse.json({
+    ok: true,
+    notifications: page.items,
+    unreadCount,
+    hasMore: page.hasMore,
+    nextCursor: page.nextCursor,
+  });
 }
 
 export async function PATCH() {
@@ -26,5 +39,15 @@ export async function PATCH() {
   }
 
   await markAllNotificationsRead(user.id);
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE() {
+  const user = await getCurrentSiteUser();
+  if (!user) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
+  await clearNotifications(user.id);
   return NextResponse.json({ ok: true });
 }

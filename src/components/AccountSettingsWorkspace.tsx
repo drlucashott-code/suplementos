@@ -1,10 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, ChevronRight, LogOut, Shield, User, type LucideIcon } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Bell, Check, LogOut, Shield, User, type LucideIcon } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import AccountSettingsPanel from "@/components/AccountSettingsPanel";
+import {
+  accountBodyClass,
+  accountPrimaryButtonClass,
+  accountSecondaryButtonClass,
+  accountSectionClass,
+} from "@/components/account/accountUi";
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  type NotificationPreferenceKey,
+  type NotificationPreferencesState,
+} from "@/lib/notifications/types";
+import {
+  ensureBrowserPushSubscription,
+  isPushSupported,
+  removeBrowserPushSubscription,
+} from "@/lib/client/pushNotifications";
 
 type AccountSettingsWorkspaceProps = {
   user: {
@@ -18,73 +34,83 @@ type AccountSettingsWorkspaceProps = {
 };
 
 type SettingsSectionId = "account" | "notifications" | "security";
-type NotificationChannelKey = "central" | "push" | "email";
-type PriceDropMode = "any" | "custom";
 
-type NotificationMatrix = Record<
-  | "commentReplies"
-  | "commentReactions"
-  | "listComments"
-  | "listFollows"
-  | "mentions"
-  | "priceDrops"
-  | "backInStock",
-  Record<NotificationChannelKey, boolean>
->;
+const SETTINGS_TABS: Array<{ id: SettingsSectionId; title: string }> = [
+  { id: "account", title: "Minha conta" },
+  { id: "notifications", title: "Notificações" },
+  { id: "security", title: "Segurança" },
+];
 
-type NotificationPreferencesState = {
-  activity: NotificationMatrix;
-  priceDropMode: PriceDropMode;
-  priceDropThreshold: number;
-};
-
-const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferencesState = {
-  activity: {
-    commentReplies: { central: true, push: false, email: false },
-    commentReactions: { central: true, push: false, email: false },
-    listComments: { central: true, push: false, email: false },
-    listFollows: { central: true, push: false, email: false },
-    mentions: { central: true, push: true, email: false },
-    priceDrops: { central: true, push: true, email: false },
-    backInStock: { central: true, push: true, email: false },
+const NOTIFICATION_ROWS: Array<{
+  key: NotificationPreferenceKey;
+  title: string;
+  description: string;
+}> = [
+  {
+    key: "commentReplies",
+    title: "Resposta ao meu comentário",
+    description: "Quando alguém responde ao que eu escrevi.",
   },
-  priceDropMode: "any",
-  priceDropThreshold: 10,
-};
+  {
+    key: "commentReactions",
+    title: "Reações ao meu comentário",
+    description: "Quando uma pessoa curte ou reage a um comentário meu.",
+  },
+  {
+    key: "listComments",
+    title: "Comentários em minhas listas",
+    description: "Quando uma lista pública recebe conversa nova.",
+  },
+  {
+    key: "listFollows",
+    title: "Novo seguidor de listas",
+    description: "Quando alguém passa a acompanhar o que eu salvo.",
+  },
+  {
+    key: "mentions",
+    title: "Menções ao meu usuário",
+    description: "Quando meu @usuario aparece em comentários ou listas.",
+  },
+  {
+    key: "priceDrops",
+    title: "Queda de preço",
+    description: "Alertas de redução para produtos monitorados.",
+  },
+  {
+    key: "backInStock",
+    title: "Produto voltou ao estoque",
+    description: "Quando um item salvo fica disponível de novo.",
+  },
+];
 
 function SectionCard({
   icon: Icon,
   title,
   description,
   children,
-  action,
 }: {
   icon: LucideIcon;
   title: string;
   description: string;
   children: ReactNode;
-  action?: ReactNode;
 }) {
   return (
-    <section className="rounded-[18px] border border-[#D5D9D9] bg-white p-5 shadow-none md:p-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="flex items-start gap-3">
-          <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#F3F4F6] text-[#2162A1]">
-            <Icon className="h-4 w-4" />
-          </div>
-          <div>
-            <h2 className="text-lg font-black text-[#0F1111]">{title}</h2>
-            <p className="mt-1 text-sm text-[#667085]">{description}</p>
-          </div>
+    <section className={`${accountSectionClass} p-4 sm:p-5 md:p-6`}>
+      <div className="flex items-start gap-3">
+        <div className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#F3F4F6] text-[#2162A1]">
+          <Icon className="h-4 w-4" />
         </div>
-        {action ? <div className="shrink-0">{action}</div> : null}
+        <div>
+          <h2 className="text-[18px] font-black leading-tight text-[#0F1111]">{title}</h2>
+          <p className="mt-1 text-[13px] leading-5 text-[#667085]">{description}</p>
+        </div>
       </div>
-      <div className="mt-5">{children}</div>
+      <div className="mt-4">{children}</div>
     </section>
   );
 }
 
-function ToggleCell({
+function SwitchCell({
   checked,
   onClick,
   label,
@@ -97,273 +123,482 @@ function ToggleCell({
     <button
       type="button"
       onClick={onClick}
-      aria-pressed={checked}
-      className={`inline-flex h-10 items-center justify-center rounded-full border px-3 text-xs font-bold transition ${
+      role="switch"
+      aria-checked={checked}
+      className={`inline-flex h-8 w-14 items-center rounded-full border px-1 transition ${
         checked
-          ? "border-[#2162A1] bg-[#EEF5FC] text-[#0F1111]"
-          : "border-[#D0D5DD] bg-white text-[#667085] hover:bg-[#F8FAFA]"
+          ? "border-[#2162A1] bg-[#2162A1]"
+          : "border-[#D0D5DD] bg-[#E5E7EB] hover:bg-[#DADFE4]"
       }`}
     >
-      {label}
+      <span
+        className={`inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-[10px] font-black text-[#2162A1] shadow-sm transition ${
+          checked ? "translate-x-6" : "translate-x-0"
+        }`}
+      >
+        {checked ? <Check className="h-3.5 w-3.5" /> : null}
+      </span>
+      <span className="sr-only">{label}</span>
     </button>
   );
 }
 
 function NotificationPreferencesSection({ userId }: { userId: string }) {
-  const storageKey = useMemo(
-    () => `amazonpicks-notification-prefs:${userId}`,
-    [userId]
-  );
   const [state, setState] = useState<NotificationPreferencesState>(DEFAULT_NOTIFICATION_PREFERENCES);
   const [hydrated, setHydrated] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
 
-  useEffect(() => {
+  const socialRows = NOTIFICATION_ROWS.filter(
+    (row) => row.key !== "priceDrops" && row.key !== "backInStock",
+  );
+  const productRows = NOTIFICATION_ROWS.filter(
+    (row) => row.key === "priceDrops" || row.key === "backInStock",
+  );
+
+  async function loadPreferences() {
     try {
-      const raw = window.localStorage.getItem(storageKey);
-      if (raw) {
-        const parsed = JSON.parse(raw) as NotificationPreferencesState;
-        setState(parsed);
-      }
-    } catch {
-      // keep defaults
-    } finally {
-      setHydrated(true);
-    }
-  }, [storageKey]);
+      const response = await fetch("/api/account/notification-preferences", { cache: "no-store" });
+      if (!response.ok) return false;
 
-  useEffect(() => {
-    if (!hydrated) return;
-    try {
-      window.localStorage.setItem(storageKey, JSON.stringify(state));
-    } catch {
-      // ignore storage failures
-    }
-  }, [hydrated, state, storageKey]);
+      const data = (await response.json()) as {
+        ok?: boolean;
+        preferences?: NotificationPreferencesState;
+      };
 
-  function toggleRow(
-    key: keyof NotificationMatrix,
-    channel: NotificationChannelKey
-  ) {
-    setState((current) => ({
-      ...current,
-      activity: {
-        ...current.activity,
-        [key]: {
-          ...current.activity[key],
-          [channel]: !current.activity[key][channel],
-        },
-      },
-    }));
+      if (!data.ok || !data.preferences) return false;
+      setState(data.preferences);
+      return true;
+    } catch (error) {
+      console.error("notification_preferences_load_failed", error);
+      return false;
+    }
   }
 
-  const rows: Array<{
-    key: keyof NotificationMatrix;
-    title: string;
-    description: string;
-  }> = [
-    {
-      key: "commentReplies",
-      title: "Resposta ao meu comentário",
-      description: "Quando alguém responde ao que eu escrevi.",
-    },
-    {
-      key: "commentReactions",
-      title: "Reações ao meu comentário",
-      description: "Quando uma pessoa curte ou reage a um comentário meu.",
-    },
-    {
-      key: "listComments",
-      title: "Comentários em minhas listas",
-      description: "Quando uma lista pública recebe conversa nova.",
-    },
-    {
-      key: "listFollows",
-      title: "Novo seguidor de listas",
-      description: "Quando alguém passa a acompanhar o que eu salvo.",
-    },
-    {
-      key: "mentions",
-      title: "Menções ao meu usuário",
-      description: "Quando meu @usuario aparece em comentários ou listas.",
-    },
-    {
-      key: "priceDrops",
-      title: "Queda de preço",
-      description: "Alertas de redução para produtos monitorados.",
-    },
-    {
-      key: "backInStock",
-      title: "Produto voltou ao estoque",
-      description: "Quando um item salvo fica disponível de novo.",
-    },
-  ];
+  async function loadPushStatus() {
+    try {
+      const response = await fetch("/api/account/push-subscriptions", { cache: "no-store" });
+      if (!response.ok) {
+        setPushSupported(false);
+        setPushSubscribed(false);
+        return false;
+      }
+
+      const data = (await response.json()) as {
+        ok?: boolean;
+        enabled?: boolean;
+        hasSubscription?: boolean;
+      };
+
+      if (!data.ok) {
+        setPushSupported(false);
+        setPushSubscribed(false);
+        return false;
+      }
+
+      setPushSupported(Boolean(data.enabled));
+      setPushSubscribed(Boolean(data.hasSubscription));
+      return true;
+    } catch (error) {
+      console.error("push_status_load_failed", error);
+      setPushSupported(false);
+      setPushSubscribed(false);
+      return false;
+    }
+  }
+
+  useEffect(() => {
+    let active = true;
+
+    async function bootstrap() {
+      await Promise.all([loadPreferences(), loadPushStatus()]);
+      if (active) {
+        setHydrated(true);
+      }
+    }
+
+    void bootstrap();
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  async function persistPreferences(next: NotificationPreferencesState) {
+    setSaving(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/account/notification-preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      });
+      const data = (await response.json()) as {
+        ok?: boolean;
+        preferences?: NotificationPreferencesState;
+        error?: string;
+      };
+
+      if (!response.ok || !data.ok || !data.preferences) {
+        throw new Error(data.error ?? "notification_preferences_save_failed");
+      }
+
+      setState(data.preferences);
+      setMessage("Prefer?ncias salvas.");
+    } catch (error) {
+      console.error("notification_preferences_save_failed", error);
+      setMessage("N?o foi poss?vel salvar agora.");
+      void loadPreferences();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function hasAnyPushPreference(next: NotificationPreferencesState) {
+    return Object.values(next.activity).some((entry) => entry.push);
+  }
+
+  async function enablePush(): Promise<boolean> {
+    if (!isPushSupported()) {
+      setMessage("Push n?o est? dispon?vel neste navegador.");
+      return false;
+    }
+
+    setPushLoading(true);
+    setMessage(null);
+    try {
+      const subscription = await ensureBrowserPushSubscription();
+      const response = await fetch("/api/account/push-subscriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subscription: subscription.toJSON(),
+          userAgent: navigator.userAgent,
+        }),
+      });
+
+      const data = (await response.json()) as { ok?: boolean; error?: string };
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error ?? "push_subscription_save_failed");
+      }
+
+      setPushSubscribed(true);
+      setMessage("Push do navegador ativado.");
+      return true;
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === "push_not_supported") {
+          setMessage("Push n?o est? dispon?vel neste navegador.");
+          return false;
+        }
+
+        if (error.message === "push_denied") {
+          setMessage("Permiss?o de push bloqueada no navegador.");
+          return false;
+        }
+
+        if (error.message === "push_permission_denied") {
+          setMessage("Permiss?o de push n?o foi concedida.");
+          return false;
+        }
+      }
+
+      console.error("push_subscription_enable_failed", error);
+      setMessage("N?o foi poss?vel ativar o push agora.");
+      return false;
+    } finally {
+      setPushLoading(false);
+    }
+  }
+
+  async function disablePush(silent = false): Promise<void> {
+    setPushLoading(true);
+    setMessage(null);
+    try {
+      const subscription = await removeBrowserPushSubscription();
+      if (subscription) {
+        await fetch("/api/account/push-subscriptions", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: subscription.endpoint }),
+        });
+      }
+      setPushSubscribed(false);
+      if (!silent) {
+        setMessage("Push do navegador desativado.");
+      }
+    } catch (error) {
+      console.error("push_subscription_disable_failed", error);
+      setMessage("N?o foi poss?vel desativar o push agora.");
+    } finally {
+      setPushLoading(false);
+    }
+  }
+
+  async function toggleRow(key: NotificationPreferenceKey, channel: "central" | "push" | "email") {
+    if (saving || pushLoading) {
+      return;
+    }
+
+    const nextValue = !state.activity[key][channel];
+
+    if (channel === "push" && nextValue && !pushSubscribed) {
+      const enabled = await enablePush();
+      if (!enabled) {
+        return;
+      }
+    }
+
+    const next: NotificationPreferencesState = {
+      ...state,
+      activity: {
+        ...state.activity,
+        [key]: {
+          ...state.activity[key],
+          [channel]: nextValue,
+        },
+      },
+    };
+
+    setState(next);
+    void persistPreferences(next);
+
+    if (channel === "push" && !nextValue && !hasAnyPushPreference(next) && pushSubscribed) {
+      void disablePush(true);
+    }
+  }
+
+  function updatePriceMode(mode: "any" | "custom") {
+    const next: NotificationPreferencesState = {
+      ...state,
+      priceDropMode: mode,
+    };
+    setState(next);
+    void persistPreferences(next);
+  }
+
+  function updatePriceThreshold(value: number) {
+    const next: NotificationPreferencesState = {
+      ...state,
+      priceDropThreshold: value,
+      priceDropMode: "custom",
+    };
+    setState(next);
+    void persistPreferences(next);
+  }
 
   return (
-    <div className="space-y-6">
-      <SectionCard
-        icon={Bell}
-        title="Notificações"
-        description="Escolha quais eventos chegam na central, por push ou por email."
-        action={
-          <Link
-            href="/notificacoes"
-            className="inline-flex h-10 items-center rounded-full border border-[#D5D9D9] bg-white px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA]"
-          >
-            Abrir central
-          </Link>
-        }
-      >
-        <div className="hidden grid-cols-[minmax(0,1fr)_110px_110px_110px] gap-3 md:grid">
-          <div />
-          <div className="text-right text-xs font-bold uppercase tracking-[0.18em] text-[#2162A1]">
-            Central
-          </div>
-          <div className="text-right text-xs font-bold uppercase tracking-[0.18em] text-[#2162A1]">
-            Push
-          </div>
-          <div className="text-right text-xs font-bold uppercase tracking-[0.18em] text-[#2162A1]">
-            Email
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          {rows.map((row) => (
-            <div
-              key={row.key}
-              className="rounded-2xl border border-[#EAECF0] bg-[#FCFCFD] p-4 md:grid md:grid-cols-[minmax(0,1fr)_110px_110px_110px] md:items-center md:gap-3"
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-black text-[#0F1111]">{row.title}</p>
-                <p className="mt-1 text-sm text-[#667085]">{row.description}</p>
-              </div>
-
-              <div className="mt-4 flex items-center gap-2 md:mt-0 md:justify-end">
-                <span className="md:hidden text-xs font-bold uppercase tracking-[0.18em] text-[#2162A1]">
-                  Central
-                </span>
-                <ToggleCell
-                  label={state.activity[row.key].central ? "Ativo" : "Off"}
-                  checked={state.activity[row.key].central}
-                  onClick={() => toggleRow(row.key, "central")}
-                />
-              </div>
-
-              <div className="mt-3 flex items-center gap-2 md:mt-0 md:justify-end">
-                <span className="md:hidden text-xs font-bold uppercase tracking-[0.18em] text-[#2162A1]">
-                  Push
-                </span>
-                <ToggleCell
-                  label={state.activity[row.key].push ? "Ativo" : "Off"}
-                  checked={state.activity[row.key].push}
-                  onClick={() => toggleRow(row.key, "push")}
-                />
-              </div>
-
-              <div className="mt-3 flex items-center gap-2 md:mt-0 md:justify-end">
-                <span className="md:hidden text-xs font-bold uppercase tracking-[0.18em] text-[#2162A1]">
-                  Email
-                </span>
-                <ToggleCell
-                  label={state.activity[row.key].email ? "Ativo" : "Off"}
-                  checked={state.activity[row.key].email}
-                  onClick={() => toggleRow(row.key, "email")}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </SectionCard>
-
-      <SectionCard
-        icon={Bell}
-        title="Queda de preço"
-        description="Defina se qualquer queda gera alerta ou se só uma faixa personalizada deve avisar."
-      >
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="space-y-3">
-            <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#EAECF0] bg-white p-4 transition hover:bg-[#F8FAFA]">
-              <input
-                type="radio"
-                name="price-drop-mode"
-                checked={state.priceDropMode === "any"}
-                onChange={() => setState((current) => ({ ...current, priceDropMode: "any" }))}
-                className="mt-1 h-4 w-4 accent-[#2162A1]"
-              />
-              <div>
-                <p className="text-sm font-black text-[#0F1111]">Qualquer queda</p>
-                <p className="mt-1 text-sm text-[#667085]">
-                  Receba avisos sempre que o preço baixar.
-                </p>
-              </div>
-            </label>
-
-            <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#EAECF0] bg-white p-4 transition hover:bg-[#F8FAFA]">
-              <input
-                type="radio"
-                name="price-drop-mode"
-                checked={state.priceDropMode === "custom"}
-                onChange={() => setState((current) => ({ ...current, priceDropMode: "custom" }))}
-                className="mt-1 h-4 w-4 accent-[#2162A1]"
-              />
-              <div>
-                <p className="text-sm font-black text-[#0F1111]">Personalizado</p>
-                <p className="mt-1 text-sm text-[#667085]">
-                  Escolha um percentual mínimo para receber alertas.
-                </p>
-              </div>
-            </label>
-          </div>
-
-          <div
-            className={`rounded-2xl border border-[#EAECF0] bg-[#FCFCFD] p-4 transition ${
-              state.priceDropMode === "custom" ? "opacity-100" : "opacity-70"
-            }`}
-          >
-            <p className="text-sm font-black text-[#0F1111]">Limite de alerta</p>
-            <p className="mt-1 text-sm text-[#667085]">
-              Notificar apenas quando a queda atingir pelo menos {state.priceDropThreshold}%.
+    <SectionCard
+      icon={Bell}
+      title="Notifica??es"
+      description="Central, email e push organizados por categoria."
+    >
+      <div className="space-y-4">
+        <div className={`${accountSectionClass} overflow-hidden p-0`}> 
+          <div className="border-b border-[#EAECF0] px-4 py-3 sm:px-5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#2162A1]">
+              Atividade social
             </p>
+          </div>
+          <div className="divide-y divide-[#EAECF0]">
+            {socialRows.map((row) => (
+              <div
+                key={row.key}
+                className="flex flex-col gap-3 px-4 py-3 sm:px-5 md:flex-row md:items-center md:justify-between md:gap-4"
+              >
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold leading-5 text-[#0F1111]">{row.title}</p>
+                  <p className="mt-1 text-[12px] leading-5 text-[#667085]">{row.description}</p>
+                </div>
+                <div className="flex items-center gap-2 md:shrink-0">
+                  <SwitchCell
+                    checked={state.activity[row.key].central}
+                    onClick={() => void toggleRow(row.key, "central")}
+                    label={`${row.title} na central`}
+                  />
+                  <SwitchCell
+                    checked={state.activity[row.key].email}
+                    onClick={() => void toggleRow(row.key, "email")}
+                    label={`${row.title} por email`}
+                  />
+                  <SwitchCell
+                    checked={state.activity[row.key].push}
+                    onClick={() => void toggleRow(row.key, "push")}
+                    label={`${row.title} por push`}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
-            <div className="mt-4 space-y-4">
-              <input
-                type="range"
-                min={1}
-                max={50}
-                value={state.priceDropThreshold}
-                onChange={(event) =>
-                  setState((current) => ({
-                    ...current,
-                    priceDropThreshold: Number(event.target.value),
-                    priceDropMode: "custom",
-                  }))
-                }
-                className="w-full accent-[#2162A1]"
-              />
+        <div className={`${accountSectionClass} overflow-hidden p-0`}>
+          <div className="border-b border-[#EAECF0] px-4 py-3 sm:px-5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#2162A1]">
+              Produtos e alertas
+            </p>
+          </div>
+          <div className="divide-y divide-[#EAECF0]">
+            {productRows.map((row) => (
+              <div
+                key={row.key}
+                className="flex flex-col gap-3 px-4 py-3 sm:px-5 md:flex-row md:items-center md:justify-between md:gap-4"
+              >
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold leading-5 text-[#0F1111]">{row.title}</p>
+                  <p className="mt-1 text-[12px] leading-5 text-[#667085]">{row.description}</p>
+                </div>
+                <div className="flex items-center gap-2 md:shrink-0">
+                  <SwitchCell
+                    checked={state.activity[row.key].central}
+                    onClick={() => void toggleRow(row.key, "central")}
+                    label={`${row.title} na central`}
+                  />
+                  <SwitchCell
+                    checked={state.activity[row.key].email}
+                    onClick={() => void toggleRow(row.key, "email")}
+                    label={`${row.title} por email`}
+                  />
+                  <SwitchCell
+                    checked={state.activity[row.key].push}
+                    onClick={() => void toggleRow(row.key, "push")}
+                    label={`${row.title} por push`}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
-              <label className="block">
-                <span className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-[#2162A1]">
-                  Percentual mínimo
-                </span>
-                <input
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={state.priceDropThreshold}
-                  onChange={(event) =>
-                    setState((current) => ({
-                      ...current,
-                      priceDropThreshold: Math.max(1, Math.min(50, Number(event.target.value) || 1)),
-                      priceDropMode: "custom",
-                    }))
-                  }
-                  className="h-11 w-full rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm outline-none transition focus:border-[#F3A847]"
+        <div className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
+          <div className={`${accountSectionClass} p-4 sm:p-5`}> 
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[13px] font-bold text-[#0F1111]">Queda de pre?o</p>
+                <p className="mt-1 text-[12px] leading-5 text-[#667085]">
+                  Notifique quando um produto monitorado ficar mais barato.
+                </p>
+              </div>
+              <div className="shrink-0">
+                <SwitchCell
+                  checked={state.activity.priceDrops.central}
+                  onClick={() => void toggleRow("priceDrops", "central")}
+                  label="Queda de pre?o na central"
                 />
-              </label>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => updatePriceMode("any")}
+                className={`inline-flex h-8 items-center rounded-md border px-3 text-[13px] font-semibold transition ${
+                  state.priceDropMode === "any"
+                    ? "border-[#2162A1] bg-[#EEF5FB] text-[#2162A1]"
+                    : "border-[#D5D9D9] bg-white text-[#0F1111] hover:bg-[#F8FAFA]"
+                }`}
+              >
+                Qualquer queda
+              </button>
+              <button
+                type="button"
+                onClick={() => updatePriceMode("custom")}
+                className={`inline-flex h-8 items-center rounded-md border px-3 text-[13px] font-semibold transition ${
+                  state.priceDropMode === "custom"
+                    ? "border-[#2162A1] bg-[#EEF5FB] text-[#2162A1]"
+                    : "border-[#D5D9D9] bg-white text-[#0F1111] hover:bg-[#F8FAFA]"
+                }`}
+              >
+                Personalizado
+              </button>
+            </div>
+
+            {state.priceDropMode === "custom" ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <label className="block space-y-1.5">
+                  <span className="text-[13px] font-bold text-[#0F1111]">Queda m?nima (%)</span>
+                  <input
+                    type="range"
+                    min={1}
+                    max={80}
+                    value={state.priceDropThreshold}
+                    onChange={(event) => updatePriceThreshold(Number(event.target.value))}
+                    className="h-2 w-full accent-[#2162A1]"
+                  />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-[13px] font-bold text-[#0F1111]">Valor exato</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={80}
+                    value={state.priceDropThreshold}
+                    onChange={(event) => updatePriceThreshold(Number(event.target.value))}
+                    className="h-8 w-full rounded-md border border-[#D0D5DD] bg-white px-3 text-[13px] outline-none transition focus:border-[#2162A1]"
+                  />
+                </label>
+              </div>
+            ) : null}
+          </div>
+
+          <div className={`${accountSectionClass} p-4 sm:p-5`}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[13px] font-bold text-[#0F1111]">Push do navegador</p>
+                <p className="mt-1 text-[12px] leading-5 text-[#667085]">
+                  {pushSupported
+                    ? pushSubscribed
+                      ? "Ativado neste navegador."
+                      : "Desativado neste navegador."
+                    : "Sem suporte neste navegador."}
+                </p>
+              </div>
+              <div className="shrink-0">
+                <SwitchCell
+                  checked={pushSubscribed}
+                  onClick={async () => {
+                    if (pushLoading) return;
+                    if (pushSubscribed) {
+                      await disablePush();
+                      return;
+                    }
+                    const enabled = await enablePush();
+                    if (!enabled) return;
+                  }}
+                  label="Push do navegador"
+                />
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="inline-flex h-7 items-center rounded-full border border-[#D5D9D9] bg-white px-3 text-[12px] font-semibold text-[#0F1111]">
+                {pushSubscribed ? "Ativo" : "Desativado"}
+              </span>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (pushSubscribed) {
+                    await disablePush();
+                    return;
+                  }
+                  await enablePush();
+                }}
+                disabled={pushLoading}
+                className="inline-flex h-8 items-center rounded-md border border-[#D5D9D9] bg-white px-3 text-[13px] font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
+              >
+                {pushSubscribed ? "Gerenciar" : "Ativar push"}
+              </button>
             </div>
           </div>
         </div>
-      </SectionCard>
-    </div>
+
+        {hydrated && message ? (
+          <div className="rounded-[8px] border border-[#D0D5DD] bg-[#F8FAFA] px-4 py-2.5 text-[13px] font-medium text-[#0F1111]">
+            {message}
+          </div>
+        ) : null}
+      </div>
+    </SectionCard>
   );
 }
 
@@ -405,141 +640,98 @@ function SecuritySection({ user }: { user: AccountSettingsWorkspaceProps["user"]
   }
 
   return (
-    <div className="space-y-6">
-      <SectionCard
-        icon={Shield}
-        title="Segurança"
-        description="Senha, email verificado e saídas de sessão em um só lugar."
-      >
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-2xl border border-[#EAECF0] bg-[#FCFCFD] p-4">
-            <p className="text-sm font-black text-[#0F1111]">Email atual</p>
-            <p className="mt-1 text-sm text-[#667085]">{user.email}</p>
-            <p className="mt-3 text-sm font-semibold text-[#0F1111]">
-              {user.isEmailVerified ? "Email verificado" : "Confirmação pendente"}
-            </p>
-            <p className="mt-1 text-sm text-[#667085]">
-              {user.isEmailVerified
-                ? "Sua conta já está liberada para interações completas."
-                : "Ainda vale confirmar o email para destravar o fluxo social completo."}
-            </p>
-            {!user.isEmailVerified ? (
-              <button
-                type="button"
-                onClick={() => void resendVerification()}
-                disabled={resendingVerification}
-                className="mt-4 inline-flex h-10 items-center rounded-full border border-[#D5D9D9] bg-white px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
-              >
-                {resendingVerification ? "Reenviando..." : "Reenviar confirmação"}
-              </button>
-            ) : null}
-          </div>
-
-          <div className="rounded-2xl border border-[#EAECF0] bg-[#FCFCFD] p-4">
-            <p className="text-sm font-black text-[#0F1111]">Senha e sessão</p>
-            <p className="mt-1 text-sm text-[#667085]">
-              Troque sua senha quando quiser ou encerre a sessão atual.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Link
-                href="/esqueci-senha"
-                className="inline-flex h-10 items-center rounded-full bg-[#FFD814] px-4 text-sm font-black text-[#111111] transition hover:bg-[#F7CA00]"
-              >
-                Alterar senha
-              </Link>
-              <button
-                type="button"
-                onClick={() => void logoutCurrentSession()}
-                disabled={logoutPending}
-                className="inline-flex h-10 items-center rounded-full border border-[#D5D9D9] bg-white px-4 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
-              >
-                {logoutPending ? "Saindo..." : "Sair desta sessão"}
-              </button>
-            </div>
-          </div>
+    <SectionCard
+      icon={Shield}
+      title="Segurança"
+      description="Email, senha e sessão atual em um bloco direto e funcional."
+    >
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-[8px] border border-[#D5D9D9] bg-[#FCFCFD] p-4">
+          <p className="text-[13px] font-bold text-[#0F1111]">Email atual</p>
+          <p className="mt-1 text-[13px] leading-5 text-[#667085]">{user.email}</p>
+          <p className="mt-3 text-[13px] font-semibold text-[#0F1111]">
+            {user.isEmailVerified ? "Email verificado" : "Confirmação pendente"}
+          </p>
+          <p className="mt-1 text-[12px] leading-5 text-[#667085]">
+            {user.isEmailVerified
+              ? "Sua conta está liberada para uso completo."
+              : "Ainda vale confirmar o email para liberar interações completas."}
+          </p>
+          {!user.isEmailVerified ? (
+            <button
+              type="button"
+              onClick={() => void resendVerification()}
+              disabled={resendingVerification}
+              className="mt-4 inline-flex h-9 items-center rounded-md border border-[#D5D9D9] bg-white px-4 text-[13px] font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
+            >
+              {resendingVerification ? "Reenviando..." : "Reenviar confirmação"}
+            </button>
+          ) : null}
         </div>
 
-        {message ? (
-          <div className="mt-4 rounded-2xl border border-[#D0D5DD] bg-[#F8FAFA] px-4 py-3 text-sm font-medium text-[#0F1111]">
-            {message}
+        <div className="rounded-[8px] border border-[#D5D9D9] bg-[#FCFCFD] p-4">
+          <p className="text-[13px] font-bold text-[#0F1111]">Senha e sessão</p>
+          <p className="mt-1 text-[12px] leading-5 text-[#667085]">
+            Troque sua senha quando quiser ou encerre a sessão atual.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href="/esqueci-senha"
+              className="inline-flex h-9 items-center rounded-md bg-[#FFD814] px-4 text-[13px] font-black text-[#111111] transition hover:bg-[#F7CA00]"
+            >
+              Alterar senha
+            </Link>
+            <button
+              type="button"
+              onClick={() => void logoutCurrentSession()}
+              disabled={logoutPending}
+              className="inline-flex h-9 items-center rounded-md border border-[#D5D9D9] bg-white px-4 text-[13px] font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] disabled:opacity-60"
+            >
+              {logoutPending ? "Saindo..." : "Sair desta sessão"}
+            </button>
           </div>
-        ) : null}
-      </SectionCard>
-
-      <SectionCard
-        icon={User}
-        title="Conta pronta para crescer"
-        description="Espaço preparado para sessões, dispositivos e controles futuros."
-      >
-        <div className="grid gap-3 md:grid-cols-3">
-          {[
-            "Sessões e dispositivos",
-            "Histórico de login",
-            "Recuperação avançada",
-          ].map((label) => (
-            <div key={label} className="rounded-2xl border border-dashed border-[#D5D9D9] bg-[#F8FAFA] p-4">
-              <p className="text-sm font-black text-[#0F1111]">{label}</p>
-              <p className="mt-1 text-sm text-[#667085]">Arquitetura reservada para expansão futura.</p>
-            </div>
-          ))}
         </div>
-      </SectionCard>
-    </div>
+      </div>
+
+      {message ? (
+        <div className="mt-4 rounded-[8px] border border-[#D0D5DD] bg-[#F8FAFA] px-4 py-3 text-[13px] font-medium text-[#0F1111]">
+          {message}
+        </div>
+      ) : null}
+    </SectionCard>
   );
 }
 
 export default function AccountSettingsWorkspace({ user }: AccountSettingsWorkspaceProps) {
   const [section, setSection] = useState<SettingsSectionId>("account");
 
-  const sections: Array<{
-    id: SettingsSectionId;
-    title: string;
-    description: string;
-    icon: LucideIcon;
-  }> = [
-    { id: "account", title: "Minha conta", description: "Identidade e acesso.", icon: User },
-    { id: "notifications", title: "Notificações", description: "Central e alertas.", icon: Bell },
-    { id: "security", title: "Segurança", description: "Senha e sessões.", icon: Shield },
-  ];
-
   return (
-    <div className="grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)]">
-      <aside className="rounded-[18px] border border-[#D5D9D9] bg-white p-4 shadow-none">
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#2162A1]">Configurações</p>
-        <h1 className="mt-2 text-2xl font-black text-[#0F1111]">Conta</h1>
-        <p className="mt-2 text-sm leading-6 text-[#667085]">
-          Navegue entre identidade, notificações e segurança.
-        </p>
+    <div className="space-y-5">
+      <section className={`${accountSectionClass} p-4 sm:p-5 md:p-6`}>
+        <div className="border-b border-[#D5D9D9]">
+          <div className="-mb-px flex gap-5 overflow-x-auto">
+            {SETTINGS_TABS.map((item) => {
+              const active = section === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setSection(item.id)}
+                  className={`border-b-2 px-0 pb-2.5 text-[14px] font-semibold transition ${
+                    active
+                      ? "border-[#2162A1] text-[#0F1111]"
+                      : "border-transparent text-[#667085] hover:text-[#0F1111]"
+                  }`}
+                >
+                  {item.title}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
-        <nav className="mt-5 space-y-2">
-          {sections.map((item) => {
-            const active = section === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setSection(item.id)}
-                className={`flex w-full items-start gap-3 rounded-2xl border px-4 py-3 text-left transition ${
-                  active
-                    ? "border-[#D0D5DD] bg-[#F3F4F6]"
-                    : "border-transparent bg-transparent hover:border-[#E5E7EB] hover:bg-[#FCFCFD]"
-                }`}
-              >
-                <span className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#2162A1] shadow-[0_1px_3px_rgba(15,17,17,0.08)]">
-                  <item.icon className="h-4 w-4" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-black text-[#0F1111]">{item.title}</span>
-                  <span className="mt-1 block text-xs text-[#667085]">{item.description}</span>
-                </span>
-                <ChevronRight className={`mt-2 h-4 w-4 shrink-0 ${active ? "text-[#2162A1]" : "text-[#C0C4CC]"}`} />
-              </button>
-            );
-          })}
-        </nav>
-      </aside>
-
-      <div className="space-y-6">
+      <div className="space-y-5">
         {section === "account" ? <AccountSettingsPanel user={user} /> : null}
         {section === "notifications" ? <NotificationPreferencesSection userId={user.id} /> : null}
         {section === "security" ? <SecuritySection user={user} /> : null}

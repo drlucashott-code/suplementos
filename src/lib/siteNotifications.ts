@@ -1,17 +1,26 @@
-import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isMissingColumnError, isMissingRelationError } from "@/lib/prismaSchemaCompat";
+import {
+  clearNotifications as clearNotificationInbox,
+  createSiteNotification as createNotificationRecord,
+  countUnreadNotifications,
+  getSiteNotifications as getNotificationItems,
+  listSiteNotifications,
+  markAllNotificationsRead as markAllNotificationRecordsRead,
+  markNotificationClicked,
+  markNotificationRead,
+  notifyCommentReaction,
+  notifyCommentReply,
+  notifyComposedPriceStock,
+  notifyListFollower,
+  notifyMentions,
+  notifyPriceChange,
+} from "@/lib/notifications/service";
 
-export type SiteNotificationItem = {
-  id: string;
-  type: string;
-  title: string;
-  body: string | null;
-  href: string | null;
-  isRead: boolean;
-  createdAt: string;
-};
+export type SiteNotificationItem = Awaited<
+  ReturnType<typeof getNotificationItems>
+>[number];
 
 export async function createSiteNotification(input: {
   userId: string;
@@ -20,26 +29,16 @@ export async function createSiteNotification(input: {
   body?: string | null;
   href?: string | null;
   metadata?: Prisma.InputJsonValue;
+  category?: "social" | "product" | "list" | "system";
+  priority?: number;
+  groupedKey?: string | null;
+  actorUserId?: string | null;
+  targetUserId?: string | null;
+  targetProductId?: string | null;
+  targetListId?: string | null;
+  targetCommentId?: string | null;
 }) {
-  try {
-    await prisma.siteUserNotification.create({
-      data: {
-        id: randomUUID(),
-        userId: input.userId,
-        type: input.type,
-        title: input.title,
-        body: input.body ?? null,
-        href: input.href ?? null,
-        metadata: input.metadata,
-      },
-    });
-  } catch (error) {
-    if (isMissingRelationError(error, "SiteUserNotification")) {
-      return;
-    }
-
-    throw error;
-  }
+  return createNotificationRecord(input);
 }
 
 export async function syncFavoriteNotifications(userId: string) {
@@ -62,6 +61,7 @@ export async function syncFavoriteNotifications(userId: string) {
     });
   } catch (error) {
     if (
+      isMissingRelationError(error, "SiteUserFavorite") ||
       isMissingColumnError(error, "lastTrackedPrice") ||
       isMissingColumnError(error, "lastTrackedAvailability")
     ) {
@@ -87,42 +87,54 @@ export async function syncFavoriteNotifications(userId: string) {
       continue;
     }
 
-    if (
+    const priceDropped =
       currentPrice != null &&
       favorite.lastTrackedPrice != null &&
-      currentPrice < favorite.lastTrackedPrice
-    ) {
-      await createSiteNotification({
-        userId,
-        type: "favorite_price_drop",
-        title: "Produto salvo caiu de preco",
-        body: `${favorite.product.name} agora está por ${currentPrice.toLocaleString("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-        })}.`,
-        href: productPath,
-        metadata: {
-          productId: favorite.productId,
-          oldPrice: favorite.lastTrackedPrice,
-          newPrice: currentPrice,
-        },
-      });
-    }
-
-    if (
+      currentPrice < favorite.lastTrackedPrice;
+    const backInStock =
       favorite.lastTrackedAvailability === "OUT_OF_STOCK" &&
-      currentAvailability !== "OUT_OF_STOCK" &&
-      currentPrice != null
-    ) {
-      await createSiteNotification({
+      currentAvailability !== "OUT_OF_STOCK";
+
+    if (backInStock && priceDropped) {
+      await notifyComposedPriceStock({
         userId,
-        type: "favorite_back_in_stock",
-        title: "Produto salvo voltou ao estoque",
-        body: favorite.product.name,
+        productId: favorite.productId,
+        productName: favorite.product.name,
         href: productPath,
-        metadata: {
-          productId: favorite.productId,
-        },
+        oldPrice: favorite.lastTrackedPrice,
+        newPrice: currentPrice,
+        priceDropPercent:
+          favorite.lastTrackedPrice && currentPrice
+            ? Math.round(
+                ((favorite.lastTrackedPrice - currentPrice) / favorite.lastTrackedPrice) * 100
+              )
+            : null,
+      });
+    } else if (priceDropped) {
+      await notifyPriceChange({
+        userId,
+        productId: favorite.productId,
+        productName: favorite.product.name,
+        href: productPath,
+        type: "favorite_price_drop",
+        oldPrice: favorite.lastTrackedPrice,
+        newPrice: currentPrice,
+        priceDropPercent:
+          favorite.lastTrackedPrice && currentPrice
+            ? Math.round(
+                ((favorite.lastTrackedPrice - currentPrice) / favorite.lastTrackedPrice) * 100
+              )
+            : null,
+      });
+    } else if (backInStock) {
+      await notifyPriceChange({
+        userId,
+        productId: favorite.productId,
+        productName: favorite.product.name,
+        href: productPath,
+        type: "favorite_back_in_stock",
+        oldPrice: favorite.lastTrackedPrice,
+        newPrice: currentPrice,
       });
     }
 
@@ -187,42 +199,58 @@ export async function syncFavoriteNotifications(userId: string) {
       continue;
     }
 
-    if (
+    const priceDropped =
       currentPrice != null &&
       monitoredProduct.lastTrackedPrice != null &&
-      currentPrice < monitoredProduct.lastTrackedPrice
-    ) {
-      await createSiteNotification({
-        userId,
-        type: "monitored_price_drop",
-        title: "Produto monitorado caiu de preco",
-        body: `${monitoredProduct.name} agora está por ${currentPrice.toLocaleString("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-        })}.`,
-        href: productPath,
-        metadata: {
-          asin: monitoredProduct.asin,
-          oldPrice: monitoredProduct.lastTrackedPrice,
-          newPrice: currentPrice,
-        },
-      });
-    }
-
-    if (
+      currentPrice < monitoredProduct.lastTrackedPrice;
+    const backInStock =
       monitoredProduct.lastTrackedAvailability === "OUT_OF_STOCK" &&
-      currentAvailability !== "OUT_OF_STOCK" &&
-      currentPrice != null
-    ) {
-      await createSiteNotification({
+      currentAvailability !== "OUT_OF_STOCK";
+
+    if (backInStock && priceDropped) {
+      await notifyComposedPriceStock({
         userId,
-        type: "monitored_back_in_stock",
-        title: "Produto monitorado voltou ao estoque",
-        body: monitoredProduct.name,
+        productId: monitoredProduct.id,
+        productName: monitoredProduct.name,
         href: productPath,
-        metadata: {
-          asin: monitoredProduct.asin,
-        },
+        oldPrice: monitoredProduct.lastTrackedPrice,
+        newPrice: currentPrice,
+        priceDropPercent:
+          monitoredProduct.lastTrackedPrice && currentPrice
+            ? Math.round(
+                ((monitoredProduct.lastTrackedPrice - currentPrice) /
+                  monitoredProduct.lastTrackedPrice) *
+                  100
+              )
+            : null,
+      });
+    } else if (priceDropped) {
+      await notifyPriceChange({
+        userId,
+        productId: monitoredProduct.id,
+        productName: monitoredProduct.name,
+        href: productPath,
+        type: "monitored_price_drop",
+        oldPrice: monitoredProduct.lastTrackedPrice,
+        newPrice: currentPrice,
+        priceDropPercent:
+          monitoredProduct.lastTrackedPrice && currentPrice
+            ? Math.round(
+                ((monitoredProduct.lastTrackedPrice - currentPrice) /
+                  monitoredProduct.lastTrackedPrice) *
+                  100
+              )
+            : null,
+      });
+    } else if (backInStock) {
+      await notifyPriceChange({
+        userId,
+        productId: monitoredProduct.id,
+        productName: monitoredProduct.name,
+        href: productPath,
+        type: "monitored_back_in_stock",
+        oldPrice: monitoredProduct.lastTrackedPrice,
+        newPrice: currentPrice,
       });
     }
 
@@ -237,44 +265,22 @@ export async function syncFavoriteNotifications(userId: string) {
   }
 }
 
+export {
+  listSiteNotifications,
+  countUnreadNotifications,
+  markAllNotificationRecordsRead as markAllNotificationsRead,
+  markNotificationRead,
+  clearNotificationInbox as clearNotifications,
+  markNotificationClicked,
+  notifyMentions,
+  notifyCommentReply,
+  notifyCommentReaction,
+  notifyListFollower,
+  notifyPriceChange,
+  notifyComposedPriceStock,
+};
+
 export async function getSiteNotifications(userId: string, limit = 20) {
-  let rows;
-  try {
-    rows = await prisma.siteUserNotification.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      take: limit,
-    });
-  } catch (error) {
-    if (isMissingRelationError(error, "SiteUserNotification")) {
-      return [];
-    }
-
-    throw error;
-  }
-
-  return rows.map<SiteNotificationItem>((row) => ({
-    id: row.id,
-    type: row.type,
-    title: row.title,
-    body: row.body,
-    href: row.href,
-    isRead: row.isRead,
-    createdAt: row.createdAt.toISOString(),
-  }));
-}
-
-export async function markAllNotificationsRead(userId: string) {
-  try {
-    await prisma.siteUserNotification.updateMany({
-      where: { userId, isRead: false },
-      data: { isRead: true, readAt: new Date() },
-    });
-  } catch (error) {
-    if (isMissingRelationError(error, "SiteUserNotification")) {
-      return;
-    }
-
-    throw error;
-  }
+  const page = await listSiteNotifications({ userId, limit });
+  return page.items;
 }

@@ -7,7 +7,7 @@ import {
   isSiteUserVerified,
   verificationRequiredResponse,
 } from "@/lib/siteAuth";
-import { createSiteNotification } from "@/lib/siteNotifications";
+import { notifyCommentReply, notifyMentions } from "@/lib/siteNotifications";
 import { buildPublicListPath } from "@/lib/siteSocial";
 
 type CommentRow = {
@@ -219,8 +219,9 @@ export async function POST(
 
     const isCommentsBlocked = userRows[0]?.commentsBlocked === true;
 
+    let parent: { id: string; userId: string } | null = null;
     if (parentId) {
-      const parent = await prisma.$queryRaw<Array<{ id: string; userId: string }>>(Prisma.sql`
+      const parentRows = await prisma.$queryRaw<Array<{ id: string; userId: string }>>(Prisma.sql`
         SELECT "id", "userId"
         FROM "SiteUserListComment"
         WHERE "id" = ${parentId}
@@ -229,24 +230,14 @@ export async function POST(
         LIMIT 1
       `);
 
-      if (!parent[0]) {
+      parent = parentRows[0] ?? null;
+
+      if (!parent) {
         return NextResponse.json({ ok: false, error: "invalid_parent" }, { status: 400 });
       }
-
-      if (parent[0].userId !== user.id && list.userUsername) {
-        await createSiteNotification({
-          userId: parent[0].userId,
-          type: "list_comment_replied",
-          title: "Seu comentario em lista recebeu uma resposta",
-          body: content.slice(0, 120),
-          href: `${buildPublicListPath(list.userUsername, list.slug)}?comments=1`,
-          metadata: {
-            parentCommentId: parentId,
-            listId: id,
-          },
-        });
-      }
     }
+
+    const commentId = randomUUID();
 
     await prisma.$executeRaw(Prisma.sql`
       INSERT INTO "SiteUserListComment" (
@@ -261,7 +252,7 @@ export async function POST(
         "updatedAt"
       )
       VALUES (
-        ${randomUUID()},
+        ${commentId},
         ${id},
         ${user.id},
         ${parentId},
@@ -272,6 +263,32 @@ export async function POST(
         NOW()
       )
     `);
+
+    if (parent && parent.userId !== user.id && list.userUsername) {
+      await notifyCommentReply({
+        recipientUserId: parent.userId,
+        actorUserId: user.id,
+        actorDisplayName: user.displayName,
+        body: content,
+        href: `${buildPublicListPath(list.userUsername, list.slug)}?comments=1`,
+        title: "Seu comentário em lista recebeu uma resposta",
+        targetCommentId: parentId as string,
+        targetListId: id,
+      });
+    }
+
+    if (list.userUsername) {
+      await notifyMentions({
+        actorUserId: user.id,
+        actorDisplayName: user.displayName,
+        body: content,
+        href: `${buildPublicListPath(list.userUsername, list.slug)}?comments=1`,
+        title: "Novo comentário em lista",
+        category: "social",
+        targetListId: id,
+        targetCommentId: commentId,
+      });
+    }
 
     const comments = await fetchComments(id, user.id, user.role);
     return NextResponse.json({ ok: true, comments, shadowBlocked: isCommentsBlocked });

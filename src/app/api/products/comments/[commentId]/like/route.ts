@@ -7,7 +7,7 @@ import {
   isSiteUserVerified,
   verificationRequiredResponse,
 } from "@/lib/siteAuth";
-import { createSiteNotification } from "@/lib/siteNotifications";
+import { notifyCommentReaction } from "@/lib/siteNotifications";
 
 export async function POST(
   _request: Request,
@@ -60,15 +60,16 @@ export async function POST(
 
   const targetComment = commentRows[0];
   if (targetComment && targetComment.userId !== user.id) {
-    await createSiteNotification({
-      userId: targetComment.userId,
-      type: "comment_liked",
-      title: "Seu comentario recebeu uma curtida",
-      body: targetComment.body.slice(0, 120),
+    await notifyCommentReaction({
+      recipientUserId: targetComment.userId,
+      actorUserId: user.id,
+      actorDisplayName: user.displayName,
+      body: targetComment.body,
       href: `/produto/${targetComment.productId}?comments=1`,
-      metadata: {
-        commentId,
-      },
+      title: "Seu comentário recebeu uma curtida",
+      targetCommentId: commentId,
+      targetProductId: targetComment.productId,
+      type: "comment_liked",
     });
   }
 

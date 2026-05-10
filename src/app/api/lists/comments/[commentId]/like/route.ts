@@ -7,7 +7,7 @@ import {
   isSiteUserVerified,
   verificationRequiredResponse,
 } from "@/lib/siteAuth";
-import { createSiteNotification } from "@/lib/siteNotifications";
+import { notifyCommentReaction } from "@/lib/siteNotifications";
 import { buildPublicListPath } from "@/lib/siteSocial";
 
 export async function POST(
@@ -29,11 +29,13 @@ export async function POST(
       body: string;
       listSlug: string;
       listOwnerUsername: string | null;
+      listId: string;
     }>
   >(Prisma.sql`
     SELECT
       c."userId",
       c."body",
+      c."listId",
       l."slug" AS "listSlug",
       u."username" AS "listOwnerUsername"
     FROM "SiteUserListComment" c
@@ -65,15 +67,16 @@ export async function POST(
 
   const targetComment = commentRows[0];
   if (targetComment && targetComment.userId !== user.id && targetComment.listOwnerUsername) {
-    await createSiteNotification({
-      userId: targetComment.userId,
-      type: "list_comment_liked",
-      title: "Seu comentario em lista recebeu uma curtida",
-      body: targetComment.body.slice(0, 120),
+    await notifyCommentReaction({
+      recipientUserId: targetComment.userId,
+      actorUserId: user.id,
+      actorDisplayName: user.displayName,
+      body: targetComment.body,
       href: `${buildPublicListPath(targetComment.listOwnerUsername, targetComment.listSlug)}?comments=1`,
-      metadata: {
-        commentId,
-      },
+      title: "Seu comentário em lista recebeu uma curtida",
+      targetCommentId: commentId,
+      targetListId: targetComment.listId,
+      type: "list_comment_liked",
     });
   }
 

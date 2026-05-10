@@ -543,6 +543,9 @@ model SiteUser {
   lists             SiteUserList[]
   savedLists        SiteUserSavedList[]
   notifications     SiteUserNotification[]
+  notificationPreference SiteUserNotificationPreference?
+  pushSubscriptions SiteUserPushSubscription[]
+  notificationDeliveries SiteNotificationDelivery[]
   productSuggestions SiteProductSuggestion[]
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
@@ -800,18 +803,111 @@ model SiteUserNotification {
   id         String    @id @default(cuid())
   userId     String
   user       SiteUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   String    @default("social")
   type       String
   title      String
   body       String?
   href       String?
   metadata   Json?
+  priority   Int       @default(0)
+  groupedKey String?
+  actorUserId String?
+  targetUserId String?
+  targetProductId String?
+  targetListId String?
+  targetCommentId String?
+  deliveries SiteNotificationDelivery[]
   isRead     Boolean   @default(false)
   readAt     DateTime?
+  clickedAt  DateTime?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
   @@index([userId, isRead, createdAt(sort: Desc)])
   @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, category, createdAt(sort: Desc)])
+  @@index([userId, groupedKey])
+  @@index([targetProductId])
+  @@index([targetListId])
+  @@index([targetCommentId])
+  @@index([targetUserId])
+  @@index([actorUserId])
+}
+
+model SiteUserNotificationPreference {
+  userId                String   @id
+  user                  SiteUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  commentRepliesCentralEnabled Boolean  @default(true)
+  commentRepliesPushEnabled Boolean  @default(false)
+  commentRepliesEmailEnabled Boolean  @default(false)
+  commentReactionsCentralEnabled Boolean  @default(true)
+  commentReactionsPushEnabled Boolean  @default(false)
+  commentReactionsEmailEnabled Boolean  @default(false)
+  listCommentsCentralEnabled Boolean  @default(true)
+  listCommentsPushEnabled Boolean  @default(false)
+  listCommentsEmailEnabled Boolean  @default(false)
+  listFollowsCentralEnabled Boolean  @default(true)
+  listFollowsPushEnabled Boolean  @default(false)
+  listFollowsEmailEnabled Boolean  @default(false)
+  mentionsCentralEnabled Boolean  @default(true)
+  mentionsPushEnabled Boolean  @default(false)
+  mentionsEmailEnabled Boolean  @default(false)
+  priceDropsCentralEnabled Boolean  @default(true)
+  priceDropsPushEnabled Boolean  @default(false)
+  priceDropsEmailEnabled Boolean  @default(false)
+  backInStockCentralEnabled Boolean  @default(true)
+  backInStockPushEnabled Boolean  @default(false)
+  backInStockEmailEnabled Boolean  @default(false)
+  commentsEnabled       Boolean  @default(true)
+  mentionsEnabled       Boolean  @default(true)
+  reactionsEnabled      Boolean  @default(true)
+  followersEnabled      Boolean  @default(true)
+  priceDropEnabled      Boolean  @default(true)
+  stockReturnEnabled    Boolean  @default(true)
+  centralEnabled        Boolean  @default(true)
+  pushEnabled           Boolean  @default(false)
+  emailEnabled          Boolean  @default(false)
+  priceAlertMode        String   @default("any")
+  priceAlertPercentage  Int      @default(10)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model SiteUserPushSubscription {
+  id          String   @id @default(cuid())
+  userId      String
+  user        SiteUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint    String   @unique
+  p256dh      String
+  auth        String
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  revokedAt   DateTime?
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model SiteNotificationDelivery {
+  id              String   @id @default(cuid())
+  notificationId   String?
+  notification     SiteUserNotification? @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  userId          String
+  user            SiteUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel         String
+  status          String   @default("pending")
+  providerMessageId String?
+  scheduledAt     DateTime @default(now())
+  sentAt          DateTime?
+  attemptCount    Int      @default(0)
+  lastError       String?
+  payload         Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status, scheduledAt])
+  @@index([userId, channel, status])
+  @@index([notificationId])
 }
 
 model SiteProductSuggestion {

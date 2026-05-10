@@ -40,3 +40,13 @@ export function buildPublicUserPath(username: string) {
 export function buildPublicListPath(username: string, slug: string) {
   return `/user/${username}/${slug}`;
 }
+
+export function buildAccountListPath(
+  listId: string,
+  tab: "mine" | "saved" = "mine"
+) {
+  const params = new URLSearchParams();
+  params.set("tab", tab);
+  params.set("listId", listId);
+  return `/minha-conta/listas?${params.toString()}`;
+}
