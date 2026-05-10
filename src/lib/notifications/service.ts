@@ -288,22 +288,30 @@ async function dispatchDeliveryChannels(
   const pushEnabled = isNotificationChannelEnabled(prefs, notification.type, "push");
 
   if (emailEnabled) {
+    const emailKind =
+      notification.type === "composite_price_stock"
+        ? "composite_price_stock"
+        : notification.type === "comment_replied"
+          ? "comment_reply"
+          : notification.type === "comment_liked"
+            ? "comment_like"
+            : notification.type === "list_comment_replied"
+              ? "list_comment_reply"
+              : notification.type === "list_comment_liked"
+                ? "list_comment_like"
+                : PRICE_TYPES.has(notification.type)
+                  ? notification.type.includes("back_in_stock")
+                    ? "back_in_stock"
+                    : "price_drop"
+                  : notification.type === "mention"
+                    ? "mention"
+                    : notification.type.includes("list")
+                      ? "list_follow"
+                      : "interaction";
+
     const emailPayload = buildNotificationEmailPayload({
       to: user.email,
-      kind:
-        notification.type === "composite_price_stock"
-          ? "composite_price_stock"
-          : PRICE_TYPES.has(notification.type)
-            ? notification.type.includes("back_in_stock")
-              ? "back_in_stock"
-              : "price_drop"
-            : notification.type === "mention"
-              ? "mention"
-              : notification.type.includes("comment")
-                ? "comment"
-                : notification.type.includes("list")
-                  ? "list_follow"
-                  : "interaction",
+      kind: emailKind,
       actorName: actorDisplayName ?? user.displayName,
       title: notification.title,
       body: notification.body ?? notification.title,

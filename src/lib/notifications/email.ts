@@ -1,5 +1,19 @@
 const SITE_BASE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
+  process.env.SITE_PUBLIC_URL?.replace(/\/$/, "") ??
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
+  "https://www.amazonpicks.com.br";
+
+function resolveEmailHref(href: string) {
+  if (/^https?:\/\//i.test(href)) {
+    return href;
+  }
+
+  if (!href.startsWith("/")) {
+    return `${SITE_BASE_URL}/${href}`;
+  }
+
+  return `${SITE_BASE_URL}${href}`;
+}
 
 function getEmailFrom() {
   return (
@@ -62,6 +76,7 @@ export type NotificationEmailInput = {
 };
 
 export async function sendTransactionalEmail(input: NotificationEmailInput) {
+  const href = resolveEmailHref(input.href);
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.warn("RESEND_API_KEY nao configurada. Email de notificacao nao enviado.");
@@ -74,7 +89,7 @@ export async function sendTransactionalEmail(input: NotificationEmailInput) {
     "",
     input.body,
     "",
-    `Acesse: ${input.href}`,
+    `Acesse: ${href}`,
     input.details?.length
       ? ""
       : null,
@@ -99,9 +114,9 @@ export async function sendTransactionalEmail(input: NotificationEmailInput) {
           <div style="font-size:15px;line-height:1.6;color:#0F1111;">${escapeHtml(input.body)}</div>
           ${renderDetails(input.details)}
           <div style="margin-top:24px;">
-            <a href="${escapeHtml(input.href)}" style="display:inline-block;background:#FFD814;color:#111111;text-decoration:none;font-size:14px;font-weight:700;padding:12px 18px;border-radius:8px;border:1px solid #FCD200;">${escapeHtml(
-              input.ctaLabel
-            )}</a>
+          <a href="${escapeHtml(href)}" style="display:inline-block;background:#FFD814;color:#111111;text-decoration:none;font-size:14px;font-weight:700;padding:12px 18px;border-radius:8px;border:1px solid #FCD200;">${escapeHtml(
+            input.ctaLabel
+          )}</a>
           </div>
           <div style="margin-top:20px;font-size:12px;line-height:1.5;color:#667085;">${escapeHtml(
             input.footerNote ?? "Você pode ajustar suas preferências de notificações na conta."
@@ -141,7 +156,17 @@ export async function sendTransactionalEmail(input: NotificationEmailInput) {
 }
 
 export function buildNotificationEmailPayload(params: {
-  kind: "price_drop" | "back_in_stock" | "composite_price_stock" | "comment" | "mention" | "interaction" | "list_follow";
+  kind:
+    | "price_drop"
+    | "back_in_stock"
+    | "composite_price_stock"
+    | "comment_reply"
+    | "comment_like"
+    | "list_comment_reply"
+    | "list_comment_like"
+    | "mention"
+    | "interaction"
+    | "list_follow";
   to: string;
   actorName?: string | null;
   title: string;
@@ -153,6 +178,8 @@ export function buildNotificationEmailPayload(params: {
   newPrice?: number | null;
   priceDropPercent?: number | null;
 }) {
+  const href = resolveEmailHref(params.href);
+
   switch (params.kind) {
     case "price_drop":
       return {
@@ -160,7 +187,7 @@ export function buildNotificationEmailPayload(params: {
         subject: "Um produto monitorado ficou mais barato",
         headline: "Preço caiu no produto que você acompanha",
         body: params.body,
-        href: params.href,
+        href,
         ctaLabel: "Ver produto",
         eyebrow: "Produtos e monitoramento",
         details: [
@@ -176,7 +203,7 @@ export function buildNotificationEmailPayload(params: {
         subject: "Produto monitorado voltou ao estoque",
         headline: "Produto voltou ao estoque",
         body: params.body,
-        href: params.href,
+        href,
         ctaLabel: "Ver produto",
         eyebrow: "Produtos e monitoramento",
         details: params.productName ? [{ label: "Produto", value: params.productName }] : [],
@@ -187,7 +214,7 @@ export function buildNotificationEmailPayload(params: {
         subject: "Produto voltou ao estoque com preço reduzido",
         headline: "Produto voltou ao estoque com preço reduzido",
         body: params.body,
-        href: params.href,
+        href,
         ctaLabel: "Ver produto",
         eyebrow: "Produtos e monitoramento",
         details: [
@@ -197,14 +224,56 @@ export function buildNotificationEmailPayload(params: {
           params.priceDropPercent != null ? { label: "Queda", value: `${params.priceDropPercent}%` } : null,
         ].filter((item): item is { label: string; value: string } => item != null),
       };
-    case "comment":
+    case "comment_reply":
       return {
         to: params.to,
         subject: "Responderam seu comentário",
         headline: "Responderam seu comentário",
         body: params.body,
-        href: params.href,
+        href,
         ctaLabel: "Ver conversa",
+        eyebrow: "Atividade social",
+        details: [
+          params.actorName ? { label: "Usuário", value: params.actorName } : null,
+          params.listName ? { label: "Lista", value: params.listName } : null,
+        ].filter((item): item is { label: string; value: string } => item != null),
+      };
+    case "comment_like":
+      return {
+        to: params.to,
+        subject: "Seu comentário recebeu uma curtida",
+        headline: "Seu comentário recebeu uma curtida",
+        body: params.body,
+        href,
+        ctaLabel: "Ver comentário",
+        eyebrow: "Atividade social",
+        details: [
+          params.actorName ? { label: "Usuário", value: params.actorName } : null,
+          params.listName ? { label: "Lista", value: params.listName } : null,
+        ].filter((item): item is { label: string; value: string } => item != null),
+      };
+    case "list_comment_reply":
+      return {
+        to: params.to,
+        subject: "Responderam seu comentário em lista",
+        headline: "Responderam seu comentário em lista",
+        body: params.body,
+        href,
+        ctaLabel: "Ver conversa",
+        eyebrow: "Atividade social",
+        details: [
+          params.actorName ? { label: "Usuário", value: params.actorName } : null,
+          params.listName ? { label: "Lista", value: params.listName } : null,
+        ].filter((item): item is { label: string; value: string } => item != null),
+      };
+    case "list_comment_like":
+      return {
+        to: params.to,
+        subject: "Seu comentário em lista recebeu uma curtida",
+        headline: "Seu comentário em lista recebeu uma curtida",
+        body: params.body,
+        href,
+        ctaLabel: "Ver comentário",
         eyebrow: "Atividade social",
         details: [
           params.actorName ? { label: "Usuário", value: params.actorName } : null,
@@ -217,7 +286,7 @@ export function buildNotificationEmailPayload(params: {
         subject: "Você foi mencionado",
         headline: "Você foi mencionado",
         body: params.body,
-        href: params.href,
+        href,
         ctaLabel: "Ver comentário",
         eyebrow: "Atividade social",
         details: [
@@ -231,7 +300,7 @@ export function buildNotificationEmailPayload(params: {
         subject: "Nova interação em sua lista",
         headline: "Nova interação em sua lista",
         body: params.body,
-        href: params.href,
+        href,
         ctaLabel: "Ver interação",
         eyebrow: "Atividade social",
         details: [
@@ -245,7 +314,7 @@ export function buildNotificationEmailPayload(params: {
         subject: "Uma lista sua ganhou um seguidor",
         headline: "Uma lista sua ganhou um seguidor",
         body: params.body,
-        href: params.href,
+        href,
         ctaLabel: "Abrir lista",
         eyebrow: "Listas",
         details: [
@@ -259,7 +328,7 @@ export function buildNotificationEmailPayload(params: {
         subject: params.title,
         headline: params.title,
         body: params.body,
-        href: params.href,
+        href,
         ctaLabel: "Abrir",
         eyebrow: "amazonpicks",
         details: [],
