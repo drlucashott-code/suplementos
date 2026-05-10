@@ -52,12 +52,23 @@ function getNotificationPriority(type: string, category: NotificationCategory) {
   return category === "system" ? 40 : 55;
 }
 
-function getCooldownMinutes(type: string) {
-  if (PRICE_TYPES.has(type)) return 60;
-  if (type === "mention") return 20;
-  if (type.includes("comment")) return 20;
-  if (type.includes("list")) return 30;
-  return 15;
+async function pruneNotificationRetention(userId: string) {
+  const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60_000);
+
+  await Promise.all([
+    prisma.siteNotificationDelivery.deleteMany({
+      where: {
+        userId,
+        createdAt: { lt: cutoff },
+      },
+    }),
+    prisma.siteUserNotification.deleteMany({
+      where: {
+        userId,
+        createdAt: { lt: cutoff },
+      },
+    }),
+  ]);
 }
 
 function mergeJsonMetadata(
@@ -104,6 +115,12 @@ function buildDefaultHref(input: CreateSiteNotificationInput) {
 
 function getGroupedKey(input: CreateSiteNotificationInput) {
   if (input.groupedKey) return input.groupedKey;
+  if (input.type === "comment_replied") return `comment-reply:${input.targetCommentId ?? input.userId}`;
+  if (input.type === "comment_liked") return `comment-like:${input.targetCommentId ?? input.userId}`;
+  if (input.type === "list_comment_replied")
+    return `list-comment-reply:${input.targetCommentId ?? input.userId}`;
+  if (input.type === "list_comment_liked")
+    return `list-comment-like:${input.targetCommentId ?? input.userId}`;
   if (input.targetProductId) return `product:${input.targetProductId}`;
   if (input.targetCommentId) return `comment:${input.targetCommentId}`;
   if (input.targetListId) return `list:${input.targetListId}`;
@@ -184,80 +201,29 @@ async function createDeliveryLog(input: {
   }
 }
 
-async function mergeOrCreateCentralNotification(input: CreateSiteNotificationInput) {
+async function createCentralNotification(input: CreateSiteNotificationInput) {
   const category = input.category ?? getNotificationCategory(input.type);
   const groupedKey = getGroupedKey(input);
   const priority = input.priority ?? getNotificationPriority(input.type, category);
-  const cooldownMinutes = getCooldownMinutes(input.type);
-  const cutoff = new Date(Date.now() - cooldownMinutes * 60_000);
 
-  const candidate = await prisma.siteUserNotification.findFirst({
-    where: {
-      userId: input.userId,
-      isRead: false,
-      groupedKey,
-      createdAt: { gte: cutoff },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  if (!candidate) {
-    const created = await prisma.siteUserNotification.create({
-      data: {
-        userId: input.userId,
-        category,
-        type: input.type,
-        title: input.title,
-        body: input.body ?? null,
-        href: buildDefaultHref(input),
-        metadata: input.metadata ?? undefined,
-        priority,
-        groupedKey,
-        actorUserId: input.actorUserId ?? null,
-        targetUserId: input.targetUserId ?? null,
-        targetProductId: input.targetProductId ?? null,
-        targetListId: input.targetListId ?? null,
-        targetCommentId: input.targetCommentId ?? null,
-      },
-    });
-
-    return { notification: created, merged: false as const };
-  }
-
-  const isPriceComposite =
-    PRICE_TYPES.has(candidate.type) && PRICE_TYPES.has(input.type) && candidate.type !== input.type;
-
-  const mergedType = isPriceComposite ? "composite_price_stock" : input.type;
-  const mergedCategory = isPriceComposite ? "product" : category;
-  const mergedPriority = Math.max(candidate.priority ?? 0, priority);
-  const mergedMetadata = mergeJsonMetadata(candidate.metadata, input.metadata);
-  const mergedBody =
-    input.body ?? candidate.body ?? null;
-  const mergedTitle = isPriceComposite
-    ? "Produto voltou ao estoque com preço reduzido"
-    : input.title ?? candidate.title;
-
-  const updated = await prisma.siteUserNotification.update({
-    where: { id: candidate.id },
+  return prisma.siteUserNotification.create({
     data: {
-      category: mergedCategory,
-      type: mergedType,
-      title: mergedTitle,
-      body: mergedBody,
+      userId: input.userId,
+      category,
+      type: input.type,
+      title: input.title,
+      body: input.body ?? null,
       href: buildDefaultHref(input),
-      metadata: mergedMetadata,
-      priority: mergedPriority,
+      metadata: input.metadata ?? undefined,
+      priority,
       groupedKey,
-      actorUserId: input.actorUserId ?? candidate.actorUserId,
-      targetUserId: input.targetUserId ?? candidate.targetUserId,
-      targetProductId: input.targetProductId ?? candidate.targetProductId,
-      targetListId: input.targetListId ?? candidate.targetListId,
-      targetCommentId: input.targetCommentId ?? candidate.targetCommentId,
-      updatedAt: new Date(),
+      actorUserId: input.actorUserId ?? null,
+      targetUserId: input.targetUserId ?? null,
+      targetProductId: input.targetProductId ?? null,
+      targetListId: input.targetListId ?? null,
+      targetCommentId: input.targetCommentId ?? null,
     },
   });
-
-  return { notification: updated, merged: true as const };
 }
 
 async function dispatchDeliveryChannels(
@@ -414,8 +380,8 @@ export async function createSiteNotification(input: CreateSiteNotificationInput)
   let notification: NotificationDispatchTarget | null = null;
 
   if (isNotificationChannelEnabled(prefs, input.type, "central")) {
-    const result = await mergeOrCreateCentralNotification(notificationInput);
-    notification = result.notification as NotificationDispatchTarget;
+    const created = await createCentralNotification(notificationInput);
+    notification = created as NotificationDispatchTarget;
   }
 
   const targetNotification =
@@ -444,6 +410,7 @@ export async function createSiteNotification(input: CreateSiteNotificationInput)
 }
 
 export async function getSiteNotifications(userId: string, limit = 20) {
+  await pruneNotificationRetention(userId);
   const rows = await prisma.siteUserNotification.findMany({
     where: { userId },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -476,6 +443,7 @@ export async function listSiteNotifications(input: {
   cursor?: string | null;
   unreadOnly?: boolean;
 }) {
+  await pruneNotificationRetention(input.userId);
   const limit = Math.max(1, Math.min(input.limit ?? 20, 100));
   const cursorDate = input.cursor ? new Date(input.cursor) : null;
   const conditions: Prisma.Sql[] = [Prisma.sql`n."userId" = ${input.userId}`];
@@ -835,3 +803,4 @@ export async function notifyComposedPriceStock(params: {
     },
   });
 }
+

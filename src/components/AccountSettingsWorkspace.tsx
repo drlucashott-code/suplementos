@@ -159,6 +159,7 @@ function NotificationPreferencesSection({ userId }: { userId: string }) {
   const [pushLoading, setPushLoading] = useState(false);
   const [priceMenuOpen, setPriceMenuOpen] = useState(false);
   const [priceMenuAnchor, setPriceMenuAnchor] = useState<PriceMenuAnchor | null>(null);
+  const [draftPriceThreshold, setDraftPriceThreshold] = useState<number>(DEFAULT_NOTIFICATION_PREFERENCES.priceDropThreshold);
   const stateRef = useRef(state);
 
   useEffect(() => {
@@ -456,23 +457,22 @@ function NotificationPreferencesSection({ userId }: { userId: string }) {
     void persistPreferences(next);
   }
 
-  function updatePriceThreshold(value: number) {
-    const next: NotificationPreferencesState = {
-      ...state,
-      priceDropThreshold: value,
-      priceDropMode: "custom",
-    };
-    setState(next);
-    void persistPreferences(next);
-  }
-
   function openPriceMenu(event: ReactMouseEvent<HTMLButtonElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
+    setDraftPriceThreshold(state.priceDropThreshold);
     setPriceMenuAnchor({ left: rect.left, top: rect.bottom + 10 });
     setPriceMenuOpen(true);
   }
 
-  function closePriceMenu() {
+  async function closePriceMenu() {
+    if (state.priceDropMode === "custom" && draftPriceThreshold !== state.priceDropThreshold) {
+      const next: NotificationPreferencesState = {
+        ...state,
+        priceDropThreshold: draftPriceThreshold,
+      };
+      setState(next);
+      await persistPreferences(next);
+    }
     setPriceMenuOpen(false);
     setPriceMenuAnchor(null);
   }
@@ -488,10 +488,10 @@ function NotificationPreferencesSection({ userId }: { userId: string }) {
               className="fixed inset-0 z-40 cursor-default bg-black/10"
             />
             <div
-              className="fixed z-50 w-[min(100vw-2rem,360px)] rounded-[6px] border border-[#D9DEE3] bg-[#FCFCFD] p-3 shadow-[0_10px_22px_rgba(15,17,17,0.12)] sm:w-[360px] sm:p-3.5"
+              className="fixed z-50 w-[min(100vw-2rem,340px)] rounded-[8px] border border-[#D9DEE3] bg-[#FCFCFD] p-3.5 shadow-[0_10px_22px_rgba(15,17,17,0.12)] sm:w-[340px] sm:p-4"
               style={{
-                left: Math.max(16, Math.min(priceMenuAnchor.left - 12, window.innerWidth - 376)),
-                top: priceMenuAnchor.top,
+                left: Math.max(16, Math.min(priceMenuAnchor.left - 16, window.innerWidth - 372)),
+                top: priceMenuAnchor.top + 10,
               }}
               onClick={(event) => event.stopPropagation()}
             >
@@ -528,8 +528,8 @@ function NotificationPreferencesSection({ userId }: { userId: string }) {
                       type="range"
                       min={1}
                       max={80}
-                      value={state.priceDropThreshold}
-                      onChange={(event) => updatePriceThreshold(Number(event.target.value))}
+                      value={draftPriceThreshold}
+                      onChange={(event) => setDraftPriceThreshold(Number(event.target.value))}
                       className="h-2 w-full accent-[#2162A1]"
                     />
                   </label>
@@ -539,8 +539,8 @@ function NotificationPreferencesSection({ userId }: { userId: string }) {
                       type="number"
                       min={1}
                       max={80}
-                      value={state.priceDropThreshold}
-                      onChange={(event) => updatePriceThreshold(Number(event.target.value))}
+                      value={draftPriceThreshold}
+                      onChange={(event) => setDraftPriceThreshold(Number(event.target.value))}
                       className="h-8 w-full rounded-[6px] border border-[#D9DEE3] px-2.5 text-[13px] text-[#0F1111] outline-none transition focus:border-[#2162A1]"
                     />
                   </label>

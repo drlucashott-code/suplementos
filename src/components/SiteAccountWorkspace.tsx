@@ -2806,7 +2806,7 @@ export default function SiteAccountWorkspace({
                   }`}
                 >
                   <div className="px-2 py-2">
-                    <div className="flex flex-col gap-1.5 pb-1">
+                    <div className="flex flex-col gap-2.5 pb-1 md:gap-1.5">
                       {lists.map((list) => {
                         const selected = selectedListId === list.id;
                         return (
@@ -2817,10 +2817,10 @@ export default function SiteAccountWorkspace({
                               setSelectedListId(list.id);
                               void openListViewer(list.id);
                             }}
-                            className={`h-[76px] w-full overflow-hidden rounded-[8px] border px-3 py-2 text-left transition ${
+                            className={`h-[76px] w-full overflow-hidden rounded-[10px] border border-[#E5E7EB] bg-white px-3 py-2 text-left transition shadow-[0_1px_2px_rgba(15,17,17,0.05)] hover:border-[#D0D5DD] hover:bg-[#FCFCFD] md:rounded-[8px] md:border-transparent md:bg-transparent md:shadow-none md:hover:border-[#E5E7EB] md:hover:bg-white ${
                               selected
                                 ? "border-[#D5D9D9] bg-[#F3F4F6] shadow-[inset_3px_0_0_0_#2162A1]"
-                                : "border-transparent bg-transparent hover:border-[#E5E7EB] hover:bg-white"
+                                : ""
                             }`}
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -3397,7 +3397,7 @@ export default function SiteAccountWorkspace({
                 }`}
               >
                 <div className="px-2 py-2">
-                  <div className="flex flex-col gap-1.5 pb-1">
+                  <div className="flex flex-col gap-2.5 pb-1 md:gap-1.5">
                     {savedLists.map((list) => {
                       const selected = selectedSavedListId === list.id;
                       return (
@@ -3405,10 +3405,10 @@ export default function SiteAccountWorkspace({
                           key={list.id}
                           type="button"
                           onClick={() => setSelectedSavedListId(list.id)}
-                          className={`h-[76px] w-full overflow-hidden rounded-[8px] border px-3 py-2 text-left transition ${
+                          className={`h-[76px] w-full overflow-hidden rounded-[10px] border border-[#E5E7EB] bg-white px-3 py-2 text-left transition shadow-[0_1px_2px_rgba(15,17,17,0.05)] hover:border-[#D0D5DD] hover:bg-[#FCFCFD] md:rounded-[8px] md:border-transparent md:bg-transparent md:shadow-none md:hover:border-[#E5E7EB] md:hover:bg-white ${
                             selected
                               ? "border-[#D5D9D9] bg-[#F3F4F6] shadow-[inset_3px_0_0_0_#2162A1]"
-                              : "border-transparent bg-transparent hover:border-[#E5E7EB] hover:bg-white"
+                              : ""
                           }`}
                         >
                           <div className="flex items-start justify-between gap-3">
