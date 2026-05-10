@@ -38,7 +38,7 @@ type ClientClickSession = {
 };
 
 let sessionCloseListenerRegistered = false;
-let sessionAutoCloseTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
+let sessionAutoCloseTimer: number | null = null;
 
 function createRandomId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -93,7 +93,7 @@ function clearSession() {
 
 function clearSessionAutoCloseTimer() {
   if (sessionAutoCloseTimer !== null) {
-    clearTimeout(sessionAutoCloseTimer);
+    window.clearTimeout(sessionAutoCloseTimer);
     sessionAutoCloseTimer = null;
   }
 }
