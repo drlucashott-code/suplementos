@@ -10,6 +10,11 @@ import TrackedDealLink from "@/components/TrackedDealLink";
 import { PriceHistoryButton } from "@/components/dynamic/PriceHistoryButton";
 import type { BestDeal } from "@/lib/bestDeals";
 import {
+  accountIconButtonClass,
+  accountPrimaryButtonClass,
+  accountSecondaryButtonClass,
+} from "@/components/account/accountUi";
+import {
   ACCOUNT_FAVORITES_EVENT,
   isAccountFavorite,
   toggleAccountFavorite,
@@ -230,7 +235,7 @@ export default function BestDealProductCard({
         const listTitle = result.list?.title ?? "Minha lista";
         toast.custom((t) => (
           <div
-            className={`flex w-full max-w-sm items-center justify-between gap-3 rounded-2xl border border-[#D5D9D9] bg-white px-4 py-3 shadow-lg transition ${
+            className={`flex w-full max-w-sm items-center justify-between gap-3 rounded-[10px] border border-[#D5D9D9] bg-white px-4 py-3 shadow-[0_12px_28px_rgba(0,0,0,0.16)] transition ${
               t.visible ? "animate-in fade-in slide-in-from-top-2" : "animate-out fade-out"
             }`}
           >
@@ -246,7 +251,7 @@ export default function BestDealProductCard({
                 toast.dismiss(t.id);
                 router.push("/minha-conta/listas");
               }}
-              className="shrink-0 rounded-full bg-[#FFD814] px-3 py-1.5 text-xs font-black text-[#0F1111] transition hover:bg-[#F7CA00]"
+              className={accountPrimaryButtonClass + " h-8 px-3 text-xs"}
             >
               Alterar
             </button>
@@ -272,7 +277,7 @@ export default function BestDealProductCard({
                 setReportOpen(true);
                 setReportState("idle");
               }}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#D5D9D9] bg-white text-gray-500 transition hover:text-[#0F1111]"
+              className={accountIconButtonClass}
               aria-label="Reportar problema"
             >
               <AlertTriangle className="h-4 w-4" />
@@ -461,7 +466,7 @@ export default function BestDealProductCard({
           }}
         >
           <div
-            className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"
+            className="w-full max-w-md rounded-[10px] border border-[#D5D9D9] bg-white p-5 shadow-[0_16px_40px_rgba(0,0,0,0.22)]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-start justify-between gap-4">
@@ -476,7 +481,7 @@ export default function BestDealProductCard({
                   setReportOpen(false);
                   setReportState("idle");
                 }}
-                className="rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                className={accountIconButtonClass}
                 aria-label="Fechar"
               >
                 <X className="h-4 w-4" />
@@ -490,7 +495,7 @@ export default function BestDealProductCard({
                     key={option}
                     type="button"
                     onClick={() => setReason(option)}
-                    className={`rounded-xl border px-3 py-2 text-left text-sm font-semibold transition ${
+                    className={`rounded-md border px-3 py-2 text-left text-[13px] font-semibold transition ${
                       reason === option
                         ? "border-blue-200 bg-blue-50 text-blue-700"
                         : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
@@ -507,7 +512,7 @@ export default function BestDealProductCard({
                 rows={4}
                 maxLength={1000}
                 placeholder="Detalhe opcional"
-                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-blue-300"
+                className="w-full rounded-md border border-[#D0D5DD] px-3 py-2 text-[13px] text-[#0F1111] outline-none transition placeholder:text-gray-400 focus:border-blue-300"
               />
 
               {reportState === "success" ? (
@@ -527,7 +532,7 @@ export default function BestDealProductCard({
                     setReportOpen(false);
                     setReportState("idle");
                   }}
-                  className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                  className={accountSecondaryButtonClass + " px-4"}
                 >
                   Cancelar
                 </button>
@@ -535,7 +540,7 @@ export default function BestDealProductCard({
                   type="button"
                   onClick={submitReport}
                   disabled={reportState === "submitting"}
-                  className="rounded-xl bg-[#FFD814] px-4 py-2 text-sm font-semibold text-[#0F1111] transition hover:bg-[#F7CA00] disabled:cursor-not-allowed disabled:opacity-60"
+                  className={accountPrimaryButtonClass + " px-4 disabled:cursor-not-allowed disabled:opacity-60"}
                 >
                   {reportState === "submitting" ? "Enviando..." : "Enviar"}
                 </button>
@@ -551,23 +556,23 @@ export default function BestDealProductCard({
           onClick={() => setAccountAlert(null)}
         >
           <div
-            className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+            className="w-full max-w-md rounded-[10px] border border-[#D5D9D9] bg-white p-6 shadow-[0_16px_40px_rgba(0,0,0,0.22)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <h4 className="text-lg font-black text-[#0F1111]">Confirmação pendente</h4>
+            <h4 className="text-[18px] font-black text-[#0F1111]">Confirmação pendente</h4>
             <p className="mt-3 text-sm leading-6 text-[#565959]">{UNVERIFIED_ACCOUNT_MESSAGE}</p>
             <div className="mt-5 flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setAccountAlert(null)}
-                className="rounded-xl px-4 py-2 text-sm font-semibold text-[#2162A1] hover:text-[#174e87]"
+                className="rounded-md px-4 py-2 text-[13px] font-semibold text-[#2162A1] hover:text-[#174e87]"
               >
                 Fechar
               </button>
               <button
                 type="button"
                 onClick={() => router.push("/minha-conta")}
-                className="inline-flex items-center rounded-xl bg-[#FFD814] px-4 py-2 text-sm font-bold text-[#0F1111] transition hover:bg-[#F7CA00]"
+                className={accountPrimaryButtonClass + " px-4"}
               >
                 Ir para minha conta
               </button>
@@ -597,7 +602,7 @@ export default function BestDealProductCard({
             const listTitle = result.list?.title ?? list.title;
             toast.custom((t) => (
               <div
-                className={`flex w-full max-w-sm items-center justify-between gap-3 rounded-2xl border border-[#D5D9D9] bg-white px-4 py-3 shadow-lg transition ${
+                className={`flex w-full max-w-sm items-center justify-between gap-3 rounded-[10px] border border-[#D5D9D9] bg-white px-4 py-3 shadow-[0_12px_28px_rgba(0,0,0,0.16)] transition ${
                   t.visible ? "animate-in fade-in slide-in-from-top-2" : "animate-out fade-out"
                 }`}
               >
@@ -613,7 +618,7 @@ export default function BestDealProductCard({
                     toast.dismiss(t.id);
                     router.push("/minha-conta/listas");
                   }}
-                  className="shrink-0 rounded-full bg-[#FFD814] px-3 py-1.5 text-xs font-black text-[#0F1111] transition hover:bg-[#F7CA00]"
+                  className={accountPrimaryButtonClass + " h-8 px-3 text-xs"}
                 >
                   Alterar
                 </button>

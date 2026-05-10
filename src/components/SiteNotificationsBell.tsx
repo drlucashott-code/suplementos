@@ -126,7 +126,7 @@ export default function SiteNotificationsBell() {
       <button
         type="button"
         onClick={() => void handleOpen()}
-        className="relative inline-flex h-10 w-10 items-center justify-center rounded-md bg-white/10 text-white transition hover:bg-white/15"
+        className="relative inline-flex h-11 w-11 items-center justify-center rounded-md bg-white/10 text-white transition hover:bg-white/15"
         aria-label="Abrir notificações"
       >
         <Bell className="h-5 w-5" />

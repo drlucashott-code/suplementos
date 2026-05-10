@@ -342,7 +342,7 @@ function SortableListCard({
             type="button"
             {...attributes}
             {...listeners}
-            className="inline-flex h-8 w-8 cursor-grab items-center justify-center rounded-lg border border-[#D0D5DD] bg-white text-[#344054] transition hover:bg-[#F8FAFA] active:cursor-grabbing"
+            className={accountIconButtonSmallClass + " cursor-grab active:cursor-grabbing"}
             aria-label="Arraste para reordenar"
             title="Arraste para reordenar"
           >
@@ -358,7 +358,7 @@ function SortableListCard({
               event.stopPropagation();
               onToggleMenu(event.currentTarget);
             }}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D0D5DD] bg-white text-[#344054] transition hover:bg-[#F8FAFA]"
+            className={accountIconButtonSmallClass}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
           >
@@ -2581,7 +2581,7 @@ export default function SiteAccountWorkspace({
                 type="button"
                 onClick={() => void handleResendVerificationEmail()}
                 disabled={resendingVerification}
-                className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl border border-[#F7B955] bg-[#FFF1CC] px-4 text-sm font-bold text-[#B54708] transition hover:bg-[#FFE7A3] disabled:opacity-60"
+                className="inline-flex h-10 shrink-0 items-center justify-center rounded-md border border-[#F7B955] bg-[#FFF1CC] px-4 text-[13px] font-bold text-[#B54708] transition hover:bg-[#FFE7A3] disabled:opacity-60"
               >
                 {resendingVerification ? "Reenviando..." : "Reenviar confirmacao"}
               </button>
@@ -2798,15 +2798,15 @@ export default function SiteAccountWorkspace({
               Nenhuma lista criada ainda.
             </div>
           ) : (
-            <div className="mt-5 overflow-hidden rounded-[16px] border border-[#D5D9D9] bg-white">
-              <div className="grid xl:grid-cols-[248px_minmax(0,1fr)]">
+            <div className="mt-4 overflow-hidden rounded-[8px] border border-[#D5D9D9] bg-white">
+              <div className="grid xl:grid-cols-[236px_minmax(0,1fr)]">
                 <aside
                   className={`border-b border-[#EAECF0] bg-[#F8FAFB] xl:border-b-0 xl:border-r ${
                     currentOpenedList ? "hidden md:block" : "block"
                   }`}
                 >
                   <div className="px-2 py-2">
-                    <div className="flex flex-col gap-2 pb-1">
+                    <div className="flex flex-col gap-1.5 pb-1">
                       {lists.map((list) => {
                         const selected = selectedListId === list.id;
                         return (
@@ -2817,7 +2817,7 @@ export default function SiteAccountWorkspace({
                               setSelectedListId(list.id);
                               void openListViewer(list.id);
                             }}
-                            className={`w-full rounded-[14px] border px-4 py-2.5 text-left transition ${
+                            className={`h-[76px] w-full overflow-hidden rounded-[8px] border px-3 py-2 text-left transition ${
                               selected
                                 ? "border-[#D5D9D9] bg-[#F3F4F6] shadow-[inset_3px_0_0_0_#2162A1]"
                                 : "border-transparent bg-transparent hover:border-[#E5E7EB] hover:bg-white"
@@ -2825,10 +2825,10 @@ export default function SiteAccountWorkspace({
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
-                                <p className="truncate text-sm font-bold text-[#0F1111]">
+                                <p className="truncate text-[13px] font-bold text-[#0F1111]">
                                   {list.title}
                                 </p>
-                                <p className="mt-1 hidden line-clamp-1 text-[12px] text-[#667085] md:block">
+                                <p className="mt-1 hidden truncate text-[11px] text-[#667085] md:block">
                                   {list.description ?? (list.isDefault ? "Lista padrão" : "Sem descrição")}
                                 </p>
                               </div>
@@ -2849,7 +2849,7 @@ export default function SiteAccountWorkspace({
                   </div>
                 </aside>
 
-                <div className="min-w-0 bg-white">
+                <div className="min-w-0 bg-white md:min-h-[760px]">
                   {isCurrentListLoading ? (
                     <div className="space-y-4 p-4 md:p-5">
                       <div className="h-6 w-32 animate-pulse rounded-full bg-[#EEF2F6]" />
@@ -3402,7 +3402,7 @@ export default function SiteAccountWorkspace({
                           key={list.id}
                           type="button"
                           onClick={() => setSelectedSavedListId(list.id)}
-                          className={`w-full rounded-[8px] border px-3 py-2 text-left transition ${
+                          className={`h-[76px] w-full overflow-hidden rounded-[8px] border px-3 py-2 text-left transition ${
                             selected
                               ? "border-[#D5D9D9] bg-[#F3F4F6] shadow-[inset_3px_0_0_0_#2162A1]"
                               : "border-transparent bg-transparent hover:border-[#E5E7EB] hover:bg-white"
@@ -3411,7 +3411,7 @@ export default function SiteAccountWorkspace({
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <p className="truncate text-[13px] font-bold text-[#0F1111]">{list.title}</p>
-                              <p className="mt-1 hidden line-clamp-1 text-[11px] text-[#667085] md:block">
+                              <p className="mt-1 hidden truncate text-[11px] text-[#667085] md:block">
                                 {list.ownerDisplayName}
                                 {list.ownerUsername ? ` @${list.ownerUsername}` : ""}
                               </p>
@@ -3424,7 +3424,7 @@ export default function SiteAccountWorkspace({
                 </div>
               </aside>
 
-              <div className="min-w-0 bg-white">
+                <div className="min-w-0 bg-white md:min-h-[760px]">
                 {selectedSavedList ? (
                   <>
                     <div className="border-b border-[#EAECF0] px-4 py-3.5 md:px-5">

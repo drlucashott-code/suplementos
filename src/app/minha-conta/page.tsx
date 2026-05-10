@@ -48,26 +48,20 @@ export default async function MyAccountPage() {
     prisma.$queryRaw<
       Array<{
         id: string;
-        slug: string;
         title: string;
         description: string | null;
         isPublic: boolean;
-        itemsCount: number;
         updatedAt: Date;
       }>
     >(Prisma.sql`
       SELECT
         l."id",
-        l."slug",
         l."title",
         l."description",
         l."isPublic",
-        l."updatedAt",
-        COUNT(i."id")::int AS "itemsCount"
+        l."updatedAt"
       FROM "SiteUserList" l
-      LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
       WHERE l."userId" = ${user.id}
-      GROUP BY l."id"
       ORDER BY l."updatedAt" DESC
       LIMIT 6
     `),
@@ -121,11 +115,9 @@ export default async function MyAccountPage() {
           recentNotifications={recentNotifications}
           recentLists={recentLists.map((list) => ({
             id: list.id,
-            slug: list.slug,
             title: list.title,
             description: list.description,
             isPublic: list.isPublic,
-            itemsCount: list.itemsCount,
             updatedAt: list.updatedAt.toISOString(),
           }))}
           recentComments={recentComments.map((comment) => ({

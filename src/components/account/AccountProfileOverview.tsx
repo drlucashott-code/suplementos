@@ -2,19 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
-import {
-  Bell,
-  ChevronRight,
-  Heart,
-  MessageCircle,
-  Package,
-  Tag,
-} from "lucide-react";
-import { buildPublicListPath } from "@/lib/siteSocial";
+import { useEffect, useState, type ReactNode } from "react";
+import { Bell, Heart, MessageCircle, Package, Tag } from "lucide-react";
 import type { SiteNotificationItem } from "@/lib/siteNotifications";
 import {
-  accountBodyClass,
   accountKickerClass,
   accountSectionClass,
   accountSecondaryButtonClass,
@@ -23,11 +14,9 @@ import {
 
 type RecentListPreview = {
   id: string;
-  slug: string;
   title: string;
   description: string | null;
   isPublic: boolean;
-  itemsCount: number;
   updatedAt: string;
 };
 
@@ -61,6 +50,8 @@ type AccountProfileOverviewProps = {
 };
 
 type HubTab = "activities" | "comments" | "interactions";
+
+const HOME_ACTIVITY_DISMISS_KEY = "account-home-hidden-activity-notifications";
 
 function formatDate(dateIso: string) {
   return new Date(dateIso).toLocaleDateString("pt-BR", {
@@ -115,9 +106,12 @@ function isCommentNotification(type: string) {
 }
 
 function isInteractionNotification(type: string) {
-  return ["list_comment_liked", "list_comment_replied", "comment_liked", "comment_replied"].includes(
-    type
-  );
+  return [
+    "list_comment_liked",
+    "list_comment_replied",
+    "comment_liked",
+    "comment_replied",
+  ].includes(type);
 }
 
 function HubCard({
@@ -128,7 +122,7 @@ function HubCard({
   meta,
 }: {
   href: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   body: string;
   meta?: string;
@@ -142,26 +136,20 @@ function HubCard({
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-bold text-[#0F1111]">{title}</p>
+        <div className="flex items-start justify-between gap-3">
+          <p className="min-w-0 flex-1 truncate text-[13px] font-bold text-[#0F1111]">{title}</p>
+          {meta ? <p className="shrink-0 text-[11px] font-semibold text-[#98A2B3]">{meta}</p> : null}
+        </div>
         <p className="mt-0.5 line-clamp-2 text-[13px] leading-6 text-[#565959]">{body}</p>
-        {meta ? <p className="mt-1 text-[11px] font-semibold text-[#98A2B3]">{meta}</p> : null}
       </div>
     </Link>
   );
 }
 
-function CompactListCard({
-  userUsername,
-  list,
-}: {
-  userUsername: string | null;
-  list: RecentListPreview;
-}) {
-  const href = list.isPublic && userUsername ? buildPublicListPath(userUsername, list.slug) : "/minha-conta/listas";
-
+function CompactListCard({ list }: { list: RecentListPreview }) {
   return (
     <Link
-      href={href}
+      href="/minha-conta/listas"
       className="group flex h-full flex-col rounded-[10px] border border-[#D5D9D9] bg-white p-4 transition hover:border-[#C9D5E4] hover:bg-[#FCFCFD]"
     >
       <div className="flex items-start justify-between gap-3">
@@ -180,20 +168,20 @@ function CompactListCard({
         </span>
       </div>
 
-      <div className="mt-4 grid gap-2 text-[11px] font-semibold text-[#667085]">
-        <div className="flex items-center justify-between gap-3">
-          <span>{list.itemsCount} produto{list.itemsCount === 1 ? "" : "s"}</span>
-          <span>{formatRelativeTime(list.updatedAt)}</span>
-        </div>
-        <div className="flex items-center justify-between gap-3 border-t border-[#EAECF0] pt-2">
-          <span>{list.isPublic ? "Compartilhável" : "Privada"}</span>
-          <span className="inline-flex items-center gap-1 text-[#2162A1] transition group-hover:underline">
-            Abrir
-            <ChevronRight className="h-3.5 w-3.5" />
-          </span>
-        </div>
+      <div className="mt-4 flex items-center justify-between gap-3 text-[11px] font-semibold text-[#667085]">
+        <span>{formatRelativeTime(list.updatedAt)}</span>
+        <span className="text-[#2162A1] transition group-hover:underline">Abrir</span>
       </div>
     </Link>
+  );
+}
+
+function SectionTitle({ eyebrow, title }: { eyebrow: string; title: string }) {
+  return (
+    <div className="mb-3">
+      <p className={accountKickerClass}>{eyebrow}</p>
+      <h3 className="mt-1 text-[18px] font-black text-[#0F1111]">{title}</h3>
+    </div>
   );
 }
 
@@ -205,16 +193,50 @@ export default function AccountProfileOverview({
   recentComments,
 }: AccountProfileOverviewProps) {
   const [tab, setTab] = useState<HubTab>("activities");
+  const [hiddenActivityIds, setHiddenActivityIds] = useState<string[]>([]);
+  const [dismissLoaded, setDismissLoaded] = useState(false);
 
-  const activityNotifications = recentNotifications.filter((notification) =>
-    isActivityNotification(notification.type)
-  );
+  const activityNotifications = recentNotifications
+    .filter((notification) => isActivityNotification(notification.type))
+    .filter((notification) => !hiddenActivityIds.includes(notification.id));
   const commentNotifications = recentNotifications.filter((notification) =>
     isCommentNotification(notification.type)
   );
   const interactionNotifications = recentNotifications.filter((notification) =>
     isInteractionNotification(notification.type)
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      const raw = window.localStorage.getItem(HOME_ACTIVITY_DISMISS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as string[];
+        if (Array.isArray(parsed)) {
+          setHiddenActivityIds(parsed);
+        }
+      }
+    } catch (error) {
+      console.error("home_activity_dismiss_load_failed", error);
+    } finally {
+      setDismissLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!dismissLoaded || typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(HOME_ACTIVITY_DISMISS_KEY, JSON.stringify(hiddenActivityIds));
+    } catch (error) {
+      console.error("home_activity_dismiss_save_failed", error);
+    }
+  }, [dismissLoaded, hiddenActivityIds]);
 
   return (
     <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
@@ -259,8 +281,8 @@ export default function AccountProfileOverview({
               <span className="font-semibold text-[#0F1111]">{profileStats.listsCount}</span>
             </div>
             <div className="flex items-center justify-between gap-3">
-              <span>Alertas recentes</span>
-              <span className="font-semibold text-[#0F1111]">{activityNotifications.length}</span>
+              <span>Listas públicas</span>
+              <span className="font-semibold text-[#0F1111]">{profileStats.publicListsCount}</span>
             </div>
             <div className="flex items-center justify-between gap-3">
               <span>Comentários</span>
@@ -294,24 +316,7 @@ export default function AccountProfileOverview({
 
       <section className={`${accountSectionClass} overflow-hidden`}>
         <div className="border-b border-[#EAECF0] px-4 py-4 sm:px-5 md:px-6">
-          <div className="flex flex-col gap-2">
-            <p className={accountKickerClass}>Hub da conta</p>
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="text-[22px] font-black leading-tight text-[#0F1111] sm:text-[24px]">
-                  Atividade recente
-                </h2>
-                <p className={`${accountBodyClass} mt-1 max-w-2xl`}>
-                  Acompanhe listas, comentários e alertas úteis em um lugar mais compacto e direto.
-                </p>
-              </div>
-              <Link href="/notificacoes" className={accountTertiaryLinkClass}>
-                Ver central
-              </Link>
-            </div>
-          </div>
-
-          <div className="mt-4 border-b border-[#D5D9D9]">
+          <div className="border-b border-[#D5D9D9]">
             <div className="-mb-px flex gap-5 overflow-x-auto">
               {(
                 [
@@ -344,40 +349,25 @@ export default function AccountProfileOverview({
           {tab === "activities" ? (
             <>
               <section>
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <p className={accountKickerClass}>Suas listas recentes</p>
-                    <h3 className="mt-1 text-[18px] font-black text-[#0F1111]">Últimas listas atualizadas</h3>
-                  </div>
-                  <Link href="/minha-conta/listas" className={accountTertiaryLinkClass}>
-                    Ver listas
-                  </Link>
-                </div>
-
-                {recentLists.length === 0 ? (
-                  <div className="rounded-[10px] border border-dashed border-[#D5D9D9] bg-[#F8FAFA] px-4 py-8 text-[13px] text-[#565959]">
-                    Nenhuma lista recente por enquanto.
-                  </div>
-                ) : (
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {recentLists.map((list) => (
-                      <CompactListCard key={list.id} list={list} userUsername={user.username} />
-                    ))}
-                  </div>
-                )}
-              </section>
-
-              <section>
-                <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="mb-3 flex items-end justify-between gap-3">
                   <div>
                     <p className={accountKickerClass}>Monitoramento</p>
-                    <h3 className="mt-1 text-[18px] font-black text-[#0F1111]">Movimento recente</h3>
                   </div>
-                  <Link href="/notificacoes" className={accountTertiaryLinkClass}>
-                    Abrir central
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link href="/notificacoes" className={accountTertiaryLinkClass}>
+                      Ver todas
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setHiddenActivityIds(activityNotifications.map((notification) => notification.id))
+                      }
+                      className={accountTertiaryLinkClass}
+                    >
+                      Limpar
+                    </button>
+                  </div>
                 </div>
-
                 <div className="space-y-3">
                   {activityNotifications.length === 0 ? (
                     <div className="rounded-[10px] border border-dashed border-[#D5D9D9] bg-[#F8FAFA] px-4 py-8 text-[13px] text-[#565959]">
@@ -397,37 +387,63 @@ export default function AccountProfileOverview({
                   )}
                 </div>
               </section>
+
+              <section>
+                <div className="mb-3">
+                  <p className={accountKickerClass}>Suas listas recentes</p>
+                </div>
+                {recentLists.length === 0 ? (
+                  <div className="rounded-[10px] border border-dashed border-[#D5D9D9] bg-[#F8FAFA] px-4 py-8 text-[13px] text-[#565959]">
+                    Nenhuma lista recente por enquanto.
+                  </div>
+                ) : (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {recentLists.map((list) => (
+                      <CompactListCard key={list.id} list={list} />
+                    ))}
+                  </div>
+                )}
+              </section>
             </>
           ) : null}
 
           {tab === "comments" ? (
             <section>
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <p className={accountKickerClass}>Comentários</p>
-                  <h3 className="mt-1 text-[18px] font-black text-[#0F1111]">Últimas mensagens publicadas</h3>
-                </div>
-                <Link href="/notificacoes" className={accountTertiaryLinkClass}>
-                  Ver respostas
-                </Link>
-              </div>
+              <SectionTitle eyebrow="Comentários" title="Mensagens e respostas" />
 
-              <div className="space-y-3">
+              <div className="space-y-4">
+                {commentNotifications.length > 0 ? (
+                  <div className="space-y-3">
+                    {commentNotifications.slice(0, 3).map((notification) => (
+                      <HubCard
+                        key={notification.id}
+                        href={notification.href ?? "/notificacoes"}
+                        icon={<MessageCircle className="h-4 w-4" />}
+                        title={notification.title}
+                        body={notification.body || "Uma conversa recente chegou para você."}
+                        meta={formatRelativeTime(notification.createdAt)}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+
                 {recentComments.length === 0 ? (
                   <div className="rounded-[10px] border border-dashed border-[#D5D9D9] bg-[#F8FAFA] px-4 py-8 text-[13px] text-[#565959]">
                     Você ainda não publicou comentários.
                   </div>
                 ) : (
-                  recentComments.map((comment) => (
-                    <HubCard
-                      key={comment.id}
-                      href={`/produto/${comment.productId}?comments=1`}
-                      icon={<MessageCircle className="h-4 w-4" />}
-                      title={comment.productName}
-                      body={comment.body}
-                      meta={formatRelativeTime(comment.createdAt)}
-                    />
-                  ))
+                  <div className="space-y-3">
+                    {recentComments.map((comment) => (
+                      <HubCard
+                        key={comment.id}
+                        href={`/produto/${comment.productId}?comments=1`}
+                        icon={<MessageCircle className="h-4 w-4" />}
+                        title={comment.productName}
+                        body={comment.body}
+                        meta={formatRelativeTime(comment.createdAt)}
+                      />
+                    ))}
+                  </div>
                 )}
               </div>
             </section>
@@ -435,15 +451,7 @@ export default function AccountProfileOverview({
 
           {tab === "interactions" ? (
             <section>
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <p className={accountKickerClass}>Interações</p>
-                  <h3 className="mt-1 text-[18px] font-black text-[#0F1111]">Reações e engajamento</h3>
-                </div>
-                <Link href="/notificacoes" className={accountTertiaryLinkClass}>
-                  Ver central
-                </Link>
-              </div>
+              <SectionTitle eyebrow="Interações" title="Reações e engajamento" />
 
               <div className="space-y-3">
                 {interactionNotifications.length === 0 ? (

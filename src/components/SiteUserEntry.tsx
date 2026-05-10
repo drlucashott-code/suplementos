@@ -77,7 +77,7 @@ export function SiteUserEntry({ compact = false, initialUser }: SiteUserEntryPro
   }
 
   const sharedButtonClass = compact
-    ? "inline-flex h-10 w-10 items-center justify-center rounded-md bg-white/10 text-white transition hover:bg-white/15"
+    ? "inline-flex h-11 w-11 items-center justify-center rounded-md bg-white/10 text-white transition hover:bg-white/15"
     : "inline-flex h-10 items-center gap-2 rounded-md bg-white/10 px-3 text-white transition hover:bg-white/15";
 
   return (
