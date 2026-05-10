@@ -1,248 +1,17 @@
 import Header from "@/app/Header";
-import { Prisma } from "@prisma/client";
-import SiteAccountWorkspace from "@/components/SiteAccountWorkspace";
+import AccountProfileOverview from "@/components/account/AccountProfileOverview";
 import { prisma } from "@/lib/prisma";
-import { isMissingRelationError } from "@/lib/prismaSchemaCompat";
 import { requireCurrentSiteUser } from "@/lib/siteAuth";
-import { findDefaultList } from "@/lib/siteDefaultList";
+import { getSiteNotifications, syncFavoriteNotifications } from "@/lib/siteNotifications";
+import { Prisma } from "@prisma/client";
 
-type SavedListItemRow = {
-  listId: string;
-  itemId: string | null;
-  itemCreatedAt: Date | null;
-  note: string | null;
-  productId: string | null;
-  monitoredProductId: string | null;
-  trackedAmazonProductId: string | null;
-  productAsin: string | null;
-  productName: string | null;
-  productImageUrl: string | null;
-  productTotalPrice: number | null;
-  productAveragePrice30d: number | null;
-  productUrl: string | null;
-  productAvailabilityStatus: string | null;
-  productRatingAverage: number | null;
-  productRatingCount: number | null;
-  categoryName: string | null;
-  categoryGroup: string | null;
-  categorySlug: string | null;
-};
+export const dynamic = "force-dynamic";
 
 export default async function MyAccountPage() {
   const user = await requireCurrentSiteUser();
-  const defaultList = await findDefaultList(user.id);
+  await syncFavoriteNotifications(user.id);
 
-  const savedListsPromise = prisma
-    .$queryRaw<
-      Array<{
-        id: string;
-        slug: string;
-        title: string;
-        description: string | null;
-        isPublic: boolean;
-        isDefault: boolean;
-        ownerDisplayName: string;
-        ownerUsername: string | null;
-        itemsCount: number;
-      }>
-    >(Prisma.sql`
-      SELECT
-        l."id",
-        l."slug",
-        l."title",
-        l."description",
-        l."isPublic",
-        l."isDefault",
-        owner."displayName" AS "ownerDisplayName",
-        owner."username" AS "ownerUsername",
-        COUNT(i."id")::int AS "itemsCount",
-        MAX(s."createdAt") AS "savedAt"
-      FROM "SiteUserSavedList" s
-      INNER JOIN "SiteUserList" l ON l."id" = s."listId"
-      INNER JOIN "SiteUser" owner ON owner."id" = l."userId"
-      LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
-      WHERE s."userId" = ${user.id}
-      GROUP BY l."id", owner."displayName", owner."username"
-      ORDER BY "savedAt" DESC
-    `)
-    .catch((error) => {
-      if (isMissingRelationError(error, "SiteUserSavedList")) {
-        return [];
-      }
-
-      throw error;
-    });
-
-  const savedListItemsPromise = prisma
-    .$queryRaw<SavedListItemRow[]>(Prisma.sql`
-      SELECT
-        l."id" AS "listId",
-        i."id" AS "itemId",
-        i."createdAt" AS "itemCreatedAt",
-        i."note",
-        p."id" AS "productId",
-        mp."id" AS "monitoredProductId",
-        tp."id" AS "trackedAmazonProductId",
-        COALESCE(p."asin", tp."asin", mp."asin") AS "productAsin",
-        COALESCE(p."name", tp."name", mp."name") AS "productName",
-        COALESCE(p."imageUrl", tp."imageUrl", mp."imageUrl") AS "productImageUrl",
-        COALESCE(p."totalPrice", tp."totalPrice", mp."totalPrice") AS "productTotalPrice",
-        COALESCE(p."averagePrice30d", tp."averagePrice30d", mp."averagePrice30d") AS "productAveragePrice30d",
-        COALESCE(p."url", tp."amazonUrl", mp."amazonUrl") AS "productUrl",
-        COALESCE(p."availabilityStatus", tp."availabilityStatus", mp."availabilityStatus") AS "productAvailabilityStatus",
-        COALESCE(p."ratingAverage", tp."ratingAverage") AS "productRatingAverage",
-        COALESCE(p."ratingCount", tp."ratingCount") AS "productRatingCount",
-        c."name" AS "categoryName",
-        c."group" AS "categoryGroup",
-        c."slug" AS "categorySlug"
-      FROM "SiteUserSavedList" s
-      INNER JOIN "SiteUserList" l ON l."id" = s."listId"
-      LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
-      LEFT JOIN "DynamicProduct" p ON p."id" = i."productId"
-      LEFT JOIN "SiteUserMonitoredProduct" mp ON mp."id" = i."monitoredProductId"
-      LEFT JOIN "SiteTrackedAmazonProduct" tp ON tp."id" = COALESCE(i."trackedAmazonProductId", mp."trackedProductId")
-      LEFT JOIN "DynamicCategory" c ON c."id" = p."categoryId"
-      WHERE s."userId" = ${user.id}
-      ORDER BY s."createdAt" DESC, i."sortOrder" ASC NULLS LAST, i."createdAt" DESC NULLS LAST
-    `)
-    .catch((error) => {
-      if (isMissingRelationError(error, "SiteUserSavedList")) {
-        return [];
-      }
-
-      throw error;
-    });
-
-  const [
-    favorites,
-    lists,
-    savedLists,
-    savedListItems,
-    monitoredProducts,
-    profileStats,
-  ] = await Promise.all([
-    prisma.$queryRaw<
-      Array<{
-        id: string;
-        createdAt: Date;
-        sortOrder: number;
-        product: {
-          id: string;
-          asin: string;
-          name: string;
-          totalPrice: number;
-          imageUrl: string | null;
-          url: string;
-          averagePrice30d: number | null;
-          ratingAverage: number | null;
-          ratingCount: number | null;
-          category: {
-            name: string;
-            group: string;
-            slug: string;
-          };
-        };
-      }>
-    >(Prisma.sql`
-      SELECT
-        f."id",
-        f."createdAt",
-        f."sortOrder",
-        json_build_object(
-          'id', p."id",
-          'asin', p."asin",
-          'name', p."name",
-          'totalPrice', p."totalPrice",
-          'imageUrl', p."imageUrl",
-          'url', p."url",
-          'averagePrice30d', p."averagePrice30d",
-          'ratingAverage', p."ratingAverage",
-          'ratingCount', p."ratingCount",
-          'category', json_build_object(
-            'name', c."name",
-            'group', c."group",
-            'slug', c."slug"
-          )
-        ) AS "product"
-      FROM "SiteUserListItem" f
-      INNER JOIN "DynamicProduct" p ON p."id" = f."productId"
-      INNER JOIN "DynamicCategory" c ON c."id" = p."categoryId"
-      WHERE f."listId" = ${defaultList?.id ?? null}
-        AND f."productId" IS NOT NULL
-      ORDER BY f."sortOrder" ASC, f."createdAt" DESC
-    `),
-    prisma.$queryRaw<
-      Array<{
-        id: string;
-        slug: string;
-        title: string;
-        description: string | null;
-        isPublic: boolean;
-        isDefault: boolean;
-        itemsCount: number;
-      }>
-    >(Prisma.sql`
-      SELECT
-        l."id",
-        l."slug",
-        l."title",
-        l."description",
-        l."isPublic",
-        l."isDefault",
-        COUNT(i."id")::int AS "itemsCount"
-      FROM "SiteUserList" l
-      LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
-      WHERE l."userId" = ${user.id}
-      GROUP BY l."id"
-      ORDER BY l."updatedAt" DESC
-    `),
-    savedListsPromise,
-    savedListItemsPromise,
-    prisma.$queryRaw<
-      Array<{
-        id: string;
-        trackedProductId: string | null;
-        asin: string;
-        amazonUrl: string;
-        name: string;
-        imageUrl: string | null;
-        totalPrice: number;
-        averagePrice30d: number | null;
-        ratingAverage: number | null;
-        ratingCount: number | null;
-        availabilityStatus: string | null;
-        programAndSavePrice: number | null;
-        sortOrder: number;
-        createdAt: Date;
-      }>
-    >(Prisma.sql`
-      SELECT
-        mp."id",
-        mp."trackedProductId",
-        COALESCE(tp."asin", mp."asin") AS "asin",
-        COALESCE(tp."amazonUrl", mp."amazonUrl") AS "amazonUrl",
-        COALESCE(tp."name", mp."name") AS "name",
-        COALESCE(tp."imageUrl", mp."imageUrl") AS "imageUrl",
-        COALESCE(tp."totalPrice", mp."totalPrice") AS "totalPrice",
-        COALESCE(tp."averagePrice30d", mp."averagePrice30d") AS "averagePrice30d",
-        tp."ratingAverage" AS "ratingAverage",
-        tp."ratingCount" AS "ratingCount",
-        COALESCE(tp."availabilityStatus", mp."availabilityStatus") AS "availabilityStatus",
-        COALESCE(tp."programAndSavePrice", mp."programAndSavePrice") AS "programAndSavePrice",
-        mp."sortOrder",
-        mp."createdAt"
-      FROM "SiteUserMonitoredProduct" mp
-      LEFT JOIN "SiteTrackedAmazonProduct" tp ON tp."id" = mp."trackedProductId"
-      WHERE mp."userId" = ${user.id}
-      ORDER BY mp."sortOrder" ASC, mp."createdAt" DESC
-    `)
-      .catch((error) => {
-        if (isMissingRelationError(error, "SiteUserMonitoredProduct")) {
-          return [];
-        }
-
-        throw error;
-      }),
+  const [profileRows, countsRows, recentLists, notifications, recentComments] = await Promise.all([
     prisma.$queryRaw<
       Array<{
         createdAt: Date;
@@ -269,137 +38,102 @@ export default async function MyAccountPage() {
       WHERE u."id" = ${user.id}
       LIMIT 1
     `),
+    prisma.$queryRaw<Array<{ listsCount: number; publicListsCount: number }>>(Prisma.sql`
+      SELECT
+        COUNT(*)::int AS "listsCount",
+        COUNT(*) FILTER (WHERE "isPublic")::int AS "publicListsCount"
+      FROM "SiteUserList"
+      WHERE "userId" = ${user.id}
+    `),
+    prisma.$queryRaw<
+      Array<{
+        id: string;
+        slug: string;
+        title: string;
+        description: string | null;
+        isPublic: boolean;
+        itemsCount: number;
+        updatedAt: Date;
+      }>
+    >(Prisma.sql`
+      SELECT
+        l."id",
+        l."slug",
+        l."title",
+        l."description",
+        l."isPublic",
+        l."updatedAt",
+        COUNT(i."id")::int AS "itemsCount"
+      FROM "SiteUserList" l
+      LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
+      WHERE l."userId" = ${user.id}
+      GROUP BY l."id"
+      ORDER BY l."updatedAt" DESC
+      LIMIT 6
+    `),
+    getSiteNotifications(user.id, 8),
+    prisma.$queryRaw<
+      Array<{
+        id: string;
+        body: string;
+        createdAt: Date;
+        productId: string;
+        productName: string;
+      }>
+    >(Prisma.sql`
+      SELECT
+        c."id",
+        c."body",
+        c."createdAt",
+        p."id" AS "productId",
+        p."name" AS "productName"
+      FROM "SiteProductComment" c
+      INNER JOIN "DynamicProduct" p ON p."id" = c."productId"
+      WHERE c."userId" = ${user.id}
+        AND c."status" = 'published'
+      ORDER BY c."createdAt" DESC
+      LIMIT 6
+    `),
   ]);
 
-  const savedListItemsByListId = new Map<
-    string,
-    Array<{
-      id: string;
-      note: string | null;
-      sortOrder: number;
-      source: "catalog" | "monitored";
-      product: {
-        id: string;
-        asin: string;
-        name: string;
-        imageUrl: string | null;
-        totalPrice: number;
-        averagePrice30d: number | null;
-        ratingAverage: number | null;
-        ratingCount: number | null;
-        url: string;
-        availabilityStatus?: string | null;
-        category: {
-          name: string;
-          group: string;
-          slug: string;
-        };
-      };
-    }>
-  >();
-
-  for (const row of savedListItems) {
-    if (!row.itemId || !row.productAsin || !row.productName || !row.productUrl) {
-      continue;
-    }
-
-    const items = savedListItemsByListId.get(row.listId) ?? [];
-    items.push({
-      id: row.itemId ?? row.productId ?? row.trackedAmazonProductId ?? row.monitoredProductId!,
-      note: row.note,
-      sortOrder: items.length,
-      source: row.productId ? "catalog" : "monitored",
-      product: {
-        id: row.productId ?? row.trackedAmazonProductId ?? row.monitoredProductId ?? row.itemId!,
-        asin: row.productAsin,
-        name: row.productName,
-        imageUrl:
-          row.productImageUrl || "https://m.media-amazon.com/images/I/61NJbm2a9tL._AC_SL1200_.jpg",
-        totalPrice: row.productTotalPrice ?? 0,
-        averagePrice30d: row.productAveragePrice30d ?? row.productTotalPrice ?? 0,
-        ratingAverage: row.productRatingAverage ?? null,
-        ratingCount: row.productRatingCount ?? null,
-        url: row.productUrl,
-        availabilityStatus: row.productAvailabilityStatus ?? null,
-        category: {
-          name: row.categoryName ?? "Amazon",
-          group: row.categoryGroup ?? "amazon",
-          slug: row.categorySlug ?? "monitorado",
-        },
-      },
-    });
-    savedListItemsByListId.set(row.listId, items);
-  }
-
-  const savedListsWithItems = savedLists.map((list) => ({
-    id: list.id,
-    slug: list.slug,
-    title: list.title,
-    description: list.description,
-    isPublic: list.isPublic,
-    isDefault: list.isDefault,
-    itemsCount: list.itemsCount,
-    ownerDisplayName: list.ownerDisplayName,
-    ownerUsername: list.ownerUsername,
-    items: savedListItemsByListId.get(list.id) ?? [],
-  }));
-
-  const stats = profileStats[0];
+  const stats = profileRows[0] ?? {
+    createdAt: new Date(),
+    commentsCount: 0,
+    commentReactionsCount: 0,
+  };
+  const summary = countsRows[0] ?? { listsCount: 0, publicListsCount: 0 };
+  const recentNotifications = notifications.slice(0, 4);
 
   return (
     <main className="min-h-screen bg-[#E3E6E6] pb-10">
       <Header />
 
       <div className="mx-auto max-w-[1280px] px-4 py-8">
-        <SiteAccountWorkspace
-          currentUser={user}
+        <AccountProfileOverview
+          user={user}
           profileStats={{
-            memberSince: stats?.createdAt.toISOString() ?? new Date().toISOString(),
-            commentsCount: stats?.commentsCount ?? 0,
-            commentReactionsCount: stats?.commentReactionsCount ?? 0,
+            memberSince: stats.createdAt.toISOString(),
+            commentsCount: stats.commentsCount,
+            commentReactionsCount: stats.commentReactionsCount,
+            listsCount: summary.listsCount,
+            publicListsCount: summary.publicListsCount,
           }}
-          favorites={favorites.map((favorite: (typeof favorites)[number]) => ({
-            id: favorite.id,
-            savedAt: favorite.createdAt.toISOString(),
-            sortOrder: favorite.sortOrder,
-            product: {
-              ...favorite.product,
-              ratingAverage: favorite.product.ratingAverage ?? null,
-              ratingCount: favorite.product.ratingCount ?? null,
-            },
+          recentNotifications={recentNotifications}
+          recentLists={recentLists.map((list) => ({
+            id: list.id,
+            slug: list.slug,
+            title: list.title,
+            description: list.description,
+            isPublic: list.isPublic,
+            itemsCount: list.itemsCount,
+            updatedAt: list.updatedAt.toISOString(),
           }))}
-          lists={lists.map((list: (typeof lists)[number]) => ({
-          id: list.id,
-          slug: list.slug,
-          title: list.title,
-          description: list.description,
-          isPublic: list.isPublic,
-          isDefault: list.isDefault,
-          itemsCount: list.itemsCount,
-        }))}
-          savedLists={savedListsWithItems}
-          monitoredProducts={monitoredProducts.map((product) => ({
-            id: product.id,
-            savedAt: product.createdAt.toISOString(),
-            sortOrder: product.sortOrder,
-            product: {
-              id: product.trackedProductId ?? product.id,
-              asin: product.asin,
-              name: product.name,
-              totalPrice: product.totalPrice,
-              imageUrl: product.imageUrl,
-              url: product.amazonUrl,
-              averagePrice30d: product.averagePrice30d,
-              ratingAverage: product.ratingAverage,
-              ratingCount: product.ratingCount,
-              availabilityStatus: product.availabilityStatus,
-              programAndSavePrice: product.programAndSavePrice,
-              category: {
-                name: "Amazon",
-                group: "amazon",
-                slug: "monitorado",
-              },
-            },
+          recentComments={recentComments.map((comment) => ({
+            id: comment.id,
+            body: comment.body,
+            createdAt: comment.createdAt.toISOString(),
+            productId: comment.productId,
+            productName: comment.productName,
           }))}
         />
       </div>

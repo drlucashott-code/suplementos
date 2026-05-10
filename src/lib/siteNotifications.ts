@@ -237,13 +237,13 @@ export async function syncFavoriteNotifications(userId: string) {
   }
 }
 
-export async function getSiteNotifications(userId: string) {
+export async function getSiteNotifications(userId: string, limit = 20) {
   let rows;
   try {
     rows = await prisma.siteUserNotification.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
-      take: 20,
+      take: limit,
     });
   } catch (error) {
     if (isMissingRelationError(error, "SiteUserNotification")) {

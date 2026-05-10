@@ -614,7 +614,7 @@ export function MobileProductCard({
               type="button"
               onClick={() => {
                 toast.dismiss(t.id);
-                router.push("/minha-conta#listas");
+                router.push("/minha-conta/listas");
               }}
               className="shrink-0 rounded-full bg-[#FFD814] px-3 py-1.5 text-xs font-black text-[#0F1111] transition hover:bg-[#F7CA00]"
             >
@@ -1071,7 +1071,7 @@ export function MobileProductCard({
                   type="button"
                   onClick={() => {
                     toast.dismiss(t.id);
-                    router.push("/minha-conta#listas");
+                    router.push("/minha-conta/listas");
                   }}
                   className="shrink-0 rounded-full bg-[#FFD814] px-3 py-1.5 text-xs font-black text-[#0F1111] transition hover:bg-[#F7CA00]"
                 >

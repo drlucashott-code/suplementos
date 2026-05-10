@@ -77,6 +77,7 @@ export default function BestDealProductCard({
   decisionLabel,
   insightText,
   decisionTone = "emerald",
+  uniformHeight = false,
 }: {
   item: BestDeal;
   category: string;
@@ -86,6 +87,7 @@ export default function BestDealProductCard({
   decisionLabel?: string;
   insightText?: string;
   decisionTone?: "emerald" | "amber" | "rose";
+  uniformHeight?: boolean;
 }) {
   const ONE_DAY_MS = 24 * 60 * 60 * 1000;
   const hasPrice = item.totalPrice > 0;
@@ -242,7 +244,7 @@ export default function BestDealProductCard({
               type="button"
               onClick={() => {
                 toast.dismiss(t.id);
-                router.push("/minha-conta#listas");
+                router.push("/minha-conta/listas");
               }}
               className="shrink-0 rounded-full bg-[#FFD814] px-3 py-1.5 text-xs font-black text-[#0F1111] transition hover:bg-[#F7CA00]"
             >
@@ -270,7 +272,7 @@ export default function BestDealProductCard({
                 setReportOpen(true);
                 setReportState("idle");
               }}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:text-[#0F1111]"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#D5D9D9] bg-white text-gray-500 transition hover:text-[#0F1111]"
               aria-label="Reportar problema"
             >
               <AlertTriangle className="h-4 w-4" />
@@ -282,7 +284,7 @@ export default function BestDealProductCard({
                 event.stopPropagation();
                 void handleToggleSave();
               }}
-              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border shadow-sm transition ${
+              className={`inline-flex h-8 w-8 items-center justify-center rounded-md border transition ${
                 saved
                   ? "border-[#f0c14b] bg-[#fff7d6] text-[#b77900]"
                   : "border-gray-200 bg-white text-gray-500 hover:text-[#0F1111]"
@@ -302,11 +304,13 @@ export default function BestDealProductCard({
           value={item.totalPrice}
           category={category}
           disabled={disableNavigation}
-          className="group flex h-full flex-col rounded-xl border border-[#d5d9d9] bg-white p-3 text-left transition hover:border-[#c7cfd0] hover:shadow-sm"
+          className={`group flex h-full flex-col rounded-[6px] border border-[#d5d9d9] bg-white p-2.5 text-left transition hover:border-[#c7cfd0] ${
+            compact && uniformHeight ? "min-h-[0]" : ""
+          }`}
         >
           <div
-            className={`relative overflow-hidden rounded-lg bg-white ${
-              compact ? "h-[78px]" : "h-[108px]"
+            className={`relative overflow-hidden rounded-md bg-white ${
+              compact ? "h-[72px]" : "h-[104px]"
             }`}
           >
             {imageSrc ? (
@@ -317,7 +321,7 @@ export default function BestDealProductCard({
                 sizes={
                   compact ? "(max-width: 768px) 42vw, 180px" : "(max-width: 768px) 42vw, 220px"
                 }
-                className="object-contain p-2"
+                className="object-contain p-1.5"
                 unoptimized
               />
             ) : (
@@ -329,16 +333,27 @@ export default function BestDealProductCard({
 
           <div className="mt-1.5">
             {decisionLabel ? (
-              <div className={`mb-2 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.26em] ${decisionStyles}`}>
+              <div
+                className={`mb-1.5 inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.22em] ${decisionStyles}`}
+              >
                 {decisionLabel}
               </div>
             ) : null}
             <p
               className={`font-medium leading-[20px] text-[#2162A1] group-hover:text-[#174e87] ${
-                compact ? "text-[12px]" : "text-[14px]"
+                compact ? "text-[12px]" : "text-[13px]"
               }`}
               style={
-                showFullTitle
+                uniformHeight
+                  ? {
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                      minHeight: compact ? "40px" : "42px",
+                      maxHeight: "40px",
+                    }
+                  : showFullTitle
                   ? undefined
                   : {
                       display: "-webkit-box",
@@ -368,7 +383,7 @@ export default function BestDealProductCard({
             )}
           </div>
 
-          <div className="mt-auto">
+          <div className={`mt-auto ${uniformHeight ? "flex flex-col justify-end" : ""}`}>
             <div className="min-h-[16px]">
               {hasRating ? (
                 <div className="flex items-center gap-1.5">
@@ -382,29 +397,29 @@ export default function BestDealProductCard({
 
             {hasPrice ? (
               <>
-                <div className="flex min-h-[40px] items-end gap-2">
+                <div className="flex min-h-[36px] items-end gap-1.5">
                   <div className="flex items-end gap-1 font-variant-numeric-tabular">
                     {hasReferencePrice ? (
                       <>
-                        <span className="pb-[4px] text-[12px] font-medium leading-none text-[#CC0C39]">-</span>
-                        <span className="text-[18px] font-medium leading-none text-[#CC0C39]">
+                        <span className="pb-[3px] text-[11px] font-medium leading-none text-[#CC0C39]">-</span>
+                        <span className="text-[16px] font-medium leading-none text-[#CC0C39]">
                           {item.discountPercent}%
                         </span>
                       </>
                     ) : null}
-                    <span className={`pb-[5px] text-[12px] leading-none text-[#565959] ${hasReferencePrice ? "pl-1" : ""}`}>
+                    <span className={`pb-[4px] text-[11px] leading-none text-[#565959] ${hasReferencePrice ? "pl-1" : ""}`}>
                       R$
                     </span>
-                    <span className="text-[24px] font-normal leading-none text-[#0F1111]">
+                    <span className="text-[22px] font-normal leading-none text-[#0F1111]">
                       {price.whole}
                     </span>
-                    <span className="pb-[7px] text-[12px] leading-none text-[#0F1111]">
+                    <span className="pb-[6px] text-[11px] leading-none text-[#0F1111]">
                       {price.cents}
                     </span>
                   </div>
                 </div>
 
-                <div className="mt-0.5 flex min-h-[18px] items-center gap-1.5 text-[12px] text-[#565959]">
+                <div className="mt-0.5 flex min-h-[18px] items-center gap-1.5 text-[11px] text-[#565959]">
                   {hasReferencePrice ? (
                     <p>
                       De: <span className="line-through">{formatCurrency(item.averagePrice30d)}</span>
@@ -425,9 +440,7 @@ export default function BestDealProductCard({
                     />
                   </div>
                 </div>
-                {insightText ? (
-                  <p className="mt-1 text-[11px] leading-5 text-[#6B7280]">{insightText}</p>
-                ) : null}
+                {insightText ? <p className="mt-1 text-[11px] leading-5 text-[#6B7280]">{insightText}</p> : null}
               </>
             ) : (
               <div className="mt-3 min-h-[58px] rounded-2xl border border-[#FECACA] bg-[#FFF5F5] px-3 py-3 text-sm font-bold text-[#B42318]">
@@ -598,7 +611,7 @@ export default function BestDealProductCard({
                   type="button"
                   onClick={() => {
                     toast.dismiss(t.id);
-                    router.push("/minha-conta#listas");
+                    router.push("/minha-conta/listas");
                   }}
                   className="shrink-0 rounded-full bg-[#FFD814] px-3 py-1.5 text-xs font-black text-[#0F1111] transition hover:bg-[#F7CA00]"
                 >

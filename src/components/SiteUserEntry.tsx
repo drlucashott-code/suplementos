@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, User, UserPlus } from "lucide-react";
+import { LogOut, List, Settings, User, UserPlus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { accountSecondaryButtonClass } from "@/components/account/accountUi";
 
 export type SessionUser = {
   id: string;
@@ -17,10 +18,7 @@ type SiteUserEntryProps = {
   initialUser?: SessionUser | null;
 };
 
-export function SiteUserEntry({
-  compact = false,
-  initialUser,
-}: SiteUserEntryProps) {
+export function SiteUserEntry({ compact = false, initialUser }: SiteUserEntryProps) {
   const router = useRouter();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const hasResolvedInitialUser = initialUser !== undefined;
@@ -79,8 +77,8 @@ export function SiteUserEntry({
   }
 
   const sharedButtonClass = compact
-    ? "inline-flex h-11 w-11 items-center justify-center rounded-md bg-white/10 text-white transition hover:bg-white/15"
-    : "inline-flex h-11 items-center gap-2 rounded-md bg-white/10 px-3 text-white transition hover:bg-white/15";
+    ? "inline-flex h-10 w-10 items-center justify-center rounded-md bg-white/10 text-white transition hover:bg-white/15"
+    : "inline-flex h-10 items-center gap-2 rounded-md bg-white/10 px-3 text-white transition hover:bg-white/15";
 
   return (
     <div className="relative shrink-0" ref={wrapperRef}>
@@ -100,26 +98,42 @@ export function SiteUserEntry({
       </button>
 
       {open ? (
-        <div className="absolute right-0 top-[calc(100%+8px)] z-[110] w-64 overflow-hidden rounded-2xl border border-white/15 bg-white text-[#0F1111] shadow-2xl">
+        <div className="absolute right-0 top-[calc(100%+8px)] z-[110] w-64 overflow-hidden rounded-[10px] border border-[#D5D9D9] bg-white text-[#0F1111] shadow-lg">
           {user ? (
             <>
-              <div className="border-b border-gray-100 px-4 py-3">
-                <p className="text-sm font-black">{user.displayName}</p>
-                <p className="mt-0.5 truncate text-xs text-gray-500">{user.email}</p>
+              <div className="border-b border-[#EAECF0] px-4 py-3">
+                <p className="text-[13px] font-black">{user.displayName}</p>
+                <p className="mt-0.5 truncate text-[12px] text-[#667085]">{user.email}</p>
               </div>
               <div className="p-2">
                 <Link
                   href="/minha-conta"
                   onClick={() => setOpen(false)}
-                  className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                  className={`${accountSecondaryButtonClass} flex w-full items-center justify-start gap-2 px-3`}
                 >
                   <User className="h-4 w-4" />
-                  Minha conta
+                  Meu perfil
+                </Link>
+                <Link
+                  href="/minha-conta/listas"
+                  onClick={() => setOpen(false)}
+                  className={`${accountSecondaryButtonClass} flex w-full items-center justify-start gap-2 px-3`}
+                >
+                  <List className="h-4 w-4" />
+                  Minhas listas
+                </Link>
+                <Link
+                  href="/minha-conta/configuracoes"
+                  onClick={() => setOpen(false)}
+                  className={`${accountSecondaryButtonClass} flex w-full items-center justify-start gap-2 px-3`}
+                >
+                  <Settings className="h-4 w-4" />
+                  Configurações
                 </Link>
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-[#B42318] transition hover:bg-[#FEF3F2]"
+                  className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[13px] font-semibold text-[#B42318] transition hover:bg-[#FEF3F2]"
                 >
                   <LogOut className="h-4 w-4" />
                   Sair
@@ -131,7 +145,7 @@ export function SiteUserEntry({
               <Link
                 href="/entrar"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                className={`${accountSecondaryButtonClass} flex w-full items-center justify-start gap-2 px-3`}
               >
                 <User className="h-4 w-4" />
                 Entrar
@@ -139,7 +153,7 @@ export function SiteUserEntry({
               <Link
                 href="/cadastro"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                className={`${accountSecondaryButtonClass} flex w-full items-center justify-start gap-2 px-3`}
               >
                 <UserPlus className="h-4 w-4" />
                 Criar conta
