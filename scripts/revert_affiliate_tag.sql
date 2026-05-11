@@ -7,14 +7,14 @@ const prisma = new PrismaClient();
 async function main() {
   const res1 = await prisma.$executeRawUnsafe(`
     UPDATE "DynamicProduct"
-    SET "url" = regexp_replace("url", 'tag=amz\\.picks-20', 'tag=amazon.picks-20', 'g')
-    WHERE "url" LIKE '%tag=amz.picks-20%';
+    SET "url" = regexp_replace("url", 'tag=amazonpick0af-20', 'tag=amazon.picks-20', 'g')
+    WHERE "url" LIKE '%tag=amazonpick0af-20%';
   `);
 
   const res2 = await prisma.$executeRawUnsafe(`
     UPDATE "Offer"
-    SET "affiliateUrl" = regexp_replace("affiliateUrl", 'tag=amz\\.picks-20', 'tag=amazon.picks-20', 'g')
-    WHERE "affiliateUrl" LIKE '%tag=amz.picks-20%';
+    SET "affiliateUrl" = regexp_replace("affiliateUrl", 'tag=amazonpick0af-20', 'tag=amazon.picks-20', 'g')
+    WHERE "affiliateUrl" LIKE '%tag=amazonpick0af-20%';
   `);
 
   console.log("DynamicProduct atualizados:", res1);
