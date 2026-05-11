@@ -1,13 +1,13 @@
 import Link from "next/link";
 import BestDealProductCard from "@/components/BestDealProductCard";
 import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
-import { getBestDeals } from "@/lib/bestDeals";
+import { boostBestDealsPriority, getBestDeals } from "@/lib/bestDeals";
 
 export const revalidate = 600;
 
-const PAGE_SIZE = 20;
-const DEALS_PER_GROUP_WHEN_ALL = 20;
-const MAX_DEALS = DEALS_PER_GROUP_WHEN_ALL * 3;
+const PAGE_SIZE = 100;
+const DEALS_PER_GROUP_WHEN_ALL = 34;
+const MAX_DEALS = 100;
 
 const filters = [
   { label: "Todos", value: "todos" },
@@ -49,15 +49,18 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
 
             return (b.ratingCount ?? 0) - (a.ratingCount ?? 0);
           });
+          const trimmed = merged.slice(0, MAX_DEALS);
+          void boostBestDealsPriority(trimmed, { extraBoost: 4 });
           return {
-            deals: merged,
-            totalDeals: merged.length,
+            deals: trimmed,
+            totalDeals: trimmed.length,
             totalPages: 1,
             currentPage: 1,
           };
         })()
       : await (async () => {
           const pageDeals = await getBestDeals(PAGE_SIZE, normalizedGroup, 0);
+          void boostBestDealsPriority(pageDeals, { extraBoost: 4 });
 
           return {
             deals: pageDeals,
