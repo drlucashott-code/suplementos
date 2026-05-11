@@ -1,7 +1,7 @@
 import Link from "next/link";
-import BestDealProductCard from "@/components/BestDealProductCard";
 import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
 import { boostBestDealsPriority, getBestDeals } from "@/lib/bestDeals";
+import ProgressiveBestDealsGrid from "@/components/ProgressiveBestDealsGrid";
 
 export const revalidate = 600;
 
@@ -124,11 +124,12 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-            {deals.map((item) => (
-              <BestDealProductCard key={item.id} item={item} category="pagina_ofertas" />
-            ))}
-          </div>
+          <ProgressiveBestDealsGrid
+            items={deals}
+            category="pagina_ofertas"
+            initialVisibleCount={24}
+            step={16}
+          />
 
           {totalPages > 1 ? (
             <div className="mt-6 flex flex-col items-center gap-3">

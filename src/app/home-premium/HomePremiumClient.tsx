@@ -18,7 +18,7 @@ import {
   Tags,
   TrendingUp,
 } from "lucide-react";
-import BestDealProductCard from "@/components/BestDealProductCard";
+import ProgressiveBestDealsGrid from "@/components/ProgressiveBestDealsGrid";
 import type { BestDeal } from "@/lib/bestDeals";
 import { buildPublicListPath } from "@/lib/siteSocial";
 
@@ -428,17 +428,16 @@ export default function HomePremiumClient({
             </Link>
           </div>
 
-          <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {bestDeals.map((item) => (
-              <BestDealProductCard
-                key={item.id}
-                item={item}
-                category="home_premium_ofertas"
-                compact
-                showActions={false}
-              />
-            ))}
-          </div>
+          <ProgressiveBestDealsGrid
+            items={bestDeals}
+            category="home_premium_ofertas"
+            compact
+            showActions={false}
+            initialVisibleCount={10}
+            step={10}
+            maxVisibleCount={10}
+            className="mt-6"
+          />
         </section>
 
         <section className="mt-6 rounded-[28px] border border-[#D8DEE6] bg-white px-5 py-5 shadow-[0_10px_40px_rgba(15,17,17,0.05)] md:px-7 md:py-6">

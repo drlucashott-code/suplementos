@@ -160,7 +160,7 @@ export default async function HomePremiumPage() {
       getCategoriesByGroup("suplementos", supplementFallbacks),
       getCategoriesByGroup("casa", houseFallbacks),
       getCategoriesByGroup("pets", petFallbacks),
-      getBestDeals(8),
+      getBestDeals(24),
       prisma.$queryRaw<
         Array<{
           slug: string;

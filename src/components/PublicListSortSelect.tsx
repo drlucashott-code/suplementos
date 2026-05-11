@@ -38,7 +38,7 @@ export default function PublicListSortSelect({
       <div className="flex items-center gap-2">
         <label
           htmlFor={`${paramName}-select`}
-          className="whitespace-nowrap text-[13px] font-normal leading-none text-zinc-600"
+          className="whitespace-nowrap text-[13px] font-normal leading-none text-[#565959]"
         >
           {label}
         </label>
@@ -48,7 +48,7 @@ export default function PublicListSortSelect({
             id={`${paramName}-select`}
             value={current}
             onChange={(e) => changeOrder(e.target.value)}
-            className="w-full appearance-none rounded-lg border border-b-zinc-400 border-zinc-300 bg-zinc-50 px-3 py-2 pr-9 text-[13px] text-zinc-900 shadow-sm outline-none transition-all active:border-[#e47911]"
+            className="h-10 w-full appearance-none rounded-lg border border-[#d5d9d9] bg-white px-3 pr-9 text-[13px] text-[#0F1111] outline-none shadow-sm transition focus:border-[#2162A1] focus:bg-white"
           >
             {options.map((option) => (
               <option key={option.value} value={option.value}>
@@ -57,8 +57,8 @@ export default function PublicListSortSelect({
             ))}
           </select>
 
-          <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 border-l border-zinc-300 pl-2">
-            <ChevronDown className="h-4 w-4 text-zinc-500" />
+          <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 border-l border-[#d5d9d9] pl-2">
+            <ChevronDown className="h-4 w-4 text-[#565959]" />
           </div>
         </div>
       </div>

@@ -233,8 +233,38 @@ export default async function PublicUserListPage({
   };
 
   return (
-    <main className="min-h-screen bg-[#E3E6E6] pb-10">
+    <main className="min-h-screen bg-[#EAEDED]">
       <AmazonHeader />
+
+      <div className="mx-auto max-w-[1500px] px-3 pt-4 md:px-5 md:pt-5">
+        <div className="sticky top-14 z-30 border-b border-zinc-200 bg-white px-3 py-2 shadow-sm">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <PublicListSortSelect
+              className="min-w-0 flex-1"
+              defaultOrder="in_stock"
+              paramName="show"
+              label="Mostrar:"
+              options={[
+                { value: "in_stock", label: "Em estoque" },
+                { value: "out_of_stock", label: "Sem estoque" },
+                { value: "all", label: "Todos os itens" },
+              ]}
+            />
+            <PublicListSortSelect
+              className="min-w-0 flex-1"
+              defaultOrder="creator"
+              paramName="order"
+              label="Ordenar por:"
+              options={[
+                { value: "creator", label: "Ordem do criador" },
+                { value: "discount", label: "Maior desconto" },
+                { value: "price", label: "Menor preço" },
+                { value: "alpha", label: "Ordem alfabética" },
+              ]}
+            />
+          </div>
+        </div>
+      </div>
 
       <div className="mx-auto max-w-[1500px] px-3 py-4 md:px-5">
         <section className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm md:p-5">
@@ -277,48 +307,22 @@ export default async function PublicUserListPage({
 
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_240px_280px]">
-              <PublicListSortSelect
-                className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 shadow-sm"
-                defaultOrder="in_stock"
-                paramName="show"
-                label="Mostrar:"
-                options={[
-                  { value: "in_stock", label: "Em estoque" },
-                  { value: "out_of_stock", label: "Sem estoque" },
-                  { value: "all", label: "Todos os itens" },
-                ]}
-              />
-              <PublicListSortSelect
-                className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 shadow-sm"
-                defaultOrder="creator"
-                paramName="order"
-                label="Classificar por:"
-                options={[
-                  { value: "creator", label: "Ordem do criador" },
-                  { value: "discount", label: "Maior desconto" },
-                  { value: "price", label: "Menor preço" },
-                  { value: "alpha", label: "Ordem alfabética" },
-                ]}
-              />
-            </div>
+            {filteredItems.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-[#d5d9d9] bg-[#F8FAFA] px-4 py-12 text-center text-sm text-[#565959]">
+                {list.items.length === 0
+                  ? "Essa lista ainda nao tem produtos."
+                  : visibilityMode === "out_of_stock"
+                    ? "Nenhum produto sem estoque encontrado nesta lista."
+                    : "Todos os produtos desta lista estao sem estoque no momento."}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+                {filteredItems.map((item) => (
+                  <BestDealProductCard key={item.id} item={item} category="lista_publica" />
+                ))}
+              </div>
+            )}
           </div>
-
-          {filteredItems.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[#d5d9d9] bg-[#F8FAFA] px-4 py-12 text-center text-sm text-[#565959]">
-              {list.items.length === 0
-                ? "Essa lista ainda nao tem produtos."
-                : visibilityMode === "out_of_stock"
-                  ? "Nenhum produto sem estoque encontrado nesta lista."
-                  : "Todos os produtos desta lista estao sem estoque no momento."}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-              {filteredItems.map((item) => (
-                <BestDealProductCard key={item.id} item={item} category="lista_publica" />
-              ))}
-            </div>
-          )}
         </section>
 
         <section id="comentarios" className="mt-4">

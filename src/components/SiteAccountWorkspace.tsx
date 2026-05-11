@@ -3430,87 +3430,60 @@ export default function SiteAccountWorkspace({
                 <div className="min-w-0 bg-white md:min-h-[760px]">
                 {selectedSavedList ? (
                   <>
-                    <div className="border-b border-[#EAECF0] px-4 py-3.5 md:px-5">
-                      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                    <div className="border-b border-[#EAECF0] px-4 py-5 md:px-5">
+                      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                         <div className="min-w-0 flex-1">
-                          <div className="mb-2 flex items-center gap-2 md:hidden">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedSavedListId(null);
-                                  closeSavedListActions();
-                                }}
-                                className={accountIconButtonSmallClass}
-                                aria-label="Trocar lista"
-                              >
-                                <ChevronLeft className="h-4 w-4" />
-                              </button>
-                            <h4 className="min-w-0 flex-1 truncate text-[18px] font-black leading-tight text-[#0F1111]">
-                              {selectedSavedList.title}
-                            </h4>
-                            <span className="inline-flex h-8 items-center justify-center gap-1 rounded-full bg-[#ECFDF3] px-2.5 text-[11px] font-bold text-[#027A48]">
+                          <div className="flex items-center gap-2 md:hidden">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedSavedListId(null);
+                                closeSavedListActions();
+                              }}
+                              className={accountIconButtonSmallClass}
+                              aria-label="Trocar lista"
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#ECFDF3] px-2.5 py-1 text-[11px] font-bold text-[#027A48]">
                               <Globe className="h-3.5 w-3.5" />
                               Pública
                             </span>
-                            <button
-                              type="button"
-                              onClick={() => void sharePublicList(selectedSavedList)}
-                              className={accountIconButtonSmallClass}
-                              aria-label="Compartilhar link"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(event) => openSavedListActions(event.currentTarget)}
-                              className={accountIconButtonSmallClass}
-                              aria-haspopup="menu"
-                              aria-expanded={savedListMenuOpen}
-                              aria-label="Editar lista"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </button>
                           </div>
-                          <div className="hidden min-h-[126px] flex-col gap-2 md:flex">
-                            <div className="flex items-center gap-2">
-                              <span className="inline-flex items-center gap-1 rounded-full bg-[#ECFDF3] px-3 py-1 text-xs font-bold text-[#027A48]">
-                                <Globe className="h-3.5 w-3.5" />
-                                Pública
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => void sharePublicList(selectedSavedList)}
-                                className={accountIconButtonSmallClass}
-                                aria-label="Compartilhar link"
-                              >
-                                <ExternalLink className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                            <h4 className="text-[19px] font-black leading-tight text-[#0F1111]">
-                              {selectedSavedList.title}
-                            </h4>
-                            <p className="text-sm font-medium text-[#667085]">
-                              Lista criada por {selectedSavedList.ownerDisplayName}
-                              {selectedSavedList.ownerUsername ? ` @${selectedSavedList.ownerUsername}` : ""}
-                            </p>
-                            {selectedSavedList.description ? (
-                              <p className="max-w-3xl text-[13px] leading-6 text-[#565959]">
-                                {selectedSavedList.description}
-                              </p>
-                            ) : (
-                              <p className="text-[13px] text-[#98A2B3]">Sem descrição.</p>
-                            )}
-                          </div>
+
+                          <p className="mt-3 text-[11px] font-bold uppercase tracking-[0.18em] text-[#007185] md:mt-0">
+                            Lista salva
+                          </p>
+                          <h4 className="mt-2 text-[24px] font-bold leading-tight text-[#0F1111] md:text-[28px]">
+                            {selectedSavedList.title}
+                          </h4>
+                          <p className="mt-2 text-[14px] leading-6 text-[#667085]">
+                            Lista criada por {selectedSavedList.ownerDisplayName}
+                            {selectedSavedList.ownerUsername ? ` @${selectedSavedList.ownerUsername}` : ""}
+                            {selectedSavedList.description ? ` · ${selectedSavedList.description}` : ""}
+                          </p>
                         </div>
 
-                        <div className="relative z-30 hidden flex-wrap items-start gap-2 overflow-visible md:flex">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="hidden items-center gap-1 rounded-full bg-[#ECFDF3] px-3 py-1 text-xs font-bold text-[#027A48] md:inline-flex">
+                            <Globe className="h-3.5 w-3.5" />
+                            Pública
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => void sharePublicList(selectedSavedList)}
+                            className={accountIconButtonSmallClass}
+                            aria-label="Compartilhar link"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </button>
                           <button
                             type="button"
                             onClick={(event) => openSavedListActions(event.currentTarget)}
-                            className={accountIconButtonClass + " z-30"}
+                            className={accountIconButtonSmallClass}
                             aria-haspopup="menu"
                             aria-expanded={savedListMenuOpen}
-                            aria-label="Ações da lista salva"
+                            aria-label="Editar lista"
                           >
                             <MoreHorizontal className="h-4 w-4" />
                           </button>
@@ -3519,7 +3492,7 @@ export default function SiteAccountWorkspace({
                     </div>
 
                     <div className="px-4 py-4 md:px-5">
-                      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_190px_220px]">
+                      <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_188px_220px]">
                         <label className="relative block">
                           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98A2B3]" />
                           <input
@@ -3527,7 +3500,7 @@ export default function SiteAccountWorkspace({
                             value={listSearchQuery}
                             onChange={(event) => setListSearchQuery(event.target.value)}
                             placeholder="Buscar nesta lista"
-                            className="h-10 w-full rounded-xl border border-[#D0D5DD] bg-white pl-11 pr-4 text-sm outline-none transition focus:border-[#F3A847] disabled:opacity-60"
+                            className="h-9 w-full rounded-md border border-[#D0D5DD] bg-white pl-10 pr-3 text-[13px] outline-none transition focus:border-[#F3A847] disabled:opacity-60"
                           />
                         </label>
                         <select
