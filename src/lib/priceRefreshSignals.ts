@@ -211,6 +211,16 @@ export async function touchDynamicProductPriority(params: {
   };
 }
 
+const MAX_PRIORITY_EXTRA_BOOST = 80;
+
+export async function touchDynamicProductMaxPriority(productId: string) {
+  return touchDynamicProductPriority({
+    productId,
+    signal: "admin_boost",
+    extraBoost: MAX_PRIORITY_EXTRA_BOOST,
+  });
+}
+
 export async function touchTrackedProductPriority(params: {
   trackedProductId: string;
   signal: RefreshSignal;
@@ -273,6 +283,14 @@ export async function touchTrackedProductPriority(params: {
       nextPriceRefreshAt: row.nextPriceRefreshAt,
     }),
   };
+}
+
+export async function touchTrackedProductMaxPriority(trackedProductId: string) {
+  return touchTrackedProductPriority({
+    trackedProductId,
+    signal: "admin_boost",
+    extraBoost: MAX_PRIORITY_EXTRA_BOOST,
+  });
 }
 
 export async function markDynamicRefreshAttempt(asin: string) {

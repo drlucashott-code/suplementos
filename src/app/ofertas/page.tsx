@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
-import { boostBestDealsPriority, getBestDeals } from "@/lib/bestDeals";
+import { boostBestDealsMaxPriority, getBestDeals } from "@/lib/bestDeals";
 import ProgressiveBestDealsGrid from "@/components/ProgressiveBestDealsGrid";
 
 export const revalidate = 600;
@@ -50,7 +50,7 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
             return (b.ratingCount ?? 0) - (a.ratingCount ?? 0);
           });
           const trimmed = merged.slice(0, MAX_DEALS);
-          void boostBestDealsPriority(trimmed, { extraBoost: 4 });
+          void boostBestDealsMaxPriority(trimmed);
           return {
             deals: trimmed,
             totalDeals: trimmed.length,
@@ -60,7 +60,7 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
         })()
       : await (async () => {
           const pageDeals = await getBestDeals(PAGE_SIZE, normalizedGroup, 0);
-          void boostBestDealsPriority(pageDeals, { extraBoost: 4 });
+          void boostBestDealsMaxPriority(pageDeals);
 
           return {
             deals: pageDeals,

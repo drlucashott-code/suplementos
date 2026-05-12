@@ -12,6 +12,8 @@ type ProgressiveBestDealsGridProps = {
   initialVisibleCount?: number;
   step?: number;
   maxVisibleCount?: number;
+  mobileVisibleCount?: number;
+  desktopVisibleCount?: number;
   className?: string;
 };
 
@@ -23,20 +25,33 @@ export default function ProgressiveBestDealsGrid({
   initialVisibleCount = 24,
   step = 16,
   maxVisibleCount,
+  mobileVisibleCount,
+  desktopVisibleCount,
   className = "",
 }: ProgressiveBestDealsGridProps) {
+  const getResponsiveLimit = () => {
+    if (typeof window === "undefined") return maxVisibleCount;
+    if (desktopVisibleCount && window.matchMedia("(min-width: 1024px)").matches) {
+      return desktopVisibleCount;
+    }
+    if (mobileVisibleCount && window.matchMedia("(max-width: 1023px)").matches) {
+      return mobileVisibleCount;
+    }
+    return maxVisibleCount;
+  };
+
   const [visibleCount, setVisibleCount] = useState(() =>
-    Math.min(items.length, maxVisibleCount ?? items.length, initialVisibleCount)
+    Math.min(items.length, getResponsiveLimit() ?? items.length, initialVisibleCount)
   );
   const sentinelRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false);
 
   useEffect(() => {
-    setVisibleCount(
-      Math.min(items.length, maxVisibleCount ?? items.length, initialVisibleCount)
-    );
+    const limit = getResponsiveLimit();
+    setVisibleCount(Math.min(items.length, limit ?? items.length, initialVisibleCount));
     loadingRef.current = false;
-  }, [initialVisibleCount, items, maxVisibleCount]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialVisibleCount, items, maxVisibleCount, mobileVisibleCount, desktopVisibleCount]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -47,12 +62,13 @@ export default function ProgressiveBestDealsGrid({
         const [entry] = entries;
         if (!entry?.isIntersecting || loadingRef.current) return;
         if (visibleCount >= items.length) return;
-        if (typeof maxVisibleCount === "number" && visibleCount >= maxVisibleCount) return;
+        const limit = getResponsiveLimit();
+        if (typeof limit === "number" && visibleCount >= limit) return;
 
         loadingRef.current = true;
         window.setTimeout(() => {
           setVisibleCount((current) =>
-            Math.min(items.length, maxVisibleCount ?? items.length, current + step)
+            Math.min(items.length, getResponsiveLimit() ?? items.length, current + step)
           );
           loadingRef.current = false;
         }, 80);
@@ -62,12 +78,13 @@ export default function ProgressiveBestDealsGrid({
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [items.length, maxVisibleCount, step, visibleCount]);
+  }, [items.length, maxVisibleCount, mobileVisibleCount, desktopVisibleCount, step, visibleCount]);
 
   const visibleItems = items.slice(0, visibleCount);
   const hasMore =
     visibleCount < items.length &&
-    (typeof maxVisibleCount !== "number" || visibleCount < maxVisibleCount);
+    ((typeof getResponsiveLimit() !== "number" && typeof maxVisibleCount !== "number") ||
+      visibleCount < (getResponsiveLimit() ?? maxVisibleCount ?? items.length));
 
   return (
     <div className={className}>

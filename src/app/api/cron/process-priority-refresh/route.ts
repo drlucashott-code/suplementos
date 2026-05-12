@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 // debug helpers removed
 import { processPriorityRefreshQueueV2 } from "@/lib/priorityRefreshProcessorV2";
 import { revalidateDynamicCatalogCategoryRefs } from "@/lib/dynamicCatalogRevalidation";
+import { syncMaxPriorityRefreshTargets } from "@/lib/maxPriorityRefresh";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -34,10 +35,12 @@ export async function POST(request: NextRequest) {
     console.log("[priority-cron] env", envSnapshot);
 
     const includeDebug = request.nextUrl.searchParams.get("debug") === "1";
+    const maxPrioritySummary = await syncMaxPriorityRefreshTargets();
     const summary = await processPriorityRefreshQueueV2({ debug: includeDebug });
     revalidateDynamicCatalogCategoryRefs(summary.updatedCategoryRefs);
     return NextResponse.json({
       ok: true,
+      maxPrioritySummary,
       summary,
       ...(includeDebug ? { env: envSnapshot, debug: summary.debug ?? null } : {}),
     });

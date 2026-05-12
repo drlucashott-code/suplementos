@@ -16,8 +16,8 @@ import { refreshTrackedAmazonProductPriceStatsBulk } from "@/lib/siteTrackedAmaz
 import { repairTrackedAmazonProductMetadataIfNeeded } from "@/lib/siteTrackedAmazonMetadata";
 import {
   seedTrackedSchedulerState,
-  touchDynamicProductPriority,
-  touchTrackedProductPriority,
+  touchDynamicProductMaxPriority,
+  touchTrackedProductMaxPriority,
 } from "@/lib/priceRefreshSignals";
 import { enqueuePriorityRefresh } from "@/lib/priorityRefreshQueue";
 import { ensureDefaultList } from "@/lib/siteDefaultList";
@@ -291,10 +291,9 @@ export async function POST(request: Request) {
         throw new Error("favorite_upsert_failed");
       }
 
-      const priorityTouch = await touchDynamicProductPriority({
-        productId: catalogProduct.id,
-        signal: "monitored",
-      });
+      const priorityTouch = await touchDynamicProductMaxPriority(
+        catalogProduct.id
+      );
       if (priorityTouch?.shouldEnqueue && priorityTouch.asin) {
         await enqueuePriorityRefresh({
           asin: priorityTouch.asin,
@@ -676,10 +675,15 @@ export async function POST(request: Request) {
     }
 
     try {
-      await touchTrackedProductPriority({
-        trackedProductId: trackedProduct.id,
-        signal: "monitored",
-      });
+      const priorityTouch = await touchTrackedProductMaxPriority(
+        trackedProduct.id
+      );
+      if (priorityTouch?.shouldEnqueue && priorityTouch.asin) {
+        await enqueuePriorityRefresh({
+          asin: priorityTouch.asin,
+          reason: "monitored",
+        });
+      }
     } catch (error) {
       console.warn("tracked_priority_touch_failed", {
         asin: snapshot.asin,
