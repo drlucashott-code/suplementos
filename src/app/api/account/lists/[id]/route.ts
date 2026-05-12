@@ -31,6 +31,7 @@ export async function GET(
       title: string;
       description: string | null;
       isPublic: boolean;
+      createdAt: Date;
       itemId: string | null;
       note: string | null;
       sortOrder: number | null;
@@ -57,6 +58,7 @@ export async function GET(
       l."title",
       l."description",
       l."isPublic",
+      l."createdAt",
       i."id" AS "itemId",
       i."note",
       i."sortOrder",
@@ -112,6 +114,7 @@ export async function GET(
         l."title",
         l."description",
         l."isPublic",
+        l."createdAt",
         i."id" AS "itemId",
         i."note",
         i."sortOrder",
@@ -145,7 +148,39 @@ export async function GET(
   }
 
   if (rows.length === 0) {
-    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    const listRows = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        slug: string;
+        title: string;
+        description: string | null;
+        isPublic: boolean;
+        createdAt: Date;
+      }>
+    >(Prisma.sql`
+      SELECT "id", "slug", "title", "description", "isPublic", "createdAt"
+      FROM "SiteUserList"
+      WHERE "id" = ${id}
+        AND "userId" = ${user.id}
+      LIMIT 1
+    `);
+
+    if (!listRows[0]) {
+      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      list: {
+        id: listRows[0]!.id,
+        slug: listRows[0]!.slug,
+        title: listRows[0]!.title,
+        description: listRows[0]!.description,
+        isPublic: listRows[0]!.isPublic,
+        createdAt: listRows[0]!.createdAt,
+        items: [],
+      },
+    });
   }
 
   const list = {
@@ -154,6 +189,7 @@ export async function GET(
     title: rows[0]!.title,
     description: rows[0]!.description,
     isPublic: rows[0]!.isPublic,
+    createdAt: rows[0]!.createdAt,
     items: rows
       .filter((row) => row.itemId)
       .map((row) => ({

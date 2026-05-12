@@ -43,6 +43,7 @@ export default async function AccountListsPage() {
         description: string | null;
         isPublic: boolean;
         isDefault: boolean;
+        createdAt: Date;
         ownerDisplayName: string;
         ownerUsername: string | null;
         itemsCount: number;
@@ -55,6 +56,7 @@ export default async function AccountListsPage() {
         l."description",
         l."isPublic",
         l."isDefault",
+        l."createdAt",
         owner."displayName" AS "ownerDisplayName",
         owner."username" AS "ownerUsername",
         COUNT(i."id")::int AS "itemsCount",
@@ -181,6 +183,7 @@ export default async function AccountListsPage() {
         description: string | null;
         isPublic: boolean;
         isDefault: boolean;
+        createdAt: Date;
         itemsCount: number;
       }>
     >(Prisma.sql`
@@ -191,6 +194,7 @@ export default async function AccountListsPage() {
         l."description",
         l."isPublic",
         l."isDefault",
+        l."createdAt",
         COUNT(i."id")::int AS "itemsCount"
       FROM "SiteUserList" l
       LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
@@ -340,6 +344,7 @@ export default async function AccountListsPage() {
     description: list.description,
     isPublic: list.isPublic,
     isDefault: list.isDefault,
+    createdAt: list.createdAt.toISOString(),
     itemsCount: list.itemsCount,
     ownerDisplayName: list.ownerDisplayName,
     ownerUsername: list.ownerUsername,
@@ -377,6 +382,7 @@ export default async function AccountListsPage() {
             description: list.description,
             isPublic: list.isPublic,
             isDefault: list.isDefault,
+            createdAt: list.createdAt.toISOString(),
             itemsCount: list.itemsCount,
           }))}
           savedLists={savedListsWithItems}

@@ -108,6 +108,7 @@ type ListEntry = {
   description: string | null;
   isPublic: boolean;
   isDefault: boolean;
+  createdAt: string;
   itemsCount: number;
 };
 
@@ -123,6 +124,7 @@ type ListDetails = {
   title: string;
   description: string | null;
   isPublic: boolean;
+  createdAt: string;
   items: Array<{
     id: string;
     note: string | null;
@@ -1508,7 +1510,8 @@ export default function SiteAccountWorkspace({
       const data = (await response.json()) as { ok?: boolean; list?: ListDetails };
 
       if (!response.ok || !data.ok || !data.list) {
-        throw new Error("list_load_failed");
+        setMessage("Nao foi possivel abrir a lista agora.");
+        return false;
       }
 
       setListDetailsMap((current) => ({
@@ -1516,16 +1519,18 @@ export default function SiteAccountWorkspace({
         [listId]: data.list!,
       }));
       setOpenListId(listId);
+      return true;
     } catch (error) {
-      console.error("list_load_failed", error);
       setMessage("Nao foi possivel abrir a lista agora.");
+      return false;
     } finally {
       setLoadingListId(null);
     }
   }
 
   async function openListEditor(listId: string) {
-    await loadListDetails(listId);
+    const loaded = await loadListDetails(listId);
+    if (!loaded) return;
     setListEditorId(listId);
     setListOrderMode(false);
     setActiveListItemId(null);
@@ -1533,7 +1538,8 @@ export default function SiteAccountWorkspace({
   }
 
   async function openListViewer(listId: string) {
-    await loadListDetails(listId);
+    const loaded = await loadListDetails(listId);
+    if (!loaded) return;
     setListEditorId(null);
     setListOrderMode(false);
     setActiveListItemId(null);
@@ -2806,20 +2812,20 @@ export default function SiteAccountWorkspace({
                   }`}
                 >
                   <div className="px-2 py-2">
-                    <div className="flex flex-col gap-2.5 pb-1 md:gap-1.5">
-                      {lists.map((list) => {
-                        const selected = selectedListId === list.id;
-                        return (
+                    <div className="flex flex-col gap-2.5 pb-1 md:gap-0">
+                    {lists.map((list, index) => {
+                      const selected = selectedListId === list.id;
+                      return (
+                        <div key={list.id}>
                           <button
-                            key={list.id}
                             type="button"
                             onClick={() => {
                               setSelectedListId(list.id);
                               void openListViewer(list.id);
                             }}
-                            className={`h-[76px] w-full overflow-hidden rounded-[10px] border border-[#E5E7EB] bg-white px-3 py-2 text-left transition shadow-[0_1px_2px_rgba(15,17,17,0.05)] hover:border-[#D0D5DD] hover:bg-[#FCFCFD] md:rounded-[8px] md:border-transparent md:bg-transparent md:shadow-none md:hover:border-[#E5E7EB] md:hover:bg-white ${
+                            className={`h-[76px] w-full overflow-hidden rounded-[10px] border border-[#E5E7EB] bg-white px-3 py-2 text-left transition shadow-[0_1px_2px_rgba(15,17,17,0.05)] hover:border-[#D0D5DD] hover:bg-[#FCFCFD] md:rounded-[10px] md:border md:bg-white md:shadow-[0_1px_2px_rgba(15,17,17,0.05)] md:hover:border-[#D0D5DD] md:hover:bg-[#FCFCFD] ${
                               selected
-                                ? "border-[#D5D9D9] bg-[#F3F4F6] shadow-[inset_3px_0_0_0_#2162A1]"
+                                ? "border-[#D5D9D9] bg-[#F3F4F6] shadow-[inset_3px_0_0_0_#2162A1] md:border-[#D5D9D9] md:bg-[#F3F4F6] md:border-l-4 md:border-l-[#2162A1]"
                                 : ""
                             }`}
                           >
@@ -2843,8 +2849,14 @@ export default function SiteAccountWorkspace({
                               </span>
                             </div>
                           </button>
-                        );
-                      })}
+                          {index < lists.length - 1 ? (
+                            <div className="hidden md:block px-2">
+                              <div className="h-px bg-[#D9DEE5]" />
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
                     </div>
                   </div>
                 </aside>
@@ -2881,10 +2893,10 @@ export default function SiteAccountWorkspace({
                     </div>
                   ) : currentOpenedList ? (
                     <>
-                      <div className="border-b border-[#EAECF0] px-4 py-3.5 md:px-5">
-                        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                      <div className="border-b border-[#EAECF0] px-4 py-5 md:px-5">
+                        <div className="flex min-h-[126px] flex-col gap-4 md:flex-row md:items-start md:justify-between">
                           <div className="min-w-0 flex-1">
-                            <div className="mb-2 flex items-center gap-2 md:hidden">
+                            <div className="mb-2 flex items-start gap-2 md:hidden">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -2901,74 +2913,48 @@ export default function SiteAccountWorkspace({
                               >
                                 <ChevronLeft className="h-4 w-4" />
                               </button>
-                              <h4 className="min-w-0 flex-1 truncate text-[18px] font-black leading-tight text-[#0F1111]">
-                                {currentOpenedList.title}
-                              </h4>
-                              {currentOpenedList.isPublic ? (
-                                <>
+                              <div className="min-w-0 flex-1">
+                                <h4 className="truncate text-[18px] font-black leading-tight text-[#0F1111]">
+                                  {currentOpenedList.title}
+                                </h4>
+                                <p className="mt-0.5 text-[12px] text-[#667085]">
+                                  Lista criada em {formatDate(currentOpenedList.createdAt)}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {currentOpenedList.isPublic ? (
                                   <span className="inline-flex h-8 items-center justify-center gap-1 rounded-full bg-[#ECFDF3] px-2.5 text-[11px] font-bold text-[#027A48]">
                                     <Globe className="h-3.5 w-3.5" />
                                     Pública
                                   </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => void sharePublicList(currentOpenedList)}
-                                    className={accountIconButtonSmallClass}
-                                    aria-label="Compartilhar link"
-                                  >
-                                    <ExternalLink className="h-3.5 w-3.5" />
-                                  </button>
-                                </>
-                              ) : (
-                                <span className="inline-flex h-8 items-center justify-center gap-1 rounded-full bg-[#F2F4F7] px-2.5 text-[11px] font-bold text-[#475467]">
-                                  <Lock className="h-3.5 w-3.5" />
-                                  Privada
-                                </span>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  closeListItemMenu();
-                                  void openListEditor(currentOpenedList.id);
-                                }}
-                                aria-label="Editar lista"
-                                disabled={loadingListId === currentOpenedList.id}
-                                className={accountIconButtonSmallClass + " disabled:opacity-60"}
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </button>
-                            </div>
-                            <div className="hidden min-h-[126px] flex-col gap-2 md:flex">
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${
-                                    currentOpenedList.isPublic
-                                      ? "bg-[#ECFDF3] text-[#027A48]"
-                                      : "bg-[#F2F4F7] text-[#475467]"
-                                  }`}
-                                >
-                                  {currentOpenedList.isPublic ? (
-                                    <Globe className="h-3.5 w-3.5" />
-                                  ) : (
+                                ) : (
+                                  <span className="inline-flex h-8 items-center justify-center gap-1 rounded-full bg-[#F2F4F7] px-2.5 text-[11px] font-bold text-[#475467]">
                                     <Lock className="h-3.5 w-3.5" />
-                                  )}
-                                  {currentOpenedList.isPublic ? "Pública" : "Privada"}
-                                </span>
-                                {currentOpenedList.isPublic ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => void sharePublicList(currentOpenedList)}
-                                    className={accountIconButtonSmallClass}
-                                    aria-label="Compartilhar link"
-                                  >
-                                    <ExternalLink className="h-3.5 w-3.5" />
-                                  </button>
-                                ) : null}
+                                    Privada
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    closeListItemMenu();
+                                    void openListEditor(currentOpenedList.id);
+                                  }}
+                                  aria-label="Editar lista"
+                                  disabled={loadingListId === currentOpenedList.id}
+                                  className={accountIconButtonSmallClass + " disabled:opacity-60"}
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </button>
                               </div>
+                            </div>
+
+                            <div className="hidden min-h-[126px] flex-col gap-2 md:flex">
                               <h4 className="text-[19px] font-black leading-tight text-[#0F1111]">
                                 {currentOpenedList.title}
                               </h4>
-                              <p className="text-sm font-medium text-[#667085]">Lista criada por você</p>
+                              <p className="text-sm font-medium text-[#667085]">
+                                Lista criada em {formatDate(currentOpenedList.createdAt)}
+                              </p>
                               {currentOpenedList.description ? (
                                 <p className="max-w-3xl text-[13px] leading-6 text-[#565959]">
                                   {currentOpenedList.description}
@@ -2979,7 +2965,7 @@ export default function SiteAccountWorkspace({
                             </div>
                           </div>
 
-                          <div className="relative flex flex-wrap items-start gap-2">
+                          <div className="relative flex flex-wrap items-center gap-2">
                             {!listOrderMode ? (
                               <button
                                 type="button"
@@ -2995,6 +2981,29 @@ export default function SiteAccountWorkspace({
                               </button>
                             ) : null}
 
+                            {currentOpenedList.isPublic ? (
+                              <span className="inline-flex h-8 items-center justify-center gap-1 rounded-full bg-[#ECFDF3] px-3 text-xs font-bold text-[#027A48]">
+                                <Globe className="h-3.5 w-3.5" />
+                                Pública
+                              </span>
+                            ) : (
+                              <span className="inline-flex h-8 items-center justify-center gap-1 rounded-full bg-[#F2F4F7] px-3 text-xs font-bold text-[#475467]">
+                                <Lock className="h-3.5 w-3.5" />
+                                Privada
+                              </span>
+                            )}
+
+                            {currentOpenedList.isPublic ? (
+                              <button
+                                type="button"
+                                onClick={() => void sharePublicList(currentOpenedList)}
+                                className={accountIconButtonSmallClass}
+                                aria-label="Compartilhar link"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </button>
+                            ) : null}
+
                             {listEditorId === currentOpenedList.id && !listOrderMode ? (
                               <button
                                 type="button"
@@ -3005,18 +3014,18 @@ export default function SiteAccountWorkspace({
                               </button>
                             ) : null}
 
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  closeListItemMenu();
-                                  void openListEditor(currentOpenedList.id);
-                                }}
-                                aria-label="Editar lista"
-                                disabled={loadingListId === currentOpenedList.id}
-                                className={accountIconButtonClass + " hidden disabled:opacity-60 md:inline-flex"}
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                closeListItemMenu();
+                                void openListEditor(currentOpenedList.id);
+                              }}
+                              aria-label="Editar lista"
+                              disabled={loadingListId === currentOpenedList.id}
+                              className={accountIconButtonClass + " hidden disabled:opacity-60 md:inline-flex"}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </button>
                           </div>
                         </div>
 
@@ -3128,7 +3137,7 @@ export default function SiteAccountWorkspace({
                                   </label>
                                   <div className="grid grid-cols-2 gap-3">
                                     {[
-                                      { value: false, label: "Particular" },
+                                      { value: false, label: "Privada" },
                                       { value: true, label: "Pública" },
                                     ].map((option) => {
                                       const checked =
@@ -3397,30 +3406,36 @@ export default function SiteAccountWorkspace({
                 }`}
               >
                 <div className="px-2 py-2">
-                  <div className="flex flex-col gap-2.5 pb-1 md:gap-1.5">
-                    {savedLists.map((list) => {
+                  <div className="flex flex-col gap-2.5 pb-1 md:gap-0">
+                    {savedLists.map((list, index) => {
                       const selected = selectedSavedListId === list.id;
                       return (
-                        <button
-                          key={list.id}
-                          type="button"
-                          onClick={() => setSelectedSavedListId(list.id)}
-                          className={`h-[76px] w-full overflow-hidden rounded-[10px] border border-[#E5E7EB] bg-white px-3 py-2 text-left transition shadow-[0_1px_2px_rgba(15,17,17,0.05)] hover:border-[#D0D5DD] hover:bg-[#FCFCFD] md:rounded-[8px] md:border-transparent md:bg-transparent md:shadow-none md:hover:border-[#E5E7EB] md:hover:bg-white ${
-                            selected
-                              ? "border-[#D5D9D9] bg-[#F3F4F6] shadow-[inset_3px_0_0_0_#2162A1]"
-                              : ""
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate text-[13px] font-bold text-[#0F1111]">{list.title}</p>
-                              <p className="mt-1 hidden truncate text-[11px] text-[#667085] md:block">
-                                {list.ownerDisplayName}
-                                {list.ownerUsername ? ` @${list.ownerUsername}` : ""}
-                              </p>
+                        <div key={list.id}>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedSavedListId(list.id)}
+                            className={`h-[76px] w-full overflow-hidden rounded-[10px] border border-[#E5E7EB] bg-white px-3 py-2 text-left transition shadow-[0_1px_2px_rgba(15,17,17,0.05)] hover:border-[#D0D5DD] hover:bg-[#FCFCFD] md:rounded-[10px] md:border md:bg-white md:shadow-[0_1px_2px_rgba(15,17,17,0.05)] md:hover:border-[#D0D5DD] md:hover:bg-[#FCFCFD] ${
+                              selected
+                                ? "border-[#D5D9D9] bg-[#F3F4F6] shadow-[inset_3px_0_0_0_#2162A1] md:border-[#D5D9D9] md:bg-[#F3F4F6] md:border-l-4 md:border-l-[#2162A1]"
+                                : ""
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-[13px] font-bold text-[#0F1111]">{list.title}</p>
+                                <p className="mt-1 hidden truncate text-[11px] text-[#667085] md:block">
+                                  {list.ownerDisplayName}
+                                  {list.ownerUsername ? ` @${list.ownerUsername}` : ""}
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                        </button>
+                          </button>
+                          {index < savedLists.length - 1 ? (
+                            <div className="hidden md:block px-2">
+                              <div className="h-px bg-[#D9DEE5]" />
+                            </div>
+                          ) : null}
+                        </div>
                       );
                     })}
                   </div>
@@ -3431,9 +3446,9 @@ export default function SiteAccountWorkspace({
                 {selectedSavedList ? (
                   <>
                     <div className="border-b border-[#EAECF0] px-4 py-5 md:px-5">
-                      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                      <div className="flex min-h-[126px] flex-col gap-4 md:flex-row md:items-start md:justify-between">
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 md:hidden">
+                          <div className="mb-2 flex items-start gap-2 md:hidden">
                             <button
                               type="button"
                               onClick={() => {
@@ -3445,42 +3460,63 @@ export default function SiteAccountWorkspace({
                             >
                               <ChevronLeft className="h-4 w-4" />
                             </button>
-                            <span className="inline-flex items-center gap-1 rounded-full bg-[#ECFDF3] px-2.5 py-1 text-[11px] font-bold text-[#027A48]">
-                              <Globe className="h-3.5 w-3.5" />
-                              Pública
-                            </span>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="truncate text-[18px] font-black leading-tight text-[#0F1111]">
+                                {selectedSavedList.title}
+                              </h4>
+                              <p className="mt-0.5 text-[12px] text-[#667085]">
+                                Lista criada em {formatDate(selectedSavedList.createdAt)} por{" "}
+                                {selectedSavedList.ownerUsername
+                                  ? `@${selectedSavedList.ownerUsername}`
+                                  : selectedSavedList.ownerDisplayName}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(event) => openSavedListActions(event.currentTarget)}
+                              className={accountIconButtonSmallClass}
+                              aria-haspopup="menu"
+                              aria-expanded={savedListMenuOpen}
+                              aria-label="Editar lista"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </button>
                           </div>
 
-                          <p className="mt-3 text-[11px] font-bold uppercase tracking-[0.18em] text-[#007185] md:mt-0">
-                            Lista salva
-                          </p>
-                          <h4 className="mt-2 text-[24px] font-bold leading-tight text-[#0F1111] md:text-[28px]">
-                            {selectedSavedList.title}
-                          </h4>
-                          <p className="mt-2 text-[14px] leading-6 text-[#667085]">
-                            Lista criada por {selectedSavedList.ownerDisplayName}
-                            {selectedSavedList.ownerUsername ? ` @${selectedSavedList.ownerUsername}` : ""}
-                            {selectedSavedList.description ? ` · ${selectedSavedList.description}` : ""}
-                          </p>
+                          <div className="hidden min-h-[126px] flex-col gap-2 md:flex">
+                            <h4 className="text-[19px] font-black leading-tight text-[#0F1111]">
+                              {selectedSavedList.title}
+                            </h4>
+                            <p className="text-sm font-medium text-[#667085]">
+                              Lista criada em {formatDate(selectedSavedList.createdAt)} por{" "}
+                              {selectedSavedList.ownerUsername
+                                ? `@${selectedSavedList.ownerUsername}`
+                                : selectedSavedList.ownerDisplayName}
+                            </p>
+                            <p className="max-w-3xl text-[13px] leading-6 text-[#565959]">
+                              {selectedSavedList.description ?? "Sem descrição."}
+                            </p>
+                          </div>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="hidden items-center gap-1 rounded-full bg-[#ECFDF3] px-3 py-1 text-xs font-bold text-[#027A48] md:inline-flex">
+                          <span className="invisible inline-flex h-8 items-center justify-center gap-1 rounded-full bg-[#ECFDF3] px-3 text-xs font-bold text-[#027A48]">
                             <Globe className="h-3.5 w-3.5" />
                             Pública
                           </span>
                           <button
                             type="button"
-                            onClick={() => void sharePublicList(selectedSavedList)}
-                            className={accountIconButtonSmallClass}
-                            aria-label="Compartilhar link"
+                            className="invisible inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[#D0D5DD] bg-white px-3.5 text-[13px] font-semibold text-[#0F1111]"
+                            tabIndex={-1}
+                            aria-hidden="true"
                           >
-                            <ExternalLink className="h-3.5 w-3.5" />
+                            <Plus className="h-4 w-4" />
+                            Adicionar produto
                           </button>
                           <button
                             type="button"
                             onClick={(event) => openSavedListActions(event.currentTarget)}
-                            className={accountIconButtonSmallClass}
+                            className={accountIconButtonClass}
                             aria-haspopup="menu"
                             aria-expanded={savedListMenuOpen}
                             aria-label="Editar lista"

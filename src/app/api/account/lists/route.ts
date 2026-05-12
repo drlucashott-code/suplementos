@@ -26,6 +26,7 @@ export async function GET() {
       title: string;
       description: string | null;
       isPublic: boolean;
+      createdAt: Date;
       updatedAt: Date;
       itemsCount: number;
     }>
@@ -36,6 +37,7 @@ export async function GET() {
       l."title",
       l."description",
       l."isPublic",
+      l."createdAt",
       l."updatedAt",
       COUNT(i."id")::int AS "itemsCount"
     FROM "SiteUserList" l

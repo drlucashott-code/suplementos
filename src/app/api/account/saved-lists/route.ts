@@ -32,6 +32,7 @@ export async function GET() {
         title: string;
         description: string | null;
         isPublic: boolean;
+        createdAt: Date;
         ownerDisplayName: string;
         ownerUsername: string | null;
         itemsCount: number;
@@ -43,6 +44,7 @@ export async function GET() {
         l."title",
         l."description",
         l."isPublic",
+        l."createdAt",
         owner."displayName" AS "ownerDisplayName",
         owner."username" AS "ownerUsername",
         COUNT(i."id")::int AS "itemsCount",
