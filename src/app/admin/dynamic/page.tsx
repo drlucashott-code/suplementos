@@ -3,6 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { revalidateDynamicCatalogCategoryRefs } from "@/lib/dynamicCatalogRevalidation";
 import CacheResetButton, { type CacheResetState } from "@/components/admin/CacheResetButton";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const BRAZIL_OFFSET_MS = 3 * 60 * 60 * 1000;
+
 type CardColor = "blue" | "emerald" | "purple" | "sky" | "orange" | "yellow" | "red" | "amber" | "gray";
 
 const cardStyles: Record<
@@ -59,6 +64,16 @@ const cardStyles: Record<
     hoverBorder: "hover:border-gray-300",
   },
 };
+
+function getBrazilBusinessBoundary(value: Date, unit: "hour" | "day") {
+  const shifted = new Date(value.getTime() - BRAZIL_OFFSET_MS);
+  if (unit === "hour") {
+    shifted.setUTCMinutes(0, 0, 0);
+  } else {
+    shifted.setUTCHours(0, 0, 0, 0);
+  }
+  return new Date(shifted.getTime() + BRAZIL_OFFSET_MS);
+}
 
 function AdminCard({
   title,
@@ -224,10 +239,8 @@ async function revalidateAllDynamicCatalog(
 
 export default async function AdminDynamicDashboard() {
   const now = new Date();
-  const startOfHour = new Date(now);
-  startOfHour.setMinutes(0, 0, 0);
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
+  const startOfHour = getBrazilBusinessBoundary(now, "hour");
+  const startOfDay = getBrazilBusinessBoundary(now, "day");
   const GLOBAL_HOURLY_REQUEST_LIMIT = Math.max(
     50,
     Number(process.env.AMAZON_GLOBAL_HOURLY_REQUEST_LIMIT ?? 800)
