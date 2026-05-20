@@ -243,7 +243,7 @@ export default async function AdminDynamicDashboard() {
   const startOfDay = getBrazilBusinessBoundary(now, "day");
   const GLOBAL_HOURLY_REQUEST_LIMIT = Math.max(
     50,
-    Number(process.env.AMAZON_GLOBAL_HOURLY_REQUEST_LIMIT ?? 800)
+    Number(process.env.AMAZON_GLOBAL_HOURLY_REQUEST_LIMIT ?? 1000)
   );
   const GLOBAL_DAILY_REQUEST_LIMIT = Math.max(
     200,

@@ -21,6 +21,14 @@ import { reservePriceRefreshBudget } from "../src/lib/priceRefreshBudget";
 
 const prisma = new PrismaClient();
 
+const GLOBAL_HOURLY_REQUEST_LIMIT = Math.max(
+  10,
+  Number(process.env.AMAZON_GLOBAL_HOURLY_REQUEST_LIMIT ?? 1000)
+);
+const GLOBAL_DAILY_REQUEST_LIMIT = Math.max(
+  50,
+  Number(process.env.AMAZON_GLOBAL_DAILY_REQUEST_LIMIT ?? 12000)
+);
 const REQUEST_DELAY_MS = Number(process.env.AMAZON_GLOBAL_REQUEST_DELAY_MS ?? 1200);
 const BATCH_SIZE = Math.min(
   Number(process.env.AMAZON_GLOBAL_BATCH_SIZE ?? 10),
@@ -36,19 +44,14 @@ const DB_RETRY_DELAY_MS = Math.max(
 );
 const MAX_DYNAMIC_PRODUCTS_PER_RUN = Math.max(
   1,
-  Number(process.env.AMAZON_GLOBAL_MAX_PRODUCTS_PER_RUN ?? 800)
+  Number(process.env.AMAZON_GLOBAL_MAX_PRODUCTS_PER_RUN ?? GLOBAL_HOURLY_REQUEST_LIMIT)
 );
 const MAX_TRACKED_PRODUCTS_PER_RUN = Math.max(
   1,
-  Number(process.env.AMAZON_GLOBAL_MAX_TRACKED_PRODUCTS_PER_RUN ?? 200)
-);
-const GLOBAL_HOURLY_REQUEST_LIMIT = Math.max(
-  10,
-  Number(process.env.AMAZON_GLOBAL_HOURLY_REQUEST_LIMIT ?? 1000)
-);
-const GLOBAL_DAILY_REQUEST_LIMIT = Math.max(
-  50,
-  Number(process.env.AMAZON_GLOBAL_DAILY_REQUEST_LIMIT ?? 12000)
+  Number(
+    process.env.AMAZON_GLOBAL_MAX_TRACKED_PRODUCTS_PER_RUN ??
+      Math.max(200, Math.floor(GLOBAL_HOURLY_REQUEST_LIMIT * 0.35))
+  )
 );
 
 function getFirstEnvValue(...keys: string[]) {
