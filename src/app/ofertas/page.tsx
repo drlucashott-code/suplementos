@@ -1,9 +1,27 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
-import { boostBestDealsMaxPriority, getBestDeals } from "@/lib/bestDeals";
+import { getBestDeals } from "@/lib/bestDeals";
 import ProgressiveBestDealsGrid from "@/components/ProgressiveBestDealsGrid";
+import { buildAbsoluteUrl } from "@/lib/siteUrl";
 
 export const revalidate = 600;
+
+export const metadata: Metadata = {
+  title: "Melhores ofertas do momento | amazonpicks",
+  description:
+    "Encontre ofertas atuais com desconto relevante, preço válido e leitura rápida do valor real da oferta.",
+  alternates: {
+    canonical: buildAbsoluteUrl("/ofertas"),
+  },
+  openGraph: {
+    title: "Melhores ofertas do momento | amazonpicks",
+    description:
+      "Encontre ofertas atuais com desconto relevante, preço válido e leitura rápida do valor real da oferta.",
+    url: buildAbsoluteUrl("/ofertas"),
+    type: "website",
+  },
+};
 
 const PAGE_SIZE = 100;
 const DEALS_PER_GROUP_WHEN_ALL = 34;
@@ -50,7 +68,6 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
             return (b.ratingCount ?? 0) - (a.ratingCount ?? 0);
           });
           const trimmed = merged.slice(0, MAX_DEALS);
-          void boostBestDealsMaxPriority(trimmed);
           return {
             deals: trimmed,
             totalDeals: trimmed.length,
@@ -60,7 +77,6 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
         })()
       : await (async () => {
           const pageDeals = await getBestDeals(PAGE_SIZE, normalizedGroup, 0);
-          void boostBestDealsMaxPriority(pageDeals);
 
           return {
             deals: pageDeals,

@@ -9,6 +9,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentSiteUser } from "@/lib/siteAuthSession";
 import { buildPublicUserPath } from "@/lib/siteSocial";
+import { buildAbsoluteUrl } from "@/lib/siteUrl";
+import type { Metadata } from "next";
 
 export const revalidate = 300;
 
@@ -40,6 +42,59 @@ type PublicUserListRow = {
   categorySlug: string | null;
   commentsCount: number;
 };
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ username: string; slug: string }>;
+}): Promise<Metadata> {
+  const { username, slug } = await params;
+  const list = await prisma.siteUserList.findFirst({
+    where: {
+      slug,
+      isPublic: true,
+      user: {
+        username,
+      },
+    },
+    select: {
+      title: true,
+      description: true,
+      user: {
+        select: {
+          displayName: true,
+          username: true,
+        },
+      },
+    },
+  });
+
+  if (!list) {
+    return {
+      title: "Lista não encontrada | amazonpicks",
+    };
+  }
+
+  const canonicalPath = `/user/${username}/${slug}`;
+  const description =
+    list.description?.trim() ||
+    `Lista pública criada por ${list.user.displayName}${list.user.username ? ` (@${list.user.username})` : ""}.`;
+  const title = `${list.title} | Lista pública`;
+
+  return {
+    title: `${title} | amazonpicks`,
+    description,
+    alternates: {
+      canonical: buildAbsoluteUrl(canonicalPath),
+    },
+    openGraph: {
+      title: `${title} | amazonpicks`,
+      description,
+      url: buildAbsoluteUrl(canonicalPath),
+      type: "website",
+    },
+  };
+}
 
 export default async function PublicUserListPage({
   params,

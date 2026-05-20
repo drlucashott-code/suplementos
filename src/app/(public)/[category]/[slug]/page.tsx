@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { ProductList } from "@/components/dynamic/ProductList";
@@ -8,6 +9,7 @@ import {
 } from "@/components/dynamic/FloatingFiltersBar";
 import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
 import { getDynamicCatalogData } from "@/lib/dynamicCatalog";
+import { buildAbsoluteUrl } from "@/lib/siteUrl";
 
 export const revalidate = 300;
 
@@ -17,6 +19,44 @@ interface PageProps {
 }
 
 const INITIAL_PAGE_SIZE = 12;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ category: string; slug: string }>;
+}): Promise<Metadata> {
+  const { category: group, slug } = await params;
+  const catalog = await getDynamicCatalogData({
+    group,
+    slug,
+    search: {},
+    limit: 1,
+    offset: 0,
+  });
+
+  if (!catalog) {
+    return {
+      title: "Categoria não encontrada | amazonpicks",
+    };
+  }
+
+  const canonicalPath = `/${group}/${slug}`;
+  const description = `${catalog.totalProducts} produtos em ${catalog.categoryName} com filtros inteligentes, leitura rápida de preço e comparação orientada por custo-benefício.`;
+
+  return {
+    title: `${catalog.categoryName} | amazonpicks`,
+    description,
+    alternates: {
+      canonical: buildAbsoluteUrl(canonicalPath),
+    },
+    openGraph: {
+      title: `${catalog.categoryName} | amazonpicks`,
+      description,
+      url: buildAbsoluteUrl(canonicalPath),
+      type: "website",
+    },
+  };
+}
 
 export default async function DynamicCategoryPage({
   params,

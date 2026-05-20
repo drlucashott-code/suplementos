@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { ArrowLeft, Search } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SiteUserEntry from "@/components/SiteUserEntry";
 import SiteNotificationsBell from "@/components/SiteNotificationsBell";
 
@@ -13,12 +13,10 @@ export function AmazonHeader() {
 
   const urlQuery = searchParams.get("q") || "";
   const [query, setQuery] = useState(urlQuery);
-  const [prevUrlQuery, setPrevUrlQuery] = useState(urlQuery);
 
-  if (urlQuery !== prevUrlQuery) {
+  useEffect(() => {
     setQuery(urlQuery);
-    setPrevUrlQuery(urlQuery);
-  }
+  }, [urlQuery]);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();

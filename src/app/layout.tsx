@@ -5,6 +5,7 @@ import { Toaster } from "react-hot-toast";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { ScrollToTop } from "@/components/ScrollToTop"; // ✅ Importação do componente
 import { AttributionCapture } from "@/components/AttributionCapture";
+import { buildAbsoluteUrl, getPublicSiteUrl } from "@/lib/siteUrl";
 import "./globals.css";
 
 // 🚀 Otimização de Fontes
@@ -24,7 +25,7 @@ const geistMono = Geist_Mono({
    METADATA (SEO & Indexação)
    ========================= */
 export const metadata: Metadata = {
-  metadataBase: new URL("https://amazonpicks.com.br"),
+  metadataBase: new URL(getPublicSiteUrl()),
   title: "Amazonpicks.com.br | Filtros inteligentes",
   description:
     "Utilizamos filtros inteligentes para encontrar o melhor produto para você.",
@@ -44,13 +45,13 @@ export const metadata: Metadata = {
   ],
   manifest: "/site.webmanifest",
   alternates: {
-    canonical: "https://amazonpicks.com.br",
+    canonical: buildAbsoluteUrl("/"),
   },
   openGraph: {
     title: "Amazon Picks | Filtros inteligentes",
     description:
       "Utilizamos filtros inteligentes para encontrar o melhor produto para você",
-    url: "https://amazonpicks.com.br",
+    url: buildAbsoluteUrl("/"),
     siteName: "amazonpicks",
     locale: "pt_BR",
     type: "website",

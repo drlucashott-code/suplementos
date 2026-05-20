@@ -1,14 +1,38 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { DynamicProduct } from "@prisma/client";
+import { buildAbsoluteUrl } from "@/lib/siteUrl";
 
 export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: Promise<{ category: string }>;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { category: categoryParam } = await params;
+  const normalized = categoryParam.replace(/-/g, " ");
+  const title = `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)} | Categorias`;
+  const description = `Explore categorias de ${normalized} com curadoria, comparação de preço e descoberta rápida de produtos.`;
+  const canonicalPath = `/${categoryParam}`;
+
+  return {
+    title: `${title} | amazonpicks`,
+    description,
+    alternates: {
+      canonical: buildAbsoluteUrl(canonicalPath),
+    },
+    openGraph: {
+      title: `${title} | amazonpicks`,
+      description,
+      url: buildAbsoluteUrl(canonicalPath),
+      type: "website",
+    },
+  };
 }
 
 type CategoryWithVisibleProducts = {

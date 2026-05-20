@@ -2,7 +2,7 @@ import Header from "@/app/Header";
 import HomePremiumClient, { type CategoryItem } from "./HomePremiumClient";
 import { normalizeDynamicDisplayConfig } from "@/lib/dynamicCategoryMetrics";
 import { prisma } from "@/lib/prisma";
-import { boostBestDealsPriority, getBestDeals } from "@/lib/bestDeals";
+import { getBestDeals } from "@/lib/bestDeals";
 
 type DynamicCategoryWithImageReader = {
   findMany: (args: {
@@ -200,9 +200,6 @@ export default async function HomePremiumPage() {
         LIMIT 4
       `,
     ]);
-
-  void boostBestDealsPriority(bestDeals, { extraBoost: 2 });
-
   const headerCategories = [
     ...supplementCategories,
     ...houseCategories,

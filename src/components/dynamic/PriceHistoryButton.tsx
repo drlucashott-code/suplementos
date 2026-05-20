@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState } from "react";
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, TouchEvent as ReactTouchEvent } from "react";
 import {
   formatPriceHistoryRangeLabel,
   getPriceHistoryBusinessDateKey,
@@ -196,6 +197,22 @@ export function PriceHistoryButton({
 
     return sections;
   }, [visibleRanges]);
+
+  const closeBackdropSafely = (
+    event:
+      | ReactMouseEvent<HTMLDivElement>
+      | ReactPointerEvent<HTMLDivElement>
+      | ReactTouchEvent<HTMLDivElement>
+  ) => {
+    if (event.target !== event.currentTarget) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    window.setTimeout(() => {
+      setOpen(false);
+    }, 0);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -442,20 +459,9 @@ export function PriceHistoryButton({
       {open && typeof document !== "undefined" ? createPortal((
         <div
           className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/45 px-3 py-4 sm:px-4 sm:py-6"
-          onPointerDown={(event) => {
-            if (event.target === event.currentTarget) {
-              event.preventDefault();
-              event.stopPropagation();
-              setOpen(false);
-            }
-          }}
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              event.preventDefault();
-              event.stopPropagation();
-              setOpen(false);
-            }
-          }}
+          onMouseDown={closeBackdropSafely}
+          onTouchEnd={closeBackdropSafely}
+          onClick={closeBackdropSafely}
         >
           <div
             className="flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_28px_90px_rgba(15,17,17,0.26)] sm:max-h-[calc(100vh-3rem)]"
