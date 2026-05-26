@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { formatAttributionSourceLabel } from "@/lib/attributionSource";
 
 const DYNAMIC_SITE_CONFIG_KEY = "global";
 
@@ -204,7 +205,7 @@ export async function sendDynamicClickSessionAlertEmail(params: {
   const subject = `[amazonpicks] Sessão ${sessionShort}: ${params.totalClicks} cliques`;
   const productLines = params.products.slice(0, 30).map((product) => {
     const sources = product.sourceBreakdown
-      .map((source) => `${source.clickCount} ${source.source}`)
+      .map((source) => `${source.clickCount} ${formatAttributionSourceLabel(source.source)}`)
       .join(" / ");
     return `- ${product.productName} (${product.asin}): ${product.clickCount} clique(s)${sources ? ` | ${sources}` : ""}`;
   });
@@ -212,7 +213,7 @@ export async function sendDynamicClickSessionAlertEmail(params: {
   const lines = [
     `Visitante: ${visitorShort}`,
     `Sessão: ${sessionShort}`,
-    `Origem principal: ${params.source ?? "direto"}`,
+    `Origem principal: ${formatAttributionSourceLabel(params.source)}`,
     `Início: ${formatClickAlertTimestamp(params.startedAt)} (${CLICK_ALERT_TIME_ZONE})`,
     `Fim: ${formatClickAlertTimestamp(params.endedAt)} (${CLICK_ALERT_TIME_ZONE})`,
     `Duração: ${sessionDurationMinutes} minuto(s)`,

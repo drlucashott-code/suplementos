@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendDynamicClickSessionAlertEmail } from "@/lib/dynamicClickAlerts";
 import {
+  formatAttributionSourceLabel,
   normalizeAttributionSource,
   resolveAttributionSource,
 } from "@/lib/attributionSource";
@@ -111,7 +112,7 @@ async function sendSessionSummaryEmailAndMark(sessionId: string) {
     sessionId: summary.sessionId,
     startedAt: summary.startedAt,
     endedAt: summary.endedAt,
-    source: summary.source,
+    source: formatAttributionSourceLabel(summary.source),
     totalClicks: summary.totalClicks,
     uniqueProducts: summary.uniqueProducts,
     products: Array.from(groupedProducts.values()).sort(

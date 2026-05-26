@@ -233,7 +233,10 @@ export async function POST(request: NextRequest) {
 
       const source = resolveAttributionSource({
         utmSource,
+        utmMedium,
+        utmCampaign,
         inferredSource,
+        referrer,
       });
 
       if (visitorId) {
