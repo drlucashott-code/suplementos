@@ -185,13 +185,14 @@ function SchedulerStatCard({
   title: string;
   value: string;
   description: string;
-  tone: "blue" | "emerald" | "orange" | "red" | "gray";
+  tone: "blue" | "emerald" | "orange" | "red" | "gray" | "amber";
 }) {
   const styles = {
     blue: "border-blue-100 bg-blue-50/50 text-blue-700",
     emerald: "border-emerald-100 bg-emerald-50/50 text-emerald-700",
     orange: "border-orange-100 bg-orange-50/50 text-orange-700",
     red: "border-red-100 bg-red-50/50 text-red-700",
+    amber: "border-amber-100 bg-amber-50/50 text-amber-700",
     gray: "border-gray-200 bg-white text-gray-700",
   } as const;
 
