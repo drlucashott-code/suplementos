@@ -1,5 +1,7 @@
 "use client";
 
+import { ExternalLink } from "lucide-react";
+import { type MouseEvent } from "react";
 import toast from "react-hot-toast";
 
 export function buildProductShareUrl(productShareKey: string) {
@@ -41,8 +43,33 @@ export async function shareProductViaSystem(productShareKey: string, productName
   return false;
 }
 
-export async function copyProductShareLink(productShareKey: string) {
-  const shareUrl = buildProductShareUrl(productShareKey);
-  await navigator.clipboard.writeText(shareUrl);
-  toast.success("Link do produto copiado.");
+type ProductShareInlineButtonProps = {
+  productShareKey: string;
+  productName: string;
+  className: string;
+  iconClassName?: string;
+  ariaLabel?: string;
+};
+
+export function ProductShareInlineButton({
+  productShareKey,
+  productName,
+  className,
+  iconClassName = "h-4 w-4",
+  ariaLabel = "Compartilhar produto",
+}: ProductShareInlineButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={(event: MouseEvent<HTMLButtonElement>) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void shareProductViaSystem(productShareKey, productName);
+      }}
+      className={className}
+      aria-label={ariaLabel}
+    >
+      <ExternalLink className={iconClassName} />
+    </button>
+  );
 }

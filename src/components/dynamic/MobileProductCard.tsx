@@ -17,8 +17,8 @@ import { PriceHistoryButton } from "@/components/dynamic/PriceHistoryButton";
 import { ProductCommentsSheet } from "@/components/dynamic/ProductCommentsSheet";
 import type { PriceHistoryChartRange } from "@/lib/dynamicPriceHistory";
 import type { PriceDecision } from "@/lib/priceDecision";
+import { ProductShareInlineButton } from "@/lib/client/productShare";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
-import ProductShareMenuButton from "@/components/ProductShareMenuButton";
 
 export type DynamicProductType = {
   id: string;
@@ -641,7 +641,7 @@ export function MobileProductCard({
 
         <div className="relative flex w-[160px] flex-shrink-0 flex-col items-center justify-center bg-[#f3f3f3] p-3">
           <div className="absolute right-3 top-3 z-20">
-            <ProductShareMenuButton
+            <ProductShareInlineButton
               productShareKey={asin || product.id}
               productName={product.name}
               className="inline-flex h-7 w-7 items-center justify-center rounded-[6px] border border-[#d9dee3] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"

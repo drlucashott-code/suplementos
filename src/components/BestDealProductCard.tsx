@@ -20,8 +20,8 @@ import {
   toggleAccountFavorite,
 } from "@/lib/client/accountFavorites";
 import { getAccountListsCount } from "@/lib/client/accountLists";
+import { ProductShareInlineButton } from "@/lib/client/productShare";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
-import ProductShareMenuButton from "@/components/ProductShareMenuButton";
 
 const REPORT_REASONS = [
   "Preço desatualizado",
@@ -301,7 +301,7 @@ export default function BestDealProductCard({
                 <Heart className={`h-4 w-4 ${saved ? "fill-current" : ""}`} />
               </button>
             </div>
-            <ProductShareMenuButton
+            <ProductShareInlineButton
               productShareKey={item.asin}
               productName={item.name}
               className={accountIconButtonClass}
