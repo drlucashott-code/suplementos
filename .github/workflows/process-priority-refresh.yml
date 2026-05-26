@@ -1,0 +1,43 @@
+name: Process Priority Refresh
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: process-priority-refresh
+  cancel-in-progress: false
+
+jobs:
+  process-priority-refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Run priority refresh cron
+        env:
+          CRON_URL: https://www.amazonpicks.com.br/api/cron/process-priority-refresh
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "CRON_SECRET not configured"
+            exit 1
+          fi
+
+          response="$(curl -sS -w "\n%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${CRON_URL}")"
+
+          body="$(printf '%s' "$response" | sed '$d')"
+          status="$(printf '%s' "$response" | tail -n 1)"
+
+          echo "Status: $status"
+          echo "Body: $body"
+
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            exit 1
+          fi
