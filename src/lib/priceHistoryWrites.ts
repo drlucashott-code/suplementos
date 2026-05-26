@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 
 export async function writeDynamicDailyPriceHistoryIfChanged(params: {
@@ -9,6 +10,7 @@ export async function writeDynamicDailyPriceHistoryIfChanged(params: {
   const rows = await prisma.$queryRaw<Array<{ wrote: boolean }>>(Prisma.sql`
     WITH upserted AS (
       INSERT INTO "DynamicPriceHistory" (
+        "id",
         "productId",
         "date",
         "price",
@@ -17,6 +19,7 @@ export async function writeDynamicDailyPriceHistoryIfChanged(params: {
         "updatedAt"
       )
       VALUES (
+        ${randomUUID()},
         ${params.productId},
         ${params.date},
         ${params.price},
@@ -46,6 +49,7 @@ export async function writeTrackedDailyPriceHistoryIfChanged(params: {
   const rows = await prisma.$queryRaw<Array<{ wrote: boolean }>>(Prisma.sql`
     WITH upserted AS (
       INSERT INTO "SiteTrackedAmazonProductPriceHistory" (
+        "id",
         "trackedProductId",
         "date",
         "price",
@@ -54,6 +58,7 @@ export async function writeTrackedDailyPriceHistoryIfChanged(params: {
         "updatedAt"
       )
       VALUES (
+        ${randomUUID()},
         ${params.trackedProductId},
         ${params.date},
         ${params.price},
