@@ -143,6 +143,17 @@ function sourceLabel(source: SchedulerRow["source"]) {
   return source === "dynamic" ? "Comparador" : "Amazon interno";
 }
 
+function getUpdatedAtTimestamp(row: Pick<
+  SchedulerRow,
+  "lastPriceRefreshAt" | "lastSuccessfulRefreshAt"
+>) {
+  return (
+    row.lastPriceRefreshAt?.getTime() ??
+    row.lastSuccessfulRefreshAt?.getTime() ??
+    0
+  );
+}
+
 function parseSearchParam(
   value: string | string[] | undefined,
   fallback = ""
@@ -196,9 +207,9 @@ export default async function AdminRefreshSchedulerPage({
           { priorityScore: "desc" as const },
         ]
       : [
-          { nextPriceRefreshAt: "asc" as const },
           { priorityScore: "desc" as const },
           { dataFreshnessScore: "desc" as const },
+          { nextPriceRefreshAt: "asc" as const },
         ];
 
   const trackedOrderBy =
@@ -209,9 +220,9 @@ export default async function AdminRefreshSchedulerPage({
           { priorityScore: "desc" as const },
         ]
       : [
-          { nextPriceRefreshAt: "asc" as const },
           { priorityScore: "desc" as const },
           { dataFreshnessScore: "desc" as const },
+          { nextPriceRefreshAt: "asc" as const },
         ];
 
   const [
@@ -459,13 +470,7 @@ export default async function AdminRefreshSchedulerPage({
   ]
     .sort((a, b) => {
       if (sort === "updated") {
-        const updatedDiff =
-          (b.lastPriceRefreshAt?.getTime() ??
-            b.lastSuccessfulRefreshAt?.getTime() ??
-            0) -
-          (a.lastPriceRefreshAt?.getTime() ??
-            a.lastSuccessfulRefreshAt?.getTime() ??
-            0);
+        const updatedDiff = getUpdatedAtTimestamp(b) - getUpdatedAtTimestamp(a);
         if (updatedDiff !== 0) return updatedDiff;
 
         const updatesDiff = b.updatesLast24h - a.updatesLast24h;
@@ -485,11 +490,11 @@ export default async function AdminRefreshSchedulerPage({
       const bPriorityDue = isPriorityDue(b, now, mandatoryCutoff);
       if (aPriorityDue !== bPriorityDue) return aPriorityDue ? -1 : 1;
 
-      const tierDiff = getTierRank(b.refreshTier) - getTierRank(a.refreshTier);
-      if (tierDiff !== 0) return tierDiff;
-
       const priorityDiff = (b.priorityScore ?? 0) - (a.priorityScore ?? 0);
       if (Math.abs(priorityDiff) > 0.001) return priorityDiff;
+
+      const tierDiff = getTierRank(b.refreshTier) - getTierRank(a.refreshTier);
+      if (tierDiff !== 0) return tierDiff;
 
       const freshnessDiff =
         (b.dataFreshnessScore ?? 0) - (a.dataFreshnessScore ?? 0);

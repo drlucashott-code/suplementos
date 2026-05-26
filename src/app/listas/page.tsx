@@ -3,6 +3,8 @@ import { Prisma } from "@prisma/client";
 import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
 import { prisma } from "@/lib/prisma";
 import { buildPublicListPath } from "@/lib/siteSocial";
+import Image from "next/image";
+import { ChevronRight, LayoutList } from "lucide-react";
 
 export const revalidate = 300;
 
@@ -16,7 +18,16 @@ type PublicListRow = {
   ownerUsername: string | null;
   itemsCount: number;
   savesCount: number;
+  previewImages: string[] | null;
 };
+
+function formatListDate(value: Date) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(value);
+}
 
 export default async function PublicListsPage({
   searchParams,
@@ -36,7 +47,19 @@ export default async function PublicListsPage({
       u."displayName" AS "ownerDisplayName",
       u."username" AS "ownerUsername",
       COUNT(DISTINCT i."id")::int AS "itemsCount",
-      COUNT(DISTINCT s."id")::int AS "savesCount"
+      COUNT(DISTINCT s."id")::int AS "savesCount",
+      ARRAY(
+        SELECT COALESCE(p2."imageUrl", mp2."imageUrl", tp2."imageUrl", c2."imageUrl")
+        FROM "SiteUserListItem" i2
+        LEFT JOIN "DynamicProduct" p2 ON p2."id" = i2."productId"
+        LEFT JOIN "SiteUserMonitoredProduct" mp2 ON mp2."id" = i2."monitoredProductId"
+        LEFT JOIN "SiteTrackedAmazonProduct" tp2 ON tp2."id" = i2."trackedAmazonProductId"
+        LEFT JOIN "DynamicCategory" c2 ON c2."id" = p2."categoryId"
+        WHERE i2."listId" = l."id"
+          AND COALESCE(p2."imageUrl", mp2."imageUrl", tp2."imageUrl", c2."imageUrl") IS NOT NULL
+        ORDER BY i2."sortOrder" ASC, i2."createdAt" DESC
+        LIMIT 3
+      ) AS "previewImages"
     FROM "SiteUserList" l
     INNER JOIN "SiteUser" u ON u."id" = l."userId"
     LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
@@ -89,27 +112,51 @@ export default async function PublicListsPage({
               Ainda não existem listas públicas.
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {rows.map((list) => (
                 <Link
                   key={list.id}
                   href={list.ownerUsername ? buildPublicListPath(list.ownerUsername, list.slug) : `/listas/${list.slug}`}
-                  className="rounded-2xl border border-[#d5d9d9] bg-[#FCFCFD] p-5 transition hover:border-[#b8c3c4] hover:bg-white hover:shadow-sm"
+                  className="group rounded-[24px] border border-[#E5EBF0] bg-[#FCFDFE] p-4 transition duration-200 hover:-translate-y-0.5 hover:border-[#D1DAE3] hover:bg-white hover:shadow-[0_12px_28px_rgba(15,17,17,0.06)]"
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h2 className="text-[18px] font-bold text-[#0F1111]">{list.title}</h2>
-                      <p className="mt-1 text-[13px] text-[#565959]">
+                  <div className="flex h-[94px] items-center justify-center gap-2 overflow-hidden rounded-[20px] border border-[#EEF2F6] bg-[#F8FAFC] px-3">
+                    {(list.previewImages ?? []).length > 0 ? (
+                      (list.previewImages ?? []).slice(0, 3).map((imageSrc, index) => (
+                        <div
+                          key={`${list.slug}-preview-${index}`}
+                          className="relative h-16 w-16 overflow-hidden rounded-[16px] border border-[#EDF2F7] bg-white"
+                        >
+                          <Image
+                            src={imageSrc}
+                            alt={`${list.title} preview ${index + 1}`}
+                            fill
+                            sizes="64px"
+                            className="object-contain p-1.5"
+                            unoptimized
+                          />
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex flex-col items-center text-center">
+                        <LayoutList className="h-5 w-5 text-[#98A2B3]" />
+                        <span className="mt-2 text-[11px] font-semibold text-[#667085]">
+                          Prévia dos produtos
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[16px] font-bold leading-tight text-[#0F1111]">
+                        {list.title}
+                      </p>
+                      <p className="mt-1 text-[12px] leading-5 text-[#667085]">
                         por {list.ownerDisplayName}
-                        {list.ownerUsername ? ` @${list.ownerUsername}` : ""} em{" "}
-                        {new Intl.DateTimeFormat("pt-BR", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                        }).format(list.createdAt)}
+                        {list.ownerUsername ? ` @${list.ownerUsername}` : ""}
                       </p>
                     </div>
-                    <span className="rounded-full bg-[#EEF2FF] px-3 py-1 text-[11px] font-bold text-[#374151]">
+                    <span className="rounded-full bg-[#EEF6F7] px-2.5 py-1 text-[11px] font-bold text-[#007185]">
                       {list.itemsCount} itens
                     </span>
                   </div>
@@ -120,8 +167,12 @@ export default async function PublicListsPage({
                     </p>
                   ) : null}
 
-                  <div className="mt-4 flex items-center gap-3 text-[12px] text-[#667085]">
-                    <span>{list.savesCount} salvamentos</span>
+                  <div className="mt-4 flex items-center justify-between border-t border-[#EEF2F6] pt-3 text-[12px] text-[#667085]">
+                    <span>{formatListDate(list.createdAt)}</span>
+                    <span className="inline-flex items-center gap-1 font-semibold text-[#0F1111]">
+                      Abrir lista
+                      <ChevronRight className="h-4 w-4 text-[#007185]" />
+                    </span>
                   </div>
                 </Link>
               ))}
