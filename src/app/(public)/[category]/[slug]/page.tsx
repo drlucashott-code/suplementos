@@ -91,9 +91,54 @@ export default async function DynamicCategoryPage({
   });
 
   const loadMoreUrl = `/api/dynamic-catalog?${loadMoreParams.toString()}`;
+  const canonicalPath = `/${group}/${slug}`;
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: catalog.categoryName,
+    url: buildAbsoluteUrl(canonicalPath),
+    description: `${catalog.totalProducts} produtos em ${catalog.categoryName} com filtros inteligentes e comparação rápida.`,
+    breadcrumb: {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: "Início",
+          item: buildAbsoluteUrl("/"),
+        },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: group,
+          item: buildAbsoluteUrl(`/${group}`),
+        },
+        {
+          "@type": "ListItem",
+          position: 3,
+          name: catalog.categoryName,
+          item: buildAbsoluteUrl(canonicalPath),
+        },
+      ],
+    },
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: catalog.products.length,
+      itemListElement: catalog.products.slice(0, 12).map((product, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        url: product.affiliateUrl,
+        name: product.name,
+      })),
+    },
+  };
 
   return (
     <main className="min-h-screen bg-[#EAEDED]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <Suspense fallback={<div className="h-14 w-full bg-[#232f3e]" />}>
         <AmazonHeader />
       </Suspense>

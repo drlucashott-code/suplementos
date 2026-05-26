@@ -4,7 +4,7 @@ import {
   applyPrioritySignal,
   applyRefreshResult,
   createSchedulerSnapshot,
-  shouldAttemptEnqueue,
+  shouldAttemptSignalEnqueue,
   type RefreshSignal,
 } from "@/lib/priceRefreshScheduler";
 
@@ -30,6 +30,7 @@ type DynamicSchedulerRow = {
 type TrackedSchedulerRow = DynamicSchedulerRow & { monitorCount: number | null };
 
 const LOCK_WINDOW_MS = 10 * 60 * 1000;
+const MANDATORY_REFRESH_INTERVAL_SQL = Prisma.sql`INTERVAL '24 hours'`;
 
 async function claimDynamicRefreshAttemptByWhere(whereSql: Prisma.Sql) {
   const now = new Date();
@@ -57,6 +58,12 @@ async function claimDynamicRefreshAttemptByWhere(whereSql: Prisma.Sql) {
       FROM "DynamicProduct" p
       WHERE ${whereSql}
         AND (p."refreshLockUntil" IS NULL OR p."refreshLockUntil" <= ${now})
+        AND (
+          p."nextPriceRefreshAt" IS NULL
+          OR p."nextPriceRefreshAt" <= ${now}
+          OR p."lastSuccessfulRefreshAt" IS NULL
+          OR p."lastSuccessfulRefreshAt" <= ${now} - ${MANDATORY_REFRESH_INTERVAL_SQL}
+        )
       LIMIT 1
       FOR UPDATE
     ),
@@ -119,6 +126,12 @@ async function claimTrackedRefreshAttemptByWhere(whereSql: Prisma.Sql) {
       FROM "SiteTrackedAmazonProduct" tp
       WHERE ${whereSql}
         AND (tp."refreshLockUntil" IS NULL OR tp."refreshLockUntil" <= ${now})
+        AND (
+          tp."nextPriceRefreshAt" IS NULL
+          OR tp."nextPriceRefreshAt" <= ${now}
+          OR tp."lastSuccessfulRefreshAt" IS NULL
+          OR tp."lastSuccessfulRefreshAt" <= ${now} - ${MANDATORY_REFRESH_INTERVAL_SQL}
+        )
       LIMIT 1
       FOR UPDATE
     ),
@@ -187,10 +200,6 @@ export async function touchDynamicProductPriority(params: {
 
   const now = new Date();
   const next = applyPrioritySignal(row, params.signal, { extraBoost: params.extraBoost });
-  const nextDueAt =
-    row.nextPriceRefreshAt && row.nextPriceRefreshAt.getTime() < now.getTime()
-      ? row.nextPriceRefreshAt
-      : now;
   await prisma.$executeRaw(Prisma.sql`
     UPDATE "DynamicProduct"
     SET
@@ -198,7 +207,7 @@ export async function touchDynamicProductPriority(params: {
       "priorityScore" = ${next.priorityScore},
       "lastPrioritySignalAt" = ${next.lastPrioritySignalAt},
       "lastInteractionAt" = ${next.lastInteractionAt},
-      "nextPriceRefreshAt" = ${nextDueAt},
+      "nextPriceRefreshAt" = ${next.nextPriceRefreshAt},
       "nextPriorityEnqueueAt" = ${next.nextPriorityEnqueueAt},
       "dataFreshnessScore" = ${next.dataFreshnessScore},
       "updatedAt" = NOW()
@@ -207,7 +216,15 @@ export async function touchDynamicProductPriority(params: {
 
   return {
     asin: row.asin,
-    shouldEnqueue: true,
+    shouldEnqueue: shouldAttemptSignalEnqueue({
+      signal: params.signal,
+      now,
+      refreshLockUntil: row.refreshLockUntil,
+      nextPriorityEnqueueAt: row.nextPriorityEnqueueAt,
+      nextPriceRefreshAt: row.nextPriceRefreshAt,
+      lastSuccessfulRefreshAt: row.lastSuccessfulRefreshAt,
+    }),
+    enqueueNotBeforeAt: next.nextPriorityEnqueueAt,
   };
 }
 
@@ -257,10 +274,6 @@ export async function touchTrackedProductPriority(params: {
     extraBoost: params.extraBoost,
     monitorCount: row.monitorCount ?? 0,
   });
-  const nextDueAt =
-    row.nextPriceRefreshAt && row.nextPriceRefreshAt.getTime() < now.getTime()
-      ? row.nextPriceRefreshAt
-      : now;
   await prisma.$executeRaw(Prisma.sql`
     UPDATE "SiteTrackedAmazonProduct"
     SET
@@ -268,7 +281,7 @@ export async function touchTrackedProductPriority(params: {
       "priorityScore" = ${next.priorityScore},
       "lastPrioritySignalAt" = ${next.lastPrioritySignalAt},
       "lastInteractionAt" = ${next.lastInteractionAt},
-      "nextPriceRefreshAt" = ${nextDueAt},
+      "nextPriceRefreshAt" = ${next.nextPriceRefreshAt},
       "nextPriorityEnqueueAt" = ${next.nextPriorityEnqueueAt},
       "dataFreshnessScore" = ${next.dataFreshnessScore},
       "updatedAt" = NOW()
@@ -277,11 +290,15 @@ export async function touchTrackedProductPriority(params: {
 
   return {
     asin: row.asin,
-    shouldEnqueue: shouldAttemptEnqueue({
+    shouldEnqueue: shouldAttemptSignalEnqueue({
+      signal: params.signal,
+      now,
       refreshLockUntil: row.refreshLockUntil,
       nextPriorityEnqueueAt: row.nextPriorityEnqueueAt,
       nextPriceRefreshAt: row.nextPriceRefreshAt,
+      lastSuccessfulRefreshAt: row.lastSuccessfulRefreshAt,
     }),
+    enqueueNotBeforeAt: next.nextPriorityEnqueueAt,
   };
 }
 

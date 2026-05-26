@@ -1,9 +1,20 @@
 import { NextResponse } from "next/server";
 import { resetSitePassword } from "@/lib/siteAuth";
+import { assertAuthRateLimit } from "@/lib/authRateLimit";
 
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as { token?: string; password?: string };
+
+    const rateLimited = await assertAuthRateLimit({
+      request,
+      action: "reset_password",
+    });
+
+    if (rateLimited) {
+      return rateLimited;
+    }
+
     const result = await resetSitePassword({
       token: body.token ?? "",
       password: body.password ?? "",

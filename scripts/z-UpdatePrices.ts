@@ -7,10 +7,18 @@ import {
 } from "../src/lib/dynamicCategoryMetrics";
 import { refreshDynamicProductPriceStatsBulk } from "../src/lib/dynamicPriceStats";
 import { getPriceHistoryCanonicalDate } from "../src/lib/dynamicPriceHistory";
+import {
+  hasMeaningfulDynamicStateChange,
+  hasMeaningfulTrackedStateChange,
+} from "../src/lib/priceRefreshDiff";
 import { refreshTrackedAmazonProductPriceStatsBulk } from "../src/lib/siteTrackedAmazonPriceStats";
 import {
   fetchAmazonPriceSnapshots,
 } from "../src/lib/amazonApiClient";
+import {
+  writeDynamicDailyPriceHistoryIfChanged,
+  writeTrackedDailyPriceHistoryIfChanged,
+} from "../src/lib/priceHistoryWrites";
 import {
   applyDynamicRefreshOutcome,
   applyTrackedRefreshOutcome,
@@ -53,6 +61,28 @@ const MAX_TRACKED_PRODUCTS_PER_RUN = Math.max(
       Math.max(200, Math.floor(GLOBAL_HOURLY_REQUEST_LIMIT * 0.35))
   )
 );
+
+const DYNAMIC_REFRESH_ORDER_BY = [
+  { nextPriceRefreshAt: "asc" },
+  { priorityScore: "desc" },
+  { dataFreshnessScore: "desc" },
+  { lastSuccessfulRefreshAt: "asc" },
+  { updatedAt: "asc" },
+] satisfies Prisma.DynamicProductOrderByWithRelationInput[];
+
+const TRACKED_REFRESH_ORDER_BY_SQL = Prisma.sql`
+  tp."nextPriceRefreshAt" ASC NULLS FIRST,
+  CASE tp."refreshTier"
+    WHEN 'hot' THEN 3
+    WHEN 'warm' THEN 2
+    ELSE 1
+  END DESC,
+  tp."priorityScore" DESC,
+  tp."dataFreshnessScore" DESC,
+  tp."lastSuccessfulRefreshAt" ASC NULLS FIRST,
+  tp."updatedAt" ASC
+`;
+const MANDATORY_REFRESH_INTERVAL_SQL = Prisma.sql`INTERVAL '24 hours'`;
 
 function getFirstEnvValue(...keys: string[]) {
   for (const key of keys) {
@@ -289,40 +319,47 @@ async function persistDynamicUpdate(
   const today = getPriceHistoryCanonicalDate();
 
   if (result && result.status === "OK") {
+    const hasMeaningfulChange = hasMeaningfulDynamicStateChange({
+      currentPrice: product.totalPrice,
+      nextPrice: result.price,
+      currentAvailabilityStatus: product.availabilityStatus,
+      nextAvailabilityStatus: "IN_STOCK",
+      currentAttributes: currentAttrs,
+      nextAttributes,
+    });
+
     await withDatabaseRetry(`dynamicProduct.update:${product.id}`, async () =>
       prisma.dynamicProduct.update({
         where: { id: product.id },
         data: {
-          totalPrice: result.price,
+          ...(hasMeaningfulChange
+            ? {
+                totalPrice: result.price,
+                attributes: nextAttributes as Prisma.InputJsonValue,
+              }
+            : {}),
           availabilityStatus: "IN_STOCK",
           lastValidPrice: result.price,
           lastValidPriceAt: new Date(),
-          attributes: nextAttributes as Prisma.InputJsonValue,
+          lastAvailabilityCheckedAt: new Date(),
         },
       })
     );
 
-    await withDatabaseRetry(`dynamicPriceHistory.upsert:${product.id}`, async () =>
-      prisma.dynamicPriceHistory.upsert({
-        where: {
-          productId_date: { productId: product.id, date: today },
-        },
-        update: {
-          price: result.price,
-          updateCount: { increment: 1 },
-        },
-        create: {
-          productId: product.id,
-          date: today,
-          price: result.price,
-        },
-      })
+    const priceHistoryWrote = await withDatabaseRetry(
+      `dynamicPriceHistory.upsert:${product.id}`,
+      async () =>
+        writeDynamicDailyPriceHistoryIfChanged({
+        productId: product.id,
+        date: today,
+        price: result.price,
+        })
     );
 
     return {
       logStatus: `OK R$ ${result.price.toFixed(2)}`,
       outcome: "UPDATED" as PersistOutcome,
-      shouldRefreshPriceStats: true,
+      shouldRefreshPriceStats: priceHistoryWrote,
     };
   }
 
@@ -342,13 +379,15 @@ async function persistDynamicUpdate(
       where: { id: product.id },
       data: {
         ...(result?.status === "OUT_OF_STOCK"
-          ? {
-              totalPrice: 0,
-              availabilityStatus: "OUT_OF_STOCK",
-            }
-          : result?.status === "EXCLUDED"
             ? {
                 totalPrice: 0,
+                availabilityStatus: "OUT_OF_STOCK",
+                lastAvailabilityCheckedAt: new Date(),
+              }
+            : result?.status === "EXCLUDED"
+            ? {
+                totalPrice: 0,
+                lastAvailabilityCheckedAt: new Date(),
               }
             : {}),
         attributes: nextAttributes as Prisma.InputJsonValue,
@@ -389,12 +428,14 @@ async function refreshMonitoredProducts() {
       FROM "SiteTrackedAmazonProduct" tp
       WHERE
         (tp."refreshLockUntil" IS NULL OR tp."refreshLockUntil" <= ${now})
-        AND (tp."nextPriceRefreshAt" IS NULL OR tp."nextPriceRefreshAt" <= ${now})
+        AND (
+          tp."nextPriceRefreshAt" IS NULL
+          OR tp."nextPriceRefreshAt" <= ${now}
+          OR tp."lastSuccessfulRefreshAt" IS NULL
+          OR tp."lastSuccessfulRefreshAt" <= ${now} - ${MANDATORY_REFRESH_INTERVAL_SQL}
+        )
       ORDER BY
-        tp."dataFreshnessScore" DESC,
-        tp."priorityScore" DESC,
-        tp."nextPriceRefreshAt" ASC NULLS FIRST,
-        tp."updatedAt" ASC
+        ${TRACKED_REFRESH_ORDER_BY_SQL}
       LIMIT ${MAX_TRACKED_PRODUCTS_PER_RUN}
     `)
   );
@@ -466,14 +507,26 @@ async function refreshMonitoredProducts() {
         result?.status === "OK" && typeof result.programAndSavePrice === "number"
           ? result.programAndSavePrice
           : null;
+      const hasMeaningfulChange = hasMeaningfulTrackedStateChange({
+        currentPrice: trackedProduct.totalPrice,
+        nextPrice: totalPrice,
+        currentAvailabilityStatus: trackedProduct.availabilityStatus,
+        nextAvailabilityStatus: availabilityStatus,
+        currentProgramAndSavePrice: trackedProduct.programAndSavePrice,
+        nextProgramAndSavePrice: programAndSavePrice,
+      });
 
       await withDatabaseRetry(`siteTrackedAmazonProduct.update:${trackedProduct.id}`, async () =>
         prisma.siteTrackedAmazonProduct.updateMany({
           where: { id: trackedProduct.id },
           data: {
-            totalPrice,
-            availabilityStatus,
-            programAndSavePrice,
+            ...(hasMeaningfulChange
+              ? {
+                  totalPrice,
+                  availabilityStatus,
+                  programAndSavePrice,
+                }
+              : {}),
             lastSyncedAt: new Date(),
             updatedAt: new Date(),
           },
@@ -481,42 +534,34 @@ async function refreshMonitoredProducts() {
       );
 
       if (totalPrice > 0) {
-        trackedProductIdsWithHistory.add(trackedProduct.id);
-        await withDatabaseRetry(`siteTrackedAmazonProductPriceHistory.upsert:${trackedProduct.id}`, async () =>
-          prisma.siteTrackedAmazonProductPriceHistory.upsert({
-            where: {
-              trackedProductId_date: {
-                trackedProductId: trackedProduct.id,
-                date: historyDate,
-              },
-            },
-            create: {
+        const wroteTrackedHistory = await withDatabaseRetry(
+          `siteTrackedAmazonProductPriceHistory.upsert:${trackedProduct.id}`,
+          async () =>
+            writeTrackedDailyPriceHistoryIfChanged({
               trackedProductId: trackedProduct.id,
-              price: totalPrice,
-              updateCount: 1,
               date: historyDate,
-            },
-            update: {
               price: totalPrice,
-              updateCount: { increment: 1 },
-              updatedAt: new Date(),
-            },
-          })
+            })
         );
+        if (wroteTrackedHistory) {
+          trackedProductIdsWithHistory.add(trackedProduct.id);
+        }
       }
 
       await withDatabaseRetry(`siteUserMonitoredProduct.sync:${trackedProduct.id}`, async () =>
-        prisma.siteUserMonitoredProduct.updateMany({
-          where: { trackedProductId: trackedProduct.id },
-          data: {
-            asin: trackedProduct.asin,
-            totalPrice,
-            availabilityStatus,
-            programAndSavePrice,
-            lastSyncedAt: new Date(),
-            updatedAt: new Date(),
-          },
-        })
+        hasMeaningfulChange
+          ? prisma.siteUserMonitoredProduct.updateMany({
+              where: { trackedProductId: trackedProduct.id },
+              data: {
+                asin: trackedProduct.asin,
+                totalPrice,
+                availabilityStatus,
+                programAndSavePrice,
+                lastSyncedAt: new Date(),
+                updatedAt: new Date(),
+              },
+            })
+          : Promise.resolve({ count: 0 })
       );
 
       await withDatabaseRetry(`siteTrackedAmazonProduct.scheduler:${trackedProduct.id}`, async () =>
@@ -534,7 +579,9 @@ async function refreshMonitoredProducts() {
     }
   }
 
-  await refreshTrackedAmazonProductPriceStatsBulk([...trackedProductIdsWithHistory]);
+  if (trackedProductIdsWithHistory.size > 0) {
+    await refreshTrackedAmazonProductPriceStatsBulk([...trackedProductIdsWithHistory]);
+  }
 
   return trackedProducts.length;
 }
@@ -657,7 +704,12 @@ async function updateAmazonPrices() {
           OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
         },
         {
-          OR: [{ nextPriceRefreshAt: null }, { nextPriceRefreshAt: { lte: now } }],
+          OR: [
+            { nextPriceRefreshAt: null },
+            { nextPriceRefreshAt: { lte: now } },
+            { lastSuccessfulRefreshAt: null },
+            { lastSuccessfulRefreshAt: { lte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } },
+          ],
         },
       ],
     } satisfies Prisma.DynamicProductWhereInput;
@@ -692,18 +744,11 @@ async function updateAmazonPrices() {
       },
     } satisfies Prisma.DynamicProductSelect;
 
-    const dynamicOrderBy = [
-      { dataFreshnessScore: "desc" },
-      { priorityScore: "desc" },
-      { nextPriceRefreshAt: "asc" },
-      { updatedAt: "asc" },
-    ] satisfies Prisma.DynamicProductOrderByWithRelationInput[];
-
     let dynamicProducts = await withDatabaseRetry("dynamicProduct.findMany", async () =>
       prisma.dynamicProduct.findMany({
         where: baseDynamicWhere,
         select: dynamicSelect,
-        orderBy: dynamicOrderBy,
+        orderBy: DYNAMIC_REFRESH_ORDER_BY,
         take: MAX_DYNAMIC_PRODUCTS_PER_RUN,
       })
     );
@@ -720,7 +765,7 @@ async function updateAmazonPrices() {
               ...(excludedIds.length > 0 ? { id: { notIn: excludedIds } } : {}),
             },
             select: dynamicSelect,
-            orderBy: dynamicOrderBy,
+            orderBy: DYNAMIC_REFRESH_ORDER_BY,
             take: remainingLimit,
           })
       );

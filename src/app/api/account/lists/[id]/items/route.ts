@@ -8,8 +8,8 @@ import {
   verificationRequiredResponse,
 } from "@/lib/siteAuth";
 import {
-  touchDynamicProductMaxPriority,
-  touchTrackedProductMaxPriority,
+  touchDynamicProductPriority,
+  touchTrackedProductPriority,
 } from "@/lib/priceRefreshSignals";
 import { enqueuePriorityRefresh } from "@/lib/priorityRefreshQueue";
 
@@ -124,21 +124,27 @@ export async function POST(
 
     try {
       if (productId) {
-        const priorityTouch = await touchDynamicProductMaxPriority(productId);
+        const priorityTouch = await touchDynamicProductPriority({
+          productId,
+          signal: "list",
+        });
         if (priorityTouch?.shouldEnqueue && priorityTouch.asin) {
           await enqueuePriorityRefresh({
             asin: priorityTouch.asin,
             reason: "list",
+            notBeforeAt: priorityTouch.enqueueNotBeforeAt,
           });
         }
       } else if (trackedAmazonProductId) {
-        const priorityTouch = await touchTrackedProductMaxPriority(
-          trackedAmazonProductId
-        );
+        const priorityTouch = await touchTrackedProductPriority({
+          trackedProductId: trackedAmazonProductId,
+          signal: "list",
+        });
         if (priorityTouch?.shouldEnqueue && priorityTouch.asin) {
           await enqueuePriorityRefresh({
             asin: priorityTouch.asin,
             reason: "list",
+            notBeforeAt: priorityTouch.enqueueNotBeforeAt,
           });
         }
       }

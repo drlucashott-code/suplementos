@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { loginSiteUser } from "@/lib/siteAuth";
+import { assertAuthRateLimit } from "@/lib/authRateLimit";
 
 export async function POST(request: Request) {
   try {
@@ -7,6 +8,16 @@ export async function POST(request: Request) {
       email?: string;
       password?: string;
     };
+
+    const rateLimited = await assertAuthRateLimit({
+      request,
+      action: "login",
+      email: body.email ?? "",
+    });
+
+    if (rateLimited) {
+      return rateLimited;
+    }
 
     const result = await loginSiteUser({
       email: body.email ?? "",

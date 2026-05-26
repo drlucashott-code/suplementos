@@ -173,13 +173,21 @@ export async function POST(request: Request) {
         await enqueuePriorityRefresh({
           asin: priorityTouch.asin,
           reason: "list",
+          notBeforeAt: priorityTouch.enqueueNotBeforeAt,
         });
       }
     } else if (item.trackedAmazonProductId) {
-      await touchTrackedProductPriority({
+      const priorityTouch = await touchTrackedProductPriority({
         trackedProductId: item.trackedAmazonProductId,
         signal: "public_list",
       });
+      if (priorityTouch?.shouldEnqueue && priorityTouch.asin) {
+        await enqueuePriorityRefresh({
+          asin: priorityTouch.asin,
+          reason: "list",
+          notBeforeAt: priorityTouch.enqueueNotBeforeAt,
+        });
+      }
     }
   }
 

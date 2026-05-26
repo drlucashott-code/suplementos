@@ -206,6 +206,7 @@ export async function POST(request: Request) {
         await enqueuePriorityRefresh({
           asin: priorityTouch.asin,
           reason: "favorite",
+          notBeforeAt: priorityTouch.enqueueNotBeforeAt,
         });
       }
     } catch (priorityError) {

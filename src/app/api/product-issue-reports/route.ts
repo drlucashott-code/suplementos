@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
       await enqueuePriorityRefresh({
         asin,
         reason: "issue_report",
+        notBeforeAt: priorityTouch.enqueueNotBeforeAt,
       });
     }
 

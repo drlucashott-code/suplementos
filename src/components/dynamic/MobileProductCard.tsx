@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Image from "next/image";
-import { AlertTriangle, Heart, RefreshCw, ShoppingCart, X } from "lucide-react";
+import { AlertTriangle, ExternalLink, Heart, RefreshCw, ShoppingCart, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -17,6 +17,7 @@ import { PriceHistoryButton } from "@/components/dynamic/PriceHistoryButton";
 import { ProductCommentsSheet } from "@/components/dynamic/ProductCommentsSheet";
 import type { PriceHistoryChartRange } from "@/lib/dynamicPriceHistory";
 import type { PriceDecision } from "@/lib/priceDecision";
+import { shareProductLink } from "@/lib/client/productShare";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 
 export type DynamicProductType = {
@@ -639,6 +640,20 @@ export function MobileProductCard({
         )}
 
         <div className="relative flex w-[160px] flex-shrink-0 flex-col items-center justify-center bg-[#f3f3f3] p-3">
+          <div className="absolute right-3 top-3 z-20">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void shareProductLink(product.id, product.name);
+              }}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-[6px] border border-[#d9dee3] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
+              aria-label="Compartilhar produto"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+            </button>
+          </div>
           {product.imageUrl ? (
             <div className="flex h-[220px] w-full items-center justify-center">
               <Image
@@ -663,11 +678,10 @@ export function MobileProductCard({
                 setReportOpen(true);
                 setReportState("idle");
               }}
-              className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-600 transition hover:border-gray-300"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300"
               aria-label="Reportar problema"
             >
               <AlertTriangle className="h-3.5 w-3.5" />
-              Reportar
             </button>
 
             <button
@@ -677,7 +691,7 @@ export function MobileProductCard({
                 event.stopPropagation();
                 void handleToggleSave();
               }}
-              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
                 saved
                   ? "border-[#f0c14b] bg-[#fff7d6] text-[#b77900]"
                   : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
@@ -685,7 +699,6 @@ export function MobileProductCard({
               aria-label={saved ? "Remover da Minha lista" : "Salvar na Minha lista"}
             >
               <Heart className={`h-3.5 w-3.5 ${saved ? "fill-current" : ""}`} />
-              {saved ? "Salvo" : "Salvar"}
             </button>
           </div>
 

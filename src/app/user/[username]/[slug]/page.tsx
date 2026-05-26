@@ -286,9 +286,33 @@ export default async function PublicUserListPage({
     items: sortedItems,
     commentsCount: firstRow.commentsCount,
   };
+  const canonicalPath = `/user/${username}/${slug}`;
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: list.title,
+    url: buildAbsoluteUrl(canonicalPath),
+    description:
+      list.description?.trim() ||
+      `Lista pública criada por ${list.ownerDisplayName}${list.ownerUsername ? ` (@${list.ownerUsername})` : ""}.`,
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: filteredItems.length,
+      itemListElement: filteredItems.slice(0, 20).map((item, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        url: item.url,
+        name: item.name,
+      })),
+    },
+  };
 
   return (
     <main className="min-h-screen bg-[#EAEDED]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <AmazonHeader />
 
       <div className="mx-auto max-w-[1500px] px-3 pt-4 md:px-5 md:pt-5">

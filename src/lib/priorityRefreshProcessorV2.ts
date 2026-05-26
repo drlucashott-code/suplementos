@@ -1,4 +1,5 @@
 import {
+  ChangeMessageVisibilityBatchCommand,
   DeleteMessageBatchCommand,
   ReceiveMessageCommand,
   SQSClient,
@@ -18,9 +19,11 @@ import {
   type DynamicCatalogCategoryRef,
 } from "@/lib/dynamicCatalogCache";
 import { enrichDynamicAttributesForCategory } from "@/lib/dynamicCategoryMetrics";
+import { hasMeaningfulDynamicStateChange } from "@/lib/priceRefreshDiff";
 import { prisma } from "@/lib/prisma";
 import { refreshDynamicProductPriceStats } from "@/lib/dynamicPriceStats";
 import { getPriceHistoryCanonicalDate } from "@/lib/dynamicPriceHistory";
+import { writeDynamicDailyPriceHistoryIfChanged } from "@/lib/priceHistoryWrites";
 import { applyDynamicRefreshOutcome, markDynamicRefreshAttempt } from "@/lib/priceRefreshSignals";
 import { reservePriceRefreshBudget } from "@/lib/priceRefreshBudget";
 
@@ -112,12 +115,24 @@ function extractAsinFromMessage(message: Message) {
   }
 }
 
+function extractNotBeforeAtFromMessage(message: Message) {
+  try {
+    const body = JSON.parse(message.Body || "{}") as { notBeforeAt?: string | null };
+    if (!body.notBeforeAt) return null;
+    const date = new Date(body.notBeforeAt);
+    return Number.isFinite(date.getTime()) ? date : null;
+  } catch {
+    return null;
+  }
+}
+
 async function persistDynamicUpdate(params: {
   product: {
     id: string;
     name: string;
     totalPrice: number;
     attributes: unknown;
+    availabilityStatus: string | null;
     category:
       | {
           name: string;
@@ -170,73 +185,57 @@ async function persistDynamicUpdate(params: {
     : nextAttributesBase;
 
   const now = new Date();
+  const nextAvailabilityStatus =
+    result.status === "OK" ? "IN_STOCK" : result.status === "OUT_OF_STOCK" ? "OUT_OF_STOCK" : "IN_STOCK";
+  const hasMeaningfulChange = hasMeaningfulDynamicStateChange({
+    currentPrice: product.totalPrice,
+    nextPrice: result.status === "OK" ? result.price : result.status === "OUT_OF_STOCK" ? 0 : product.totalPrice,
+    currentAvailabilityStatus: product.availabilityStatus,
+    nextAvailabilityStatus,
+    currentAttributes,
+    nextAttributes: attributes,
+  });
 
   await prisma.dynamicProduct.update({
     where: { id: product.id },
     data: {
+      ...(hasMeaningfulChange
+        ? {
+            ...(result.status === "OK"
+              ? { totalPrice: result.price }
+              : result.status === "OUT_OF_STOCK" || result.status === "EXCLUDED"
+                ? { totalPrice: 0 }
+                : {}),
+            url: affiliateUrl,
+            attributes,
+          }
+        : {}),
       ...(result.status === "OK"
-        ? { totalPrice: result.price }
-        : result.status === "OUT_OF_STOCK" || result.status === "EXCLUDED"
-          ? { totalPrice: 0 }
+        ? {
+            lastValidPrice: result.price,
+            lastValidPriceAt: now,
+            availabilityStatus: "IN_STOCK",
+          }
+        : result.status === "OUT_OF_STOCK"
+          ? {
+              availabilityStatus: "OUT_OF_STOCK",
+            }
           : {}),
-      url: affiliateUrl,
-      attributes,
-      lastRefreshAttemptAt: now,
-      lastPriceRefreshAt: now,
-      ...(result.status === "OK" ? { lastSuccessfulRefreshAt: now } : {}),
+      lastAvailabilityCheckedAt: now,
     },
   });
-  if (result.status === "OK") {
-    await prisma.$executeRaw`
-      UPDATE "DynamicProduct"
-      SET
-        "lastValidPrice" = ${result.price},
-        "lastValidPriceAt" = ${now},
-        "availabilityStatus" = 'IN_STOCK',
-        "lastAvailabilityCheckedAt" = ${now},
-        "updatedAt" = NOW()
-      WHERE "id" = ${product.id}
-    `;
-  } else if (result.status === "OUT_OF_STOCK") {
-    await prisma.$executeRaw`
-      UPDATE "DynamicProduct"
-      SET
-        "availabilityStatus" = 'OUT_OF_STOCK',
-        "lastAvailabilityCheckedAt" = ${now},
-        "updatedAt" = NOW()
-      WHERE "id" = ${product.id}
-    `;
-  } else {
-    await prisma.$executeRaw`
-      UPDATE "DynamicProduct"
-      SET
-        "lastAvailabilityCheckedAt" = ${now},
-        "updatedAt" = NOW()
-      WHERE "id" = ${product.id}
-    `;
-  }
 
   if (result.status === "OK") {
     const historyDate = getPriceHistoryCanonicalDate(now);
-    await prisma.dynamicPriceHistory.upsert({
-      where: {
-        productId_date: {
-          productId: product.id,
-          date: historyDate,
-        },
-      },
-      update: {
-        price: result.price,
-        updateCount: { increment: 1 },
-      },
-      create: {
-        productId: product.id,
-        price: result.price,
-        date: historyDate,
-      },
+    const wroteHistory = await writeDynamicDailyPriceHistoryIfChanged({
+      productId: product.id,
+      date: historyDate,
+      price: result.price,
     });
 
-    await refreshDynamicProductPriceStats(product.id);
+    if (wroteHistory) {
+      await refreshDynamicProductPriceStats(product.id);
+    }
   }
 }
 
@@ -332,9 +331,43 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
         break;
       }
 
-      summary.processedMessages += messages.length;
+      const now = new Date();
+      const deferredMessages = messages.filter((message) => {
+        const notBeforeAt = extractNotBeforeAtFromMessage(message);
+        return Boolean(notBeforeAt && notBeforeAt.getTime() > now.getTime());
+      });
 
-      const messageAsins = messages.map((message) => ({
+      if (deferredMessages.length > 0) {
+        await sqsClient.send(
+          new ChangeMessageVisibilityBatchCommand({
+            QueueUrl: queueUrl,
+            Entries: deferredMessages
+              .filter((message) => message.ReceiptHandle)
+              .map((message, index) => {
+                const notBeforeAt = extractNotBeforeAtFromMessage(message)!;
+                const visibilityTimeout = Math.max(
+                  1,
+                  Math.min(900, Math.ceil((notBeforeAt.getTime() - now.getTime()) / 1000))
+                );
+
+                return {
+                  Id: `defer-${index}`,
+                  ReceiptHandle: message.ReceiptHandle!,
+                  VisibilityTimeout: visibilityTimeout,
+                };
+              }),
+          })
+        );
+      }
+
+      const eligibleMessages = messages.filter((message) => !deferredMessages.includes(message));
+      if (eligibleMessages.length === 0) {
+        continue;
+      }
+
+      summary.processedMessages += eligibleMessages.length;
+
+      const messageAsins = eligibleMessages.map((message) => ({
         message,
         asin: extractAsinFromMessage(message),
       }));
@@ -500,7 +533,7 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
         }
       }
 
-      const deletableMessages = messages.filter((message) => {
+      const deletableMessages = eligibleMessages.filter((message) => {
         if (!message.ReceiptHandle) return false;
         const asin = extractAsinFromMessage(message);
         if (!asin) return true;

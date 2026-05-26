@@ -101,8 +101,31 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
     return search ? `/ofertas?${search}` : "/ofertas";
   };
 
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: "Melhores ofertas do momento",
+    url: buildAbsoluteUrl("/ofertas"),
+    description:
+      "Seleção de ofertas com desconto relevante, preço válido e leitura rápida do valor real da oferta.",
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: deals.length,
+      itemListElement: deals.slice(0, 20).map((deal, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        url: deal.url,
+        name: deal.name,
+      })),
+    },
+  };
+
   return (
     <main className="min-h-screen bg-[#E3E6E6] pb-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <AmazonHeader />
 
       <div className="mx-auto max-w-[1500px] px-3 py-4 md:px-5">

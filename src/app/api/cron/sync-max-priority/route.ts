@@ -20,8 +20,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const summary = await syncMaxPriorityRefreshTargets();
-    return NextResponse.json({ ok: true, summary });
+    const scopeParam = request.nextUrl.searchParams.get("scope");
+    const scope = scopeParam === "offers" || scopeParam === "all" ? scopeParam : "all";
+    const summary = await syncMaxPriorityRefreshTargets(scope);
+    return NextResponse.json({ ok: true, scope, summary });
   } catch (error) {
     console.error("Erro ao sincronizar prioridade maxima:", error);
     return NextResponse.json(

@@ -25,6 +25,7 @@ type SchedulerRow = {
   refreshFailCount: number | null;
   refreshLockUntil: Date | null;
   monitorCount: number;
+  updatesLast24h: number;
 };
 
 type ActionLogRow = {
@@ -37,8 +38,10 @@ type ActionLogRow = {
   createdAt: Date;
 };
 
+type SchedulerSort = "priority" | "updated";
+
 function formatDate(value: Date | null) {
-  if (!value) return "—";
+  if (!value) return "-";
   return new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
     timeStyle: "medium",
@@ -46,58 +49,82 @@ function formatDate(value: Date | null) {
   }).format(new Date(value));
 }
 
+function formatScore(value: number | null) {
+  if (typeof value !== "number" || Number.isNaN(value)) return "0.0";
+  return value.toFixed(1);
+}
+
 function getRefreshTimingLabel(value: Date | null, now: Date) {
   if (!value) {
     return {
       label: "Sem agenda",
-      value: "—",
+      value: "-",
     };
   }
 
   if (value.getTime() <= now.getTime()) {
     return {
-      label: "Elegível desde",
+      label: "Elegivel desde",
       value: formatDate(value),
     };
   }
 
   return {
-    label: "Próximo refresh",
+    label: "Proximo refresh",
     value: formatDate(value),
   };
 }
 
-function getLastRefreshLabel(row: Pick<SchedulerRow, "lastSuccessfulRefreshAt" | "lastPriceRefreshAt" | "lastRefreshAttemptAt">) {
+function getLastRefreshLabel(
+  row: Pick<
+    SchedulerRow,
+    "lastSuccessfulRefreshAt" | "lastPriceRefreshAt" | "lastRefreshAttemptAt"
+  >
+) {
   if (row.lastSuccessfulRefreshAt) {
     return {
-      label: "Último sucesso",
+      label: "Ultimo sucesso",
       value: formatDate(row.lastSuccessfulRefreshAt),
     };
   }
 
   if (row.lastPriceRefreshAt) {
     return {
-      label: "Último refresh",
+      label: "Ultimo refresh",
       value: formatDate(row.lastPriceRefreshAt),
     };
   }
 
   if (row.lastRefreshAttemptAt) {
     return {
-      label: "Última tentativa",
+      label: "Ultima tentativa",
       value: formatDate(row.lastRefreshAttemptAt),
     };
   }
 
   return {
-    label: "Sem histórico",
-    value: "—",
+    label: "Sem historico",
+    value: "-",
   };
 }
 
-function formatScore(value: number | null) {
-  if (typeof value !== "number" || Number.isNaN(value)) return "0.0";
-  return value.toFixed(1);
+function isMandatoryDue(
+  row: Pick<SchedulerRow, "lastSuccessfulRefreshAt">,
+  mandatoryCutoff: Date
+) {
+  return (
+    !row.lastSuccessfulRefreshAt ||
+    row.lastSuccessfulRefreshAt.getTime() <= mandatoryCutoff.getTime()
+  );
+}
+
+function isPriorityDue(
+  row: Pick<SchedulerRow, "nextPriceRefreshAt" | "lastSuccessfulRefreshAt">,
+  now: Date,
+  mandatoryCutoff: Date
+) {
+  if (isMandatoryDue(row, mandatoryCutoff)) return false;
+  return !row.nextPriceRefreshAt || row.nextPriceRefreshAt.getTime() <= now.getTime();
 }
 
 function getTierClasses(tier: string | null) {
@@ -110,20 +137,93 @@ function sourceLabel(source: SchedulerRow["source"]) {
   return source === "dynamic" ? "Comparador" : "Amazon interno";
 }
 
-export default async function AdminRefreshSchedulerPage() {
+function parseSearchParam(
+  value: string | string[] | undefined,
+  fallback = ""
+) {
+  return typeof value === "string" ? value : fallback;
+}
+
+function resolveSchedulerSort(value: string): SchedulerSort {
+  return value === "updated" ? "updated" : "priority";
+}
+
+export default async function AdminRefreshSchedulerPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const resolvedSearchParams = await searchParams;
   const now = new Date();
+  const mandatoryCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const historyCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const asinQuery = parseSearchParam(resolvedSearchParams?.q).trim().toUpperCase();
+  const sort = resolveSchedulerSort(
+    parseSearchParam(resolvedSearchParams?.sort, "priority")
+  );
+
+  const dynamicWhere =
+    asinQuery.length > 0
+      ? {
+          asin: {
+            contains: asinQuery,
+            mode: "insensitive" as const,
+          },
+        }
+      : undefined;
+
+  const trackedWhere =
+    asinQuery.length > 0
+      ? {
+          asin: {
+            contains: asinQuery,
+            mode: "insensitive" as const,
+          },
+        }
+      : undefined;
+
+  const dynamicOrderBy =
+    sort === "updated"
+      ? [
+          { lastPriceRefreshAt: "desc" as const },
+          { lastSuccessfulRefreshAt: "desc" as const },
+          { priorityScore: "desc" as const },
+        ]
+      : [
+          { nextPriceRefreshAt: "asc" as const },
+          { priorityScore: "desc" as const },
+          { dataFreshnessScore: "desc" as const },
+        ];
+
+  const trackedOrderBy =
+    sort === "updated"
+      ? [
+          { lastPriceRefreshAt: "desc" as const },
+          { lastSuccessfulRefreshAt: "desc" as const },
+          { priorityScore: "desc" as const },
+        ]
+      : [
+          { nextPriceRefreshAt: "asc" as const },
+          { priorityScore: "desc" as const },
+          { dataFreshnessScore: "desc" as const },
+        ];
 
   const [
     dynamicProducts,
     trackedProducts,
     dynamicDueCount,
     trackedDueCount,
+    dynamicPriorityDueCount,
+    trackedPriorityDueCount,
+    dynamicMandatoryDueCount,
+    trackedMandatoryDueCount,
     hotCount,
     warmCount,
     coldCount,
     recentActions,
   ] = await Promise.all([
     prisma.dynamicProduct.findMany({
+      where: dynamicWhere,
       select: {
         id: true,
         asin: true,
@@ -138,14 +238,11 @@ export default async function AdminRefreshSchedulerPage() {
         refreshFailCount: true,
         refreshLockUntil: true,
       },
-      orderBy: [
-        { dataFreshnessScore: "desc" },
-        { priorityScore: "desc" },
-        { nextPriceRefreshAt: "asc" },
-      ],
-      take: 40,
+      orderBy: dynamicOrderBy,
+      take: 80,
     }),
     prisma.siteTrackedAmazonProduct.findMany({
+      where: trackedWhere,
       select: {
         id: true,
         asin: true,
@@ -161,12 +258,8 @@ export default async function AdminRefreshSchedulerPage() {
         refreshLockUntil: true,
         monitorCount: true,
       },
-      orderBy: [
-        { dataFreshnessScore: "desc" },
-        { priorityScore: "desc" },
-        { nextPriceRefreshAt: "asc" },
-      ],
-      take: 40,
+      orderBy: trackedOrderBy,
+      take: 80,
     }),
     prisma.dynamicProduct.count({
       where: {
@@ -192,18 +285,84 @@ export default async function AdminRefreshSchedulerPage() {
         ],
       },
     }),
-    prisma.$transaction([
-      prisma.dynamicProduct.count({ where: { refreshTier: "hot" } }),
-      prisma.siteTrackedAmazonProduct.count({ where: { refreshTier: "hot" } }),
-    ]).then(([dynamic, tracked]) => dynamic + tracked),
-    prisma.$transaction([
-      prisma.dynamicProduct.count({ where: { refreshTier: "warm" } }),
-      prisma.siteTrackedAmazonProduct.count({ where: { refreshTier: "warm" } }),
-    ]).then(([dynamic, tracked]) => dynamic + tracked),
-    prisma.$transaction([
-      prisma.dynamicProduct.count({ where: { refreshTier: "cold" } }),
-      prisma.siteTrackedAmazonProduct.count({ where: { refreshTier: "cold" } }),
-    ]).then(([dynamic, tracked]) => dynamic + tracked),
+    prisma.dynamicProduct.count({
+      where: {
+        AND: [
+          {
+            OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
+          },
+          {
+            OR: [{ nextPriceRefreshAt: null }, { nextPriceRefreshAt: { lte: now } }],
+          },
+          {
+            lastSuccessfulRefreshAt: { gt: mandatoryCutoff },
+          },
+        ],
+      },
+    }),
+    prisma.siteTrackedAmazonProduct.count({
+      where: {
+        AND: [
+          {
+            OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
+          },
+          {
+            OR: [{ nextPriceRefreshAt: null }, { nextPriceRefreshAt: { lte: now } }],
+          },
+          {
+            lastSuccessfulRefreshAt: { gt: mandatoryCutoff },
+          },
+        ],
+      },
+    }),
+    prisma.dynamicProduct.count({
+      where: {
+        AND: [
+          {
+            OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
+          },
+          {
+            OR: [
+              { lastSuccessfulRefreshAt: null },
+              { lastSuccessfulRefreshAt: { lte: mandatoryCutoff } },
+            ],
+          },
+        ],
+      },
+    }),
+    prisma.siteTrackedAmazonProduct.count({
+      where: {
+        AND: [
+          {
+            OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
+          },
+          {
+            OR: [
+              { lastSuccessfulRefreshAt: null },
+              { lastSuccessfulRefreshAt: { lte: mandatoryCutoff } },
+            ],
+          },
+        ],
+      },
+    }),
+    prisma
+      .$transaction([
+        prisma.dynamicProduct.count({ where: { refreshTier: "hot" } }),
+        prisma.siteTrackedAmazonProduct.count({ where: { refreshTier: "hot" } }),
+      ])
+      .then(([dynamic, tracked]) => dynamic + tracked),
+    prisma
+      .$transaction([
+        prisma.dynamicProduct.count({ where: { refreshTier: "warm" } }),
+        prisma.siteTrackedAmazonProduct.count({ where: { refreshTier: "warm" } }),
+      ])
+      .then(([dynamic, tracked]) => dynamic + tracked),
+    prisma
+      .$transaction([
+        prisma.dynamicProduct.count({ where: { refreshTier: "cold" } }),
+        prisma.siteTrackedAmazonProduct.count({ where: { refreshTier: "cold" } }),
+      ])
+      .then(([dynamic, tracked]) => dynamic + tracked),
     prisma.$queryRaw<ActionLogRow[]>`
       SELECT
         "id",
@@ -219,23 +378,120 @@ export default async function AdminRefreshSchedulerPage() {
     `,
   ]);
 
+  const dynamicHistoryRows =
+    dynamicProducts.length === 0
+      ? []
+      : await prisma.dynamicPriceHistory.findMany({
+          where: {
+            productId: { in: dynamicProducts.map((product) => product.id) },
+            date: { gte: historyCutoff },
+          },
+          select: {
+            productId: true,
+            updateCount: true,
+          },
+        });
+
+  const trackedHistoryRows =
+    trackedProducts.length === 0
+      ? []
+      : await prisma.siteTrackedAmazonProductPriceHistory.findMany({
+          where: {
+            trackedProductId: { in: trackedProducts.map((product) => product.id) },
+            date: { gte: historyCutoff },
+          },
+          select: {
+            trackedProductId: true,
+            updateCount: true,
+          },
+        });
+
+  const dynamicUpdateCountMap = new Map<string, number>();
+  for (const row of dynamicHistoryRows) {
+    dynamicUpdateCountMap.set(
+      row.productId,
+      (dynamicUpdateCountMap.get(row.productId) ?? 0) + row.updateCount
+    );
+  }
+
+  const trackedUpdateCountMap = new Map<string, number>();
+  for (const row of trackedHistoryRows) {
+    trackedUpdateCountMap.set(
+      row.trackedProductId,
+      (trackedUpdateCountMap.get(row.trackedProductId) ?? 0) + row.updateCount
+    );
+  }
+
   const rows: SchedulerRow[] = [
-    ...dynamicProducts.map((product: Omit<SchedulerRow, "source" | "monitorCount">) => ({
-      ...product,
-      source: "dynamic" as const,
-      monitorCount: 0,
-    })),
-    ...trackedProducts.map((product: Omit<SchedulerRow, "source">) => ({
-      ...product,
-      source: "tracked" as const,
-    })),
+    ...dynamicProducts.map(
+      (product): SchedulerRow => ({
+        ...product,
+        source: "dynamic",
+        monitorCount: 0,
+        updatesLast24h: Math.max(
+          dynamicUpdateCountMap.get(product.id) ?? 0,
+          product.lastPriceRefreshAt &&
+            product.lastPriceRefreshAt.getTime() >= historyCutoff.getTime()
+            ? 1
+            : 0
+        ),
+      })
+    ),
+    ...trackedProducts.map(
+      (product): SchedulerRow => ({
+        ...product,
+        source: "tracked",
+        updatesLast24h: Math.max(
+          trackedUpdateCountMap.get(product.id) ?? 0,
+          product.lastPriceRefreshAt &&
+            product.lastPriceRefreshAt.getTime() >= historyCutoff.getTime()
+            ? 1
+            : 0
+        ),
+      })
+    ),
   ]
     .sort((a, b) => {
-      const freshness = (b.dataFreshnessScore ?? 0) - (a.dataFreshnessScore ?? 0);
-      if (Math.abs(freshness) > 0.001) return freshness;
-      const priority = (b.priorityScore ?? 0) - (a.priorityScore ?? 0);
-      if (Math.abs(priority) > 0.001) return priority;
-      return (a.nextPriceRefreshAt?.getTime() ?? 0) - (b.nextPriceRefreshAt?.getTime() ?? 0);
+      if (sort === "updated") {
+        const updatedDiff =
+          (b.lastPriceRefreshAt?.getTime() ??
+            b.lastSuccessfulRefreshAt?.getTime() ??
+            0) -
+          (a.lastPriceRefreshAt?.getTime() ??
+            a.lastSuccessfulRefreshAt?.getTime() ??
+            0);
+        if (updatedDiff !== 0) return updatedDiff;
+
+        const updatesDiff = b.updatesLast24h - a.updatesLast24h;
+        if (updatesDiff !== 0) return updatesDiff;
+
+        const priorityDiff = (b.priorityScore ?? 0) - (a.priorityScore ?? 0);
+        if (Math.abs(priorityDiff) > 0.001) return priorityDiff;
+
+        return a.asin.localeCompare(b.asin);
+      }
+
+      const aMandatoryDue = isMandatoryDue(a, mandatoryCutoff);
+      const bMandatoryDue = isMandatoryDue(b, mandatoryCutoff);
+      if (aMandatoryDue !== bMandatoryDue) return aMandatoryDue ? -1 : 1;
+
+      const aPriorityDue = isPriorityDue(a, now, mandatoryCutoff);
+      const bPriorityDue = isPriorityDue(b, now, mandatoryCutoff);
+      if (aPriorityDue !== bPriorityDue) return aPriorityDue ? -1 : 1;
+
+      const nextRefresh =
+        (a.nextPriceRefreshAt?.getTime() ?? 0) -
+        (b.nextPriceRefreshAt?.getTime() ?? 0);
+      if (nextRefresh !== 0) return nextRefresh;
+
+      const priorityDiff = (b.priorityScore ?? 0) - (a.priorityScore ?? 0);
+      if (Math.abs(priorityDiff) > 0.001) return priorityDiff;
+
+      const freshnessDiff =
+        (b.dataFreshnessScore ?? 0) - (a.dataFreshnessScore ?? 0);
+      if (Math.abs(freshnessDiff) > 0.001) return freshnessDiff;
+
+      return a.asin.localeCompare(b.asin);
     })
     .slice(0, 60);
 
@@ -254,21 +510,57 @@ export default async function AdminRefreshSchedulerPage() {
               REFRESH SCHEDULER
             </h1>
             <p className="mt-1 text-sm font-medium text-gray-500">
-              Leitura operacional da fila inteligente: urgencia, score, tier e travas.
+              Leitura operacional da fila inteligente: urgencia, score, tier,
+              travas e atividade recente.
             </p>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 md:items-end">
+            <form
+              action="/admin/dynamic/refresh-scheduler"
+              className="flex flex-col gap-2 md:flex-row"
+            >
+              <input
+                type="text"
+                name="q"
+                defaultValue={asinQuery}
+                placeholder="Buscar por ASIN"
+                className="h-11 min-w-[220px] rounded-2xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-800 shadow-sm outline-none transition-all focus:border-blue-300"
+              />
+              <select
+                name="sort"
+                defaultValue={sort}
+                className="h-11 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-800 shadow-sm outline-none transition-all focus:border-blue-300"
+              >
+                <option value="priority">Ranking de prioridade</option>
+                <option value="updated">Ultimos atualizados</option>
+              </select>
+              <button
+                type="submit"
+                className="h-11 rounded-2xl bg-gray-900 px-5 text-[11px] font-black uppercase tracking-widest text-white shadow-sm transition-all hover:bg-black"
+              >
+                Aplicar
+              </button>
+              {(asinQuery || sort !== "priority") && (
+                <Link
+                  href="/admin/dynamic/refresh-scheduler"
+                  className="inline-flex h-11 items-center justify-center rounded-2xl border border-gray-200 bg-white px-5 text-[11px] font-black uppercase tracking-widest text-gray-600 shadow-sm transition-all hover:text-black"
+                >
+                  Limpar
+                </Link>
+              )}
+            </form>
+
             <Link
               href="/admin/dynamic"
               className="rounded-2xl border border-gray-200 bg-white px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500 shadow-sm transition-all hover:text-black"
             >
-              ← Painel dinâmico
+              ← Painel dinamico
             </Link>
           </div>
         </div>
 
-        <div className="mb-6 grid gap-3 md:grid-cols-5">
+        <div className="mb-6 grid gap-3 md:grid-cols-6">
           <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
             <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
               Vencidos agora
@@ -278,6 +570,32 @@ export default async function AdminRefreshSchedulerPage() {
             </div>
             <div className="mt-2 text-xs font-semibold text-gray-500">
               Comparador {dynamicDueCount} • Amazon interno {trackedDueCount}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
+            <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+              Cobertura diaria
+            </div>
+            <div className="mt-1 text-3xl font-black text-amber-600">
+              {dynamicMandatoryDueCount + trackedMandatoryDueCount}
+            </div>
+            <div className="mt-2 text-xs font-semibold text-gray-500">
+              Comparador {dynamicMandatoryDueCount} • Amazon interno{" "}
+              {trackedMandatoryDueCount}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
+            <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+              Urgencia prioritaria
+            </div>
+            <div className="mt-1 text-3xl font-black text-blue-600">
+              {dynamicPriorityDueCount + trackedPriorityDueCount}
+            </div>
+            <div className="mt-2 text-xs font-semibold text-gray-500">
+              Comparador {dynamicPriorityDueCount} • Amazon interno{" "}
+              {trackedPriorityDueCount}
             </div>
           </div>
 
@@ -312,20 +630,21 @@ export default async function AdminRefreshSchedulerPage() {
 
         <div className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-xl shadow-gray-200/50">
           <div className="overflow-x-auto">
-            <table className="min-w-[1260px] w-full border-collapse text-left">
+            <table className="min-w-[1380px] w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50 text-[10px] font-black uppercase tracking-widest text-gray-400">
                   <th className="p-4 text-black">Produto</th>
                   <th className="p-4 text-center text-black">Origem</th>
                   <th className="p-4 text-center text-black">Tier</th>
                   <th className="p-4 text-center text-black">Priority</th>
-                  <th className="p-4 text-center text-black">Urgência</th>
+                  <th className="p-4 text-center text-black">Urgencia</th>
                   <th className="p-4 text-center text-black">Janela de refresh</th>
-                  <th className="p-4 text-center text-black">Último refresh</th>
+                  <th className="p-4 text-center text-black">Ultimo refresh</th>
+                  <th className="p-4 text-center text-black">Atualizacoes 24h</th>
                   <th className="p-4 text-center text-black">Falhas</th>
                   <th className="p-4 text-center text-black">Lock</th>
                   <th className="p-4 text-center text-black">Monitores</th>
-                  <th className="p-4 text-center text-black">Ações</th>
+                  <th className="p-4 text-center text-black">Acoes</th>
                 </tr>
               </thead>
 
@@ -333,7 +652,7 @@ export default async function AdminRefreshSchedulerPage() {
                 {rows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={11}
+                      colSpan={12}
                       className="p-10 text-center text-sm font-semibold text-gray-400"
                     >
                       Nenhum item encontrado no scheduler.
@@ -342,12 +661,21 @@ export default async function AdminRefreshSchedulerPage() {
                 ) : (
                   rows.map((row) => {
                     const lockActive =
-                      row.refreshLockUntil && row.refreshLockUntil.getTime() > now.getTime();
-                    const refreshTiming = getRefreshTimingLabel(row.nextPriceRefreshAt, now);
+                      row.refreshLockUntil &&
+                      row.refreshLockUntil.getTime() > now.getTime();
+                    const mandatoryDue = isMandatoryDue(row, mandatoryCutoff);
+                    const priorityDue = isPriorityDue(row, now, mandatoryCutoff);
+                    const refreshTiming = getRefreshTimingLabel(
+                      row.nextPriceRefreshAt,
+                      now
+                    );
                     const lastRefresh = getLastRefreshLabel(row);
 
                     return (
-                      <tr key={`${row.source}:${row.id}`} className="transition-colors hover:bg-gray-50/50">
+                      <tr
+                        key={`${row.source}:${row.id}`}
+                        className="transition-colors hover:bg-gray-50/50"
+                      >
                         <td className="p-4">
                           <div className="max-w-[360px] text-[13px] font-bold text-gray-900">
                             {row.name}
@@ -375,11 +703,25 @@ export default async function AdminRefreshSchedulerPage() {
                           {formatScore(row.dataFreshnessScore)}
                         </td>
                         <td className="p-4 text-center">
-                          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                            {refreshTiming.label}
-                          </div>
-                          <div className="mt-1 text-[12px] font-black text-gray-700">
-                            {refreshTiming.value}
+                          <div className="flex flex-col items-center gap-2">
+                            <span
+                              className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${
+                                mandatoryDue
+                                  ? "bg-amber-100 text-amber-700"
+                                  : priorityDue
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "bg-gray-100 text-gray-600"
+                              }`}
+                            >
+                              {mandatoryDue
+                                ? "Cobertura diaria"
+                                : priorityDue
+                                  ? "Urgencia prioritaria"
+                                  : refreshTiming.label}
+                            </span>
+                            <div className="text-[12px] font-black text-gray-700">
+                              {mandatoryDue ? lastRefresh.value : refreshTiming.value}
+                            </div>
                           </div>
                         </td>
                         <td className="p-4 text-center">
@@ -389,6 +731,9 @@ export default async function AdminRefreshSchedulerPage() {
                           <div className="mt-1 text-[12px] font-black text-gray-700">
                             {lastRefresh.value}
                           </div>
+                        </td>
+                        <td className="p-4 text-center text-lg font-black text-gray-900">
+                          {row.updatesLast24h}
                         </td>
                         <td className="p-4 text-center text-lg font-black text-red-600">
                           {row.refreshFailCount ?? 0}
@@ -417,15 +762,23 @@ export default async function AdminRefreshSchedulerPage() {
                               }
                             >
                               {row.source === "dynamic" ? (
-                                <input type="hidden" name="productId" value={row.id} />
+                                <input
+                                  type="hidden"
+                                  name="productId"
+                                  value={row.id}
+                                />
                               ) : (
-                                <input type="hidden" name="trackedProductId" value={row.id} />
+                                <input
+                                  type="hidden"
+                                  name="trackedProductId"
+                                  value={row.id}
+                                />
                               )}
                               <button
                                 type="submit"
                                 className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700 transition-all hover:bg-blue-100"
                               >
-                                Forçar agora
+                                Forcar agora
                               </button>
                             </form>
                             <form
@@ -436,9 +789,17 @@ export default async function AdminRefreshSchedulerPage() {
                               }
                             >
                               {row.source === "dynamic" ? (
-                                <input type="hidden" name="productId" value={row.id} />
+                                <input
+                                  type="hidden"
+                                  name="productId"
+                                  value={row.id}
+                                />
                               ) : (
-                                <input type="hidden" name="trackedProductId" value={row.id} />
+                                <input
+                                  type="hidden"
+                                  name="trackedProductId"
+                                  value={row.id}
+                                />
                               )}
                               <button
                                 type="submit"
@@ -460,9 +821,11 @@ export default async function AdminRefreshSchedulerPage() {
 
         <div className="mt-8 overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-xl shadow-gray-200/50">
           <div className="border-b border-gray-100 bg-gray-50 px-6 py-4">
-            <h2 className="text-lg font-black text-gray-900">Últimas ações manuais</h2>
+            <h2 className="text-lg font-black text-gray-900">
+              Ultimas acoes manuais
+            </h2>
             <p className="mt-1 text-sm font-medium text-gray-500">
-              Auditoria rápida de boost e forçar refresh disparados no admin.
+              Auditoria rapida de boost e forcar refresh disparados no admin.
             </p>
           </div>
 
@@ -471,7 +834,7 @@ export default async function AdminRefreshSchedulerPage() {
               <thead>
                 <tr className="border-b border-gray-100 bg-white text-[10px] font-black uppercase tracking-widest text-gray-400">
                   <th className="p-4 text-black">Quando</th>
-                  <th className="p-4 text-black">Ação</th>
+                  <th className="p-4 text-black">Acao</th>
                   <th className="p-4 text-black">Origem</th>
                   <th className="p-4 text-black">ASIN</th>
                   <th className="p-4 text-black">Actor</th>
@@ -481,27 +844,43 @@ export default async function AdminRefreshSchedulerPage() {
               <tbody className="divide-y divide-gray-50">
                 {recentActions.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-sm font-semibold text-gray-400">
-                      Nenhuma ação manual registrada ainda.
+                    <td
+                      colSpan={6}
+                      className="p-8 text-center text-sm font-semibold text-gray-400"
+                    >
+                      Nenhuma acao manual registrada ainda.
                     </td>
                   </tr>
                 ) : (
                   recentActions.map((action: ActionLogRow) => (
-                    <tr key={action.id} className="transition-colors hover:bg-gray-50/50">
+                    <tr
+                      key={action.id}
+                      className="transition-colors hover:bg-gray-50/50"
+                    >
                       <td className="p-4 text-[12px] font-black text-gray-700">
                         {formatDate(action.createdAt)}
                       </td>
                       <td className="p-4">
                         <span className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-700">
-                          {action.actionType === "force_refresh_now" ? "Forçar agora" : "Boost manual"}
+                          {action.actionType === "force_refresh_now"
+                            ? "Forcar agora"
+                            : "Boost manual"}
                         </span>
                       </td>
                       <td className="p-4 text-[12px] font-black text-gray-700">
-                        {action.productSource === "dynamic" ? "Comparador" : "Amazon interno"}
+                        {action.productSource === "dynamic"
+                          ? "Comparador"
+                          : "Amazon interno"}
                       </td>
-                      <td className="p-4 text-[12px] font-black text-gray-900">{action.asin}</td>
-                      <td className="p-4 text-[12px] font-black text-gray-700">{action.actor}</td>
-                      <td className="p-4 text-sm font-medium text-gray-500">{action.notes ?? "—"}</td>
+                      <td className="p-4 text-[12px] font-black text-gray-900">
+                        {action.asin}
+                      </td>
+                      <td className="p-4 text-[12px] font-black text-gray-700">
+                        {action.actor}
+                      </td>
+                      <td className="p-4 text-sm font-medium text-gray-500">
+                        {action.notes ?? "-"}
+                      </td>
                     </tr>
                   ))
                 )}

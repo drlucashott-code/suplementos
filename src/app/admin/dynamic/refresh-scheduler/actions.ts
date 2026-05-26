@@ -59,6 +59,7 @@ export async function boostDynamicSchedulerProduct(formData: FormData) {
     await enqueuePriorityRefresh({
       asin: result.asin,
       reason: "admin",
+      notBeforeAt: result.enqueueNotBeforeAt,
     });
   }
 

@@ -239,6 +239,7 @@ async function revalidateAllDynamicCatalog(
 
 export default async function AdminDynamicDashboard() {
   const now = new Date();
+  const mandatoryCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const startOfHour = getBrazilBusinessBoundary(now, "hour");
   const startOfDay = getBrazilBusinessBoundary(now, "day");
   const GLOBAL_HOURLY_REQUEST_LIMIT = Math.max(
@@ -267,6 +268,10 @@ export default async function AdminDynamicDashboard() {
     priorityDayUpdated,
     dynamicDueCount,
     trackedDueCount,
+    dynamicPriorityDueCount,
+    trackedPriorityDueCount,
+    dynamicMandatoryDueCount,
+    trackedMandatoryDueCount,
     dynamicLockedCount,
     trackedLockedCount,
     dynamicHotCount,
@@ -316,6 +321,66 @@ export default async function AdminDynamicDashboard() {
           },
           {
             OR: [{ nextPriceRefreshAt: null }, { nextPriceRefreshAt: { lte: now } }],
+          },
+        ],
+      },
+    }),
+    prisma.dynamicProduct.count({
+      where: {
+        AND: [
+          {
+            OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
+          },
+          {
+            OR: [{ nextPriceRefreshAt: null }, { nextPriceRefreshAt: { lte: now } }],
+          },
+          {
+            lastSuccessfulRefreshAt: { gt: mandatoryCutoff },
+          },
+        ],
+      },
+    }),
+    prisma.siteTrackedAmazonProduct.count({
+      where: {
+        AND: [
+          {
+            OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
+          },
+          {
+            OR: [{ nextPriceRefreshAt: null }, { nextPriceRefreshAt: { lte: now } }],
+          },
+          {
+            lastSuccessfulRefreshAt: { gt: mandatoryCutoff },
+          },
+        ],
+      },
+    }),
+    prisma.dynamicProduct.count({
+      where: {
+        AND: [
+          {
+            OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
+          },
+          {
+            OR: [
+              { lastSuccessfulRefreshAt: null },
+              { lastSuccessfulRefreshAt: { lte: mandatoryCutoff } },
+            ],
+          },
+        ],
+      },
+    }),
+    prisma.siteTrackedAmazonProduct.count({
+      where: {
+        AND: [
+          {
+            OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
+          },
+          {
+            OR: [
+              { lastSuccessfulRefreshAt: null },
+              { lastSuccessfulRefreshAt: { lte: mandatoryCutoff } },
+            ],
           },
         ],
       },
@@ -545,14 +610,26 @@ export default async function AdminDynamicDashboard() {
             <SchedulerStatCard
               title="Dinamicos vencidos"
               value={String(dynamicDueCount)}
-              description="Produtos do comparador ja elegiveis para novo refresh."
+              description={`Prioridade: ${dynamicPriorityDueCount} • Cobertura diaria: ${dynamicMandatoryDueCount}`}
               tone="blue"
             />
             <SchedulerStatCard
               title="Amazon internos vencidos"
               value={String(trackedDueCount)}
-              description="Produtos adicionados por link aguardando nova consulta."
+              description={`Prioridade: ${trackedPriorityDueCount} • Cobertura diaria: ${trackedMandatoryDueCount}`}
               tone="emerald"
+            />
+            <SchedulerStatCard
+              title="Cobertura diaria vencida"
+              value={String(dynamicMandatoryDueCount + trackedMandatoryDueCount)}
+              description={`Dinamicos: ${dynamicMandatoryDueCount} • Amazon internos: ${trackedMandatoryDueCount}`}
+              tone="amber"
+            />
+            <SchedulerStatCard
+              title="Urgencia prioritaria"
+              value={String(dynamicPriorityDueCount + trackedPriorityDueCount)}
+              description={`Dinamicos: ${dynamicPriorityDueCount} • Amazon internos: ${trackedPriorityDueCount}`}
+              tone="blue"
             />
             <SchedulerStatCard
               title="Locks ativos"

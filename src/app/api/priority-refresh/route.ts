@@ -193,6 +193,7 @@ export async function POST(request: NextRequest) {
         ? await enqueuePriorityRefresh({
             asin,
             reason: body.reason ?? "click",
+            notBeforeAt: priorityTouch.enqueueNotBeforeAt,
           })
         : { enqueued: false, reason: "cooldown_active" };
 

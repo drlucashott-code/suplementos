@@ -16,8 +16,8 @@ import { refreshTrackedAmazonProductPriceStatsBulk } from "@/lib/siteTrackedAmaz
 import { repairTrackedAmazonProductMetadataIfNeeded } from "@/lib/siteTrackedAmazonMetadata";
 import {
   seedTrackedSchedulerState,
-  touchDynamicProductMaxPriority,
-  touchTrackedProductMaxPriority,
+  touchDynamicProductPriority,
+  touchTrackedProductPriority,
 } from "@/lib/priceRefreshSignals";
 import { enqueuePriorityRefresh } from "@/lib/priorityRefreshQueue";
 import { ensureDefaultList } from "@/lib/siteDefaultList";
@@ -291,13 +291,15 @@ export async function POST(request: Request) {
         throw new Error("favorite_upsert_failed");
       }
 
-      const priorityTouch = await touchDynamicProductMaxPriority(
-        catalogProduct.id
-      );
+      const priorityTouch = await touchDynamicProductPriority({
+        productId: catalogProduct.id,
+        signal: "monitored",
+      });
       if (priorityTouch?.shouldEnqueue && priorityTouch.asin) {
         await enqueuePriorityRefresh({
           asin: priorityTouch.asin,
           reason: "monitored",
+          notBeforeAt: priorityTouch.enqueueNotBeforeAt,
         });
       }
 
@@ -675,13 +677,15 @@ export async function POST(request: Request) {
     }
 
     try {
-      const priorityTouch = await touchTrackedProductMaxPriority(
-        trackedProduct.id
-      );
+      const priorityTouch = await touchTrackedProductPriority({
+        trackedProductId: trackedProduct.id,
+        signal: "monitored",
+      });
       if (priorityTouch?.shouldEnqueue && priorityTouch.asin) {
         await enqueuePriorityRefresh({
           asin: priorityTouch.asin,
           reason: "monitored",
+          notBeforeAt: priorityTouch.enqueueNotBeforeAt,
         });
       }
     } catch (error) {

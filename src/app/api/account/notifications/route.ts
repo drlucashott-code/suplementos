@@ -5,7 +5,6 @@ import {
   countUnreadNotifications,
   listSiteNotifications,
   markAllNotificationsRead,
-  syncFavoriteNotifications,
 } from "@/lib/siteNotifications";
 
 export async function GET() {
@@ -14,7 +13,6 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  await syncFavoriteNotifications(user.id);
   const [page, unreadCount] = await Promise.all([
     listSiteNotifications({
       userId: user.id,

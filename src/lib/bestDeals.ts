@@ -1,9 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import {
-  touchDynamicProductMaxPriority,
-  touchDynamicProductPriority,
-} from "@/lib/priceRefreshSignals";
+import { touchDynamicProductPriority } from "@/lib/priceRefreshSignals";
 
 export type BestDeal = {
   id: string;
@@ -146,20 +143,21 @@ export async function boostBestDealsPriority(
   const extraBoost = options?.extraBoost ?? 3;
 
   await Promise.allSettled(
-    deals.map((deal) =>
-      touchDynamicProductPriority({
+    deals.map((deal, index) => {
+      const signal =
+        index < 20 ? "offer_top" : index < 50 ? "offer_high" : "offer_standard";
+
+      return touchDynamicProductPriority({
         productId: deal.id,
-        signal: "public_list",
+        signal,
         extraBoost,
-      })
-    )
+      });
+    })
   );
 }
 
 export async function boostBestDealsMaxPriority(
   deals: Array<Pick<BestDeal, "id">>
 ) {
-  await Promise.allSettled(
-    deals.map((deal) => touchDynamicProductMaxPriority(deal.id))
-  );
+  await boostBestDealsPriority(deals, { extraBoost: 10 });
 }

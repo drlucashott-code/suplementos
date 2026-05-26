@@ -79,8 +79,30 @@ export default async function CategoryGroupPage({ params }: PageProps) {
 
   if (!categories || categories.length === 0) return notFound();
 
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: categoryParam.replace("-", " "),
+    url: buildAbsoluteUrl(`/${categoryParam}`),
+    description: `Categorias e subcategorias de ${categoryParam.replace("-", " ")} com descoberta orientada por comparação.`,
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: categories.length,
+      itemListElement: categories.map((category, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        url: buildAbsoluteUrl(`/${categoryParam}/${category.slug}`),
+        name: category.name,
+      })),
+    },
+  };
+
   return (
     <main className="min-h-screen bg-[#EAEDED] p-4 md:p-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <div className="mx-auto max-w-6xl font-sans">
         <div className="mb-6">
           <p className="mb-1 text-xs font-bold uppercase tracking-widest text-gray-500">
