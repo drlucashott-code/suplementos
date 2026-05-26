@@ -133,6 +133,12 @@ function getTierClasses(tier: string | null) {
   return "bg-sky-100 text-sky-700";
 }
 
+function getTierRank(tier: string | null) {
+  if (tier === "hot") return 3;
+  if (tier === "warm") return 2;
+  return 1;
+}
+
 function sourceLabel(source: SchedulerRow["source"]) {
   return source === "dynamic" ? "Comparador" : "Amazon interno";
 }
@@ -479,10 +485,8 @@ export default async function AdminRefreshSchedulerPage({
       const bPriorityDue = isPriorityDue(b, now, mandatoryCutoff);
       if (aPriorityDue !== bPriorityDue) return aPriorityDue ? -1 : 1;
 
-      const nextRefresh =
-        (a.nextPriceRefreshAt?.getTime() ?? 0) -
-        (b.nextPriceRefreshAt?.getTime() ?? 0);
-      if (nextRefresh !== 0) return nextRefresh;
+      const tierDiff = getTierRank(b.refreshTier) - getTierRank(a.refreshTier);
+      if (tierDiff !== 0) return tierDiff;
 
       const priorityDiff = (b.priorityScore ?? 0) - (a.priorityScore ?? 0);
       if (Math.abs(priorityDiff) > 0.001) return priorityDiff;
@@ -490,6 +494,11 @@ export default async function AdminRefreshSchedulerPage({
       const freshnessDiff =
         (b.dataFreshnessScore ?? 0) - (a.dataFreshnessScore ?? 0);
       if (Math.abs(freshnessDiff) > 0.001) return freshnessDiff;
+
+      const nextRefresh =
+        (a.nextPriceRefreshAt?.getTime() ?? 0) -
+        (b.nextPriceRefreshAt?.getTime() ?? 0);
+      if (nextRefresh !== 0) return nextRefresh;
 
       return a.asin.localeCompare(b.asin);
     })

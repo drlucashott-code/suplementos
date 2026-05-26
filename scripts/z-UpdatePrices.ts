@@ -183,6 +183,7 @@ type TrackedProductLite = {
   asin: string;
   totalPrice: number;
   availabilityStatus: string | null;
+  programAndSavePrice: number | null;
   refreshTier: string | null;
   priorityScore: number | null;
   lastPrioritySignalAt: Date | null;
@@ -411,6 +412,7 @@ async function refreshMonitoredProducts() {
         tp."asin",
         tp."totalPrice",
         tp."availabilityStatus",
+        tp."programAndSavePrice",
         tp."refreshTier",
         tp."priorityScore",
         tp."lastPrioritySignalAt",
