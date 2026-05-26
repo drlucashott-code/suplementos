@@ -178,6 +178,30 @@ const require = createRequire(import.meta.url);
 
 let creatorsSdkCache: CreatorsSdkModule | null = null;
 
+function normalizeMarketplace(rawMarketplace?: string | null) {
+  const trimmed = rawMarketplace?.trim();
+  if (!trimmed) {
+    return DEFAULT_MARKETPLACE;
+  }
+
+  const withoutProtocol = trimmed.replace(/^https?:\/\//i, "");
+  const hostOnly = withoutProtocol.split("/")[0]?.toLowerCase() ?? "";
+
+  if (!hostOnly) {
+    return DEFAULT_MARKETPLACE;
+  }
+
+  if (
+    hostOnly === "amazon.com.br" ||
+    hostOnly === "www.amazon.com.br" ||
+    hostOnly === "webservices.amazon.com.br"
+  ) {
+    return DEFAULT_MARKETPLACE;
+  }
+
+  return hostOnly;
+}
+
 function getFirstEnvValue(...keys: string[]) {
   for (const key of keys) {
     const value = process.env[key]?.trim();
@@ -965,12 +989,13 @@ async function requestPaapi<T>(
 
 async function getItemsViaPaapi(input: GetAmazonItemsInput): Promise<AmazonItem[]> {
   const resources = normalizePaapiResources(input.resources);
+  const marketplace = normalizeMarketplace(input.marketplace);
   const payload = JSON.stringify({
     ItemIds: input.itemIds,
     Resources: resources,
     PartnerTag: AMAZON_PARTNER_TAG,
     PartnerType: "Associates",
-    Marketplace: input.marketplace ?? DEFAULT_MARKETPLACE,
+    Marketplace: marketplace,
   });
 
   const response = await requestPaapi<{ ItemsResult?: { Items?: AmazonItem[] } }>(
@@ -986,12 +1011,13 @@ export async function getAmazonItemsRaw(
   input: GetAmazonItemsInput
 ): Promise<{ items: AmazonItem[]; raw: unknown }> {
   const resources = normalizePaapiResources(input.resources);
+  const marketplace = normalizeMarketplace(input.marketplace);
   const payload = JSON.stringify({
     ItemIds: input.itemIds,
     Resources: resources,
     PartnerTag: AMAZON_PARTNER_TAG,
     PartnerType: "Associates",
-    Marketplace: input.marketplace ?? DEFAULT_MARKETPLACE,
+    Marketplace: marketplace,
   });
 
   const response = await requestPaapi<{ ItemsResult?: { Items?: AmazonItem[] } }>(
@@ -1008,6 +1034,7 @@ export async function getAmazonItemsRaw(
 
 async function searchItemsViaPaapi(input: SearchAmazonItemsInput): Promise<AmazonItem[]> {
   const resources = normalizePaapiResources(input.resources);
+  const marketplace = normalizeMarketplace(input.marketplace);
   const payload = JSON.stringify({
     Keywords: input.keywords,
     ...(input.brand ? { Brand: input.brand } : {}),
@@ -1023,7 +1050,7 @@ async function searchItemsViaPaapi(input: SearchAmazonItemsInput): Promise<Amazo
     Resources: resources,
     PartnerTag: AMAZON_PARTNER_TAG,
     PartnerType: "Associates",
-    Marketplace: input.marketplace ?? DEFAULT_MARKETPLACE,
+    Marketplace: marketplace,
   });
 
   const response = await requestPaapi<{ SearchResult?: { Items?: AmazonItem[] } }>(
@@ -1049,7 +1076,7 @@ async function getItemsViaCreators(input: GetAmazonItemsInput): Promise<AmazonIt
   request.itemIds = input.itemIds;
   request.resources = normalizeCreatorsResources(input.resources);
 
-  const primaryMarketplace = input.marketplace ?? DEFAULT_MARKETPLACE;
+  const primaryMarketplace = normalizeMarketplace(input.marketplace);
   if (debugCreators) {
     const itemIds = Array.isArray((request as { itemIds?: unknown }).itemIds)
       ? ((request as { itemIds: string[] }).itemIds ?? [])
@@ -1115,33 +1142,6 @@ async function getItemsViaCreators(input: GetAmazonItemsInput): Promise<AmazonIt
     };
   }
 
-  if (items.length === 0 && primaryMarketplace.startsWith("www.")) {
-    const fallbackMarketplace = primaryMarketplace.replace(/^www\./, "");
-    if (debugCreators) {
-      console.log("[creators] retry marketplace", fallbackMarketplace);
-    }
-    response = await api.getItems(fallbackMarketplace, request);
-    items = Array.isArray(response?.itemsResult?.items) ? response.itemsResult.items : [];
-    if (debugCreators) {
-      console.log("[creators] retry response", {
-        marketplace: fallbackMarketplace,
-        items: items.length,
-        errors: response?.errors ?? null,
-      });
-      lastCreatorsDebug = {
-        ...(lastCreatorsDebug ?? {}),
-        response: {
-          ...(lastCreatorsDebug?.response ?? {}),
-          getItems: {
-            marketplace: fallbackMarketplace,
-            items: items.length,
-            errors: response?.errors ?? null,
-          },
-        },
-      };
-    }
-  }
-
   if (items.length === 0 && response?.errors?.length) {
     throw new Error(extractCreatorsErrorMessage(response.errors));
   }
@@ -1172,7 +1172,7 @@ async function searchItemsViaCreators(
     request.maxPrice = normalizeCreatorsPriceFilter(input.range.max);
   }
 
-  const response = await api.searchItems(input.marketplace ?? DEFAULT_MARKETPLACE, {
+  const response = await api.searchItems(normalizeMarketplace(input.marketplace), {
     searchItemsRequestContent: request,
   });
   const items = Array.isArray(response?.searchResult?.items) ? response.searchResult.items : [];
