@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Image from "next/image";
-import { AlertTriangle, ExternalLink, Heart, RefreshCw, ShoppingCart, X } from "lucide-react";
+import { AlertTriangle, Heart, RefreshCw, ShoppingCart, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -17,8 +17,8 @@ import { PriceHistoryButton } from "@/components/dynamic/PriceHistoryButton";
 import { ProductCommentsSheet } from "@/components/dynamic/ProductCommentsSheet";
 import type { PriceHistoryChartRange } from "@/lib/dynamicPriceHistory";
 import type { PriceDecision } from "@/lib/priceDecision";
-import { shareProductLink } from "@/lib/client/productShare";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
+import ProductShareMenuButton from "@/components/ProductShareMenuButton";
 
 export type DynamicProductType = {
   id: string;
@@ -641,18 +641,13 @@ export function MobileProductCard({
 
         <div className="relative flex w-[160px] flex-shrink-0 flex-col items-center justify-center bg-[#f3f3f3] p-3">
           <div className="absolute right-3 top-3 z-20">
-            <button
-              type="button"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                void shareProductLink(product.id, product.name);
-              }}
+            <ProductShareMenuButton
+              productShareKey={asin || product.id}
+              productName={product.name}
               className="inline-flex h-7 w-7 items-center justify-center rounded-[6px] border border-[#d9dee3] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
-              aria-label="Compartilhar produto"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-            </button>
+              iconClassName="h-3.5 w-3.5"
+              ariaLabel="Compartilhar produto"
+            />
           </div>
           {product.imageUrl ? (
             <div className="flex h-[220px] w-full items-center justify-center">

@@ -62,6 +62,7 @@ export default async function ProductDetailPage({
     FROM "DynamicProduct" p
     INNER JOIN "DynamicCategory" cat ON cat."id" = p."categoryId"
     WHERE p."id" = ${id}
+       OR p."asin" = ${id}
     LIMIT 1
   `);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { AlertTriangle, ExternalLink, Heart, ImageOff, X } from "lucide-react";
+import { AlertTriangle, Heart, ImageOff, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -20,8 +20,8 @@ import {
   toggleAccountFavorite,
 } from "@/lib/client/accountFavorites";
 import { getAccountListsCount } from "@/lib/client/accountLists";
-import { shareProductLink } from "@/lib/client/productShare";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
+import ProductShareMenuButton from "@/components/ProductShareMenuButton";
 
 const REPORT_REASONS = [
   "Preço desatualizado",
@@ -301,18 +301,12 @@ export default function BestDealProductCard({
                 <Heart className={`h-4 w-4 ${saved ? "fill-current" : ""}`} />
               </button>
             </div>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                void shareProductLink(item.id, item.name);
-              }}
+            <ProductShareMenuButton
+              productShareKey={item.asin}
+              productName={item.name}
               className={accountIconButtonClass}
-              aria-label="Compartilhar produto"
-            >
-              <ExternalLink className="h-4 w-4" />
-            </button>
+              ariaLabel="Compartilhar produto"
+            />
           </div>
         ) : null}
 
