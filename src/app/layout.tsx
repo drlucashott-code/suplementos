@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Suspense } from "react"; 
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "react-hot-toast";
-import { GoogleAnalytics } from "@next/third-parties/google";
 import { ScrollToTop } from "@/components/ScrollToTop"; // ✅ Importação do componente
 import { AttributionCapture } from "@/components/AttributionCapture";
+import DeferredGoogleAnalytics from "@/components/DeferredGoogleAnalytics";
 import { buildAbsoluteUrl, getPublicSiteUrl } from "@/lib/siteUrl";
 import "./globals.css";
 
@@ -104,8 +104,7 @@ export default function RootLayout({
         <ScrollToTop />
         <AttributionCapture />
 
-        {/* ✅ GA INICIALIZA GLOBALMENTE */}
-        <GoogleAnalytics gaId="G-CLEY1YQ80S" />
+        <DeferredGoogleAnalytics />
 
         <Suspense fallback={null}>
           <main>

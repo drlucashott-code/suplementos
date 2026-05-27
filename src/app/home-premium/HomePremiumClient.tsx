@@ -92,10 +92,10 @@ const signalItems = [
 ];
 
 const carouselSlides = [
-  { src: "/home-premium/carousel/01-whey.png", alt: "Comparação de whey protein" },
-  { src: "/home-premium/carousel/02-lavagem.png", alt: "Comparação de custo por lavagem" },
-  { src: "/home-premium/carousel/03-unidade.png", alt: "Comparação de custo por unidade" },
-  { src: "/home-premium/carousel/04-fralda-v2.png", alt: "Comparação de fraldas por unidade" },
+  { src: "/home-premium/carousel/01-whey.webp", alt: "Comparação de whey protein" },
+  { src: "/home-premium/carousel/02-lavagem.webp", alt: "Comparação de custo por lavagem" },
+  { src: "/home-premium/carousel/03-unidade.webp", alt: "Comparação de custo por unidade" },
+  { src: "/home-premium/carousel/04-fralda-v2.webp", alt: "Comparação de fraldas por unidade" },
 ];
 
 function TrackHomeView() {
@@ -317,7 +317,7 @@ export default function HomePremiumClient({
                     onScroll={handleCarouselScroll}
                     className="flex h-full w-full snap-x snap-mandatory overflow-x-auto scroll-smooth touch-pan-x overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                   >
-                    {carouselSlides.map((slide) => (
+                    {carouselSlides.map((slide, index) => (
                       <div key={slide.src} className="relative h-full w-full shrink-0 snap-start">
                         <Image
                           src={slide.src}
@@ -325,7 +325,8 @@ export default function HomePremiumClient({
                           fill
                           sizes="(max-width: 768px) 82vw, 420px"
                           className="object-contain"
-                          priority={heroSlide === 0}
+                          priority={index === 0}
+                          loading={index === 0 ? "eager" : "lazy"}
                         />
                       </div>
                     ))}
@@ -487,16 +488,15 @@ export default function HomePremiumClient({
                           key={`${list.slug}-preview-${index}`}
                           className="relative h-16 w-16 overflow-hidden rounded-[16px] border border-[#EDF2F7] bg-white"
                         >
-                          <Image
-                            src={imageSrc}
-                            alt={`${list.title} preview ${index + 1}`}
-                            fill
-                            sizes="64px"
-                            className="object-contain p-1.5"
-                            unoptimized
-                          />
-                        </div>
-                      ))
+                        <Image
+                          src={imageSrc}
+                          alt={`${list.title} preview ${index + 1}`}
+                          fill
+                          sizes="64px"
+                          className="object-contain p-1.5"
+                        />
+                      </div>
+                    ))
                     ) : (
                       <div className="flex flex-col items-center text-center">
                         <LayoutList className="h-5 w-5 text-[#98A2B3]" />
@@ -573,7 +573,6 @@ function CategoryCard({
           fill
           sizes="(max-width: 768px) 44vw, 280px"
           className="object-contain p-3 transition duration-300 group-hover:scale-[1.03]"
-          unoptimized
         />
       </div>
 

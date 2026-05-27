@@ -53,9 +53,12 @@ function ProductListContent({
   }, [initialHasMore, products]);
 
   useEffect(() => {
-    if (!viewEventName || trackedRef.current === viewEventName) return;
-
     const win = window as GtagWindow;
+    if (!win.dataLayer) {
+      win.dataLayer = [];
+    }
+
+    if (!viewEventName || trackedRef.current === viewEventName) return;
 
     const payload = {
       category: "catalog",
