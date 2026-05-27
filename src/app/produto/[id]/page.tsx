@@ -151,6 +151,8 @@ async function resolveProductDetailRecord(id: string): Promise<ProductDetailReco
       totalPrice: true,
       averagePrice30d: true,
       amazonUrl: true,
+      ratingAverage: true,
+      ratingCount: true,
     },
   });
 
@@ -174,8 +176,8 @@ async function resolveProductDetailRecord(id: string): Promise<ProductDetailReco
       imageUrl: trackedRow.imageUrl,
       totalPrice: trackedRow.totalPrice,
       averagePrice30d: trackedRow.averagePrice30d,
-      ratingAverage: null,
-      ratingCount: null,
+      ratingAverage: trackedRow.ratingAverage,
+      ratingCount: trackedRow.ratingCount,
       url: trackedRow.amazonUrl,
       categoryName: "Produto monitorado",
       categoryGroup: "",
@@ -195,6 +197,12 @@ async function resolveProductDetailRecord(id: string): Promise<ProductDetailReco
       totalPrice: true,
       averagePrice30d: true,
       amazonUrl: true,
+      trackedProduct: {
+        select: {
+          ratingAverage: true,
+          ratingCount: true,
+        },
+      },
     },
   });
 
@@ -219,8 +227,8 @@ async function resolveProductDetailRecord(id: string): Promise<ProductDetailReco
     imageUrl: monitoredRow.imageUrl,
     totalPrice: monitoredRow.totalPrice,
     averagePrice30d: monitoredRow.averagePrice30d,
-    ratingAverage: null,
-    ratingCount: null,
+    ratingAverage: monitoredRow.trackedProduct?.ratingAverage ?? null,
+    ratingCount: monitoredRow.trackedProduct?.ratingCount ?? null,
     url: monitoredRow.amazonUrl,
     categoryName: "Produto monitorado",
     categoryGroup: "",
