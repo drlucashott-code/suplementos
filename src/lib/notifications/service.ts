@@ -104,9 +104,11 @@ function formatCurrency(value: number | null | undefined) {
 }
 
 function buildDefaultHref(input: CreateSiteNotificationInput) {
+  if (PRICE_TYPES.has(input.type) && input.targetProductId) {
+    return `/produto/${input.targetProductId}`;
+  }
   if (input.href) return input.href;
   if (input.targetListId) return buildAccountListPath(input.targetListId, "mine");
-  if (input.targetProductId) return `/produto/${input.targetProductId}`;
   if (input.targetCommentId && input.targetListId) {
     return `${buildAccountListPath(input.targetListId, "mine")}?comments=1`;
   }
@@ -410,31 +412,8 @@ export async function createSiteNotification(input: CreateSiteNotificationInput)
 }
 
 export async function getSiteNotifications(userId: string, limit = 20) {
-  await pruneNotificationRetention(userId);
-  const rows = await prisma.siteUserNotification.findMany({
-    where: { userId },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take: Math.max(1, Math.min(limit, 100)),
-  });
-
-  return rows.map<SiteNotificationItem>((row) => ({
-    id: row.id,
-    type: row.type,
-    category: row.category as NotificationCategory,
-    title: row.title,
-    body: row.body,
-    href: row.href,
-    isRead: row.isRead,
-    createdAt: row.createdAt.toISOString(),
-    priority: row.priority,
-    groupedKey: row.groupedKey,
-    clickedAt: row.clickedAt ? row.clickedAt.toISOString() : null,
-    actorUserId: row.actorUserId,
-    targetUserId: row.targetUserId,
-    targetProductId: row.targetProductId,
-    targetListId: row.targetListId,
-    targetCommentId: row.targetCommentId,
-  }));
+  const page = await listSiteNotifications({ userId, limit });
+  return page.items;
 }
 
 export async function listSiteNotifications(input: {
@@ -456,26 +435,27 @@ export async function listSiteNotifications(input: {
     conditions.push(Prisma.sql`n."isRead" = false`);
   }
 
-  const rows = await prisma.$queryRaw<
-    Array<{
-      id: string;
-      type: string;
-      category: string;
-      title: string;
-      body: string | null;
-      href: string | null;
-      isRead: boolean;
-      createdAt: Date;
-      priority: number;
-      groupedKey: string | null;
-      clickedAt: Date | null;
-      actorUserId: string | null;
-      targetUserId: string | null;
-      targetProductId: string | null;
-      targetListId: string | null;
-      targetCommentId: string | null;
-    }>
-  >(Prisma.sql`
+  type NotificationRow = {
+    id: string;
+    type: string;
+    category: string;
+    title: string;
+    body: string | null;
+    href: string | null;
+    productAsin: string | null;
+    isRead: boolean;
+    createdAt: Date;
+    priority: number;
+    groupedKey: string | null;
+    clickedAt: Date | null;
+    actorUserId: string | null;
+    targetUserId: string | null;
+    targetProductId: string | null;
+    targetListId: string | null;
+    targetCommentId: string | null;
+  };
+
+  const rows = await prisma.$queryRaw<NotificationRow[]>(Prisma.sql`
     SELECT
       n."id",
       n."type",
@@ -483,6 +463,7 @@ export async function listSiteNotifications(input: {
       n."title",
       n."body",
       n."href",
+      COALESCE(dp."asin", mp."asin", tp."asin") AS "productAsin",
       n."isRead",
       n."createdAt",
       n."priority",
@@ -494,6 +475,9 @@ export async function listSiteNotifications(input: {
       n."targetListId",
       n."targetCommentId"
     FROM "SiteUserNotification" n
+    LEFT JOIN "DynamicProduct" dp ON dp."id" = n."targetProductId"
+    LEFT JOIN "SiteUserMonitoredProduct" mp ON mp."id" = n."targetProductId"
+    LEFT JOIN "SiteTrackedAmazonProduct" tp ON tp."id" = n."targetProductId"
     WHERE ${Prisma.join(conditions, " AND ")}
     ORDER BY n."createdAt" DESC, n."id" DESC
     LIMIT ${limit + 1}
@@ -501,13 +485,16 @@ export async function listSiteNotifications(input: {
 
   const hasMore = rows.length > limit;
   const nextRows = hasMore ? rows.slice(0, limit) : rows;
-  const items = nextRows.map<SiteNotificationItem>((row) => ({
+  const items = nextRows.map<SiteNotificationItem>((row: NotificationRow) => ({
     id: row.id,
     type: row.type,
     category: row.category as NotificationCategory,
     title: row.title,
     body: row.body,
-    href: row.href,
+    href:
+      PRICE_TYPES.has(row.type) && row.productAsin
+        ? `/produto/${row.productAsin}`
+        : row.href,
     isRead: row.isRead,
     createdAt: row.createdAt.toISOString(),
     priority: row.priority,

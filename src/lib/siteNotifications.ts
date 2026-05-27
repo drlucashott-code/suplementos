@@ -74,7 +74,7 @@ export async function syncFavoriteNotifications(userId: string) {
   for (const favorite of favorites) {
     const currentPrice = favorite.product.totalPrice > 0 ? favorite.product.totalPrice : null;
     const currentAvailability = favorite.product.availabilityStatus ?? "UNKNOWN";
-    const productPath = `/produto/${favorite.productId}`;
+    const productPath = `/produto/${favorite.product.asin || favorite.productId}`;
 
     if (favorite.lastTrackedPrice == null && favorite.lastTrackedAvailability == null) {
       await prisma.siteUserFavorite.update({
@@ -171,7 +171,7 @@ export async function syncFavoriteNotifications(userId: string) {
     FROM "SiteUserMonitoredProduct" mp
     LEFT JOIN "SiteTrackedAmazonProduct" tp ON tp."id" = mp."trackedProductId"
     WHERE mp."userId" = ${userId}
-  `).catch((error) => {
+  `).catch((error: unknown) => {
     if (isMissingRelationError(error, "SiteUserMonitoredProduct")) {
       return [];
     }
@@ -182,7 +182,7 @@ export async function syncFavoriteNotifications(userId: string) {
   for (const monitoredProduct of monitoredProducts) {
     const currentPrice = monitoredProduct.totalPrice > 0 ? monitoredProduct.totalPrice : null;
     const currentAvailability = monitoredProduct.availabilityStatus ?? "UNKNOWN";
-    const productPath = monitoredProduct.amazonUrl;
+    const productPath = `/produto/${monitoredProduct.asin}`;
 
     if (
       monitoredProduct.lastTrackedPrice == null &&

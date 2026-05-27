@@ -2808,7 +2808,7 @@ export default function SiteAccountWorkspace({
               <div className="grid xl:grid-cols-[236px_minmax(0,1fr)]">
                 <aside
                   className={`border-b border-[#EAECF0] bg-[#F8FAFB] xl:border-b-0 xl:border-r ${
-                    currentOpenedList ? "hidden md:block" : "block"
+                    currentOpenedList || (isMobileLayout && selectedListId) ? "hidden md:block" : "block"
                   }`}
                 >
                   <div className="px-2 py-2">
@@ -2821,7 +2821,12 @@ export default function SiteAccountWorkspace({
                             type="button"
                             onClick={() => {
                               setSelectedListId(list.id);
-                              void openListViewer(list.id);
+                              setListEditorId(null);
+                              setListOrderMode(false);
+                              setActiveListItemId(null);
+                              setActiveListItemMenuAnchor(null);
+                              setOpenListId(list.id);
+                              void loadListDetails(list.id);
                             }}
                             className={`h-[76px] w-full overflow-hidden rounded-[10px] border border-[#E5E7EB] bg-white px-3 py-2 text-left transition shadow-[0_1px_2px_rgba(15,17,17,0.05)] hover:border-[#D0D5DD] hover:bg-[#FCFCFD] md:rounded-[10px] md:border md:bg-white md:shadow-[0_1px_2px_rgba(15,17,17,0.05)] md:hover:border-[#D0D5DD] md:hover:bg-[#FCFCFD] ${
                               selected
@@ -2933,6 +2938,16 @@ export default function SiteAccountWorkspace({
                                     Privada
                                   </span>
                                 )}
+                                {currentOpenedList.isPublic ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => void sharePublicList(currentOpenedList)}
+                                    className={accountIconButtonSmallClass}
+                                    aria-label="Compartilhar link"
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                  </button>
+                                ) : null}
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -2981,51 +2996,53 @@ export default function SiteAccountWorkspace({
                               </button>
                             ) : null}
 
-                            {currentOpenedList.isPublic ? (
-                              <span className="inline-flex h-8 items-center justify-center gap-1 rounded-full bg-[#ECFDF3] px-3 text-xs font-bold text-[#027A48]">
-                                <Globe className="h-3.5 w-3.5" />
-                                Pública
-                              </span>
-                            ) : (
-                              <span className="inline-flex h-8 items-center justify-center gap-1 rounded-full bg-[#F2F4F7] px-3 text-xs font-bold text-[#475467]">
-                                <Lock className="h-3.5 w-3.5" />
-                                Privada
-                              </span>
-                            )}
+                            <div className="hidden items-center gap-2 md:flex">
+                              {currentOpenedList.isPublic ? (
+                                <span className="inline-flex h-8 items-center justify-center gap-1 rounded-full bg-[#ECFDF3] px-3 text-xs font-bold text-[#027A48]">
+                                  <Globe className="h-3.5 w-3.5" />
+                                  Pública
+                                </span>
+                              ) : (
+                                <span className="inline-flex h-8 items-center justify-center gap-1 rounded-full bg-[#F2F4F7] px-3 text-xs font-bold text-[#475467]">
+                                  <Lock className="h-3.5 w-3.5" />
+                                  Privada
+                                </span>
+                              )}
 
-                            {currentOpenedList.isPublic ? (
+                              {currentOpenedList.isPublic ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void sharePublicList(currentOpenedList)}
+                                  className={accountIconButtonSmallClass}
+                                  aria-label="Compartilhar link"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                </button>
+                              ) : null}
+
+                              {listEditorId === currentOpenedList.id && !listOrderMode ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setListEditorId(null)}
+                                  className="h-9 items-center justify-center rounded-md border border-[#D0D5DD] bg-white px-3.5 text-[13px] font-semibold text-[#344054] transition hover:bg-[#F8FAFA]"
+                                >
+                                  Cancelar edição
+                                </button>
+                              ) : null}
+
                               <button
                                 type="button"
-                                onClick={() => void sharePublicList(currentOpenedList)}
-                                className={accountIconButtonSmallClass}
-                                aria-label="Compartilhar link"
+                                onClick={() => {
+                                  closeListItemMenu();
+                                  void openListEditor(currentOpenedList.id);
+                                }}
+                                aria-label="Editar lista"
+                                disabled={loadingListId === currentOpenedList.id}
+                                className={accountIconButtonClass + " disabled:opacity-60"}
                               >
-                                <ExternalLink className="h-3.5 w-3.5" />
+                                <MoreHorizontal className="h-4 w-4" />
                               </button>
-                            ) : null}
-
-                            {listEditorId === currentOpenedList.id && !listOrderMode ? (
-                              <button
-                                type="button"
-                                onClick={() => setListEditorId(null)}
-                                className="hidden h-9 items-center justify-center rounded-md border border-[#D0D5DD] bg-white px-3.5 text-[13px] font-semibold text-[#344054] transition hover:bg-[#F8FAFA] md:inline-flex"
-                              >
-                                Cancelar edição
-                              </button>
-                            ) : null}
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                closeListItemMenu();
-                                void openListEditor(currentOpenedList.id);
-                              }}
-                              aria-label="Editar lista"
-                              disabled={loadingListId === currentOpenedList.id}
-                              className={accountIconButtonClass + " hidden disabled:opacity-60 md:inline-flex"}
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </button>
+                            </div>
                           </div>
                         </div>
 
@@ -3499,7 +3516,7 @@ export default function SiteAccountWorkspace({
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="hidden flex-wrap items-center gap-2 md:flex">
                           <span className="invisible inline-flex h-8 items-center justify-center gap-1 rounded-full bg-[#ECFDF3] px-3 text-xs font-bold text-[#027A48]">
                             <Globe className="h-3.5 w-3.5" />
                             Pública
