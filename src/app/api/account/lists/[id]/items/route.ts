@@ -30,13 +30,15 @@ export async function POST(
     const { id } = await context.params;
     const body = (await request.json()) as {
       productId?: string;
+      trackedAmazonProductId?: string;
       monitoredProductId?: string;
       note?: string;
     };
     const productId = body.productId?.trim() ?? "";
+    const trackedAmazonProductId = body.trackedAmazonProductId?.trim() ?? "";
     const monitoredProductId = body.monitoredProductId?.trim() ?? "";
 
-    if (!productId && !monitoredProductId) {
+    if (!productId && !trackedAmazonProductId && !monitoredProductId) {
       return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
     }
 
@@ -52,7 +54,7 @@ export async function POST(
       return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
     }
 
-    let trackedAmazonProductId: string | null = null;
+    let resolvedTrackedAmazonProductId: string | null = trackedAmazonProductId || null;
 
     if (monitoredProductId) {
       const monitoredProduct = await prisma.$queryRaw<Array<{ id: string; trackedProductId: string | null }>>(Prisma.sql`
@@ -67,15 +69,15 @@ export async function POST(
         return NextResponse.json({ ok: false, error: "monitored_product_not_found" }, { status: 404 });
       }
 
-      trackedAmazonProductId = monitoredProduct[0].trackedProductId;
+      resolvedTrackedAmazonProductId = monitoredProduct[0].trackedProductId;
     }
 
-    const existingItem = trackedAmazonProductId
+    const existingItem = resolvedTrackedAmazonProductId
       ? await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
           SELECT "id"
           FROM "SiteUserListItem"
           WHERE "listId" = ${id}
-            AND "trackedAmazonProductId" = ${trackedAmazonProductId}
+            AND "trackedAmazonProductId" = ${resolvedTrackedAmazonProductId}
           LIMIT 1
         `)
       : monitoredProductId
@@ -115,8 +117,8 @@ export async function POST(
         id: randomUUID(),
         listId: id,
         productId: productId || null,
-        monitoredProductId: trackedAmazonProductId ? null : monitoredProductId || null,
-        trackedAmazonProductId: trackedAmazonProductId || null,
+        monitoredProductId: resolvedTrackedAmazonProductId && !productId ? null : monitoredProductId || null,
+        trackedAmazonProductId: resolvedTrackedAmazonProductId || null,
         note: body.note?.trim() || null,
         sortOrder: (maxSortOrderRows[0]?.maxSortOrder ?? -1) + 1,
       },
@@ -135,9 +137,9 @@ export async function POST(
             notBeforeAt: priorityTouch.enqueueNotBeforeAt,
           });
         }
-      } else if (trackedAmazonProductId) {
+      } else if (resolvedTrackedAmazonProductId) {
         const priorityTouch = await touchTrackedProductPriority({
-          trackedProductId: trackedAmazonProductId,
+          trackedProductId: resolvedTrackedAmazonProductId,
           signal: "list",
         });
         if (priorityTouch?.shouldEnqueue && priorityTouch.asin) {
@@ -179,18 +181,20 @@ export async function DELETE(
 
   try {
     const { id } = await context.params;
-    const body = (await request.json()) as {
-      itemId?: string;
-      productId?: string;
-      monitoredProductId?: string;
-    };
-    const itemId = body.itemId?.trim() ?? "";
-    const productId = body.productId?.trim() ?? "";
-    const monitoredProductId = body.monitoredProductId?.trim() ?? "";
+      const body = (await request.json()) as {
+        itemId?: string;
+        productId?: string;
+        trackedAmazonProductId?: string;
+        monitoredProductId?: string;
+      };
+      const itemId = body.itemId?.trim() ?? "";
+      const productId = body.productId?.trim() ?? "";
+      const trackedAmazonProductId = body.trackedAmazonProductId?.trim() ?? "";
+      const monitoredProductId = body.monitoredProductId?.trim() ?? "";
 
-    if (!itemId && !productId && !monitoredProductId) {
-      return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
-    }
+      if (!itemId && !productId && !trackedAmazonProductId && !monitoredProductId) {
+        return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
+      }
 
     const list = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
       SELECT "id"
@@ -215,7 +219,7 @@ export async function DELETE(
       return NextResponse.json({ ok: true, deleted: deleted.count });
     }
 
-    let trackedAmazonProductId: string | null = null;
+    let resolvedTrackedAmazonProductId: string | null = trackedAmazonProductId || null;
     if (monitoredProductId) {
       const monitoredProduct = await prisma.$queryRaw<Array<{ trackedProductId: string | null }>>(Prisma.sql`
         SELECT "trackedProductId"
@@ -224,7 +228,7 @@ export async function DELETE(
           AND "userId" = ${user.id}
         LIMIT 1
       `);
-      trackedAmazonProductId = monitoredProduct[0]?.trackedProductId ?? null;
+      resolvedTrackedAmazonProductId = monitoredProduct[0]?.trackedProductId ?? null;
     }
 
     const deleteWhere: {
@@ -238,8 +242,8 @@ export async function DELETE(
     if (productId) {
       deleteWhere.OR.push({ productId });
     }
-    if (trackedAmazonProductId) {
-      deleteWhere.OR.push({ trackedAmazonProductId });
+    if (resolvedTrackedAmazonProductId) {
+      deleteWhere.OR.push({ trackedAmazonProductId: resolvedTrackedAmazonProductId });
     }
     if (monitoredProductId) {
       deleteWhere.OR.push({ monitoredProductId });

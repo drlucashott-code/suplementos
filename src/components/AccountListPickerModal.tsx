@@ -22,6 +22,7 @@ type AccountListPickerModalProps = {
   open: boolean;
   productName: string;
   productId?: string;
+  trackedAmazonProductId?: string;
   monitoredProductId?: string;
   initialSelectedListIds?: string[];
   selectionMode?: "single" | "multiple";
@@ -33,6 +34,7 @@ type AccountListPickerModalProps = {
 export default function AccountListPickerModal({
   open,
   productId,
+  trackedAmazonProductId,
   monitoredProductId,
   productName,
   initialSelectedListIds,
@@ -166,7 +168,7 @@ export default function AccountListPickerModal({
       return;
     }
 
-    if (!productId && !monitoredProductId) {
+    if (!productId && !trackedAmazonProductId && !monitoredProductId) {
       setErrorMessage("Nao foi possivel identificar o produto.");
       return;
     }
@@ -183,8 +185,8 @@ export default function AccountListPickerModal({
         const response = await fetch(`/api/account/lists/${list.id}/items`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ productId, monitoredProductId }),
-        });
+        body: JSON.stringify({ productId, trackedAmazonProductId, monitoredProductId }),
+      });
         const data = (await response.json()) as {
           ok?: boolean;
           created?: boolean;
@@ -214,7 +216,7 @@ export default function AccountListPickerModal({
 
       onClose();
     } catch (error) {
-      console.error("list_picker_add_failed", { productId, monitoredProductId, error });
+      console.error("list_picker_add_failed", { productId, trackedAmazonProductId, monitoredProductId, error });
       setErrorMessage(
         error instanceof Error ? error.message : "Nao foi possivel adicionar agora."
       );
@@ -229,7 +231,7 @@ export default function AccountListPickerModal({
       return;
     }
 
-    if (!productId && !monitoredProductId) {
+    if (!productId && !trackedAmazonProductId && !monitoredProductId) {
       setErrorMessage("Nao foi possivel identificar o produto.");
       return;
     }
@@ -254,8 +256,28 @@ export default function AccountListPickerModal({
           throw new Error("favorite_create_failed");
         }
         toast.success(`Salvo em ${selectedList.title}`);
+      } else if (trackedAmazonProductId) {
+        const response = await fetch(`/api/account/lists/${selectedList.id}/items`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ trackedAmazonProductId }),
+        });
+        const data = (await response.json()) as { ok?: boolean; error?: string };
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || "list_item_create_failed");
+        }
+        toast.success(`Movido para ${selectedList.title}`);
       } else {
-        throw new Error("invalid_product");
+        const response = await fetch(`/api/account/lists/${selectedList.id}/items`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ monitoredProductId }),
+        });
+        const data = (await response.json()) as { ok?: boolean; error?: string };
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || "list_item_create_failed");
+        }
+        toast.success(`Movido para ${selectedList.title}`);
       }
     } catch (error) {
       console.error("list_picker_save_failed", { productId, monitoredProductId, error });

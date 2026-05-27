@@ -213,7 +213,7 @@ export async function GET(
             slug: row.categorySlug ?? "monitorado",
           },
         },
-        source: row.productId ? "catalog" : "monitored",
+        source: row.productId ? "catalog" : row.trackedAmazonProductId ? "tracked" : "monitored",
       })),
   };
 

@@ -129,7 +129,8 @@ type ListDetails = {
     id: string;
     note: string | null;
     sortOrder: number;
-    source: "catalog" | "monitored";
+    source: "catalog" | "tracked" | "monitored";
+    trackedAmazonProductId?: string | null;
       product: {
         id: string;
         asin: string;
@@ -196,6 +197,7 @@ type ListMoveContext = {
   listId: string;
   itemId: string;
   productId?: string | null;
+  trackedAmazonProductId?: string | null;
   monitoredProductId?: string | null;
   resolvedProduct?: FavoriteEntry["product"] | MonitoredProductEntry["product"] | null;
   productName: string;
@@ -556,11 +558,9 @@ function FloatingMenu({
           width: anchor.width,
           maxWidth: `min(${menuWidth}px, calc(100vw - 2rem))`,
         }}
-        onPointerDownCapture={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
-        onMouseDownCapture={(event) => event.stopPropagation()}
-        onTouchStartCapture={(event) => event.stopPropagation()}
-        onClickCapture={(event) => event.stopPropagation()}
+        onMouseDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
         onClick={(event) => event.stopPropagation()}
       >
         {children}
@@ -1782,6 +1782,7 @@ export default function SiteAccountWorkspace({
     listId: string,
     input: {
       productId?: string | null;
+      trackedAmazonProductId?: string | null;
       monitoredProductId?: string | null;
       resolvedProduct?: FavoriteEntry["product"] | MonitoredProductEntry["product"] | null;
     }
@@ -1819,7 +1820,7 @@ export default function SiteAccountWorkspace({
       const monitoredProduct = input.monitoredProductId
         ? monitoredProducts.find((item) => item.id === input.monitoredProductId)
         : null;
-      const source = favorite ? "catalog" : "monitored";
+      const source = favorite ? "catalog" : input.trackedAmazonProductId ? "tracked" : "monitored";
       const resolvedProduct = input.resolvedProduct ?? favorite?.product ?? monitoredProduct?.product;
       if (!resolvedProduct) return current;
 
@@ -1830,10 +1831,11 @@ export default function SiteAccountWorkspace({
           items: [
             ...details.items,
             {
-              id: `${listId}:${input.productId ?? input.monitoredProductId}`,
+              id: `${listId}:${input.productId ?? input.trackedAmazonProductId ?? input.monitoredProductId}`,
               note: null,
               sortOrder: details.items.length,
               source,
+              trackedAmazonProductId: input.trackedAmazonProductId ?? null,
               product: resolvedProduct,
             },
           ],
@@ -2072,7 +2074,12 @@ export default function SiteAccountWorkspace({
 
   async function removeListItem(
     listId: string,
-    input: { itemId: string; productId?: string | null; monitoredProductId?: string | null }
+    input: {
+      itemId: string;
+      productId?: string | null;
+      trackedAmazonProductId?: string | null;
+      monitoredProductId?: string | null;
+    }
   ) {
     setPendingAction(`item:${listId}:${input.itemId}`);
     setMessage("");
@@ -2084,6 +2091,7 @@ export default function SiteAccountWorkspace({
         body: JSON.stringify({
           itemId: input.itemId,
           productId: input.productId,
+          trackedAmazonProductId: input.trackedAmazonProductId,
           monitoredProductId: input.monitoredProductId,
         }),
       });
@@ -2152,6 +2160,7 @@ export default function SiteAccountWorkspace({
     try {
       await addTrackedProductToList(targetListId, {
         productId: input.productId,
+        trackedAmazonProductId: input.trackedAmazonProductId,
         monitoredProductId: input.monitoredProductId,
         resolvedProduct: input.resolvedProduct,
       });
@@ -2159,6 +2168,7 @@ export default function SiteAccountWorkspace({
       await removeListItem(input.listId, {
         itemId: input.itemId,
         productId: input.productId,
+        trackedAmazonProductId: input.trackedAmazonProductId,
         monitoredProductId: input.monitoredProductId,
       });
 
@@ -3660,6 +3670,8 @@ export default function SiteAccountWorkspace({
                 itemId: activeListMenuItem.id,
                 productId:
                   activeListMenuItem.source === "catalog" ? activeListMenuItem.product.id : null,
+                trackedAmazonProductId:
+                  activeListMenuItem.source === "tracked" ? activeListMenuItem.product.id : null,
                 monitoredProductId:
                   activeListMenuItem.source === "monitored"
                     ? activeListMenuItem.product.id
@@ -3681,6 +3693,8 @@ export default function SiteAccountWorkspace({
                 itemId: activeListMenuItem.id,
                 productId:
                   activeListMenuItem.source === "catalog" ? activeListMenuItem.product.id : null,
+                trackedAmazonProductId:
+                  activeListMenuItem.source === "tracked" ? activeListMenuItem.product.id : null,
                 monitoredProductId:
                   activeListMenuItem.source === "monitored"
                     ? activeListMenuItem.product.id
@@ -4004,6 +4018,7 @@ export default function SiteAccountWorkspace({
         <AccountListPickerModal
           open={Boolean(listMoveContext)}
           productId={listMoveContext.productId ?? undefined}
+          trackedAmazonProductId={listMoveContext.trackedAmazonProductId ?? undefined}
           monitoredProductId={listMoveContext.monitoredProductId ?? undefined}
           productName={listMoveContext.productName}
           initialSelectedListIds={[]}
