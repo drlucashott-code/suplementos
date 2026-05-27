@@ -473,9 +473,12 @@ export async function getAccountMonitoringTimeline(userId: string) {
         c."id",
         'Comentário' AS "title",
         c."body" AS "body",
-        CONCAT('/produto/', c."productId", '?comments=1') AS "href",
+        CONCAT('/produto/', COALESCE(c."productAsin", p."asin", tp."asin", mp."asin", c."productId"), '?comments=1') AS "href",
         c."createdAt"
       FROM "SiteProductComment" c
+      LEFT JOIN "DynamicProduct" p ON p."id" = c."productId"
+      LEFT JOIN "SiteTrackedAmazonProduct" tp ON tp."asin" = c."productAsin"
+      LEFT JOIN "SiteUserMonitoredProduct" mp ON mp."asin" = c."productAsin"
       WHERE c."userId" = ${userId}
         AND c."status" = 'published'
       ORDER BY c."createdAt" DESC

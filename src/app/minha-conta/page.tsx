@@ -71,7 +71,7 @@ export default async function MyAccountPage() {
         id: string;
         body: string;
         createdAt: Date;
-        productId: string;
+        productAsin: string;
         productName: string;
       }>
     >(Prisma.sql`
@@ -79,10 +79,12 @@ export default async function MyAccountPage() {
         c."id",
         c."body",
         c."createdAt",
-        p."id" AS "productId",
-        p."name" AS "productName"
+        COALESCE(c."productAsin", p."asin", tp."asin", mp."asin", c."productId") AS "productAsin",
+        COALESCE(p."name", tp."name", mp."name", 'Produto') AS "productName"
       FROM "SiteProductComment" c
-      INNER JOIN "DynamicProduct" p ON p."id" = c."productId"
+      LEFT JOIN "DynamicProduct" p ON p."id" = c."productId"
+      LEFT JOIN "SiteTrackedAmazonProduct" tp ON tp."asin" = c."productAsin"
+      LEFT JOIN "SiteUserMonitoredProduct" mp ON mp."asin" = c."productAsin"
       WHERE c."userId" = ${user.id}
         AND c."status" = 'published'
       ORDER BY c."createdAt" DESC
@@ -124,7 +126,7 @@ export default async function MyAccountPage() {
             id: comment.id,
             body: comment.body,
             createdAt: comment.createdAt.toISOString(),
-            productId: comment.productId,
+            productAsin: comment.productAsin,
             productName: comment.productName,
           }))}
         />

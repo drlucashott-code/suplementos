@@ -45,6 +45,12 @@ type CommentNode = {
   replies: CommentNode[];
 };
 
+type CommentThread = {
+  productAsin: string;
+  productId: string | null;
+  productName: string;
+};
+
 function canModerate(role: string | null | undefined) {
   return role === "admin";
 }
@@ -87,7 +93,63 @@ function buildCommentTree(rows: CommentRow[], currentUserId?: string | null, cur
   return roots;
 }
 
-async function fetchComments(productId: string, currentUserId?: string | null, currentUserRole?: string | null) {
+async function resolveCommentThread(identifier: string): Promise<CommentThread | null> {
+  const dynamic = await prisma.dynamicProduct.findFirst({
+    where: {
+      OR: [{ id: identifier }, { asin: identifier }],
+    },
+    select: {
+      id: true,
+      asin: true,
+      name: true,
+    },
+  });
+  if (dynamic) {
+    return {
+      productAsin: dynamic.asin,
+      productId: dynamic.id,
+      productName: dynamic.name,
+    };
+  }
+
+  const tracked = await prisma.siteTrackedAmazonProduct.findFirst({
+    where: {
+      OR: [{ id: identifier }, { asin: identifier }],
+    },
+    select: {
+      asin: true,
+      name: true,
+    },
+  });
+  if (tracked) {
+    return {
+      productAsin: tracked.asin,
+      productId: null,
+      productName: tracked.name,
+    };
+  }
+
+  const monitored = await prisma.siteUserMonitoredProduct.findFirst({
+    where: {
+      OR: [{ id: identifier }, { asin: identifier }],
+    },
+    select: {
+      asin: true,
+      name: true,
+    },
+  });
+  if (monitored) {
+    return {
+      productAsin: monitored.asin,
+      productId: null,
+      productName: monitored.name,
+    };
+  }
+
+  return null;
+}
+
+async function fetchComments(productAsin: string, currentUserId?: string | null, currentUserRole?: string | null) {
   const rows = await prisma.$queryRaw<CommentRow[]>(Prisma.sql`
     SELECT
       c."id",
@@ -118,7 +180,7 @@ async function fetchComments(productId: string, currentUserId?: string | null, c
       ), false) AS "likedByMe"
     FROM "SiteProductComment" c
     INNER JOIN "SiteUser" u ON u."id" = c."userId"
-    WHERE c."productId" = ${productId}
+    WHERE c."productAsin" = ${productAsin}
       AND c."status" = 'published'
       AND (
         u."commentsBlocked" = false
@@ -137,21 +199,19 @@ export async function GET(
 ) {
   const { id } = await context.params;
   const currentUser = await getCurrentSiteUser();
+  const thread = await resolveCommentThread(id);
 
-  const product = await prisma.dynamicProduct.findUnique({
-    where: { id },
-    select: { id: true },
-  });
-
-  if (!product) {
+  if (!thread) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
-  const comments = await fetchComments(id, currentUser?.id, currentUser?.role);
+  const comments = await fetchComments(thread.productAsin, currentUser?.id, currentUser?.role);
   return NextResponse.json({
     ok: true,
     comments,
     currentUserId: currentUser?.id ?? null,
+    productAsin: thread.productAsin,
+    productName: thread.productName,
   });
 }
 
@@ -169,6 +229,11 @@ export async function POST(
   }
 
   const { id } = await context.params;
+  const thread = await resolveCommentThread(id);
+
+  if (!thread) {
+    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
 
   try {
     const body = (await request.json()) as {
@@ -188,15 +253,6 @@ export async function POST(
       return NextResponse.json({ ok: false, error: "comment_too_long" }, { status: 400 });
     }
 
-    const product = await prisma.dynamicProduct.findUnique({
-      where: { id },
-      select: { id: true },
-    });
-
-    if (!product) {
-      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-    }
-
     const userRows = await prisma.$queryRaw<Array<{ commentsBlocked: boolean }>>(Prisma.sql`
       SELECT "commentsBlocked"
       FROM "SiteUser"
@@ -207,13 +263,11 @@ export async function POST(
     const isCommentsBlocked = userRows[0]?.commentsBlocked === true;
 
     if (parentId) {
-      const parent = await prisma.$queryRaw<Array<{ id: string; userId: string; body: string }>>(Prisma.sql`
-        SELECT "id"
-          , "userId"
-          , "body"
+      const parent = await prisma.$queryRaw<Array<{ id: string; userId: string }>>(Prisma.sql`
+        SELECT "id", "userId"
         FROM "SiteProductComment"
         WHERE "id" = ${parentId}
-          AND "productId" = ${id}
+          AND "productAsin" = ${thread.productAsin}
           AND "status" = 'published'
         LIMIT 1
       `);
@@ -228,10 +282,10 @@ export async function POST(
           actorUserId: user.id,
           actorDisplayName: user.displayName,
           body: content,
-          href: `/produto/${id}?comments=1`,
+          href: `/produto/${thread.productAsin}?comments=1`,
           title: "Seu comentário recebeu uma resposta",
           targetCommentId: parentId,
-          targetProductId: id,
+          targetProductId: thread.productAsin,
         });
       }
     }
@@ -240,6 +294,7 @@ export async function POST(
       INSERT INTO "SiteProductComment" (
         "id",
         "productId",
+        "productAsin",
         "userId",
         "parentId",
         "body",
@@ -250,7 +305,8 @@ export async function POST(
       )
       VALUES (
         ${commentId},
-        ${id},
+        ${thread.productId},
+        ${thread.productAsin},
         ${user.id},
         ${parentId},
         ${content},
@@ -265,15 +321,20 @@ export async function POST(
       actorUserId: user.id,
       actorDisplayName: user.displayName,
       body: content,
-      href: `/produto/${id}?comments=1`,
+      href: `/produto/${thread.productAsin}?comments=1`,
       title: "Novo comentário em produto",
       category: "social",
-      targetProductId: id,
+      targetProductId: thread.productAsin,
       targetCommentId: commentId,
     });
 
-    const comments = await fetchComments(id, user.id, user.role);
-    return NextResponse.json({ ok: true, comments, shadowBlocked: isCommentsBlocked });
+    const comments = await fetchComments(thread.productAsin, user.id, user.role);
+    return NextResponse.json({
+      ok: true,
+      comments,
+      shadowBlocked: isCommentsBlocked,
+      productAsin: thread.productAsin,
+    });
   } catch (error) {
     console.error("product_comment_create_failed", error);
     return NextResponse.json(

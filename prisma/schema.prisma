@@ -671,21 +671,23 @@ model SiteTrackedAmazonProductPriceHistory {
 }
 
 model SiteProductComment {
-  id         String               @id @default(cuid())
-  productId  String
-  product    DynamicProduct       @relation(fields: [productId], references: [id], onDelete: Cascade)
-  userId     String
-  user       SiteUser             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parentId   String?
-  parent     SiteProductComment?  @relation("SiteCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies    SiteProductComment[] @relation("SiteCommentReplies")
-  reactions  SiteProductCommentReaction[]
-  body       String
-  status     String               @default("published")
-  isEdited   Boolean              @default(false)
-  createdAt  DateTime             @default(now())
-  updatedAt  DateTime             @updatedAt
+  id           String                @id @default(cuid())
+  productId    String?
+  product      DynamicProduct?       @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productAsin  String
+  userId       String
+  user         SiteUser              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId     String?
+  parent       SiteProductComment?   @relation("SiteCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies      SiteProductComment[]  @relation("SiteCommentReplies")
+  reactions    SiteProductCommentReaction[]
+  body         String
+  status       String                @default("published")
+  isEdited     Boolean               @default(false)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
 
+  @@index([productAsin, createdAt(sort: Desc)])
   @@index([productId, createdAt(sort: Desc)])
   @@index([parentId, createdAt(sort: Asc)])
   @@index([userId, createdAt(sort: Desc)])

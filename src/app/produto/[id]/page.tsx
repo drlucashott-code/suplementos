@@ -10,14 +10,10 @@ import { buildAbsoluteUrl } from "@/lib/siteUrl";
 
 export const revalidate = 300;
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}): Promise<Metadata> {
-  const { id } = await params;
-  const rows = await prisma.$queryRaw<
-    Array<{
+type ProductDetailRecord =
+  | {
+      kind: "dynamic";
+      id: string;
       asin: string;
       name: string;
       imageUrl: string | null;
@@ -25,76 +21,50 @@ export async function generateMetadata({
       averagePrice30d: number | null;
       ratingAverage: number | null;
       ratingCount: number | null;
+      url: string;
       categoryName: string;
       categoryGroup: string;
       categorySlug: string;
-    }>
-  >(Prisma.sql`
-    SELECT
-      p."asin",
-      p."name",
-      p."imageUrl",
-      p."totalPrice",
-      p."averagePrice30d",
-      p."ratingAverage",
-      p."ratingCount",
-      cat."name" AS "categoryName",
-      cat."group" AS "categoryGroup",
-      cat."slug" AS "categorySlug"
-    FROM "DynamicProduct" p
-    INNER JOIN "DynamicCategory" cat ON cat."id" = p."categoryId"
-    WHERE p."id" = ${id}
-       OR p."asin" = ${id}
-    LIMIT 1
-  `);
-
-  const row = rows[0];
-  if (!row) {
-    return {
-      title: "Produto não encontrado | amazonpicks",
+      description: string;
+      commentsCount: number;
+    }
+  | {
+      kind: "tracked";
+      id: string;
+      asin: string;
+      name: string;
+      imageUrl: string | null;
+      totalPrice: number;
+      averagePrice30d: number | null;
+      ratingAverage: number | null;
+      ratingCount: number | null;
+      url: string;
+      categoryName: string;
+      categoryGroup: string;
+      categorySlug: string;
+      description: string;
+      commentsCount: number;
+    }
+  | {
+      kind: "monitored";
+      id: string;
+      asin: string;
+      name: string;
+      imageUrl: string | null;
+      totalPrice: number;
+      averagePrice30d: number | null;
+      ratingAverage: number | null;
+      ratingCount: number | null;
+      url: string;
+      categoryName: string;
+      categoryGroup: string;
+      categorySlug: string;
+      description: string;
+      commentsCount: number;
     };
-  }
 
-  const canonicalPath = `/produto/${row.asin}`;
-  const averagePrice30d = row.averagePrice30d ?? row.totalPrice;
-  const discountPercent =
-    averagePrice30d > row.totalPrice && row.totalPrice > 0
-      ? Math.round(((averagePrice30d - row.totalPrice) / averagePrice30d) * 100)
-      : 0;
-  const descriptionParts = [
-    row.categoryName,
-    row.totalPrice > 0 ? `R$ ${row.totalPrice.toFixed(2).replace(".", ",")}` : null,
-    discountPercent > 0 ? `${discountPercent}% abaixo da média` : null,
-  ].filter(Boolean);
-
-  return {
-    title: `${row.name} | amazonpicks`,
-    description: descriptionParts.join(" • "),
-    alternates: {
-      canonical: buildAbsoluteUrl(canonicalPath),
-    },
-    openGraph: {
-      title: `${row.name} | amazonpicks`,
-      description: descriptionParts.join(" • "),
-      url: buildAbsoluteUrl(canonicalPath),
-      type: "website",
-      images: row.imageUrl ? [row.imageUrl] : undefined,
-    },
-  };
-}
-
-export default async function ProductDetailPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams?: Promise<{ comments?: string }>;
-}) {
-  const { id } = await params;
-  const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const openComments = resolvedSearchParams?.comments === "1";
-
-  const rows = await prisma.$queryRaw<
+async function resolveProductDetailRecord(id: string): Promise<ProductDetailRecord | null> {
+  const dynamicRows = await prisma.$queryRaw<
     Array<{
       id: string;
       asin: string;
@@ -105,7 +75,6 @@ export default async function ProductDetailPage({
       url: string;
       ratingAverage: number | null;
       ratingCount: number | null;
-      attributes: unknown;
       categoryName: string;
       categoryGroup: string;
       categorySlug: string;
@@ -122,95 +91,263 @@ export default async function ProductDetailPage({
       p."url",
       p."ratingAverage",
       p."ratingCount",
-      p."attributes",
-      cat."name" AS "categoryName",
-      cat."group" AS "categoryGroup",
-      cat."slug" AS "categorySlug",
+      c."name" AS "categoryName",
+      c."group" AS "categoryGroup",
+      c."slug" AS "categorySlug",
       (
         SELECT COUNT(*)::int
-        FROM "SiteProductComment" c
-        INNER JOIN "SiteUser" u ON u."id" = c."userId"
-        WHERE c."productId" = p."id"
-          AND c."status" = 'published'
-          AND u."commentsBlocked" = false
+        FROM "SiteProductComment" sc
+        INNER JOIN "SiteUser" su ON su."id" = sc."userId"
+        WHERE sc."productAsin" = p."asin"
+          AND sc."status" = 'published'
+          AND su."commentsBlocked" = false
       ) AS "commentsCount"
     FROM "DynamicProduct" p
-    INNER JOIN "DynamicCategory" cat ON cat."id" = p."categoryId"
+    INNER JOIN "DynamicCategory" c ON c."id" = p."categoryId"
     WHERE p."id" = ${id}
        OR p."asin" = ${id}
     LIMIT 1
   `);
 
-  const row = rows[0];
-  if (!row) {
-    return notFound();
+  const dynamicRow = dynamicRows[0];
+  if (dynamicRow) {
+    const averagePrice30d = dynamicRow.averagePrice30d ?? dynamicRow.totalPrice;
+    const discountPercent =
+      averagePrice30d > dynamicRow.totalPrice && dynamicRow.totalPrice > 0
+        ? Math.round(((averagePrice30d - dynamicRow.totalPrice) / averagePrice30d) * 100)
+        : 0;
+    const descriptionParts = [
+      dynamicRow.categoryName,
+      dynamicRow.totalPrice > 0 ? `R$ ${dynamicRow.totalPrice.toFixed(2).replace(".", ",")}` : null,
+      discountPercent > 0 ? `${discountPercent}% abaixo da média` : null,
+    ].filter(Boolean);
+
+    return {
+      kind: "dynamic",
+      id: dynamicRow.id,
+      asin: dynamicRow.asin,
+      name: dynamicRow.name,
+      imageUrl: dynamicRow.imageUrl,
+      totalPrice: dynamicRow.totalPrice,
+      averagePrice30d: dynamicRow.averagePrice30d,
+      ratingAverage: dynamicRow.ratingAverage,
+      ratingCount: dynamicRow.ratingCount,
+      url: dynamicRow.url,
+      categoryName: dynamicRow.categoryName,
+      categoryGroup: dynamicRow.categoryGroup,
+      categorySlug: dynamicRow.categorySlug,
+      description: descriptionParts.join(" • "),
+      commentsCount: dynamicRow.commentsCount,
+    };
   }
 
-  const averagePrice30d = row.averagePrice30d ?? row.totalPrice;
+  const trackedRow = await prisma.siteTrackedAmazonProduct.findFirst({
+    where: { asin: id },
+    select: {
+      id: true,
+      asin: true,
+      name: true,
+      imageUrl: true,
+      totalPrice: true,
+      averagePrice30d: true,
+      amazonUrl: true,
+    },
+  });
+
+  if (trackedRow) {
+    const averagePrice30d = trackedRow.averagePrice30d ?? trackedRow.totalPrice;
+    const discountPercent =
+      averagePrice30d > trackedRow.totalPrice && trackedRow.totalPrice > 0
+        ? Math.round(((averagePrice30d - trackedRow.totalPrice) / averagePrice30d) * 100)
+        : 0;
+    const descriptionParts = [
+      "Produto monitorado",
+      trackedRow.totalPrice > 0 ? `R$ ${trackedRow.totalPrice.toFixed(2).replace(".", ",")}` : null,
+      discountPercent > 0 ? `${discountPercent}% abaixo da média` : null,
+    ].filter(Boolean);
+
+    return {
+      kind: "tracked",
+      id: trackedRow.id,
+      asin: trackedRow.asin,
+      name: trackedRow.name,
+      imageUrl: trackedRow.imageUrl,
+      totalPrice: trackedRow.totalPrice,
+      averagePrice30d: trackedRow.averagePrice30d,
+      ratingAverage: null,
+      ratingCount: null,
+      url: trackedRow.amazonUrl,
+      categoryName: "Produto monitorado",
+      categoryGroup: "",
+      categorySlug: "",
+      description: descriptionParts.join(" • "),
+      commentsCount: await countProductComments(trackedRow.asin),
+    };
+  }
+
+  const monitoredRow = await prisma.siteUserMonitoredProduct.findFirst({
+    where: { asin: id },
+    select: {
+      id: true,
+      asin: true,
+      name: true,
+      imageUrl: true,
+      totalPrice: true,
+      averagePrice30d: true,
+      amazonUrl: true,
+    },
+  });
+
+  if (!monitoredRow) return null;
+
+  const averagePrice30d = monitoredRow.averagePrice30d ?? monitoredRow.totalPrice;
   const discountPercent =
-    averagePrice30d > row.totalPrice && row.totalPrice > 0
-      ? Math.round(((averagePrice30d - row.totalPrice) / averagePrice30d) * 100)
+    averagePrice30d > monitoredRow.totalPrice && monitoredRow.totalPrice > 0
+      ? Math.round(((averagePrice30d - monitoredRow.totalPrice) / averagePrice30d) * 100)
       : 0;
-  const canonicalPath = `/produto/${row.asin}`;
   const descriptionParts = [
-    row.categoryName,
-    row.totalPrice > 0 ? `R$ ${row.totalPrice.toFixed(2).replace(".", ",")}` : null,
+    "Produto monitorado",
+    monitoredRow.totalPrice > 0 ? `R$ ${monitoredRow.totalPrice.toFixed(2).replace(".", ",")}` : null,
     discountPercent > 0 ? `${discountPercent}% abaixo da média` : null,
   ].filter(Boolean);
 
-  const item = {
-    id: row.id,
-    asin: row.asin,
-    name: row.name,
-    imageUrl:
-      row.imageUrl || "https://m.media-amazon.com/images/I/61NJbm2a9tL._AC_SL1200_.jpg",
-    url: row.url,
-    totalPrice: row.totalPrice,
-    averagePrice30d,
-    discountPercent,
-    ratingAverage: row.ratingAverage,
-    ratingCount: row.ratingCount,
-    likeCount: 0,
-    dislikeCount: 0,
-    attributes:
-      row.attributes && typeof row.attributes === "object"
-        ? (row.attributes as Record<string, string | number | boolean | null>)
-        : {},
-    categoryName: row.categoryName,
-    categoryGroup: row.categoryGroup,
-    categorySlug: row.categorySlug,
+  return {
+    kind: "monitored",
+    id: monitoredRow.id,
+    asin: monitoredRow.asin,
+    name: monitoredRow.name,
+    imageUrl: monitoredRow.imageUrl,
+    totalPrice: monitoredRow.totalPrice,
+    averagePrice30d: monitoredRow.averagePrice30d,
+    ratingAverage: null,
+    ratingCount: null,
+    url: monitoredRow.amazonUrl,
+    categoryName: "Produto monitorado",
+    categoryGroup: "",
+    categorySlug: "",
+    description: descriptionParts.join(" • "),
+    commentsCount: await countProductComments(monitoredRow.asin),
   };
+}
 
+async function countProductComments(productAsin: string) {
+  const rows = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+    SELECT COUNT(*)::bigint AS "count"
+    FROM "SiteProductComment" c
+    INNER JOIN "SiteUser" u ON u."id" = c."userId"
+    WHERE c."productAsin" = ${productAsin}
+      AND c."status" = 'published'
+      AND u."commentsBlocked" = false
+  `);
+
+  return Number(rows[0]?.count ?? BigInt(0));
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const record = await resolveProductDetailRecord(id);
+
+  if (!record) {
+    return {
+      title: "Produto não encontrado | amazonpicks",
+    };
+  }
+
+  const canonicalPath = `/produto/${record.asin}`;
+
+  return {
+    title: `${record.name} | amazonpicks`,
+    description: record.description,
+    alternates: {
+      canonical: buildAbsoluteUrl(canonicalPath),
+    },
+    openGraph: {
+      title: `${record.name} | amazonpicks`,
+      description: record.description,
+      url: buildAbsoluteUrl(canonicalPath),
+      type: "website",
+      images: record.imageUrl ? [record.imageUrl] : undefined,
+    },
+  };
+}
+
+export default async function ProductDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ comments?: string }>;
+}) {
+  const { id } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const openComments = resolvedSearchParams?.comments === "1";
+  const record = await resolveProductDetailRecord(id);
+
+  if (!record) {
+    return notFound();
+  }
+
+  const averagePrice30d = record.averagePrice30d ?? record.totalPrice;
+  const discountPercent =
+    averagePrice30d > record.totalPrice && record.totalPrice > 0
+      ? Math.round(((averagePrice30d - record.totalPrice) / averagePrice30d) * 100)
+      : 0;
+  const canonicalPath = `/produto/${record.asin}`;
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "Product",
-    name: row.name,
+    name: record.name,
     url: buildAbsoluteUrl(canonicalPath),
-    image: row.imageUrl ? [row.imageUrl] : undefined,
-    description: descriptionParts.join(" • "),
-    sku: row.asin,
+    image: record.imageUrl ? [record.imageUrl] : undefined,
+    description: record.description,
+    sku: record.asin,
     brand: {
       "@type": "Brand",
-      name: row.categoryName,
+      name: record.categoryName,
     },
-    category: row.categoryName,
+    category: record.categoryName,
     offers: {
       "@type": "Offer",
       url: buildAbsoluteUrl(canonicalPath),
       priceCurrency: "BRL",
-      price: row.totalPrice,
+      price: record.totalPrice,
       availability:
-        row.totalPrice > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+        record.totalPrice > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
       itemCondition: "https://schema.org/NewCondition",
     },
     aggregateRating:
-      row.ratingAverage && row.ratingCount && row.ratingCount > 0
+      record.ratingAverage && record.ratingCount && record.ratingCount > 0
         ? {
             "@type": "AggregateRating",
-            ratingValue: row.ratingAverage,
-            reviewCount: row.ratingCount,
+            ratingValue: record.ratingAverage,
+            reviewCount: record.ratingCount,
           }
         : undefined,
+  };
+
+  const detailItem = {
+    id: record.id,
+    asin: record.asin,
+    name: record.name,
+    imageUrl:
+      record.imageUrl || "https://m.media-amazon.com/images/I/61NJbm2a9tL._AC_SL1200_.jpg",
+    url: record.url,
+    totalPrice: record.totalPrice,
+    averagePrice30d,
+    discountPercent,
+    ratingAverage: record.ratingAverage,
+    ratingCount: record.ratingCount,
+    likeCount: 0,
+    dislikeCount: 0,
+    attributes: {},
+    categoryName: record.categoryName,
+    categoryGroup: record.categoryGroup,
+    categorySlug: record.categorySlug,
+    createdAt: undefined,
   };
 
   return (
@@ -222,30 +359,40 @@ export default async function ProductDetailPage({
       <AmazonHeader />
 
       <div className="mx-auto max-w-[1500px] px-3 py-4 md:px-5">
-        <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-[#565959]">
-          <Link
-            href={`/${row.categoryGroup}/${row.categorySlug}`}
-            className="font-semibold text-[#2162A1] hover:text-[#174e87]"
-          >
-            Voltar para {row.categoryName}
-          </Link>
-          <span>•</span>
-          <span>Produto individual</span>
-        </div>
+        {record.categoryGroup && record.categorySlug ? (
+          <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-[#565959]">
+            <Link
+              href={`/${record.categoryGroup}/${record.categorySlug}`}
+              className="font-semibold text-[#2162A1] hover:text-[#174e87]"
+            >
+              Voltar para {record.categoryName}
+            </Link>
+            <span>•</span>
+            <span>Produto individual</span>
+          </div>
+        ) : (
+          <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-[#565959]">
+            <Link href="/" className="font-semibold text-[#2162A1] hover:text-[#174e87]">
+              Voltar ao início
+            </Link>
+            <span>•</span>
+            <span>Produto individual</span>
+          </div>
+        )}
 
         <section className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm md:p-5">
-          <h1 className="sr-only">{row.name}</h1>
+          <h1 className="sr-only">{record.name}</h1>
 
           <div className="mx-auto max-w-[360px]">
-            <BestDealProductCard item={item} category="produto_detalhe" />
+            <BestDealProductCard item={detailItem} category="produto_detalhe" />
           </div>
         </section>
 
         <section id="comentarios" className="mt-4">
           <ProductCommentsSheet
-            productId={row.id}
-            productName={row.name}
-            initialCount={row.commentsCount}
+            productId={record.asin}
+            productName={record.name}
+            initialCount={record.commentsCount}
             initialOpen={openComments}
             hideTrigger
             inline

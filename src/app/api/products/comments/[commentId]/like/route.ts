@@ -26,14 +26,15 @@ export async function POST(
     Array<{
       userId: string;
       body: string;
-      productId: string;
+      productAsin: string;
     }>
   >(Prisma.sql`
     SELECT
       c."userId",
       c."body",
-      c."productId"
+      COALESCE(c."productAsin", p."asin", c."productId") AS "productAsin"
     FROM "SiteProductComment" c
+    LEFT JOIN "DynamicProduct" p ON p."id" = c."productId"
     WHERE c."id" = ${commentId}
     LIMIT 1
   `);
@@ -65,10 +66,10 @@ export async function POST(
       actorUserId: user.id,
       actorDisplayName: user.displayName,
       body: targetComment.body,
-      href: `/produto/${targetComment.productId}?comments=1`,
+      href: `/produto/${targetComment.productAsin}?comments=1`,
       title: "Seu comentário recebeu uma curtida",
       targetCommentId: commentId,
-      targetProductId: targetComment.productId,
+      targetProductId: targetComment.productAsin,
       type: "comment_liked",
     });
   }

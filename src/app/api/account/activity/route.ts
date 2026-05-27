@@ -15,7 +15,7 @@ export async function GET() {
         id: string;
         body: string;
         createdAt: Date;
-        productId: string;
+        productAsin: string;
         productName: string;
       }>
     >(Prisma.sql`
@@ -23,10 +23,12 @@ export async function GET() {
         c."id",
         c."body",
         c."createdAt",
-        p."id" AS "productId",
-        p."name" AS "productName"
+        COALESCE(c."productAsin", p."asin", tp."asin", mp."asin", c."productId") AS "productAsin",
+        COALESCE(p."name", tp."name", mp."name", 'Produto') AS "productName"
       FROM "SiteProductComment" c
-      INNER JOIN "DynamicProduct" p ON p."id" = c."productId"
+      LEFT JOIN "DynamicProduct" p ON p."id" = c."productId"
+      LEFT JOIN "SiteTrackedAmazonProduct" tp ON tp."asin" = c."productAsin"
+      LEFT JOIN "SiteUserMonitoredProduct" mp ON mp."asin" = c."productAsin"
       WHERE c."userId" = ${user.id}
         AND c."status" = 'published'
       ORDER BY c."createdAt" DESC
@@ -57,7 +59,7 @@ export async function GET() {
       body: comment.body,
       createdAt: comment.createdAt.toISOString(),
       productName: comment.productName,
-      href: `/produto/${comment.productId}?comments=1`,
+      href: `/produto/${comment.productAsin}?comments=1`,
     })),
     reactions: reactions.map((reaction) => ({
       id: reaction.id,

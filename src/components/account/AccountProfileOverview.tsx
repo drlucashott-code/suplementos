@@ -24,7 +24,7 @@ type RecentCommentPreview = {
   id: string;
   body: string;
   createdAt: string;
-  productId: string;
+  productAsin: string;
   productName: string;
 };
 
@@ -436,7 +436,7 @@ export default function AccountProfileOverview({
                     {recentComments.map((comment) => (
                       <HubCard
                         key={comment.id}
-                        href={`/produto/${comment.productId}?comments=1`}
+                        href={`/produto/${comment.productAsin}?comments=1`}
                         icon={<MessageCircle className="h-4 w-4" />}
                         title={comment.productName}
                         body={comment.body}
