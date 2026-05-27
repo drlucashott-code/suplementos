@@ -7,19 +7,27 @@ import {
   markAllNotificationsRead,
 } from "@/lib/siteNotifications";
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getCurrentSiteUser();
   if (!user) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  const [page, unreadCount] = await Promise.all([
-    listSiteNotifications({
-      userId: user.id,
-      limit: 20,
-    }),
-    countUnreadNotifications(user.id),
-  ]);
+  const { searchParams } = new URL(request.url);
+  const summaryOnly = searchParams.get("summary") === "1";
+
+  const unreadCount = await countUnreadNotifications(user.id);
+  if (summaryOnly) {
+    return NextResponse.json({
+      ok: true,
+      unreadCount,
+    });
+  }
+
+  const page = await listSiteNotifications({
+    userId: user.id,
+    limit: 20,
+  });
 
   return NextResponse.json({
     ok: true,

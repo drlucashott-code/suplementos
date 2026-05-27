@@ -49,6 +49,7 @@ export default function SiteNotificationsBell() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [notificationsLoaded, setNotificationsLoaded] = useState(false);
 
   useEffect(() => {
     function closeOnOutsideClick(event: MouseEvent) {
@@ -64,33 +65,55 @@ export default function SiteNotificationsBell() {
   useEffect(() => {
     let active = true;
 
-    async function loadNotifications() {
+    async function loadUnreadCount() {
       try {
-        const response = await fetch("/api/account/notifications", { cache: "no-store" });
+        const response = await fetch("/api/account/notifications?summary=1", { cache: "no-store" });
         if (!response.ok) return;
         const data = (await response.json()) as {
           ok?: boolean;
-          notifications?: NotificationItem[];
           unreadCount?: number;
         };
         if (!active || !data.ok) return;
-        setNotifications(data.notifications ?? []);
         setUnreadCount(data.unreadCount ?? 0);
       } catch (error) {
         console.error("notifications_load_failed", error);
       }
     }
 
-    void loadNotifications();
+    void loadUnreadCount();
 
     return () => {
       active = false;
     };
   }, []);
 
+  async function loadNotifications() {
+    if (notificationsLoaded) return;
+
+    try {
+      const response = await fetch("/api/account/notifications", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = (await response.json()) as {
+        ok?: boolean;
+        notifications?: NotificationItem[];
+        unreadCount?: number;
+      };
+      if (!data.ok) return;
+      setNotifications(data.notifications ?? []);
+      setUnreadCount(data.unreadCount ?? 0);
+      setNotificationsLoaded(true);
+    } catch (error) {
+      console.error("notifications_load_failed", error);
+    }
+  }
+
   async function handleOpen() {
     const nextOpen = !open;
     setOpen(nextOpen);
+
+    if (nextOpen) {
+      void loadNotifications();
+    }
 
     if (!nextOpen || unreadCount === 0) return;
 

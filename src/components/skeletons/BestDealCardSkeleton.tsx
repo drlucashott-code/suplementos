@@ -1,5 +1,3 @@
-"use client";
-
 function DealCardSkeleton() {
   return (
     <div className="rounded-xl border border-[#d5d9d9] bg-white p-3 animate-pulse">

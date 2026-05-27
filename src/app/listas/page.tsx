@@ -1,12 +1,30 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
 import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
 import { prisma } from "@/lib/prisma";
 import { buildPublicListPath } from "@/lib/siteSocial";
+import { buildAbsoluteUrl } from "@/lib/siteUrl";
 import Image from "next/image";
 import { ChevronRight, LayoutList } from "lucide-react";
 
 export const revalidate = 300;
+
+export const metadata: Metadata = {
+  title: "Listas públicas | amazonpicks",
+  description:
+    "Explore listas públicas criadas por usuários, com prévias visuais dos produtos e ordenação por recentes ou mais salvamentos.",
+  alternates: {
+    canonical: buildAbsoluteUrl("/listas"),
+  },
+  openGraph: {
+    title: "Listas públicas | amazonpicks",
+    description:
+      "Explore listas públicas criadas por usuários, com prévias visuais dos produtos e ordenação por recentes ou mais salvamentos.",
+    url: buildAbsoluteUrl("/listas"),
+    type: "website",
+  },
+};
 
 type PublicListRow = {
   id: string;
@@ -73,8 +91,33 @@ export default async function PublicListsPage({
     LIMIT 120
   `);
 
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: "Listas públicas",
+    url: buildAbsoluteUrl("/listas"),
+    description:
+      "Explore listas públicas criadas por usuários, com prévias visuais dos produtos e ordenação por recentes ou mais salvamentos.",
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: rows.length,
+      itemListElement: rows.slice(0, 20).map((list, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        url: list.ownerUsername
+          ? buildAbsoluteUrl(buildPublicListPath(list.ownerUsername, list.slug))
+          : buildAbsoluteUrl(`/listas/${list.slug}`),
+        name: list.title,
+      })),
+    },
+  };
+
   return (
     <main className="min-h-screen bg-[#E3E6E6] pb-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <AmazonHeader />
 
       <div className="mx-auto max-w-[1500px] px-3 py-4 md:px-5">

@@ -1,5 +1,3 @@
-"use client";
-
 export function AmazonHeaderSkeleton() {
   return (
     <header className="bg-[#232f3e] sticky top-0 z-40 w-full shadow-md h-14">

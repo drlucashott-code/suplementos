@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
 import { buildAbsoluteUrl } from "@/lib/siteUrl";
 
-const STATIC_ROUTES = ["/", "/ofertas", "/top10", "/listas", "/salvos"] as const;
+const STATIC_ROUTES = ["/", "/ofertas", "/listas", "/salvos"] as const;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [categories, publicLists] = await Promise.all([

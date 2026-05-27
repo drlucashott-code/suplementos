@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Prisma } from "@prisma/client";
@@ -5,8 +6,82 @@ import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
 import BestDealProductCard from "@/components/BestDealProductCard";
 import ProductCommentsSheet from "@/components/dynamic/ProductCommentsSheet";
 import { prisma } from "@/lib/prisma";
+import { buildAbsoluteUrl } from "@/lib/siteUrl";
 
 export const revalidate = 300;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const rows = await prisma.$queryRaw<
+    Array<{
+      asin: string;
+      name: string;
+      imageUrl: string | null;
+      totalPrice: number;
+      averagePrice30d: number | null;
+      ratingAverage: number | null;
+      ratingCount: number | null;
+      categoryName: string;
+      categoryGroup: string;
+      categorySlug: string;
+    }>
+  >(Prisma.sql`
+    SELECT
+      p."asin",
+      p."name",
+      p."imageUrl",
+      p."totalPrice",
+      p."averagePrice30d",
+      p."ratingAverage",
+      p."ratingCount",
+      cat."name" AS "categoryName",
+      cat."group" AS "categoryGroup",
+      cat."slug" AS "categorySlug"
+    FROM "DynamicProduct" p
+    INNER JOIN "DynamicCategory" cat ON cat."id" = p."categoryId"
+    WHERE p."id" = ${id}
+       OR p."asin" = ${id}
+    LIMIT 1
+  `);
+
+  const row = rows[0];
+  if (!row) {
+    return {
+      title: "Produto não encontrado | amazonpicks",
+    };
+  }
+
+  const canonicalPath = `/produto/${row.asin}`;
+  const averagePrice30d = row.averagePrice30d ?? row.totalPrice;
+  const discountPercent =
+    averagePrice30d > row.totalPrice && row.totalPrice > 0
+      ? Math.round(((averagePrice30d - row.totalPrice) / averagePrice30d) * 100)
+      : 0;
+  const descriptionParts = [
+    row.categoryName,
+    row.totalPrice > 0 ? `R$ ${row.totalPrice.toFixed(2).replace(".", ",")}` : null,
+    discountPercent > 0 ? `${discountPercent}% abaixo da média` : null,
+  ].filter(Boolean);
+
+  return {
+    title: `${row.name} | amazonpicks`,
+    description: descriptionParts.join(" • "),
+    alternates: {
+      canonical: buildAbsoluteUrl(canonicalPath),
+    },
+    openGraph: {
+      title: `${row.name} | amazonpicks`,
+      description: descriptionParts.join(" • "),
+      url: buildAbsoluteUrl(canonicalPath),
+      type: "website",
+      images: row.imageUrl ? [row.imageUrl] : undefined,
+    },
+  };
+}
 
 export default async function ProductDetailPage({
   params,
@@ -76,6 +151,12 @@ export default async function ProductDetailPage({
     averagePrice30d > row.totalPrice && row.totalPrice > 0
       ? Math.round(((averagePrice30d - row.totalPrice) / averagePrice30d) * 100)
       : 0;
+  const canonicalPath = `/produto/${row.asin}`;
+  const descriptionParts = [
+    row.categoryName,
+    row.totalPrice > 0 ? `R$ ${row.totalPrice.toFixed(2).replace(".", ",")}` : null,
+    discountPercent > 0 ? `${discountPercent}% abaixo da média` : null,
+  ].filter(Boolean);
 
   const item = {
     id: row.id,
@@ -100,8 +181,44 @@ export default async function ProductDetailPage({
     categorySlug: row.categorySlug,
   };
 
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: row.name,
+    url: buildAbsoluteUrl(canonicalPath),
+    image: row.imageUrl ? [row.imageUrl] : undefined,
+    description: descriptionParts.join(" • "),
+    sku: row.asin,
+    brand: {
+      "@type": "Brand",
+      name: row.categoryName,
+    },
+    category: row.categoryName,
+    offers: {
+      "@type": "Offer",
+      url: buildAbsoluteUrl(canonicalPath),
+      priceCurrency: "BRL",
+      price: row.totalPrice,
+      availability:
+        row.totalPrice > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      itemCondition: "https://schema.org/NewCondition",
+    },
+    aggregateRating:
+      row.ratingAverage && row.ratingCount && row.ratingCount > 0
+        ? {
+            "@type": "AggregateRating",
+            ratingValue: row.ratingAverage,
+            reviewCount: row.ratingCount,
+          }
+        : undefined,
+  };
+
   return (
     <main className="min-h-screen bg-[#E3E6E6] pb-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <AmazonHeader />
 
       <div className="mx-auto max-w-[1500px] px-3 py-4 md:px-5">

@@ -1,5 +1,3 @@
-"use client";
-
 export function ProductSkeleton() {
   return (
     <div className="flex gap-3 border-b border-gray-100 bg-white relative items-stretch min-h-[290px] animate-pulse font-sans">

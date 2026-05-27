@@ -1,5 +1,3 @@
-"use client";
-
 /**
  * MobileFiltersDrawerSkeleton
  * Versão corrigida: utiliza larguras estáticas para evitar Math.random()
