@@ -1,7 +1,10 @@
 import { DynamicProduct, Prisma } from "@prisma/client";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { hasBlockedMerchantInAttributes } from "@/lib/blockedMerchants";
+import {
+  getCanonicalSellerFromAttributes,
+  hasBlockedMerchantInAttributes,
+} from "@/lib/blockedMerchants";
 import { getDynamicCatalogCacheTag } from "@/lib/dynamicCatalogCache";
 import {
   getDynamicDisplayPrice,
@@ -1228,7 +1231,8 @@ export async function getDynamicCatalogData({
     const attrs = p.attributes as unknown as DynamicAttributes;
 
     if (attrs.brand) availableBrands.add(String(attrs.brand).trim());
-    if (attrs.seller) availableSellers.add(String(attrs.seller).trim());
+    const canonicalSeller = getCanonicalSellerFromAttributes(attrs);
+    if (canonicalSeller) availableSellers.add(canonicalSeller);
 
     filterableConfigs.forEach((config) => {
       const val = attrs[config.key];
@@ -1268,7 +1272,9 @@ export async function getDynamicCatalogData({
   const matchedProducts = visibleProducts.filter((p) => {
     const attrs = p.attributes as unknown as DynamicAttributes;
     const pBrand = String(attrs.brand || "").trim().toLowerCase();
-    const pSeller = String(attrs.seller || "").trim().toLowerCase();
+    const pSeller = String(getCanonicalSellerFromAttributes(attrs) || "")
+      .trim()
+      .toLowerCase();
 
     if (searchWords.length > 0) {
       const productText = removeAccents(`${p.name} ${p.asin} ${pBrand}`.toLowerCase());

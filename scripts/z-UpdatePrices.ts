@@ -296,7 +296,6 @@ async function persistDynamicUpdate(
   delete nextAttributesBase.precoAssinatura;
   delete nextAttributesBase.precoSubscribeAndSave;
   nextAttributesBase.seller = result?.merchantName || "Indisponivel";
-  nextAttributesBase.vendedor = result?.merchantName || "Indisponivel";
   if (
     result?.status === "OK" &&
     typeof result.programAndSavePrice === "number" &&

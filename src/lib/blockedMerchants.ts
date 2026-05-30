@@ -5,6 +5,12 @@ type DynamicAttributesLike =
   | null
   | undefined;
 
+function normalizeAttributeString(value: string | number | boolean | null | undefined) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
 function normalizeMerchantName(value: string) {
   return value
     .normalize("NFD")
@@ -20,6 +26,15 @@ export function getBlockedMerchantNames() {
   return [...BLOCKED_MERCHANTS];
 }
 
+export function getCanonicalSellerFromAttributes(attributes: unknown) {
+  if (!attributes || typeof attributes !== "object" || Array.isArray(attributes)) {
+    return null;
+  }
+
+  const attrs = attributes as DynamicAttributesLike;
+  return normalizeAttributeString(attrs?.seller);
+}
+
 export function isBlockedMerchantName(value: string | null | undefined) {
   if (!value) return false;
   return NORMALIZED_BLOCKED_MERCHANTS.includes(normalizeMerchantName(value));
@@ -33,15 +48,11 @@ export function getBlockedMerchantMatch(value: string | null | undefined) {
 }
 
 export function getBlockedMerchantFromAttributes(attributes: unknown) {
-  if (!attributes || typeof attributes !== "object" || Array.isArray(attributes)) {
-    return null;
-  }
-
-  const attrs = attributes as DynamicAttributesLike;
-  const candidates = [attrs?.seller, attrs?.vendedor];
+  const canonicalSeller = getCanonicalSellerFromAttributes(attributes);
+  const candidates = [canonicalSeller];
 
   for (const candidate of candidates) {
-    if (typeof candidate !== "string") continue;
+    if (typeof candidate !== "string" || candidate.length === 0) continue;
     const match = getBlockedMerchantMatch(candidate);
     if (match) return match;
   }

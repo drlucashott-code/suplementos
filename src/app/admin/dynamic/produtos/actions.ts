@@ -206,8 +206,6 @@ export async function updateManyProducts(
       if (key === 'brand') nextAttributes.marca = value;
       if (key === 'sabor') nextAttributes.flavor = value;
       if (key === 'flavor') nextAttributes.sabor = value;
-      if (key === 'seller') nextAttributes.vendedor = value;
-      if (key === 'vendedor') nextAttributes.seller = value;
       if (key === 'volume') nextAttributes.volumeMl = value;
       if (key === 'volumeMl') nextAttributes.volume = value;
 

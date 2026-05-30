@@ -19,7 +19,10 @@ import {
   normalizeDynamicVisibilityStatus,
   type DynamicVisibilityStatus,
 } from "@/lib/dynamicVisibility";
-import { getBlockedMerchantFromAttributes } from "@/lib/blockedMerchants";
+import {
+  getBlockedMerchantFromAttributes,
+  getCanonicalSellerFromAttributes,
+} from "@/lib/blockedMerchants";
 
 const BRAZIL_TZ = "America/Sao_Paulo";
 
@@ -390,6 +393,7 @@ export function AdminProductTable({
     return products.filter((p) => {
       const attrs = (p.attributes as DynamicAttributes) || {};
       const brandValue = String(attrs.marca || attrs.brand || "").trim();
+      const canonicalSeller = String(getCanonicalSellerFromAttributes(attrs) || "").trim();
       const matchesCat = !hasCategoryFilter || p.category.id === filterCategory;
       const visibilityStatus = normalizeDynamicVisibilityStatus(
         p.visibilityStatus,
@@ -413,7 +417,8 @@ export function AdminProductTable({
           return (
             p.name.toLowerCase().includes(term) ||
             asinValues.includes(term) ||
-            brandValue.toLowerCase().includes(term)
+            brandValue.toLowerCase().includes(term) ||
+            canonicalSeller.toLowerCase().includes(term)
           );
         });
 
@@ -635,8 +640,6 @@ export function AdminProductTable({
     if (key === "brand") next.marca = value;
     if (key === "sabor") next.flavor = value;
     if (key === "flavor") next.sabor = value;
-    if (key === "seller") next.vendedor = value;
-    if (key === "vendedor") next.seller = value;
     if (key === "volume") next.volumeMl = value;
     if (key === "volumeMl") next.volume = value;
 
