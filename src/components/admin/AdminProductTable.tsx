@@ -19,6 +19,7 @@ import {
   normalizeDynamicVisibilityStatus,
   type DynamicVisibilityStatus,
 } from "@/lib/dynamicVisibility";
+import { getBlockedMerchantFromAttributes } from "@/lib/blockedMerchants";
 
 const BRAZIL_TZ = "America/Sao_Paulo";
 
@@ -87,7 +88,7 @@ interface TableInitialState {
   searchTerm?: string;
   filterCategory?: string;
   selectedBrands?: string[];
-  siteVisibilityFilter?: "all" | DynamicVisibilityStatus | "internal";
+  siteVisibilityFilter?: "all" | DynamicVisibilityStatus | "internal" | "blocked";
   currentPage?: number;
   sortConfig?: {
     key: string;
@@ -238,7 +239,7 @@ export function AdminProductTable({
   const [showBrandFilter, setShowBrandFilter] = useState(false);
   const [brandFilterSearch, setBrandFilterSearch] = useState("");
   const [siteVisibilityFilter, setSiteVisibilityFilter] = useState<
-    "all" | DynamicVisibilityStatus | "internal"
+    "all" | DynamicVisibilityStatus | "internal" | "blocked"
   >(initialState?.siteVisibilityFilter ?? "all");
   const [currentPage, setCurrentPage] = useState(initialState?.currentPage ?? 1);
   const [sortConfig, setSortConfig] = useState<{
@@ -395,6 +396,7 @@ export function AdminProductTable({
         p.isVisibleOnSite
       );
       const isInternal = p.source === "internal";
+      const blockedMerchant = getBlockedMerchantFromAttributes(p.attributes);
 
       const matchesSearch =
         searchTerms.length === 0 ||
@@ -423,6 +425,8 @@ export function AdminProductTable({
           ? !isInternal
           : siteVisibilityFilter === "internal"
             ? isInternal
+            : siteVisibilityFilter === "blocked"
+              ? !isInternal && blockedMerchant !== null
             : !isInternal && siteVisibilityFilter === visibilityStatus;
 
       return matchesCat && matchesSearch && matchesBrand && matchesVisibility;
@@ -952,7 +956,11 @@ export function AdminProductTable({
               className="w-full cursor-pointer rounded-xl border-none bg-gray-50 p-3 text-sm font-bold outline-none"
               onChange={(e) => {
                 setSiteVisibilityFilter(
-                  e.target.value as "all" | DynamicVisibilityStatus | "internal"
+                  e.target.value as
+                    | "all"
+                    | DynamicVisibilityStatus
+                    | "internal"
+                    | "blocked"
                 );
                 setCurrentPage(1);
                 setSelectedIds([]);
@@ -962,6 +970,7 @@ export function AdminProductTable({
               <option value="visible">Somente visiveis</option>
               <option value="pending">Somente pendentes</option>
               <option value="hidden">Somente ocultos</option>
+              <option value="blocked">Somente bloqueados</option>
               <option value="internal">Somente internos</option>
             </select>
           </div>
@@ -973,6 +982,13 @@ export function AdminProductTable({
           <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-sm font-semibold text-gray-500">
               Selecione uma categoria para carregar os produtos. Isso evita renderizar os 1600 itens de uma vez e deixa o admin bem mais leve.
             </div>
+        )}
+
+        {siteVisibilityFilter === "blocked" && (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm font-semibold text-rose-800">
+            Aqui aparecem os produtos com seller bloqueado detectado nos atributos atuais. Eles
+            saem do catalogo publico, mas podem voltar automaticamente quando o seller mudar em um refresh futuro.
+          </div>
         )}
 
         {siteVisibilityFilter === "internal" && (

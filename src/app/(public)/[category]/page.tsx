@@ -6,6 +6,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { DynamicProduct } from "@prisma/client";
 import { buildAbsoluteUrl } from "@/lib/siteUrl";
+import { hasBlockedMerchantInAttributes } from "@/lib/blockedMerchants";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +80,25 @@ export default async function CategoryGroupPage({ params }: PageProps) {
 
   if (!categories || categories.length === 0) return notFound();
 
+  const filteredCategories = categories
+    .map((category) => {
+      const visibleProducts = category.products.filter(
+        (product) => !hasBlockedMerchantInAttributes(product.attributes)
+      );
+
+      return {
+        ...category,
+        products: visibleProducts,
+        _count: {
+          ...category._count,
+          products: visibleProducts.length,
+        },
+      };
+    })
+    .filter((category) => category._count.products > 0);
+
+  if (filteredCategories.length === 0) return notFound();
+
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
@@ -87,8 +107,8 @@ export default async function CategoryGroupPage({ params }: PageProps) {
     description: `Categorias e subcategorias de ${categoryParam.replace("-", " ")} com descoberta orientada por comparação.`,
     mainEntity: {
       "@type": "ItemList",
-      numberOfItems: categories.length,
-      itemListElement: categories.map((category, index) => ({
+      numberOfItems: filteredCategories.length,
+      itemListElement: filteredCategories.map((category, index) => ({
         "@type": "ListItem",
         position: index + 1,
         url: buildAbsoluteUrl(`/${categoryParam}/${category.slug}`),
@@ -114,7 +134,7 @@ export default async function CategoryGroupPage({ params }: PageProps) {
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {categories.map((cat) => (
+          {filteredCategories.map((cat) => (
             <Link
               key={cat.id}
               href={`/${categoryParam}/${cat.slug}`}

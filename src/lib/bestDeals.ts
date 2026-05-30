@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { touchDynamicProductPriority } from "@/lib/priceRefreshSignals";
+import { buildBlockedMerchantAttributesSql } from "@/lib/blockedMerchantsSql";
 
 export type BestDeal = {
   id: string;
@@ -28,6 +29,7 @@ const buildBestDealsWhereClause = (group?: BestDealsGroup) => Prisma.sql`
   WHERE p."visibilityStatus" = 'visible'
     AND p."totalPrice" > 0
     AND COALESCE(p."availabilityStatus", 'UNKNOWN') <> 'OUT_OF_STOCK'
+    AND NOT ${buildBlockedMerchantAttributesSql("p")}
     AND p."averagePrice30d" IS NOT NULL
     AND p."averagePrice30d" > p."totalPrice"
     AND (((p."averagePrice30d" - p."totalPrice") / p."averagePrice30d") * 100) >= 5

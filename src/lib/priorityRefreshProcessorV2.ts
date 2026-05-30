@@ -26,6 +26,7 @@ import { getPriceHistoryCanonicalDate } from "@/lib/dynamicPriceHistory";
 import { writeDynamicDailyPriceHistoryIfChanged } from "@/lib/priceHistoryWrites";
 import { applyDynamicRefreshOutcome, markDynamicRefreshAttempt } from "@/lib/priceRefreshSignals";
 import { reservePriceRefreshBudget } from "@/lib/priceRefreshBudget";
+import { getBlockedMerchantMatch } from "@/lib/blockedMerchants";
 
 const sqsClient = new SQSClient({ region: process.env.AWS_REGION || "us-east-2" });
 const queueUrl =
@@ -154,6 +155,7 @@ async function persistDynamicUpdate(params: {
   delete nextAttributesBase.precoAssinatura;
   delete nextAttributesBase.precoSubscribeAndSave;
 
+  nextAttributesBase.seller = result.merchantName || "Indisponivel";
   nextAttributesBase.vendedor = result.merchantName || "Indisponivel";
   if (
     result.status === "OK" &&
@@ -512,10 +514,10 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
         const merchantName = snapshot.merchantName || "Desconhecido";
         let price = snapshot.price;
         let status: ApiStatus = price > 0 ? "OK" : "OUT_OF_STOCK";
-        if (merchantName === "Loja Suplemento") {
-          status = "EXCLUDED";
-          price = 0;
-        }
+      if (getBlockedMerchantMatch(merchantName)) {
+        status = "EXCLUDED";
+        price = 0;
+      }
 
         await persistDynamicUpdate({
           product,

@@ -17,6 +17,7 @@ import { enrichDynamicAttributesForCategory } from "@/lib/dynamicCategoryMetrics
 import { prisma } from "@/lib/prisma";
 import { refreshDynamicProductPriceStats } from "@/lib/dynamicPriceStats";
 import { getPriceHistoryCanonicalDate } from "@/lib/dynamicPriceHistory";
+import { getBlockedMerchantMatch } from "@/lib/blockedMerchants";
 
 const sqsClient = new SQSClient({ region: process.env.AWS_REGION || "us-east-2" });
 const queueUrl =
@@ -106,7 +107,7 @@ async function fetchAmazonPricesBatch(
     let price = snapshot.price;
     let status: PriceResult["status"] = price > 0 ? "OK" : "OUT_OF_STOCK";
 
-    if (snapshot.merchantName === "Loja Suplemento") {
+    if (getBlockedMerchantMatch(snapshot.merchantName)) {
       status = "EXCLUDED";
       price = 0;
     }
@@ -193,6 +194,7 @@ async function persistDynamicUpdate(productId: string, result: PriceResult) {
   delete nextAttributesBase.precoAssinatura;
   delete nextAttributesBase.precoSubscribeAndSave;
 
+  nextAttributesBase.seller = result.merchantName ?? "Indisponivel";
   nextAttributesBase.vendedor = result.merchantName ?? "Indisponivel";
   if (
     result.status === "OK" &&

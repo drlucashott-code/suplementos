@@ -3,6 +3,7 @@ import https from "https";
 import crypto from "node:crypto";
 import { Store } from "@prisma/client";
 import { prisma } from "../src/lib/prisma";
+import { getBlockedMerchantMatch } from "../src/lib/blockedMerchants";
 
 /* ======================
     CONFIGURAÇÕES
@@ -136,7 +137,7 @@ async function fetchAmazonPricesBatch(asins: string[]): Promise<Record<string, P
 
               let status: ApiStatus = price > 0 ? "OK" : "OUT_OF_STOCK";
 
-              if (merchantName === "Loja Suplemento") {
+              if (getBlockedMerchantMatch(merchantName)) {
                   status = "EXCLUDED";
                   price = 0;
               }

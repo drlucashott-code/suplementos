@@ -84,7 +84,8 @@ export default async function AdminProdutosDynamic({
                 params.visibility === "visible" ||
                 params.visibility === "hidden" ||
                 params.visibility === "pending" ||
-                params.visibility === "internal"
+                params.visibility === "internal" ||
+                params.visibility === "blocked"
                   ? params.visibility
                   : "all",
               currentPage: Math.max(1, Number(params.page ?? "1") || 1),

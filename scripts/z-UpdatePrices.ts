@@ -15,6 +15,7 @@ import { refreshTrackedAmazonProductPriceStatsBulk } from "../src/lib/siteTracke
 import {
   fetchAmazonPriceSnapshots,
 } from "../src/lib/amazonApiClient";
+import { getBlockedMerchantMatch } from "../src/lib/blockedMerchants";
 import {
   writeDynamicDailyPriceHistoryIfChanged,
   writeTrackedDailyPriceHistoryIfChanged,
@@ -269,7 +270,7 @@ async function fetchAmazonPricesBatch(
     const merchantName = snapshot.merchantName || "Desconhecido";
     let status: ApiStatus = price > 0 ? "OK" : "OUT_OF_STOCK";
 
-    if (merchantName === "Loja Suplemento") {
+    if (getBlockedMerchantMatch(merchantName)) {
       status = "EXCLUDED";
       price = 0;
     }
@@ -294,6 +295,7 @@ async function persistDynamicUpdate(
   delete nextAttributesBase.precoProgramaPoupe;
   delete nextAttributesBase.precoAssinatura;
   delete nextAttributesBase.precoSubscribeAndSave;
+  nextAttributesBase.seller = result?.merchantName || "Indisponivel";
   nextAttributesBase.vendedor = result?.merchantName || "Indisponivel";
   if (
     result?.status === "OK" &&

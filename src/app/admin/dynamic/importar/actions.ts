@@ -23,6 +23,7 @@ import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { revalidateDynamicCatalogCategoryRefs } from '@/lib/dynamicCatalogRevalidation';
 import { dedupeDynamicCatalogCategoryRefs, type DynamicCatalogCategoryRef } from '@/lib/dynamicCatalogCache';
+import { getBlockedMerchantMatch } from '@/lib/blockedMerchants';
 
 /* ======================
 ENV
@@ -1523,13 +1524,14 @@ async function runDynamicImportJob(
 
       const { price, programAndSavePrice, merchantName, item } = result;
 
-      if (merchantName === "Loja Suplemento") {
+      const blockedMerchant = getBlockedMerchantMatch(merchantName);
+      if (blockedMerchant) {
         await upsertCategoryAsinDecision({
           categoryId,
           asin,
           status: 'rejected_soft',
           reasonCode: 'MERCHANT_EXCLUDED',
-          reasonText: 'Oferta atual excluida pelo seller Loja Suplemento',
+          reasonText: `Oferta atual excluida pelo seller ${blockedMerchant}`,
           policyHash: importPolicyHash,
           title: item?.ItemInfo?.Title?.DisplayValue ?? null,
           brand:
@@ -1541,7 +1543,7 @@ async function runDynamicImportJob(
         });
         skippedItems += 1;
         processedItems += 1;
-        logs.push(`! ${asin}: Excluido (Loja Suplemento)`);
+        logs.push(`! ${asin}: Excluido (${blockedMerchant})`);
         await updateImportRun(runId, {
           processedItems,
           importedItems,
