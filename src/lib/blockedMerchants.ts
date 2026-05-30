@@ -1,4 +1,4 @@
-const BLOCKED_MERCHANTS = ["Loja Suplemento", "Drogaria Araujo"] as const;
+const BLOCKED_MERCHANTS = ["Loja Suplemento", "Drogaria Araujo", "TodaVida"] as const;
 
 type DynamicAttributesLike =
   | Record<string, string | number | boolean | null | undefined>
