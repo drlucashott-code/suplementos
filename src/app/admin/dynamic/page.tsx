@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { revalidateDynamicCatalogCategoryRefs } from "@/lib/dynamicCatalogRevalidation";
 import CacheResetButton, { type CacheResetState } from "@/components/admin/CacheResetButton";
+import { BlockedMerchantsManager } from "@/components/admin/BlockedMerchantsManager";
 import {
   getBlockedMerchantsConfig,
   setCustomBlockedMerchants,
@@ -634,63 +635,6 @@ export default async function AdminDynamicDashboard() {
         <div className="mt-12">
           <div className="mb-6">
             <div className="mb-2 flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-rose-600" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-rose-700">
-                Sellers bloqueados
-              </span>
-            </div>
-            <h2 className="text-2xl font-black text-gray-900">Blocklist de vendedores</h2>
-            <p className="mt-1 text-sm font-medium text-gray-500">
-              Tudo que estiver aqui sai das vitrines públicas. Se o seller mudar num refresh futuro,
-              o produto pode voltar automaticamente.
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
-            <form action={saveBlockedMerchantsAction} className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-              <div>
-                <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-500">
-                  Sellers adicionais bloqueados
-                </label>
-                <textarea
-                  name="blockedMerchants"
-                  defaultValue={blockedMerchantsConfig.customBlockedMerchants.join("\n")}
-                  className="min-h-[180px] w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-rose-300 focus:bg-white"
-                  placeholder="Um seller por linha"
-                />
-                <p className="mt-2 text-xs text-gray-500">
-                  Os sellers padrão do sistema continuam bloqueados mesmo se não aparecerem aqui.
-                </p>
-                <button
-                  type="submit"
-                  className="mt-4 rounded-2xl bg-gray-900 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-sm transition hover:bg-black"
-                >
-                  Salvar blocklist
-                </button>
-              </div>
-
-              <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
-                <span className="block text-[10px] font-black uppercase tracking-widest text-gray-500">
-                  Bloqueio ativo
-                </span>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {blockedMerchantsConfig.allBlockedMerchants.map((merchant) => (
-                    <span
-                      key={merchant}
-                      className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700"
-                    >
-                      {merchant}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        <div className="mt-12">
-          <div className="mb-6">
-            <div className="mb-2 flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-600" />
               <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
                 Scheduler health
@@ -777,6 +721,31 @@ export default async function AdminDynamicDashboard() {
           </div>
           <div className="pointer-events-none absolute right-[-5%] top-[-20%] select-none text-[120px] font-black opacity-[0.03]">
             DYNAMIC
+          </div>
+        </div>
+
+        <div className="mt-12">
+          <div className="mb-6">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-rose-600" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-rose-700">
+                Sellers bloqueados
+              </span>
+            </div>
+            <h2 className="text-2xl font-black text-gray-900">Blocklist de vendedores</h2>
+            <p className="mt-1 text-sm font-medium text-gray-500">
+              Tudo que estiver aqui sai das vitrines públicas. O número ao lado de cada seller
+              mostra quantos produtos estão bloqueados por ele agora. Se o seller mudar num
+              refresh futuro, o produto pode voltar automaticamente.
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+            <BlockedMerchantsManager
+              action={saveBlockedMerchantsAction}
+              blockedMerchants={blockedMerchantsConfig.blockedMerchants}
+              blockedMerchantStats={blockedMerchantsConfig.blockedMerchantStats}
+            />
           </div>
         </div>
       </div>

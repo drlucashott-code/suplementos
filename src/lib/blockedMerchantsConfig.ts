@@ -3,6 +3,7 @@ import {
   buildBlockedMerchantMatcher,
   DEFAULT_BLOCKED_MERCHANTS,
 } from "@/lib/blockedMerchants";
+import { Prisma } from "@prisma/client";
 
 const DYNAMIC_SITE_CONFIG_KEY = "global";
 
@@ -28,9 +29,58 @@ async function ensureDynamicSiteConfigRow() {
     update: {},
     create: {
       key: DYNAMIC_SITE_CONFIG_KEY,
-      blockedMerchants: [],
+      blockedMerchants: [...DEFAULT_BLOCKED_MERCHANTS],
     },
   });
+
+  const row = await prisma.dynamicSiteConfig.findUnique({
+    where: { key: DYNAMIC_SITE_CONFIG_KEY },
+    select: { blockedMerchants: true },
+  });
+
+  const normalizedBlockedMerchants = normalizeMerchantList(row?.blockedMerchants ?? []);
+  const mergedBlockedMerchants = normalizeMerchantList([
+    ...DEFAULT_BLOCKED_MERCHANTS,
+    ...normalizedBlockedMerchants,
+  ]);
+
+  if (mergedBlockedMerchants.length !== normalizedBlockedMerchants.length) {
+    await prisma.dynamicSiteConfig.update({
+      where: { key: DYNAMIC_SITE_CONFIG_KEY },
+      data: {
+        blockedMerchants: mergedBlockedMerchants,
+      },
+    });
+  }
+}
+
+async function getBlockedMerchantStats(blockedMerchants: readonly string[]) {
+  if (blockedMerchants.length === 0) {
+    return [] as Array<{ merchant: string; productCount: number }>;
+  }
+
+  const normalizedBlockedNames = blockedMerchants.map((value) =>
+    value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLowerCase()
+  );
+
+  const rows = await prisma.$queryRaw<Array<{ merchant: string; productCount: number }>>(Prisma.sql`
+    SELECT
+      p."attributes"->>'seller' AS merchant,
+      COUNT(*)::int AS "productCount"
+    FROM "DynamicProduct" p
+    WHERE LOWER(BTRIM(COALESCE(p."attributes"->>'seller', ''))) IN (${Prisma.join(
+      normalizedBlockedNames.map((value) => Prisma.sql`${value}`)
+    )})
+    GROUP BY p."attributes"->>'seller'
+    ORDER BY COUNT(*) DESC, merchant ASC
+  `);
+
+  return rows;
 }
 
 export async function getBlockedMerchantsConfig() {
@@ -41,33 +91,25 @@ export async function getBlockedMerchantsConfig() {
     select: { blockedMerchants: true },
   });
 
-  const customBlockedMerchants = normalizeMerchantList(row?.blockedMerchants ?? []);
-  const allBlockedMerchants = normalizeMerchantList([
-    ...DEFAULT_BLOCKED_MERCHANTS,
-    ...customBlockedMerchants,
-  ]);
+  const blockedMerchants = normalizeMerchantList(row?.blockedMerchants ?? []);
+  const blockedMerchantStats = await getBlockedMerchantStats(blockedMerchants);
 
   return {
-    defaultBlockedMerchants: [...DEFAULT_BLOCKED_MERCHANTS],
-    customBlockedMerchants,
-    allBlockedMerchants,
+    blockedMerchants,
+    blockedMerchantStats,
+    allBlockedMerchants: blockedMerchants,
   };
 }
 
 export async function setCustomBlockedMerchants(input: string[]) {
   await ensureDynamicSiteConfigRow();
 
-  const customBlockedMerchants = normalizeMerchantList(input).filter(
-    (value) =>
-      !DEFAULT_BLOCKED_MERCHANTS.some(
-        (defaultValue) => defaultValue.toLowerCase() === value.toLowerCase()
-      )
-  );
+  const blockedMerchants = normalizeMerchantList(input);
 
   await prisma.dynamicSiteConfig.update({
     where: { key: DYNAMIC_SITE_CONFIG_KEY },
     data: {
-      blockedMerchants: customBlockedMerchants,
+      blockedMerchants,
     },
   });
 
