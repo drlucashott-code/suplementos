@@ -290,6 +290,29 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
     };
   }
 
+  const receiveBatch = async () =>
+    sqsClient.send(
+      new ReceiveMessageCommand({
+        QueueUrl: queueUrl,
+        MaxNumberOfMessages: BATCH_SIZE,
+        WaitTimeSeconds: 5,
+      })
+    );
+
+  const initialBatch = await receiveBatch();
+  const initialMessages = initialBatch.Messages || [];
+
+  if (initialMessages.length === 0) {
+    return {
+      processedMessages: 0,
+      uniqueAsins: 0,
+      updatedProducts: 0,
+      skippedProducts: 0,
+      updatedAsins: [],
+      updatedCategoryRefs: [],
+    };
+  }
+
   const runId = crypto.randomUUID();
 
   await prisma.priorityRefreshRun.create({
@@ -317,18 +340,9 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
   const updatedCategoryRefs = new Map<string, DynamicCatalogCategoryRef>();
 
   try {
-    while (true) {
-      const batch = await sqsClient.send(
-        new ReceiveMessageCommand({
-          QueueUrl: queueUrl,
-          MaxNumberOfMessages: BATCH_SIZE,
-          WaitTimeSeconds: 5,
-        })
-      );
-
-      const messages = batch.Messages || [];
+    const processMessages = async (messages: Message[]) => {
       if (messages.length === 0) {
-        break;
+        return false;
       }
 
       const now = new Date();
@@ -362,7 +376,7 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
 
       const eligibleMessages = messages.filter((message) => !deferredMessages.includes(message));
       if (eligibleMessages.length === 0) {
-        continue;
+        return true;
       }
 
       summary.processedMessages += eligibleMessages.length;
@@ -394,7 +408,7 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
         console.warn(
           `[priority-budget] lote adiado por falta de orcamento (${budget.blockedBy ?? "budget"})`
         );
-        break;
+        return false;
       }
 
       summary.uniqueAsins += uniqueAsins.length;
@@ -552,6 +566,18 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
             })),
           })
         );
+      }
+      return true;
+    };
+
+    await processMessages(initialMessages);
+
+    while (true) {
+      const batch = await receiveBatch();
+      const messages = batch.Messages || [];
+      const hadMessages = await processMessages(messages);
+      if (!hadMessages) {
+        break;
       }
     }
 
