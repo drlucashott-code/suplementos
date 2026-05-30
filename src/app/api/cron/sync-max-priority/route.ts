@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncMaxPriorityRefreshTargets } from "@/lib/maxPriorityRefresh";
+import { isAuthorizedCronRequest } from "@/lib/cronAuth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 function isAuthorized(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return false;
-  }
-
-  const authHeader = request.headers.get("authorization");
-  return authHeader === `Bearer ${cronSecret}`;
+  return isAuthorizedCronRequest(request, process.env.CRON_SECRET);
 }
 
 export async function POST(request: NextRequest) {

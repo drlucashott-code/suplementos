@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateDynamicCatalogCategoryRefs } from "@/lib/dynamicCatalogRevalidation";
 import { type DynamicCatalogCategoryRef } from "@/lib/dynamicCatalogCache";
+import { isAuthorizedCronRequest } from "@/lib/cronAuth";
 
 export const dynamic = "force-dynamic";
 
 function isAuthorized(request: NextRequest) {
   const secret =
     process.env.INTERNAL_REVALIDATE_SECRET || process.env.CRON_SECRET || "";
-
-  if (!secret) {
-    return false;
-  }
-
-  return request.headers.get("authorization") === `Bearer ${secret}`;
+  return isAuthorizedCronRequest(request, secret);
 }
 
 function parseRefs(value: unknown): DynamicCatalogCategoryRef[] {

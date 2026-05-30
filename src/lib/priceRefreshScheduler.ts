@@ -450,8 +450,8 @@ export function shouldAttemptSignalEnqueue(params: {
   signal: RefreshSignal;
   now?: Date;
   refreshLockUntil?: Date | null;
+  lastPrioritySignalAt?: Date | null;
   nextPriorityEnqueueAt?: Date | null;
-  nextPriceRefreshAt?: Date | null;
   lastSuccessfulRefreshAt?: Date | null;
 }) {
   const now = params.now ?? new Date();
@@ -466,13 +466,30 @@ export function shouldAttemptSignalEnqueue(params: {
     return false;
   }
 
-  return shouldAttemptEnqueue({
-    now,
-    refreshLockUntil: params.refreshLockUntil,
-    nextPriorityEnqueueAt: params.nextPriorityEnqueueAt,
-    nextPriceRefreshAt: params.nextPriceRefreshAt,
-    lastSuccessfulRefreshAt: params.lastSuccessfulRefreshAt,
-  });
+  if (params.refreshLockUntil && params.refreshLockUntil.getTime() > now.getTime()) {
+    return false;
+  }
+
+  const duplicateWindowMs =
+    signalProfile?.enqueueDelayMs ?? CLICK_PRIORITY_REENQUEUE_MS;
+
+  if (
+    params.lastPrioritySignalAt &&
+    now.getTime() - params.lastPrioritySignalAt.getTime() < duplicateWindowMs
+  ) {
+    return false;
+  }
+
+  if (
+    params.nextPriorityEnqueueAt &&
+    params.nextPriorityEnqueueAt.getTime() > now.getTime() &&
+    params.lastPrioritySignalAt &&
+    params.nextPriorityEnqueueAt.getTime() - now.getTime() <= duplicateWindowMs
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 export function applyRefreshResult(
