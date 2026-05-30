@@ -1,4 +1,8 @@
-const BLOCKED_MERCHANTS = ["Loja Suplemento", "Drogaria Araujo", "TodaVida"] as const;
+export const DEFAULT_BLOCKED_MERCHANTS = [
+  "Loja Suplemento",
+  "Drogaria Araujo",
+  "TodaVida",
+] as const;
 
 type DynamicAttributesLike =
   | Record<string, string | number | boolean | null | undefined>
@@ -20,10 +24,11 @@ function normalizeMerchantName(value: string) {
     .toLowerCase();
 }
 
-const NORMALIZED_BLOCKED_MERCHANTS = BLOCKED_MERCHANTS.map(normalizeMerchantName);
+const NORMALIZED_DEFAULT_BLOCKED_MERCHANTS =
+  DEFAULT_BLOCKED_MERCHANTS.map(normalizeMerchantName);
 
 export function getBlockedMerchantNames() {
-  return [...BLOCKED_MERCHANTS];
+  return [...DEFAULT_BLOCKED_MERCHANTS];
 }
 
 export function getCanonicalSellerFromAttributes(attributes: unknown) {
@@ -37,23 +42,41 @@ export function getCanonicalSellerFromAttributes(attributes: unknown) {
 
 export function isBlockedMerchantName(value: string | null | undefined) {
   if (!value) return false;
-  return NORMALIZED_BLOCKED_MERCHANTS.includes(normalizeMerchantName(value));
+  return NORMALIZED_DEFAULT_BLOCKED_MERCHANTS.includes(normalizeMerchantName(value));
 }
 
 export function getBlockedMerchantMatch(value: string | null | undefined) {
   if (!value) return null;
   const normalized = normalizeMerchantName(value);
-  const index = NORMALIZED_BLOCKED_MERCHANTS.indexOf(normalized);
-  return index >= 0 ? BLOCKED_MERCHANTS[index] : null;
+  const index = NORMALIZED_DEFAULT_BLOCKED_MERCHANTS.indexOf(normalized);
+  return index >= 0 ? DEFAULT_BLOCKED_MERCHANTS[index] : null;
+}
+
+export function buildBlockedMerchantMatcher(names: readonly string[]) {
+  const normalizedBlockedNames = names.map(normalizeMerchantName);
+
+  return {
+    isBlocked(value: string | null | undefined) {
+      if (!value) return false;
+      return normalizedBlockedNames.includes(normalizeMerchantName(value));
+    },
+    match(value: string | null | undefined) {
+      if (!value) return null;
+      const normalized = normalizeMerchantName(value);
+      const index = normalizedBlockedNames.indexOf(normalized);
+      return index >= 0 ? names[index] ?? null : null;
+    },
+  };
 }
 
 export function getBlockedMerchantFromAttributes(attributes: unknown) {
   const canonicalSeller = getCanonicalSellerFromAttributes(attributes);
   const candidates = [canonicalSeller];
+  const matcher = buildBlockedMerchantMatcher(DEFAULT_BLOCKED_MERCHANTS);
 
   for (const candidate of candidates) {
     if (typeof candidate !== "string" || candidate.length === 0) continue;
-    const match = getBlockedMerchantMatch(candidate);
+    const match = matcher.match(candidate);
     if (match) return match;
   }
 
@@ -65,5 +88,5 @@ export function hasBlockedMerchantInAttributes(attributes: unknown) {
 }
 
 export function getNormalizedBlockedMerchantNames() {
-  return [...NORMALIZED_BLOCKED_MERCHANTS];
+  return [...NORMALIZED_DEFAULT_BLOCKED_MERCHANTS];
 }

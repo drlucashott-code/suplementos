@@ -12,6 +12,7 @@ import {
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { getBlockedMerchantsConfig } from '@/lib/blockedMerchantsConfig';
 
 const NEW_PRODUCT_DEFAULT_VISIBILITY = 'pending' as const;
 
@@ -409,7 +410,7 @@ export async function getDynamicProducts() {
 
 export async function getAdminProductsPageData() {
   try {
-    const [products, trackedProducts, categories] = await prisma.$transaction([
+    const [products, trackedProducts, categories, blockedConfig] = await Promise.all([
       prisma.dynamicProduct.findMany({
         include: {
           category: {
@@ -438,6 +439,7 @@ export async function getAdminProductsPageData() {
       prisma.dynamicCategory.findMany({
         orderBy: { name: 'asc' },
       }),
+      getBlockedMerchantsConfig(),
     ]);
 
     const internalCategory = {
@@ -478,10 +480,14 @@ export async function getAdminProductsPageData() {
       })),
     ];
 
-    return { products: mergedProducts, categories };
+    return {
+      products: mergedProducts,
+      categories,
+      blockedMerchantNames: blockedConfig.allBlockedMerchants,
+    };
   } catch (error) {
     console.error('Erro ao buscar dados do admin de produtos:', error);
-    return { products: [], categories: [] };
+    return { products: [], categories: [], blockedMerchantNames: [] };
   }
 }
 

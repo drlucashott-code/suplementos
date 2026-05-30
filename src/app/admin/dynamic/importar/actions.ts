@@ -23,7 +23,7 @@ import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { revalidateDynamicCatalogCategoryRefs } from '@/lib/dynamicCatalogRevalidation';
 import { dedupeDynamicCatalogCategoryRefs, type DynamicCatalogCategoryRef } from '@/lib/dynamicCatalogCache';
-import { getBlockedMerchantMatch } from '@/lib/blockedMerchants';
+import { getBlockedMerchantMatcher } from '@/lib/blockedMerchantsConfig';
 
 /* ======================
 ENV
@@ -1316,6 +1316,7 @@ export async function importDynamicViaAPI(
   asinsRaw: string,
   categoryId: string
 ) {
+  const blockedMerchantMatcher = await getBlockedMerchantMatcher();
   return startDynamicImportViaAPI({ asinsRaw, categoryId });
 }
 
@@ -1356,6 +1357,7 @@ async function runDynamicImportJob(
   const errorAsins: string[] = [];
 
   await updateImportRun(runId, { logs });
+  const blockedMerchantMatcher = await getBlockedMerchantMatcher();
 
   const selectedAsins = new Set(asinList);
 
@@ -1524,7 +1526,7 @@ async function runDynamicImportJob(
 
       const { price, programAndSavePrice, merchantName, item } = result;
 
-      const blockedMerchant = getBlockedMerchantMatch(merchantName);
+      const blockedMerchant = blockedMerchantMatcher.match(merchantName);
       if (blockedMerchant) {
         await upsertCategoryAsinDecision({
           categoryId,

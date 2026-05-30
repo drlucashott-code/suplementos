@@ -6,7 +6,11 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { DynamicProduct } from "@prisma/client";
 import { buildAbsoluteUrl } from "@/lib/siteUrl";
-import { hasBlockedMerchantInAttributes } from "@/lib/blockedMerchants";
+import {
+  buildBlockedMerchantMatcher,
+  getCanonicalSellerFromAttributes,
+} from "@/lib/blockedMerchants";
+import { getBlockedMerchantsConfig } from "@/lib/blockedMerchantsConfig";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +52,10 @@ type CategoryWithVisibleProducts = {
 
 export default async function CategoryGroupPage({ params }: PageProps) {
   const { category: categoryParam } = await params;
+  const blockedConfig = await getBlockedMerchantsConfig();
+  const blockedMatcher = buildBlockedMerchantMatcher(
+    blockedConfig.allBlockedMerchants
+  );
 
   const categories = await (
     prisma.dynamicCategory as unknown as {
@@ -83,7 +91,8 @@ export default async function CategoryGroupPage({ params }: PageProps) {
   const filteredCategories = categories
     .map((category) => {
       const visibleProducts = category.products.filter(
-        (product) => !hasBlockedMerchantInAttributes(product.attributes)
+        (product) =>
+          !blockedMatcher.isBlocked(getCanonicalSellerFromAttributes(product.attributes))
       );
 
       return {

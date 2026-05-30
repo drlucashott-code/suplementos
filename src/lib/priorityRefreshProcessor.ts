@@ -17,7 +17,7 @@ import { enrichDynamicAttributesForCategory } from "@/lib/dynamicCategoryMetrics
 import { prisma } from "@/lib/prisma";
 import { refreshDynamicProductPriceStats } from "@/lib/dynamicPriceStats";
 import { getPriceHistoryCanonicalDate } from "@/lib/dynamicPriceHistory";
-import { getBlockedMerchantMatch } from "@/lib/blockedMerchants";
+import { getBlockedMerchantMatcher } from "@/lib/blockedMerchantsConfig";
 
 const sqsClient = new SQSClient({ region: process.env.AWS_REGION || "us-east-2" });
 const queueUrl =
@@ -99,6 +99,7 @@ async function fetchAmazonPricesBatch(
 ): Promise<Record<string, PriceResult>> {
   if (asins.length === 0) return {};
 
+  const blockedMerchantMatcher = await getBlockedMerchantMatcher();
   const snapshots = await fetchAmazonPriceSnapshots(asins);
   const results: Record<string, PriceResult> = {};
 
@@ -107,7 +108,7 @@ async function fetchAmazonPricesBatch(
     let price = snapshot.price;
     let status: PriceResult["status"] = price > 0 ? "OK" : "OUT_OF_STOCK";
 
-    if (getBlockedMerchantMatch(snapshot.merchantName)) {
+    if (blockedMerchantMatcher.match(snapshot.merchantName)) {
       status = "EXCLUDED";
       price = 0;
     }

@@ -22,7 +22,7 @@ export default async function AdminProdutosDynamic({
 }: AdminProdutosPageProps) {
   const params = await searchParams;
 
-  const { products, categories } = await getAdminProductsPageData();
+  const { products, categories, blockedMerchantNames } = await getAdminProductsPageData();
 
   return (
     <div className="min-h-screen bg-gray-50/30 p-8 font-sans text-black">
@@ -73,6 +73,7 @@ export default async function AdminProdutosDynamic({
           <AdminProductTable
             initialProducts={products}
             categories={categories}
+            blockedMerchantNames={blockedMerchantNames}
             initialState={{
               searchTerm: params.q ?? "",
               filterCategory: params.category ?? "",

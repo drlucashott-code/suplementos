@@ -3,8 +3,9 @@ import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import {
   getCanonicalSellerFromAttributes,
-  hasBlockedMerchantInAttributes,
+  buildBlockedMerchantMatcher,
 } from "@/lib/blockedMerchants";
+import { getBlockedMerchantsConfig } from "@/lib/blockedMerchantsConfig";
 import { getDynamicCatalogCacheTag } from "@/lib/dynamicCatalogCache";
 import {
   getDynamicDisplayPrice,
@@ -903,6 +904,10 @@ async function fetchDynamicCatalogBaseData(
 } | null> {
   const getCachedBaseData = unstable_cache(
     async () => {
+      const blockedConfig = await getBlockedMerchantsConfig();
+      const blockedMerchantMatcher = buildBlockedMerchantMatcher(
+        blockedConfig.allBlockedMerchants
+      );
       const categoryData = await prisma.dynamicCategory.findFirst({
         where: {
           slug,
@@ -1130,7 +1135,12 @@ async function fetchDynamicCatalogBaseData(
       );
 
       const visibleProducts: VisibleProductWithStats[] = categoryData.products
-        .filter((product) => !hasBlockedMerchantInAttributes(product.attributes))
+        .filter(
+          (product) =>
+            !blockedMerchantMatcher.isBlocked(
+              getCanonicalSellerFromAttributes(product.attributes)
+            )
+        )
         .map((product) => {
           const productState = productStateMap.get(product.id);
           const fallbackState: DynamicProductFallbackState | undefined = productState

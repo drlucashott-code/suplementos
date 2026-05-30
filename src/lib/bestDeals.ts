@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { touchDynamicProductPriority } from "@/lib/priceRefreshSignals";
 import { buildBlockedMerchantAttributesSql } from "@/lib/blockedMerchantsSql";
+import { getBlockedMerchantsConfig } from "@/lib/blockedMerchantsConfig";
 
 export type BestDeal = {
   id: string;
@@ -25,11 +26,14 @@ export type BestDeal = {
 
 type BestDealsGroup = string | undefined;
 
-const buildBestDealsWhereClause = (group?: BestDealsGroup) => Prisma.sql`
+const buildBestDealsWhereClause = (
+  blockedMerchantNames: readonly string[],
+  group?: BestDealsGroup
+) => Prisma.sql`
   WHERE p."visibilityStatus" = 'visible'
     AND p."totalPrice" > 0
     AND COALESCE(p."availabilityStatus", 'UNKNOWN') <> 'OUT_OF_STOCK'
-    AND NOT ${buildBlockedMerchantAttributesSql("p")}
+    AND NOT ${buildBlockedMerchantAttributesSql("p", blockedMerchantNames)}
     AND p."averagePrice30d" IS NOT NULL
     AND p."averagePrice30d" > p."totalPrice"
     AND (((p."averagePrice30d" - p."totalPrice") / p."averagePrice30d") * 100) >= 5
@@ -41,6 +45,7 @@ export async function getBestDeals(
   group?: string,
   offset = 0
 ): Promise<BestDeal[]> {
+  const blockedConfig = await getBlockedMerchantsConfig();
   const rows = await prisma.$queryRaw<
     Array<{
       id: string;
@@ -92,7 +97,7 @@ export async function getBestDeals(
       c."slug" AS "categorySlug"
     FROM "DynamicProduct" p
     INNER JOIN "DynamicCategory" c ON c."id" = p."categoryId"
-    ${buildBestDealsWhereClause(group)}
+    ${buildBestDealsWhereClause(blockedConfig.allBlockedMerchants, group)}
     ORDER BY
       (((p."averagePrice30d" - p."totalPrice") / p."averagePrice30d") * 100) DESC,
       p."averagePrice30d" DESC,
@@ -127,11 +132,12 @@ export async function getBestDeals(
 }
 
 export async function getBestDealsCount(group?: string): Promise<number> {
+  const blockedConfig = await getBlockedMerchantsConfig();
   const rows = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
     SELECT COUNT(*)::bigint AS "count"
     FROM "DynamicProduct" p
     INNER JOIN "DynamicCategory" c ON c."id" = p."categoryId"
-    ${buildBestDealsWhereClause(group)}
+    ${buildBestDealsWhereClause(blockedConfig.allBlockedMerchants, group)}
   `);
 
   const rawCount = rows[0]?.count ?? BigInt(0);

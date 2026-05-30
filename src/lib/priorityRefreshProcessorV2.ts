@@ -26,7 +26,7 @@ import { getPriceHistoryCanonicalDate } from "@/lib/dynamicPriceHistory";
 import { writeDynamicDailyPriceHistoryIfChanged } from "@/lib/priceHistoryWrites";
 import { applyDynamicRefreshOutcome, markDynamicRefreshAttempt } from "@/lib/priceRefreshSignals";
 import { reservePriceRefreshBudget } from "@/lib/priceRefreshBudget";
-import { getBlockedMerchantMatch } from "@/lib/blockedMerchants";
+import { getBlockedMerchantMatcher } from "@/lib/blockedMerchantsConfig";
 
 const sqsClient = new SQSClient({ region: process.env.AWS_REGION || "us-east-2" });
 const queueUrl =
@@ -243,6 +243,7 @@ async function persistDynamicUpdate(params: {
 export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }) {
   assertEnv();
   assertCreatorsModeForPriorityRefresh();
+  const blockedMerchantMatcher = await getBlockedMerchantMatcher();
 
   const now = new Date();
   const staleBefore = new Date(now.getTime() - RUN_STALE_AFTER_MS);
@@ -513,7 +514,7 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
         const merchantName = snapshot.merchantName || "Desconhecido";
         let price = snapshot.price;
         let status: ApiStatus = price > 0 ? "OK" : "OUT_OF_STOCK";
-      if (getBlockedMerchantMatch(merchantName)) {
+      if (blockedMerchantMatcher.match(merchantName)) {
         status = "EXCLUDED";
         price = 0;
       }

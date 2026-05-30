@@ -3,7 +3,7 @@ import https from "https";
 import crypto from "node:crypto";
 import { Store } from "@prisma/client";
 import { prisma } from "../src/lib/prisma";
-import { getBlockedMerchantMatch } from "../src/lib/blockedMerchants";
+import { getBlockedMerchantMatcher } from "../src/lib/blockedMerchantsConfig";
 
 /* ======================
     CONFIGURAÇÕES
@@ -62,6 +62,7 @@ interface AmazonListing {
 
 async function fetchAmazonPricesBatch(asins: string[]): Promise<Record<string, PriceResult>> {
   if (asins.length === 0) return {};
+  const blockedMerchantMatcher = await getBlockedMerchantMatcher();
 
   const payload = JSON.stringify({
     ItemIds: asins,
@@ -137,7 +138,7 @@ async function fetchAmazonPricesBatch(asins: string[]): Promise<Record<string, P
 
               let status: ApiStatus = price > 0 ? "OK" : "OUT_OF_STOCK";
 
-              if (getBlockedMerchantMatch(merchantName)) {
+              if (blockedMerchantMatcher.match(merchantName)) {
                   status = "EXCLUDED";
                   price = 0;
               }

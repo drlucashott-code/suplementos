@@ -390,6 +390,7 @@ model DynamicSiteConfig {
   fallbackActivatedAt      DateTime?
   clickEmailAlertsEnabled  Boolean  @default(false)
   clickAlertEmailTo        String?
+  blockedMerchants         String[] @default([])
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 }

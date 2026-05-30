@@ -20,7 +20,7 @@ import {
   type DynamicVisibilityStatus,
 } from "@/lib/dynamicVisibility";
 import {
-  getBlockedMerchantFromAttributes,
+  buildBlockedMerchantMatcher,
   getCanonicalSellerFromAttributes,
 } from "@/lib/blockedMerchants";
 
@@ -217,10 +217,12 @@ function isMissingEditableValue(value: string | number | boolean | null | undefi
 export function AdminProductTable({
   initialProducts,
   categories,
+  blockedMerchantNames,
   initialState,
 }: {
   initialProducts: Product[];
   categories: CategoryOption[];
+  blockedMerchantNames: string[];
   initialState?: TableInitialState;
 }) {
   const router = useRouter();
@@ -272,6 +274,10 @@ export function AdminProductTable({
     left: 0,
     width: 0,
   });
+  const blockedMerchantMatcher = useMemo(
+    () => buildBlockedMerchantMatcher(blockedMerchantNames),
+    [blockedMerchantNames]
+  );
 
   const hasCategoryFilter = filterCategory !== "";
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
@@ -400,7 +406,9 @@ export function AdminProductTable({
         p.isVisibleOnSite
       );
       const isInternal = p.source === "internal";
-      const blockedMerchant = getBlockedMerchantFromAttributes(p.attributes);
+      const blockedMerchant = blockedMerchantMatcher.match(
+        getCanonicalSellerFromAttributes(p.attributes)
+      );
 
       const matchesSearch =
         searchTerms.length === 0 ||
@@ -444,6 +452,7 @@ export function AdminProductTable({
     searchTerms,
     selectedBrands,
     siteVisibilityFilter,
+    blockedMerchantMatcher,
   ]);
 
   const dynamicColumns = useMemo(() => {

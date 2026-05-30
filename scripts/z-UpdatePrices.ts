@@ -15,7 +15,7 @@ import { refreshTrackedAmazonProductPriceStatsBulk } from "../src/lib/siteTracke
 import {
   fetchAmazonPriceSnapshots,
 } from "../src/lib/amazonApiClient";
-import { getBlockedMerchantMatch } from "../src/lib/blockedMerchants";
+import { getBlockedMerchantMatcher } from "../src/lib/blockedMerchantsConfig";
 import {
   writeDynamicDailyPriceHistoryIfChanged,
   writeTrackedDailyPriceHistoryIfChanged,
@@ -262,6 +262,7 @@ async function fetchAmazonPricesBatch(
 ): Promise<Record<string, PriceResult>> {
   if (asins.length === 0) return {};
 
+  const blockedMerchantMatcher = await getBlockedMerchantMatcher();
   const snapshots = await fetchAmazonPriceSnapshots(asins);
   const results: Record<string, PriceResult> = {};
 
@@ -270,7 +271,7 @@ async function fetchAmazonPricesBatch(
     const merchantName = snapshot.merchantName || "Desconhecido";
     let status: ApiStatus = price > 0 ? "OK" : "OUT_OF_STOCK";
 
-    if (getBlockedMerchantMatch(merchantName)) {
+    if (blockedMerchantMatcher.match(merchantName)) {
       status = "EXCLUDED";
       price = 0;
     }
