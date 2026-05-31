@@ -203,10 +203,7 @@ function shouldShowOneDecimal(config: DisplayConfigField) {
     label.includes("kg") ||
     suffix.includes("kg") ||
     key.includes("kg") ||
-    prefix.includes("kg") ||
-    label.includes("grama") ||
-    suffix.trim() === "g" ||
-    key === "weightgrams"
+    prefix.includes("kg")
   );
 }
 

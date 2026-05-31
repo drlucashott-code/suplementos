@@ -1,0 +1,41 @@
+{
+  "id": "cmpt0y4cw0000y7xmcc4b8j9y",
+  "slug": "cafeina",
+  "name": "Cafeína",
+  "displayConfig": {
+    "fields": [
+      {
+        "key": "weightGrams",
+        "type": "number",
+        "label": "CAFEÍNA",
+        "filterable": true,
+        "visibility": "public_table"
+      },
+      {
+        "key": "precoPorGrama",
+        "type": "currency",
+        "label": "Por g",
+        "filterable": false,
+        "visibility": "public_table"
+      }
+    ],
+    "settings": {
+      "customSorts": [],
+      "defaultSort": "best_value",
+      "enabledSorts": [
+        "best_value",
+        "price_asc",
+        "discount"
+      ],
+      "hideFromHome": false,
+      "primaryMetricLabel": "CAFEÍNA",
+      "primaryMetricPreset": "weight_grams",
+      "analysisTitleTemplate": "ANÁLISE TOTAL",
+      "bestValueAttributeKey": "precoPorGrama",
+      "primaryMetricPriceKey": "precoPorGrama",
+      "primaryMetricPriceLabel": "Por g",
+      "primaryMetricAttributeKey": "weightGrams"
+    }
+  },
+  "updatedAt": "2026-05-31T15:01:35.453Z"
+}
