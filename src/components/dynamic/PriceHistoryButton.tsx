@@ -49,27 +49,27 @@ const RANGE_HORIZON_META: Record<
 > = {
   short: {
     label: "Curto prazo",
-    sectionText: "text-[#315A9A]",
+    sectionText: "text-[#565959]",
     inactiveClassName:
-      "border-[#D8E6FF] bg-[#F6FAFF] text-[#315A9A] hover:border-[#C3D8FF] hover:bg-[#EEF5FF]",
+      "border-[#D5D9D9] bg-white text-[#0F1111] hover:border-[#AAB7B8] hover:bg-[#F7F8F8]",
     activeClassName:
-      "border-[#214E93] bg-[#214E93] text-white shadow-sm ring-2 ring-[#D8E6FF]",
+      "border-[#F7CA00] bg-[#FFD814] text-[#0F1111] shadow-sm",
   },
   medium: {
     label: "Médio prazo",
-    sectionText: "text-[#0F766E]",
+    sectionText: "text-[#565959]",
     inactiveClassName:
-      "border-[#CFEDE7] bg-[#F3FBF9] text-[#0F766E] hover:border-[#B9E3DA] hover:bg-[#ECF8F5]",
+      "border-[#D5D9D9] bg-white text-[#0F1111] hover:border-[#AAB7B8] hover:bg-[#F7F8F8]",
     activeClassName:
-      "border-[#0F766E] bg-[#0F766E] text-white shadow-sm ring-2 ring-[#CFEDE7]",
+      "border-[#F7CA00] bg-[#FFD814] text-[#0F1111] shadow-sm",
   },
   long: {
     label: "Longo prazo",
-    sectionText: "text-[#A16207]",
+    sectionText: "text-[#565959]",
     inactiveClassName:
-      "border-[#F5DFC0] bg-[#FFF8EE] text-[#A16207] hover:border-[#EFD3A6] hover:bg-[#FFF3E2]",
+      "border-[#D5D9D9] bg-white text-[#0F1111] hover:border-[#AAB7B8] hover:bg-[#F7F8F8]",
     activeClassName:
-      "border-[#A16207] bg-[#A16207] text-white shadow-sm ring-2 ring-[#F5DFC0]",
+      "border-[#F7CA00] bg-[#FFD814] text-[#0F1111] shadow-sm",
   },
 };
 
@@ -458,20 +458,20 @@ export function PriceHistoryButton({
 
       {open && typeof document !== "undefined" ? createPortal((
         <div
-          className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/45 px-3 py-4 sm:px-4 sm:py-6"
+          className="fixed inset-0 z-[1500] flex items-center justify-center bg-[#0F1111]/55 px-3 py-4 sm:px-4 sm:py-6"
           onMouseDown={closeBackdropSafely}
           onTouchEnd={closeBackdropSafely}
           onClick={closeBackdropSafely}
         >
           <div
-            className="flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_28px_90px_rgba(15,17,17,0.26)] sm:max-h-[calc(100vh-3rem)]"
+            className="flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[16px] border border-[#D5D9D9] bg-[#F7F8F8] shadow-[0_12px_28px_rgba(15,17,17,0.28)] sm:max-h-[calc(100vh-3rem)]"
             onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="border-b border-[#EEF2F2] bg-[linear-gradient(180deg,#FAFCFC_0%,#F4F8F8_100%)] px-4 py-4 sm:px-6 sm:py-5">
+            <div className="border-b border-[#D5D9D9] bg-white px-4 py-4 sm:px-6 sm:py-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#007185]">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#565959]">
                     Histórico de preço
                   </p>
                   <h3 className="mt-1 line-clamp-2 text-[15px] font-bold text-[#0F1111] sm:text-[17px]">
@@ -486,7 +486,7 @@ export function PriceHistoryButton({
                     event.stopPropagation();
                     setOpen(false);
                   }}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-[#6B7280] shadow-sm transition hover:border-[#D1D5DB] hover:text-[#374151]"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#D5D9D9] bg-white text-[#565959] transition hover:border-[#AAB7B8] hover:bg-[#F7F8F8] hover:text-[#0F1111]"
                   aria-label="Fechar histórico"
                 >
                   <X className="h-4 w-4" />
@@ -494,9 +494,9 @@ export function PriceHistoryButton({
               </div>
             </div>
 
-            <div className="space-y-4 overflow-y-auto bg-[#FCFDFD] px-4 py-4 sm:px-6 sm:py-5">
+            <div className="space-y-4 overflow-y-auto bg-[#F7F8F8] px-4 py-4 sm:px-6 sm:py-5">
               {showFreshMessage ? (
-                <div className="rounded-[24px] border border-dashed border-[#D5D9D9] bg-white px-4 py-10 text-center text-sm text-zinc-600">
+                <div className="rounded-[14px] border border-dashed border-[#D5D9D9] bg-white px-4 py-10 text-center text-sm text-[#565959]">
                   {emptyMessage}
                 </div>
               ) : visibleRanges.length > 1 ? (
@@ -523,7 +523,7 @@ export function PriceHistoryButton({
                                 key={sectionRange}
                                 type="button"
                                 onClick={() => setRange(sectionRange)}
-                                className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold transition ${
+                                className={`rounded-[999px] border px-3 py-1.5 text-[12px] font-semibold transition ${
                                   isActive
                                     ? sectionMeta.activeClassName
                                     : sectionMeta.inactiveClassName
@@ -540,31 +540,31 @@ export function PriceHistoryButton({
                 </div>
               ) : !showFreshMessage && visibleRanges.length === 1 ? (
                 <div className="flex items-center">
-                  <span className="inline-flex rounded-full border border-[#E5E7EB] bg-white px-3 py-1 text-[11px] font-medium text-[#6B7280]">
+                  <span className="inline-flex rounded-full border border-[#D5D9D9] bg-white px-3 py-1 text-[11px] font-medium text-[#565959]">
                     Histórico de {formatPriceHistoryRangeLabel(visibleRanges[0])}
                   </span>
                 </div>
               ) : null}
 
               {showFreshMessage ? null : loading && !data ? (
-                <div className="flex min-h-[320px] items-center justify-center rounded-[24px] border border-[#E6ECEC] bg-white">
-                  <div className="flex flex-col items-center gap-2 text-sm text-zinc-600">
-                    <Loader2 className="h-5 w-5 animate-spin text-[#007185]" />
+                <div className="flex min-h-[320px] items-center justify-center rounded-[14px] border border-[#D5D9D9] bg-white">
+                  <div className="flex flex-col items-center gap-2 text-sm text-[#565959]">
+                    <Loader2 className="h-5 w-5 animate-spin text-[#2162A1]" />
                     Carregando histórico...
                   </div>
                 </div>
               ) : !showFreshMessage && error ? (
-                <div className="rounded-[24px] border border-red-100 bg-red-50 px-4 py-10 text-center text-sm font-medium text-red-600">
+                <div className="rounded-[14px] border border-[#F5C6CB] bg-[#FFF4F4] px-4 py-10 text-center text-sm font-medium text-[#B12704]">
                   {error}
                 </div>
               ) : !showFreshMessage && (!data || !chart) ? (
-                <div className="rounded-[24px] border border-dashed border-[#D5D9D9] bg-white px-4 py-10 text-center text-sm text-zinc-500">
+                <div className="rounded-[14px] border border-dashed border-[#D5D9D9] bg-white px-4 py-10 text-center text-sm text-[#565959]">
                   Ainda não há histórico suficiente para exibir.
                 </div>
               ) : (
                 <>
                   <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                    <div className="rounded-[18px] border border-[#E6ECEC] bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FAFA_100%)] px-3 py-2.5">
+                    <div className="rounded-[10px] border border-[#D5D9D9] bg-white px-3 py-2.5">
                       <p className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500">
                         Preço atual
                       </p>
@@ -573,16 +573,16 @@ export function PriceHistoryButton({
                       </p>
                     </div>
 
-                    <div className="rounded-[18px] border border-[#E6ECEC] bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FAFA_100%)] px-3 py-2.5">
+                    <div className="rounded-[10px] border border-[#D5D9D9] bg-white px-3 py-2.5">
                       <p className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500">
                         Mínimo
                       </p>
-                      <p className="mt-1 text-[17px] font-bold tracking-tight text-[#166534]">
+                      <p className="mt-1 text-[17px] font-bold tracking-tight text-[#067D62]">
                         {formatCurrency(priceHistoryData!.stats.min)}
                       </p>
                     </div>
 
-                    <div className="rounded-[18px] border border-[#DCEFE2] bg-[linear-gradient(180deg,#FFFFFF_0%,#F4FBF6_100%)] px-3 py-2.5">
+                    <div className="rounded-[10px] border border-[#D5D9D9] bg-white px-3 py-2.5">
                       <p className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500">
                         Média
                       </p>
@@ -591,7 +591,7 @@ export function PriceHistoryButton({
                       </p>
                     </div>
 
-                    <div className="rounded-[18px] border border-[#E6ECEC] bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FAFA_100%)] px-3 py-2.5">
+                    <div className="rounded-[10px] border border-[#D5D9D9] bg-white px-3 py-2.5">
                       <p className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500">
                         Máximo
                       </p>
@@ -603,7 +603,7 @@ export function PriceHistoryButton({
 
                   {deltaDirection === "down" ? (
                     <div className="flex items-center">
-                      <p className="inline-flex items-center gap-1.5 rounded-full border border-[#D8F0E0] bg-[#F5FBF7] px-3 py-1.5 text-[12px] font-semibold text-[#166534]">
+                      <p className="inline-flex items-center gap-1.5 rounded-full border border-[#D5D9D9] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#067D62]">
                         <ArrowDownRight className="h-3.5 w-3.5" />
                         {deltaPercent}% abaixo da média
                       </p>
@@ -612,7 +612,7 @@ export function PriceHistoryButton({
 
                   {deltaDirection === "up" ? (
                     <div className="flex items-center">
-                      <p className="inline-flex items-center gap-1.5 rounded-full border border-[#FED7AA] bg-[#FFF7ED] px-3 py-1.5 text-[12px] font-semibold text-[#C2410C]">
+                      <p className="inline-flex items-center gap-1.5 rounded-full border border-[#FAD9A7] bg-[#FFF4E5] px-3 py-1.5 text-[12px] font-semibold text-[#B12704]">
                         <ArrowUpRight className="h-3.5 w-3.5" />
                         {deltaPercent}% acima da média
                       </p>
@@ -621,15 +621,15 @@ export function PriceHistoryButton({
 
                   {deltaDirection === "flat" && deltaPercent !== null ? (
                     <div className="flex items-center">
-                      <p className="inline-flex items-center gap-1.5 rounded-full border border-[#E5E7EB] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#52525B]">
+                      <p className="inline-flex items-center gap-1.5 rounded-full border border-[#D5D9D9] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#565959]">
                         <Minus className="h-3.5 w-3.5" />
                         Preço dentro do normal
                       </p>
                     </div>
                   ) : null}
 
-                  <div className="rounded-[24px] bg-white px-2 py-2 sm:px-3">
-                    <div className="relative rounded-[18px] bg-[#FBFDFD] px-2 py-3 sm:px-3">
+                  <div className="rounded-[10px] border border-[#D5D9D9] bg-white px-2 py-2 sm:px-3">
+                    <div className="relative rounded-[8px] bg-white px-2 py-3 sm:px-3">
                       <svg
                         viewBox={`0 0 ${chartData!.width} ${chartData!.height}`}
                         className="block aspect-[16/7] w-full"
@@ -643,7 +643,7 @@ export function PriceHistoryButton({
                             y1={line.y}
                             x2={chartData!.width - chartData!.padding.right}
                             y2={line.y}
-                            stroke="#F1F5F5"
+                            stroke="#EAeded"
                           />
                         ))}
 
@@ -652,7 +652,7 @@ export function PriceHistoryButton({
                           y1={chartData!.height - chartData!.padding.bottom}
                           x2={chartData!.width - chartData!.padding.right}
                           y2={chartData!.height - chartData!.padding.bottom}
-                          stroke="#E4E4E7"
+                          stroke="#D5D9D9"
                         />
 
                         {chartData!.averageY !== null ? (
@@ -661,8 +661,8 @@ export function PriceHistoryButton({
                             y1={chartData!.averageY}
                             x2={chartData!.width - chartData!.padding.right}
                             y2={chartData!.averageY}
-                            stroke="#94A3B8"
-                            strokeDasharray="5 4"
+                            stroke="#565959"
+                            strokeDasharray="4 4"
                             strokeWidth="1.25"
                           />
                         ) : null}
@@ -672,8 +672,8 @@ export function PriceHistoryButton({
                             key={`segment-${index}`}
                             d={segment}
                             fill="none"
-                            stroke="#007185"
-                            strokeWidth="2.25"
+                            stroke="#2162A1"
+                            strokeWidth="2"
                             strokeLinejoin="round"
                             strokeLinecap="round"
                           />
@@ -690,18 +690,18 @@ export function PriceHistoryButton({
                                 y1={chartData!.padding.top}
                                 x2={range.startX}
                                 y2={chartData!.height - chartData!.padding.bottom}
-                                stroke="#F59E0B"
+                                stroke="#B12704"
                                 strokeDasharray="3 4"
-                                strokeOpacity={0.65}
+                                strokeOpacity={0.55}
                               />
                               <line
                                 x1={range.endX}
                                 y1={chartData!.padding.top}
                                 x2={range.endX}
                                 y2={chartData!.height - chartData!.padding.bottom}
-                                stroke="#F59E0B"
+                                stroke="#B12704"
                                 strokeDasharray="3 4"
-                                strokeOpacity={0.65}
+                                strokeOpacity={0.55}
                               />
                               {canShowLabel ? (
                                 <text
@@ -710,9 +710,9 @@ export function PriceHistoryButton({
                                   textAnchor="middle"
                                   fontSize="10"
                                   fontWeight="700"
-                                  fill="#B45309"
+                                  fill="#B12704"
                                 >
-                                  Sem estoque
+                                  Sem preço
                                 </text>
                               ) : null}
                             </g>
@@ -730,10 +730,18 @@ export function PriceHistoryButton({
                                   cy={point.y}
                                   r={5}
                                   fill="#FFD814"
-                                  stroke="#0F172A"
-                                  strokeWidth={2.2}
+                                  stroke="#C99700"
+                                  strokeWidth={2}
                                   onMouseEnter={() => setHoveredIndex(index)}
                                   onMouseLeave={() => setHoveredIndex(null)}
+                                />
+                              ) : null}
+                              {!isCurrent ? (
+                                <circle
+                                  cx={point.x}
+                                  cy={point.y}
+                                  r={2.5}
+                                  fill="#2162A1"
                                 />
                               ) : null}
                               <circle
@@ -775,11 +783,11 @@ export function PriceHistoryButton({
                       </svg>
 
                       {hoveredPoint ? (
-                        <div className="pointer-events-none absolute right-3 top-3 rounded-2xl border border-[#DCE7E9] bg-white/98 px-3 py-2 text-[11px] shadow-[0_10px_30px_rgba(15,17,17,0.12)]">
+                        <div className="pointer-events-none absolute right-3 top-3 rounded-[10px] border border-[#D5D9D9] bg-white px-3 py-2 text-[11px] shadow-[0_4px_10px_rgba(15,17,17,0.12)]">
                           <p className="font-semibold text-[#0F1111]">
                             {formatDateLabel(hoveredPoint.date)}
                           </p>
-                          <p className="mt-0.5 font-semibold text-[#007185]">
+                          <p className="mt-0.5 font-semibold text-[#2162A1]">
                             {formatCurrency(hoveredPoint.price)}
                           </p>
                         </div>

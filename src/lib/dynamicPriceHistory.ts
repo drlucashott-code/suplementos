@@ -131,23 +131,28 @@ export function getAvailablePriceHistoryChartRangesFromDateKeys(
     return [];
   }
 
-  const countDaysInWindow = (days: number) => {
-    const sinceKey = shiftPriceHistoryDateKey(todayKey, -(days - 1));
-    return uniqueDateKeys.filter((dateKey) => dateKey >= sinceKey).length;
-  };
+  const firstAvailableKey = uniqueDateKeys[0];
+  const lastAvailableKey = uniqueDateKeys[uniqueDateKeys.length - 1];
+  const spanDays = Math.max(
+    1,
+    Math.round(
+      (new Date(`${lastAvailableKey}T00:00:00.000Z`).getTime() -
+        new Date(`${firstAvailableKey}T00:00:00.000Z`).getTime()) /
+        (24 * 60 * 60 * 1000)
+    ) + 1
+  );
 
   const availableRanges: PriceHistoryChartRange[] = [];
-  const collectedDays30 = countDaysInWindow(30);
 
-  if (collectedDays30 >= 1 && collectedDays30 < 30) {
-    availableRanges.push(collectedDays30);
+  if (spanDays < 30) {
+    availableRanges.push(spanDays);
     return availableRanges;
   }
 
   for (const range of PRICE_HISTORY_CHART_RANGES) {
     if (range === 7) continue;
 
-    if (countDaysInWindow(range) >= range) {
+    if (spanDays >= range) {
       availableRanges.push(range);
     }
   }
