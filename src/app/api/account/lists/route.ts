@@ -20,16 +20,17 @@ export async function GET() {
   }
 
   const lists = await prisma.$queryRaw<
-    Array<{
-      id: string;
-      slug: string;
-      title: string;
-      description: string | null;
-      isPublic: boolean;
-      createdAt: Date;
-      updatedAt: Date;
-      itemsCount: number;
-    }>
+      Array<{
+        id: string;
+        slug: string;
+        title: string;
+        description: string | null;
+        isPublic: boolean;
+        notificationsEnabled: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        itemsCount: number;
+      }>
   >(Prisma.sql`
     SELECT
       l."id",
@@ -37,6 +38,7 @@ export async function GET() {
       l."title",
       l."description",
       l."isPublic",
+      l."notificationsEnabled",
       l."createdAt",
       l."updatedAt",
       COUNT(i."id")::int AS "itemsCount"
@@ -80,6 +82,7 @@ export async function POST(request: Request) {
         title: string;
         description: string | null;
         isPublic: boolean;
+        notificationsEnabled: boolean;
       }>
     >(Prisma.sql`
       INSERT INTO "SiteUserList" (
@@ -89,6 +92,7 @@ export async function POST(request: Request) {
         "title",
         "description",
         "isPublic",
+        "notificationsEnabled",
         "createdAt",
         "updatedAt"
       )
@@ -99,10 +103,11 @@ export async function POST(request: Request) {
         ${title},
         ${body.description?.trim() || null},
         ${body.isPublic === true},
+        true,
         NOW(),
         NOW()
       )
-      RETURNING "id", "slug", "title", "description", "isPublic"
+      RETURNING "id", "slug", "title", "description", "isPublic", "notificationsEnabled"
     `);
 
     const list = rows[0]!;

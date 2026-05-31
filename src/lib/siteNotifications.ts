@@ -14,6 +14,7 @@ import {
   notifyCommentReply,
   notifyComposedPriceStock,
   notifyListFollower,
+  notifySavedListFollowersOfNewItem,
   notifyMentions,
   notifyPriceChange,
 } from "@/lib/notifications/service";
@@ -276,6 +277,7 @@ export {
   notifyCommentReply,
   notifyCommentReaction,
   notifyListFollower,
+  notifySavedListFollowersOfNewItem,
   notifyPriceChange,
   notifyComposedPriceStock,
 };

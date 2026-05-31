@@ -31,6 +31,7 @@ export async function GET(
       title: string;
       description: string | null;
       isPublic: boolean;
+      notificationsEnabled: boolean;
       createdAt: Date;
       itemId: string | null;
       note: string | null;
@@ -58,6 +59,7 @@ export async function GET(
       l."title",
       l."description",
       l."isPublic",
+      l."notificationsEnabled",
       l."createdAt",
       i."id" AS "itemId",
       i."note",
@@ -114,6 +116,7 @@ export async function GET(
         l."title",
         l."description",
         l."isPublic",
+        l."notificationsEnabled",
         l."createdAt",
         i."id" AS "itemId",
         i."note",
@@ -155,10 +158,11 @@ export async function GET(
         title: string;
         description: string | null;
         isPublic: boolean;
+        notificationsEnabled: boolean;
         createdAt: Date;
       }>
     >(Prisma.sql`
-      SELECT "id", "slug", "title", "description", "isPublic", "createdAt"
+      SELECT "id", "slug", "title", "description", "isPublic", "notificationsEnabled", "createdAt"
       FROM "SiteUserList"
       WHERE "id" = ${id}
         AND "userId" = ${user.id}
@@ -177,6 +181,7 @@ export async function GET(
         title: listRows[0]!.title,
         description: listRows[0]!.description,
         isPublic: listRows[0]!.isPublic,
+        notificationsEnabled: listRows[0]!.notificationsEnabled,
         createdAt: listRows[0]!.createdAt,
         items: [],
       },
@@ -189,6 +194,7 @@ export async function GET(
     title: rows[0]!.title,
     description: rows[0]!.description,
     isPublic: rows[0]!.isPublic,
+    notificationsEnabled: rows[0]!.notificationsEnabled,
     createdAt: rows[0]!.createdAt,
     items: rows
       .filter((row) => row.itemId)
@@ -238,6 +244,7 @@ export async function PATCH(
   try {
     const body = (await request.json()) as {
       isPublic?: boolean;
+      notificationsEnabled?: boolean;
       title?: string;
       description?: string | null;
     };
@@ -271,18 +278,20 @@ export async function PATCH(
         title: string;
         description: string | null;
         isPublic: boolean;
+        notificationsEnabled: boolean;
       }>
     >(Prisma.sql`
       UPDATE "SiteUserList"
       SET
         "isPublic" = COALESCE(${typeof body.isPublic === "boolean" ? body.isPublic : null}, "isPublic"),
+        "notificationsEnabled" = COALESCE(${typeof body.notificationsEnabled === "boolean" ? body.notificationsEnabled : null}, "notificationsEnabled"),
         "slug" = ${nextSlug},
         "title" = COALESCE(${title ?? null}, "title"),
         "description" = COALESCE(${description ?? null}, "description"),
         "updatedAt" = NOW()
       WHERE "id" = ${id}
         AND "userId" = ${user.id}
-      RETURNING "id", "slug", "title", "description", "isPublic"
+      RETURNING "id", "slug", "title", "description", "isPublic", "notificationsEnabled"
     `);
 
     return NextResponse.json({ ok: true, list: rows[0] });

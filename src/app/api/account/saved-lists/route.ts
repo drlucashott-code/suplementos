@@ -32,6 +32,7 @@ export async function GET() {
         title: string;
         description: string | null;
         isPublic: boolean;
+        notificationsEnabled: boolean;
         createdAt: Date;
         ownerDisplayName: string;
         ownerUsername: string | null;
@@ -44,6 +45,7 @@ export async function GET() {
         l."title",
         l."description",
         l."isPublic",
+        s."notificationsEnabled",
         l."createdAt",
         owner."displayName" AS "ownerDisplayName",
         owner."username" AS "ownerUsername",
@@ -125,6 +127,7 @@ export async function POST(request: Request) {
         "id",
         "userId",
         "listId",
+        "notificationsEnabled",
         "createdAt",
         "updatedAt"
       )
@@ -132,6 +135,7 @@ export async function POST(request: Request) {
         ${randomUUID()},
         ${user.id},
         ${listId},
+        true,
         NOW(),
         NOW()
       )
@@ -192,6 +196,56 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ ok: true });
+}
+
+export async function PATCH(request: Request) {
+  const user = await getCurrentSiteUser();
+  if (!user) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  if (!isSiteUserVerified(user)) {
+    return verificationRequiredResponse();
+  }
+
+  const body = (await request.json()) as {
+    listId?: string;
+    notificationsEnabled?: boolean;
+  };
+
+  const listId = body.listId?.trim() ?? "";
+  if (!listId || typeof body.notificationsEnabled !== "boolean") {
+    return NextResponse.json({ ok: false, error: "invalid_payload" }, { status: 400 });
+  }
+
+  try {
+    const rows = await prisma.$queryRaw<
+      Array<{ listId: string; notificationsEnabled: boolean }>
+    >(Prisma.sql`
+      UPDATE "SiteUserSavedList"
+      SET
+        "notificationsEnabled" = ${body.notificationsEnabled},
+        "updatedAt" = NOW()
+      WHERE "userId" = ${user.id}
+        AND "listId" = ${listId}
+      RETURNING "listId", "notificationsEnabled"
+    `);
+
+    if (!rows[0]) {
+      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      listId: rows[0].listId,
+      notificationsEnabled: rows[0].notificationsEnabled,
+    });
+  } catch (error) {
+    if (isMissingRelationError(error, "SiteUserSavedList")) {
+      return NextResponse.json({ ok: false, error: "feature_unavailable" }, { status: 503 });
+    }
+
+    throw error;
+  }
 }
 
 export async function DELETE(request: Request) {

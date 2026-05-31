@@ -753,6 +753,7 @@ model SiteUserList {
   title       String
   description String?
   isPublic    Boolean           @default(false)
+  notificationsEnabled Boolean   @default(true)
   isDefault   Boolean           @default(false)
   items       SiteUserListItem[]
   comments    SiteUserListComment[]
@@ -794,6 +795,7 @@ model SiteUserSavedList {
   user       SiteUser     @relation(fields: [userId], references: [id], onDelete: Cascade)
   listId     String
   list       SiteUserList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  notificationsEnabled Boolean @default(true)
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
 

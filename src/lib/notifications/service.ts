@@ -34,6 +34,34 @@ const COMMENT_TYPES = new Set([
 
 const LIST_TYPES = new Set(["list_saved", "list_comment", "list_followed"]);
 
+async function isListNotificationEnabledForUser(userId: string, listId: string) {
+  const ownerRows = await prisma.$queryRaw<Array<{ notificationsEnabled: boolean }>>(Prisma.sql`
+    SELECT "notificationsEnabled"
+    FROM "SiteUserList"
+    WHERE "id" = ${listId}
+      AND "userId" = ${userId}
+    LIMIT 1
+  `);
+
+  if (ownerRows[0]) {
+    return ownerRows[0].notificationsEnabled !== false;
+  }
+
+  const savedRows = await prisma.$queryRaw<Array<{ notificationsEnabled: boolean }>>(Prisma.sql`
+    SELECT "notificationsEnabled"
+    FROM "SiteUserSavedList"
+    WHERE "listId" = ${listId}
+      AND "userId" = ${userId}
+    LIMIT 1
+  `);
+
+  if (savedRows[0]) {
+    return savedRows[0].notificationsEnabled !== false;
+  }
+
+  return true;
+}
+
 function getNotificationCategory(type: string): NotificationCategory {
   if (PRICE_TYPES.has(type)) return "product";
   if (COMMENT_TYPES.has(type)) return "social";
@@ -359,6 +387,13 @@ async function dispatchDeliveryChannels(
 }
 
 export async function createSiteNotification(input: CreateSiteNotificationInput) {
+  if (input.targetListId) {
+    const enabledForList = await isListNotificationEnabledForUser(input.userId, input.targetListId);
+    if (!enabledForList) {
+      return null;
+    }
+  }
+
   const prefs = await getNotificationPreferences(input.userId);
   const category = input.category ?? getNotificationCategory(input.type);
   const groupedKey = getGroupedKey(input);
@@ -643,6 +678,47 @@ export async function notifyListFollower(params: {
       listName: params.listTitle,
     },
   });
+}
+
+export async function notifySavedListFollowersOfNewItem(params: {
+  actorUserId: string;
+  actorDisplayName: string;
+  listId: string;
+  listTitle: string;
+  productName: string;
+}) {
+  const followers = await prisma.$queryRaw<
+    Array<{ userId: string }>
+  >(Prisma.sql`
+    SELECT "userId"
+    FROM "SiteUserSavedList"
+    WHERE "listId" = ${params.listId}
+      AND "notificationsEnabled" = true
+      AND "userId" <> ${params.actorUserId}
+  `);
+
+  await Promise.all(
+    followers.map((follower) =>
+      createSiteNotification({
+        userId: follower.userId,
+        type: "list_saved",
+        category: "list",
+        title: "Uma lista salva recebeu produto novo",
+        body: `${params.actorDisplayName} adicionou "${params.productName}" em "${params.listTitle}".`,
+        href: buildAccountListPath(params.listId, "saved"),
+        actorUserId: params.actorUserId,
+        targetListId: params.listId,
+        priority: 55,
+        groupedKey: `saved-list-update:${params.listId}`,
+        metadata: {
+          actorDisplayName: params.actorDisplayName,
+          listTitle: params.listTitle,
+          listName: params.listTitle,
+          productName: params.productName,
+        },
+      })
+    )
+  );
 }
 
 export async function notifyCommentReply(params: {

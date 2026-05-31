@@ -12,6 +12,7 @@ import {
   touchTrackedProductPriority,
 } from "@/lib/priceRefreshSignals";
 import { enqueuePriorityRefresh } from "@/lib/priorityRefreshQueue";
+import { notifySavedListFollowersOfNewItem } from "@/lib/siteNotifications";
 
 export async function POST(
   request: Request,
@@ -42,8 +43,8 @@ export async function POST(
       return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
     }
 
-    const list = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-      SELECT "id"
+    const list = await prisma.$queryRaw<Array<{ id: string; title: string; isPublic: boolean }>>(Prisma.sql`
+      SELECT "id", "title", "isPublic"
       FROM "SiteUserList"
       WHERE "id" = ${id}
         AND "userId" = ${user.id}
@@ -123,6 +124,35 @@ export async function POST(
         sortOrder: (maxSortOrderRows[0]?.maxSortOrder ?? -1) + 1,
       },
     });
+
+    let productNameForNotification = "um novo produto";
+    if (productId) {
+      const productRows = await prisma.$queryRaw<Array<{ name: string | null }>>(Prisma.sql`
+        SELECT "name"
+        FROM "DynamicProduct"
+        WHERE "id" = ${productId}
+        LIMIT 1
+      `);
+      productNameForNotification = productRows[0]?.name?.trim() || productNameForNotification;
+    } else if (resolvedTrackedAmazonProductId) {
+      const trackedRows = await prisma.$queryRaw<Array<{ name: string | null }>>(Prisma.sql`
+        SELECT "name"
+        FROM "SiteTrackedAmazonProduct"
+        WHERE "id" = ${resolvedTrackedAmazonProductId}
+        LIMIT 1
+      `);
+      productNameForNotification = trackedRows[0]?.name?.trim() || productNameForNotification;
+    }
+
+    if (list[0]?.isPublic) {
+      await notifySavedListFollowersOfNewItem({
+        actorUserId: user.id,
+        actorDisplayName: user.displayName,
+        listId: id,
+        listTitle: list[0].title,
+        productName: productNameForNotification,
+      });
+    }
 
     try {
       if (productId) {

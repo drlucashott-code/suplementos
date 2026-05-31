@@ -28,6 +28,34 @@ type SavedListItemRow = {
   categorySlug: string | null;
 };
 
+type ListItemRow = {
+  listId: string;
+  listSlug: string;
+  listTitle: string;
+  listDescription: string | null;
+  listIsPublic: boolean;
+  listNotificationsEnabled: boolean;
+  listCreatedAt: Date;
+  itemId: string | null;
+  note: string | null;
+  sortOrder: number | null;
+  productId: string | null;
+  monitoredProductId: string | null;
+  trackedAmazonProductId: string | null;
+  productAsin: string | null;
+  productName: string | null;
+  productImageUrl: string | null;
+  productTotalPrice: number | null;
+  productAveragePrice30d: number | null;
+  productUrl: string | null;
+  productAvailabilityStatus: string | null;
+  productRatingAverage: number | null;
+  productRatingCount: number | null;
+  categoryName: string | null;
+  categoryGroup: string | null;
+  categorySlug: string | null;
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function AccountListsPage() {
@@ -43,6 +71,7 @@ export default async function AccountListsPage() {
         description: string | null;
         isPublic: boolean;
         isDefault: boolean;
+        notificationsEnabled: boolean;
         createdAt: Date;
         ownerDisplayName: string;
         ownerUsername: string | null;
@@ -56,6 +85,7 @@ export default async function AccountListsPage() {
         l."description",
         l."isPublic",
         l."isDefault",
+        s."notificationsEnabled",
         l."createdAt",
         owner."displayName" AS "ownerDisplayName",
         owner."username" AS "ownerUsername",
@@ -66,7 +96,7 @@ export default async function AccountListsPage() {
       INNER JOIN "SiteUser" owner ON owner."id" = l."userId"
       LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
       WHERE s."userId" = ${user.id}
-      GROUP BY l."id", owner."displayName", owner."username"
+      GROUP BY l."id", owner."displayName", owner."username", s."notificationsEnabled"
       ORDER BY "savedAt" DESC
     `)
     .catch((error) => {
@@ -117,9 +147,47 @@ export default async function AccountListsPage() {
       throw error;
     });
 
+  const listItemsPromise = prisma.$queryRaw<ListItemRow[]>(Prisma.sql`
+    SELECT
+      l."id" AS "listId",
+      l."slug" AS "listSlug",
+      l."title" AS "listTitle",
+      l."description" AS "listDescription",
+      l."isPublic" AS "listIsPublic",
+      l."notificationsEnabled" AS "listNotificationsEnabled",
+      l."createdAt" AS "listCreatedAt",
+      i."id" AS "itemId",
+      i."note",
+      i."sortOrder",
+      p."id" AS "productId",
+      mp."id" AS "monitoredProductId",
+      tp."id" AS "trackedAmazonProductId",
+      COALESCE(p."asin", tp."asin", mp."asin") AS "productAsin",
+      COALESCE(p."name", tp."name", mp."name") AS "productName",
+      COALESCE(p."imageUrl", tp."imageUrl", mp."imageUrl") AS "productImageUrl",
+      COALESCE(p."totalPrice", tp."totalPrice", mp."totalPrice") AS "productTotalPrice",
+      COALESCE(p."averagePrice30d", tp."averagePrice30d", mp."averagePrice30d") AS "productAveragePrice30d",
+      COALESCE(p."url", tp."amazonUrl", mp."amazonUrl") AS "productUrl",
+      COALESCE(p."availabilityStatus", tp."availabilityStatus", mp."availabilityStatus") AS "productAvailabilityStatus",
+      COALESCE(p."ratingAverage", tp."ratingAverage") AS "productRatingAverage",
+      COALESCE(p."ratingCount", tp."ratingCount") AS "productRatingCount",
+      c."name" AS "categoryName",
+      c."group" AS "categoryGroup",
+      c."slug" AS "categorySlug"
+    FROM "SiteUserList" l
+    LEFT JOIN "SiteUserListItem" i ON i."listId" = l."id"
+    LEFT JOIN "DynamicProduct" p ON p."id" = i."productId"
+    LEFT JOIN "SiteUserMonitoredProduct" mp ON mp."id" = i."monitoredProductId"
+    LEFT JOIN "SiteTrackedAmazonProduct" tp ON tp."id" = COALESCE(i."trackedAmazonProductId", mp."trackedProductId")
+    LEFT JOIN "DynamicCategory" c ON c."id" = p."categoryId"
+    WHERE l."userId" = ${user.id}
+    ORDER BY l."updatedAt" DESC, i."sortOrder" ASC NULLS LAST, i."createdAt" DESC NULLS LAST
+  `);
+
   const [
     favorites,
     lists,
+    listItems,
     savedLists,
     savedListItems,
     monitoredProducts,
@@ -183,6 +251,7 @@ export default async function AccountListsPage() {
         description: string | null;
         isPublic: boolean;
         isDefault: boolean;
+        notificationsEnabled: boolean;
         createdAt: Date;
         itemsCount: number;
       }>
@@ -194,6 +263,7 @@ export default async function AccountListsPage() {
         l."description",
         l."isPublic",
         l."isDefault",
+        l."notificationsEnabled",
         l."createdAt",
         COUNT(i."id")::int AS "itemsCount"
       FROM "SiteUserList" l
@@ -202,6 +272,7 @@ export default async function AccountListsPage() {
       GROUP BY l."id"
       ORDER BY l."updatedAt" DESC
     `),
+    listItemsPromise,
     savedListsPromise,
     savedListItemsPromise,
     prisma.$queryRaw<
@@ -337,12 +408,95 @@ export default async function AccountListsPage() {
     savedListItemsByListId.set(row.listId, items);
   }
 
+  const initialListDetailsMap = listItems.reduce<
+    Record<
+      string,
+      {
+        id: string;
+        slug: string;
+        title: string;
+        description: string | null;
+        isPublic: boolean;
+        notificationsEnabled: boolean;
+        createdAt: string;
+        items: Array<{
+          id: string;
+          note: string | null;
+          sortOrder: number;
+          source: "catalog" | "tracked" | "monitored";
+          trackedAmazonProductId?: string | null;
+          product: {
+            id: string;
+            asin: string;
+            name: string;
+            imageUrl: string | null;
+            totalPrice: number;
+            averagePrice30d: number | null;
+            ratingAverage: number | null;
+            ratingCount: number | null;
+            url: string;
+            availabilityStatus?: string | null;
+            category: {
+              name: string;
+              group: string;
+              slug: string;
+            };
+          };
+        }>;
+      }
+    >
+  >((acc, row) => {
+    const existing =
+      acc[row.listId] ??
+      {
+        id: row.listId,
+        slug: row.listSlug,
+        title: row.listTitle,
+        description: row.listDescription,
+        isPublic: row.listIsPublic,
+        notificationsEnabled: row.listNotificationsEnabled,
+        createdAt: row.listCreatedAt.toISOString(),
+        items: [],
+      };
+
+    if (row.itemId && row.productAsin) {
+      existing.items.push({
+        id: row.itemId,
+        note: row.note,
+        sortOrder: row.sortOrder ?? existing.items.length,
+        source: row.productId ? "catalog" : row.trackedAmazonProductId ? "tracked" : "monitored",
+        trackedAmazonProductId: row.trackedAmazonProductId,
+        product: {
+          id: row.productId ?? row.trackedAmazonProductId ?? row.monitoredProductId ?? row.itemId,
+          asin: row.productAsin,
+          name: row.productName ?? `Produto Amazon ${row.productAsin}`,
+          imageUrl: row.productImageUrl,
+          totalPrice: row.productTotalPrice ?? 0,
+          averagePrice30d: row.productAveragePrice30d,
+          ratingAverage: row.productRatingAverage,
+          ratingCount: row.productRatingCount,
+          url: row.productUrl ?? `https://www.amazon.com.br/dp/${row.productAsin}`,
+          availabilityStatus: row.productAvailabilityStatus ?? null,
+          category: {
+            name: row.categoryName ?? "Amazon",
+            group: row.categoryGroup ?? "amazon",
+            slug: row.categorySlug ?? "monitorado",
+          },
+        },
+      });
+    }
+
+    acc[row.listId] = existing;
+    return acc;
+  }, {});
+
   const savedListsWithItems = savedLists.map((list) => ({
     id: list.id,
     slug: list.slug,
     title: list.title,
     description: list.description,
     isPublic: list.isPublic,
+    notificationsEnabled: list.notificationsEnabled,
     isDefault: list.isDefault,
     createdAt: list.createdAt.toISOString(),
     itemsCount: list.itemsCount,
@@ -381,11 +535,13 @@ export default async function AccountListsPage() {
             title: list.title,
             description: list.description,
             isPublic: list.isPublic,
+            notificationsEnabled: list.notificationsEnabled,
             isDefault: list.isDefault,
             createdAt: list.createdAt.toISOString(),
             itemsCount: list.itemsCount,
           }))}
           savedLists={savedListsWithItems}
+          initialListDetailsMap={initialListDetailsMap}
           monitoredProducts={monitoredProducts.map((product) => ({
             id: product.id,
             savedAt: product.createdAt.toISOString(),

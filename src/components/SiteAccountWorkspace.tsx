@@ -28,6 +28,8 @@ import {
   Check,
   ArrowDown,
   ArrowUp,
+  Bell,
+  BellOff,
   ChevronLeft,
   ExternalLink,
   Globe,
@@ -107,6 +109,7 @@ type ListEntry = {
   title: string;
   description: string | null;
   isPublic: boolean;
+  notificationsEnabled: boolean;
   isDefault: boolean;
   createdAt: string;
   itemsCount: number;
@@ -124,6 +127,7 @@ type ListDetails = {
   title: string;
   description: string | null;
   isPublic: boolean;
+  notificationsEnabled: boolean;
   createdAt: string;
   items: Array<{
     id: string;
@@ -178,6 +182,7 @@ type SiteAccountWorkspaceProps = {
   monitoredProducts: MonitoredProductEntry[];
   lists: ListEntry[];
   savedLists: SavedListEntry[];
+  initialListDetailsMap?: Record<string, ListDetails>;
   showAccountChrome?: boolean;
 };
 
@@ -577,6 +582,7 @@ export default function SiteAccountWorkspace({
   monitoredProducts: initialMonitoredProducts,
   lists: initialLists,
   savedLists: initialSavedLists,
+  initialListDetailsMap = {},
   showAccountChrome = true,
 }: SiteAccountWorkspaceProps) {
   const router = useRouter();
@@ -587,7 +593,9 @@ export default function SiteAccountWorkspace({
   const [monitoredProducts, setMonitoredProducts] = useState(initialMonitoredProducts);
   const [lists, setLists] = useState(initialLists);
   const [savedLists, setSavedLists] = useState(initialSavedLists);
-  const [listDetailsMap, setListDetailsMap] = useState<Record<string, ListDetails>>({});
+  const [listDetailsMap, setListDetailsMap] = useState<Record<string, ListDetails>>(
+    initialListDetailsMap
+  );
   const [openListId, setOpenListId] = useState<string | null>(null);
   const [loadingListId, setLoadingListId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
@@ -1500,6 +1508,12 @@ export default function SiteAccountWorkspace({
   }
 
   async function loadListDetails(listId: string) {
+    const cachedList = listDetailsMap[listId];
+    if (cachedList) {
+      setOpenListId(listId);
+      return true;
+    }
+
     setLoadingListId(listId);
     setMessage("");
 
@@ -2140,6 +2154,93 @@ export default function SiteAccountWorkspace({
           ? `Nao foi possivel remover o produto da lista: ${error.message}`
           : "Nao foi possivel remover o produto da lista."
       );
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  async function toggleListNotifications(listId: string, nextValue: boolean) {
+    setPendingAction(`list-notifications:${listId}`);
+    setMessage("");
+
+    try {
+      const response = await fetch(`/api/account/lists/${listId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notificationsEnabled: nextValue }),
+      });
+
+      const data = (await response.json()) as { ok?: boolean; list?: ListEntry };
+      if (!response.ok || !data.ok || !data.list) {
+        throw new Error("list_notifications_failed");
+      }
+
+      setLists((current) =>
+        current.map((list) =>
+          list.id === listId
+            ? { ...list, notificationsEnabled: data.list!.notificationsEnabled }
+            : list
+        )
+      );
+      setListDetailsMap((current) => {
+        const details = current[listId];
+        if (!details) return current;
+        return {
+          ...current,
+          [listId]: {
+            ...details,
+            notificationsEnabled: data.list!.notificationsEnabled,
+          },
+        };
+      });
+      setMessage(
+        data.list.notificationsEnabled
+          ? "Notificações desta lista ativadas."
+          : "Notificações desta lista desativadas."
+      );
+    } catch (error) {
+      console.error("toggle_list_notifications_failed", error);
+      setMessage("Nao foi possivel atualizar as notificações desta lista.");
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  async function toggleSavedListNotifications(listId: string, nextValue: boolean) {
+    setPendingAction(`saved-list-notifications:${listId}`);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/account/saved-lists", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ listId, notificationsEnabled: nextValue }),
+      });
+
+      const data = (await response.json()) as {
+        ok?: boolean;
+        listId?: string;
+        notificationsEnabled?: boolean;
+      };
+      if (!response.ok || !data.ok || !data.listId || typeof data.notificationsEnabled !== "boolean") {
+        throw new Error("saved_list_notifications_failed");
+      }
+
+      setSavedLists((current) =>
+        current.map((list) =>
+          list.id === data.listId
+            ? { ...list, notificationsEnabled: data.notificationsEnabled! }
+            : list
+        )
+      );
+      setMessage(
+        data.notificationsEnabled
+          ? "Notificações desta lista salva ativadas."
+          : "Notificações desta lista salva desativadas."
+      );
+    } catch (error) {
+      console.error("toggle_saved_list_notifications_failed", error);
+      setMessage("Nao foi possivel atualizar as notificações desta lista salva.");
     } finally {
       setPendingAction(null);
     }
@@ -2818,7 +2919,9 @@ export default function SiteAccountWorkspace({
               <div className="grid xl:grid-cols-[236px_minmax(0,1fr)]">
                 <aside
                   className={`border-b border-[#EAECF0] bg-[#F8FAFB] xl:border-b-0 xl:border-r ${
-                    currentOpenedList || (isMobileLayout && selectedListId) ? "hidden md:block" : "block"
+                    currentOpenedList || (isMobileLayout && isCurrentListLoading)
+                      ? "hidden md:block"
+                      : "block"
                   }`}
                 >
                   <div className="px-2 py-2">
@@ -2835,7 +2938,6 @@ export default function SiteAccountWorkspace({
                               setListOrderMode(false);
                               setActiveListItemId(null);
                               setActiveListItemMenuAnchor(null);
-                              setOpenListId(list.id);
                               void loadListDetails(list.id);
                             }}
                             className={`h-[76px] w-full overflow-hidden rounded-[10px] border border-[#E5E7EB] bg-white px-3 py-2 text-left transition shadow-[0_1px_2px_rgba(15,17,17,0.05)] hover:border-[#D0D5DD] hover:bg-[#FCFCFD] md:rounded-[10px] md:border md:bg-white md:shadow-[0_1px_2px_rgba(15,17,17,0.05)] md:hover:border-[#D0D5DD] md:hover:bg-[#FCFCFD] ${
@@ -2960,6 +3062,33 @@ export default function SiteAccountWorkspace({
                                 ) : null}
                                 <button
                                   type="button"
+                                  onClick={() =>
+                                    void toggleListNotifications(
+                                      currentOpenedList.id,
+                                      !currentOpenedList.notificationsEnabled
+                                    )
+                                  }
+                                  className={accountIconButtonSmallClass + " disabled:opacity-60"}
+                                  aria-label={
+                                    currentOpenedList.notificationsEnabled
+                                      ? "Desativar notificações desta lista"
+                                      : "Ativar notificações desta lista"
+                                  }
+                                  title={
+                                    currentOpenedList.notificationsEnabled
+                                      ? "Desativar notificações desta lista"
+                                      : "Ativar notificações desta lista"
+                                  }
+                                  disabled={pendingAction === `list-notifications:${currentOpenedList.id}`}
+                                >
+                                  {currentOpenedList.notificationsEnabled ? (
+                                    <Bell className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <BellOff className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => {
                                     closeListItemMenu();
                                     void openListEditor(currentOpenedList.id);
@@ -3029,6 +3158,34 @@ export default function SiteAccountWorkspace({
                                   <ExternalLink className="h-3.5 w-3.5" />
                                 </button>
                               ) : null}
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void toggleListNotifications(
+                                    currentOpenedList.id,
+                                    !currentOpenedList.notificationsEnabled
+                                  )
+                                }
+                                className={accountIconButtonSmallClass + " disabled:opacity-60"}
+                                aria-label={
+                                  currentOpenedList.notificationsEnabled
+                                    ? "Desativar notificações desta lista"
+                                    : "Ativar notificações desta lista"
+                                }
+                                title={
+                                  currentOpenedList.notificationsEnabled
+                                    ? "Desativar notificações desta lista"
+                                    : "Ativar notificações desta lista"
+                                }
+                                disabled={pendingAction === `list-notifications:${currentOpenedList.id}`}
+                              >
+                                {currentOpenedList.notificationsEnabled ? (
+                                  <Bell className="h-3.5 w-3.5" />
+                                ) : (
+                                  <BellOff className="h-3.5 w-3.5" />
+                                )}
+                              </button>
 
                               {listEditorId === currentOpenedList.id && !listOrderMode ? (
                                 <button
@@ -3508,6 +3665,35 @@ export default function SiteAccountWorkspace({
                             >
                               <MoreHorizontal className="h-4 w-4" />
                             </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void toggleSavedListNotifications(
+                                  selectedSavedList.id,
+                                  !selectedSavedList.notificationsEnabled
+                                )
+                              }
+                              className={accountIconButtonSmallClass + " disabled:opacity-60"}
+                              aria-label={
+                                selectedSavedList.notificationsEnabled
+                                  ? "Desativar notificações desta lista salva"
+                                  : "Ativar notificações desta lista salva"
+                              }
+                              title={
+                                selectedSavedList.notificationsEnabled
+                                  ? "Desativar notificações desta lista salva"
+                                  : "Ativar notificações desta lista salva"
+                              }
+                              disabled={
+                                pendingAction === `saved-list-notifications:${selectedSavedList.id}`
+                              }
+                            >
+                              {selectedSavedList.notificationsEnabled ? (
+                                <Bell className="h-3.5 w-3.5" />
+                              ) : (
+                                <BellOff className="h-3.5 w-3.5" />
+                              )}
+                            </button>
                           </div>
 
                           <div className="hidden min-h-[126px] flex-col gap-2 md:flex">
@@ -3549,6 +3735,35 @@ export default function SiteAccountWorkspace({
                             aria-label="Editar lista"
                           >
                             <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void toggleSavedListNotifications(
+                                selectedSavedList.id,
+                                !selectedSavedList.notificationsEnabled
+                              )
+                            }
+                            className={accountIconButtonClass + " disabled:opacity-60"}
+                            aria-label={
+                              selectedSavedList.notificationsEnabled
+                                ? "Desativar notificações desta lista salva"
+                                : "Ativar notificações desta lista salva"
+                            }
+                            title={
+                              selectedSavedList.notificationsEnabled
+                                ? "Desativar notificações desta lista salva"
+                                : "Ativar notificações desta lista salva"
+                            }
+                            disabled={
+                              pendingAction === `saved-list-notifications:${selectedSavedList.id}`
+                            }
+                          >
+                            {selectedSavedList.notificationsEnabled ? (
+                              <Bell className="h-4 w-4" />
+                            ) : (
+                              <BellOff className="h-4 w-4" />
+                            )}
                           </button>
                         </div>
                       </div>
