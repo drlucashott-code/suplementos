@@ -73,13 +73,7 @@ async function getBlockedMerchantStats(blockedMerchants: readonly string[]) {
       p."attributes"->>'seller' AS merchant,
       COUNT(*)::int AS "productCount"
     FROM "DynamicProduct" p
-    WHERE LOWER(BTRIM(
-      TRANSLATE(
-        COALESCE(p."attributes"->>'seller', ''),
-        'ÁÀÂÃÄáàâãäÉÈÊËéèêëÍÌÎÏíìîïÓÒÔÕÖóòôõöÚÙÛÜúùûüÇç',
-        'AAAAAaaaaaEEEEeeeeIIIIiiiiOOOOOoooooUUUUuuuuCc'
-      )
-    )) IN (${Prisma.join(
+    WHERE LOWER(BTRIM(COALESCE(p."attributes"->>'seller', ''))) IN (${Prisma.join(
       normalizedBlockedNames.map((value) => Prisma.sql`${value}`)
     )})
     GROUP BY p."attributes"->>'seller'

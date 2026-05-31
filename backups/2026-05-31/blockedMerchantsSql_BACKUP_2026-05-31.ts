@@ -1,20 +1,10 @@
 import { Prisma } from "@prisma/client";
 
-function buildNormalizedSellerSqlExpression(tableAlias: string) {
-  const sellerExpr = Prisma.raw(`"${tableAlias}"."attributes"->>'seller'`);
-  return Prisma.sql`LOWER(BTRIM(
-    TRANSLATE(
-      COALESCE(${sellerExpr}, ''),
-      'ÁÀÂÃÄáàâãäÉÈÊËéèêëÍÌÎÏíìîïÓÒÔÕÖóòôõöÚÙÛÜúùûüÇç',
-      'AAAAAaaaaaEEEEeeeeIIIIiiiiOOOOOoooooUUUUuuuuCc'
-    )
-  ))`;
-}
-
 export function buildBlockedMerchantAttributesSql(
   tableAlias: string,
   blockedMerchantNames: readonly string[]
 ) {
+  const sellerExpr = Prisma.raw(`"${tableAlias}"."attributes"->>'seller'`);
   const normalizedBlockedNames = blockedMerchantNames.map((value) =>
     value
       .normalize("NFD")
@@ -25,7 +15,7 @@ export function buildBlockedMerchantAttributesSql(
   );
 
   return Prisma.sql`(
-    ${buildNormalizedSellerSqlExpression(tableAlias)} IN (${Prisma.join(
+    LOWER(BTRIM(COALESCE(${sellerExpr}, ''))) IN (${Prisma.join(
       normalizedBlockedNames.map((value) => Prisma.sql`${value}`)
     )})
   )`;
