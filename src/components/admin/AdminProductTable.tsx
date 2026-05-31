@@ -243,6 +243,11 @@ export function AdminProductTable({
   );
   const [showBrandFilter, setShowBrandFilter] = useState(false);
   const [brandFilterSearch, setBrandFilterSearch] = useState("");
+  const [showBlockedMerchantFilter, setShowBlockedMerchantFilter] = useState(false);
+  const [blockedMerchantSearch, setBlockedMerchantSearch] = useState("");
+  const [selectedBlockedMerchants, setSelectedBlockedMerchants] = useState<string[]>(
+    []
+  );
   const [siteVisibilityFilter, setSiteVisibilityFilter] = useState<
     "all" | DynamicVisibilityStatus | "internal" | "blocked"
   >(initialState?.siteVisibilityFilter ?? "all");
@@ -274,10 +279,13 @@ export function AdminProductTable({
     left: 0,
     width: 0,
   });
+  const blockedMerchantFilterRef = useRef<HTMLDivElement>(null);
+  const floatingBlockedMerchantFilterRef = useRef<HTMLDivElement>(null);
   const blockedMerchantMatcher = useMemo(
     () => buildBlockedMerchantMatcher(blockedMerchantNames),
     [blockedMerchantNames]
   );
+  const isBlockedView = siteVisibilityFilter === "blocked";
 
   const hasCategoryFilter = filterCategory !== "";
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
@@ -366,6 +374,28 @@ export function AdminProductTable({
     };
   }, [showBrandFilter]);
 
+  useEffect(() => {
+    function handleBlockedMerchantClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      const insideMain =
+        blockedMerchantFilterRef.current?.contains(target) ?? false;
+      const insideFloating =
+        floatingBlockedMerchantFilterRef.current?.contains(target) ?? false;
+
+      if (!insideMain && !insideFloating) {
+        setShowBlockedMerchantFilter(false);
+      }
+    }
+
+    if (showBlockedMerchantFilter) {
+      document.addEventListener("mousedown", handleBlockedMerchantClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleBlockedMerchantClickOutside);
+    };
+  }, [showBlockedMerchantFilter]);
+
   const availableBrands = useMemo(() => {
     const brands = products
       .filter((p) => !hasCategoryFilter || p.category.id === filterCategory)
@@ -386,6 +416,43 @@ export function AdminProductTable({
       brand.toLowerCase().includes(term)
     );
   }, [availableBrands, brandFilterSearch]);
+
+  const availableBlockedMerchants = useMemo(() => {
+    if (!isBlockedView) return [];
+
+    const merchants = products
+      .filter((product) => {
+        const attrs = (product.attributes as DynamicAttributes) || {};
+        const canonicalSeller = getCanonicalSellerFromAttributes(attrs);
+        return blockedMerchantMatcher.isBlocked(canonicalSeller);
+      })
+      .map((product) => {
+        const attrs = (product.attributes as DynamicAttributes) || {};
+        return String(
+          getCanonicalSellerFromAttributes(attrs) || attrs.seller || attrs.vendedor || ""
+        ).trim();
+      })
+      .filter(Boolean);
+
+    return Array.from(new Set(merchants)).sort((a, b) => a.localeCompare(b));
+  }, [blockedMerchantMatcher, isBlockedView, products]);
+
+  const filteredBlockedMerchantOptions = useMemo(() => {
+    const term = blockedMerchantSearch.trim().toLowerCase();
+    if (!term) return availableBlockedMerchants;
+
+    return availableBlockedMerchants.filter((merchant) =>
+      merchant.toLowerCase().includes(term)
+    );
+  }, [availableBlockedMerchants, blockedMerchantSearch]);
+
+  const toggleBlockedMerchantSelection = (merchant: string) => {
+    setSelectedBlockedMerchants((current) =>
+      current.includes(merchant)
+        ? current.filter((item) => item !== merchant)
+        : [...current, merchant]
+    );
+  };
 
   const filteredBaseProducts = useMemo(() => {
     if (
@@ -432,6 +499,13 @@ export function AdminProductTable({
 
       const matchesBrand =
         selectedBrands.length === 0 || selectedBrands.includes(brandValue);
+      const sellerValue = String(
+        getCanonicalSellerFromAttributes(attrs) || attrs.seller || attrs.vendedor || ""
+      ).trim();
+      const matchesBlockedMerchant =
+        !isBlockedView ||
+        selectedBlockedMerchants.length === 0 ||
+        selectedBlockedMerchants.includes(sellerValue);
 
       const matchesVisibility =
         siteVisibilityFilter === "all"
@@ -442,7 +516,13 @@ export function AdminProductTable({
               ? !isInternal && blockedMerchant !== null
             : !isInternal && siteVisibilityFilter === visibilityStatus;
 
-      return matchesCat && matchesSearch && matchesBrand && matchesVisibility;
+      return (
+        matchesCat &&
+        matchesSearch &&
+        matchesBrand &&
+        matchesBlockedMerchant &&
+        matchesVisibility
+      );
     });
   }, [
     products,
@@ -451,6 +531,7 @@ export function AdminProductTable({
     normalizedSearchTerm,
     searchTerms,
     selectedBrands,
+    selectedBlockedMerchants,
     siteVisibilityFilter,
     blockedMerchantMatcher,
   ]);
@@ -529,6 +610,12 @@ export function AdminProductTable({
   }, [filteredBaseProducts, sortConfig, hasCategoryFilter, normalizedSearchTerm, siteVisibilityFilter]);
 
   const showCategoryColumn = !hasCategoryFilter && processedProducts.length > 0;
+  const showSelectionColumn = !isBlockedView;
+  const showDynamicColumns = !isBlockedView;
+  const showBrandColumn = true;
+  const showImportedAtColumn = !isBlockedView;
+  const showActionsColumn = !isBlockedView;
+  const tableMinWidthClassName = isBlockedView ? "min-w-[860px]" : "min-w-[1000px]";
 
   useEffect(() => {
     function updateFloatingHeader() {
@@ -1116,17 +1203,19 @@ export function AdminProductTable({
 
       {floatingHeader.visible ? (
         <div
-          className="pointer-events-none fixed z-50 overflow-hidden rounded-t-[1.25rem] border border-gray-200 bg-gray-50/95 shadow-lg backdrop-blur-sm"
+          className="fixed z-50 overflow-visible rounded-t-[1.25rem] border border-gray-200 bg-gray-50/95 shadow-lg backdrop-blur-sm"
           style={{
             top: FLOATING_HEADER_TOP_OFFSET,
             left: floatingHeader.left,
             width: floatingHeader.width,
           }}
         >
-          <table className="min-w-[1000px] w-full border-collapse text-left">
+          <table className={`${tableMinWidthClassName} w-full border-collapse text-left`}>
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-[9px] font-black uppercase tracking-[0.18em] text-gray-400">
-                <th className={`w-12 px-3 py-3 text-center ${STICKY_HEADER_CLASSNAME}`}><input type="checkbox" checked={false} readOnly /></th>
+                {showSelectionColumn ? (
+                  <th className={`w-12 px-3 py-3 text-center ${STICKY_HEADER_CLASSNAME}`}><input type="checkbox" checked={false} readOnly /></th>
+                ) : null}
                 <th className={`w-28 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}>
                   Foto / ASIN
                 </th>
@@ -1148,32 +1237,135 @@ export function AdminProductTable({
                 {showCategoryColumn ? (
                   <th className={`w-36 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}>Categoria</th>
                 ) : null}
-                {dynamicColumns.map((col) => (
-                  <th
-                    key={`floating-${col.key}`}
-                    className={`min-w-[110px] px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}
-                  >
-                    {""}
-                    {col.label}
+                {showDynamicColumns
+                  ? dynamicColumns.map((col) => (
+                    <th
+                      key={`floating-${col.key}`}
+                      className={`min-w-[110px] px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}
+                    >
+                      {""}
+                      {col.label}
+                    </th>
+                  ))
+                  : null}
+                {showBrandColumn ? (
+                  <th className={`w-32 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}>
+                    {isBlockedView ? (
+                      <div
+                        ref={floatingBlockedMerchantFilterRef}
+                        className="relative inline-flex items-center justify-center gap-2"
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowBlockedMerchantFilter((current) => !current)
+                          }
+                          className="font-black uppercase hover:text-blue-600"
+                        >
+                          Loja
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowBlockedMerchantFilter((current) => !current)
+                          }
+                          className={`rounded-md border px-1.5 py-0.5 text-[11px] transition ${
+                            selectedBlockedMerchants.length > 0
+                              ? "border-amber-500 bg-amber-50 text-amber-700"
+                              : "border-gray-300 text-gray-500 hover:border-gray-400"
+                          }`}
+                          aria-label="Filtrar lojas bloqueadas"
+                          title="Filtrar lojas bloqueadas"
+                        >
+                          {selectedBlockedMerchants.length > 0
+                            ? `${selectedBlockedMerchants.length}`
+                            : "v"}
+                        </button>
+
+                        {showBlockedMerchantFilter && (
+                          <div className="absolute right-0 top-8 z-40 w-72 rounded-2xl border border-gray-200 bg-white p-4 text-left normal-case shadow-xl">
+                            <div className="mb-3">
+                              <input
+                                value={blockedMerchantSearch}
+                                onChange={(event) =>
+                                  setBlockedMerchantSearch(event.target.value)
+                                }
+                                placeholder="Buscar loja..."
+                                className="w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-400"
+                              />
+                            </div>
+
+                            <div className="mb-3 flex items-center justify-between">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSelectedBlockedMerchants(availableBlockedMerchants)
+                                }
+                                className="text-[10px] font-black uppercase text-blue-600"
+                              >
+                                Marcar todas
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedBlockedMerchants([])}
+                                className="text-[10px] font-black uppercase text-gray-500"
+                              >
+                                Limpar
+                              </button>
+                            </div>
+
+                            <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                              {filteredBlockedMerchantOptions.length > 0 ? (
+                                filteredBlockedMerchantOptions.map((merchant) => (
+                                  <label
+                                    key={merchant}
+                                    className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-gray-50"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedBlockedMerchants.includes(merchant)}
+                                      onChange={() =>
+                                        toggleBlockedMerchantSelection(merchant)
+                                      }
+                                    />
+                                    <span className="text-xs font-semibold text-gray-700">
+                                      {merchant}
+                                    </span>
+                                  </label>
+                                ))
+                              ) : (
+                                <p className="py-3 text-center text-xs text-gray-400">
+                                  Nenhuma loja encontrada
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="relative inline-flex items-center justify-center gap-2">
+                        <span className="font-black uppercase">
+                          {siteVisibilityFilter === "internal" ? "Adicoes" : "Marca"}
+                        </span>
+                        <span className={`rounded-md border px-1.5 py-0.5 text-[11px] ${
+                          selectedBrands.length > 0
+                            ? "border-blue-500 bg-blue-50 text-blue-600"
+                            : "border-gray-300 text-gray-500"
+                        }`}>
+                          {selectedBrands.length > 0 ? `${selectedBrands.length}` : "v"}
+                        </span>
+                      </div>
+                    )}
                   </th>
-                ))}
-                <th className={`w-32 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}>
-                  <div className="relative inline-flex items-center justify-center gap-2">
-                    <span className="font-black uppercase">
-                      {siteVisibilityFilter === "internal" ? "Adicoes" : "Marca"}
-                    </span>
-                    <span className={`rounded-md border px-1.5 py-0.5 text-[11px] ${
-                      selectedBrands.length > 0
-                        ? "border-blue-500 bg-blue-50 text-blue-600"
-                        : "border-gray-300 text-gray-500"
-                    }`}>
-                      {selectedBrands.length > 0 ? `${selectedBrands.length}` : "v"}
-                    </span>
-                  </div>
-                </th>
-                <th className={`w-36 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}>Importado em</th>
+                ) : null}
+                {showImportedAtColumn ? (
+                  <th className={`w-36 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}>Importado em</th>
+                ) : null}
                 <th className={`w-32 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}>Preco</th>
-                <th className={`w-28 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}>Acao</th>
+                {showActionsColumn ? (
+                  <th className={`w-28 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}>Acao</th>
+                ) : null}
               </tr>
             </thead>
           </table>
@@ -1182,21 +1374,23 @@ export function AdminProductTable({
 
       <div ref={tableWrapperRef} className="rounded-[2rem] border border-gray-200 bg-white shadow-sm">
         <div className="rounded-[2rem]">
-          <table className="min-w-[1000px] w-full border-collapse text-left">
+          <table className={`${tableMinWidthClassName} w-full border-collapse text-left`}>
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-[9px] font-black uppercase tracking-[0.18em] text-gray-400">
-                <th className={`w-12 px-3 py-3 text-center ${STICKY_HEADER_CLASSNAME}`}>
-                  <input
-                    type="checkbox"
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedIds(paginatedProducts.map((p) => p.id));
-                      } else {
-                        setSelectedIds([]);
-                      }
-                    }}
-                  />
-                </th>
+                {showSelectionColumn ? (
+                  <th className={`w-12 px-3 py-3 text-center ${STICKY_HEADER_CLASSNAME}`}>
+                    <input
+                      type="checkbox"
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedIds(paginatedProducts.map((p) => p.id));
+                        } else {
+                          setSelectedIds([]);
+                        }
+                      }}
+                    />
+                  </th>
+                ) : null}
 
                 <th
                   className={`w-28 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}
@@ -1239,111 +1433,212 @@ export function AdminProductTable({
                     </th>
                   ) : null}
 
-                {dynamicColumns.map((col) => (
+                {showDynamicColumns
+                  ? dynamicColumns.map((col) => (
+                      <th
+                        key={col.key}
+                        className={`min-w-[110px] cursor-pointer px-3 py-3 text-center text-black hover:text-black ${STICKY_HEADER_CLASSNAME}`}
+                        onClick={() => toggleSort(col.key)}
+                      >
+                        {col.label}
+                      </th>
+                    ))
+                  : null}
+
+                {showBrandColumn ? (
                   <th
-                    key={col.key}
-                    className={`min-w-[110px] cursor-pointer px-3 py-3 text-center text-black hover:text-black ${STICKY_HEADER_CLASSNAME}`}
-                    onClick={() => toggleSort(col.key)}
+                    className={`w-32 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}
                   >
-                    {col.label}
-                  </th>
-                ))}
+                    {isBlockedView ? (
+                      <div
+                        ref={blockedMerchantFilterRef}
+                        className="relative inline-flex items-center justify-center gap-2"
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowBlockedMerchantFilter((current) => !current)
+                          }
+                          className="font-black uppercase hover:text-blue-600"
+                        >
+                          Loja
+                        </button>
 
-                <th
-                  className={`w-32 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}
-                >
-                  <div
-                    ref={brandFilterRef}
-                    className="relative inline-flex items-center justify-center gap-2"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("brand")}
-                      className="font-black uppercase hover:text-blue-600"
-                    >
-                      {siteVisibilityFilter === "internal" ? "Adicoes" : "Marca"}
-                    </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowBlockedMerchantFilter((current) => !current)
+                          }
+                          className={`rounded-md border px-1.5 py-0.5 text-[11px] transition ${
+                            selectedBlockedMerchants.length > 0
+                              ? "border-amber-500 bg-amber-50 text-amber-700"
+                              : "border-gray-300 text-gray-500 hover:border-gray-400"
+                          }`}
+                          aria-label="Filtrar lojas bloqueadas"
+                          title="Filtrar lojas bloqueadas"
+                        >
+                          {selectedBlockedMerchants.length > 0
+                            ? `${selectedBlockedMerchants.length}`
+                            : "v"}
+                        </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setShowBrandFilter((prev) => !prev)}
-                      className={`rounded-md border px-1.5 py-0.5 text-[11px] transition ${
-                        selectedBrands.length > 0
-                          ? "border-blue-500 bg-blue-50 text-blue-600"
-                          : "border-gray-300 text-gray-500 hover:border-gray-400"
-                      }`}
-                      aria-label="Filtrar marcas"
-                      title="Filtrar marcas"
-                    >
-                      {selectedBrands.length > 0 ? `${selectedBrands.length}` : "v"}
-                    </button>
+                        {showBlockedMerchantFilter && (
+                          <div className="absolute right-0 top-8 z-40 w-72 rounded-2xl border border-gray-200 bg-white p-4 text-left normal-case shadow-xl">
+                            <div className="mb-3">
+                              <input
+                                value={blockedMerchantSearch}
+                                onChange={(event) =>
+                                  setBlockedMerchantSearch(event.target.value)
+                                }
+                                placeholder="Buscar loja..."
+                                className="w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-400"
+                              />
+                            </div>
 
-                    {showBrandFilter && (
-                      <div className="absolute right-0 top-8 z-30 w-72 rounded-2xl border border-gray-200 bg-white p-4 text-left normal-case shadow-xl">
-                        <div className="mb-3">
-                          <input
-                            value={brandFilterSearch}
-                            onChange={(e) => setBrandFilterSearch(e.target.value)}
-                            placeholder={
-                              siteVisibilityFilter === "internal"
-                                ? "Buscar marca..."
-                                : "Buscar marca..."
-                            }
-                            className="w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-400"
-                          />
-                        </div>
-
-                        <div className="mb-3 flex items-center justify-between">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedBrands(availableBrands)}
-                            className="text-[10px] font-black uppercase text-blue-600"
-                          >
-                            Marcar todas
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedBrands([])}
-                            className="text-[10px] font-black uppercase text-gray-500"
-                          >
-                            Limpar
-                          </button>
-                        </div>
-
-                        <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
-                          {filteredBrandOptions.length > 0 ? (
-                            filteredBrandOptions.map((brand) => (
-                              <label
-                                key={brand}
-                                className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-gray-50"
+                            <div className="mb-3 flex items-center justify-between">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSelectedBlockedMerchants(availableBlockedMerchants)
+                                }
+                                className="text-[10px] font-black uppercase text-blue-600"
                               >
-                                <input
-                                  type="checkbox"
-                                  checked={selectedBrands.includes(brand)}
-                                  onChange={() => toggleBrandSelection(brand)}
-                                />
-                                <span className="text-xs font-semibold text-gray-700">
-                                  {brand}
-                                </span>
-                              </label>
-                            ))
-                          ) : (
-                            <p className="py-3 text-center text-xs text-gray-400">
-                              Nenhuma marca encontrada
-                            </p>
-                          )}
-                        </div>
+                                Marcar todas
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedBlockedMerchants([])}
+                                className="text-[10px] font-black uppercase text-gray-500"
+                              >
+                                Limpar
+                              </button>
+                            </div>
+
+                            <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                              {filteredBlockedMerchantOptions.length > 0 ? (
+                                filteredBlockedMerchantOptions.map((merchant) => (
+                                  <label
+                                    key={merchant}
+                                    className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-gray-50"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedBlockedMerchants.includes(merchant)}
+                                      onChange={() =>
+                                        toggleBlockedMerchantSelection(merchant)
+                                      }
+                                    />
+                                    <span className="text-xs font-semibold text-gray-700">
+                                      {merchant}
+                                    </span>
+                                  </label>
+                                ))
+                              ) : (
+                                <p className="py-3 text-center text-xs text-gray-400">
+                                  Nenhuma loja encontrada
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div
+                        ref={brandFilterRef}
+                        className="relative inline-flex items-center justify-center gap-2"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => toggleSort("brand")}
+                          className="font-black uppercase hover:text-blue-600"
+                        >
+                          {siteVisibilityFilter === "internal" ? "Adicoes" : "Marca"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setShowBrandFilter((prev) => !prev)}
+                          className={`rounded-md border px-1.5 py-0.5 text-[11px] transition ${
+                            selectedBrands.length > 0
+                              ? "border-blue-500 bg-blue-50 text-blue-600"
+                              : "border-gray-300 text-gray-500 hover:border-gray-400"
+                          }`}
+                          aria-label="Filtrar marcas"
+                          title="Filtrar marcas"
+                        >
+                          {selectedBrands.length > 0 ? `${selectedBrands.length}` : "v"}
+                        </button>
+
+                        {showBrandFilter && (
+                          <div className="absolute right-0 top-8 z-30 w-72 rounded-2xl border border-gray-200 bg-white p-4 text-left normal-case shadow-xl">
+                            <div className="mb-3">
+                              <input
+                                value={brandFilterSearch}
+                                onChange={(e) => setBrandFilterSearch(e.target.value)}
+                                placeholder={
+                                  siteVisibilityFilter === "internal"
+                                    ? "Buscar marca..."
+                                    : "Buscar marca..."
+                                }
+                                className="w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-400"
+                              />
+                            </div>
+
+                            <div className="mb-3 flex items-center justify-between">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedBrands(availableBrands)}
+                                className="text-[10px] font-black uppercase text-blue-600"
+                              >
+                                Marcar todas
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedBrands([])}
+                                className="text-[10px] font-black uppercase text-gray-500"
+                              >
+                                Limpar
+                              </button>
+                            </div>
+
+                            <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                              {filteredBrandOptions.length > 0 ? (
+                                filteredBrandOptions.map((brand) => (
+                                  <label
+                                    key={brand}
+                                    className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-gray-50"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedBrands.includes(brand)}
+                                      onChange={() => toggleBrandSelection(brand)}
+                                    />
+                                    <span className="text-xs font-semibold text-gray-700">
+                                      {brand}
+                                    </span>
+                                  </label>
+                                ))
+                              ) : (
+                                <p className="py-3 text-center text-xs text-gray-400">
+                                  Nenhuma marca encontrada
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
-                </th>
+                  </th>
+                ) : null}
 
-                <th
-                  className={`w-36 cursor-pointer px-3 py-3 text-center text-black hover:text-black ${STICKY_HEADER_CLASSNAME}`}
-                  onClick={() => toggleSort("createdAt")}
-                >
-                  Importado em
-                </th>
+                {showImportedAtColumn ? (
+                  <th
+                    className={`w-36 cursor-pointer px-3 py-3 text-center text-black hover:text-black ${STICKY_HEADER_CLASSNAME}`}
+                    onClick={() => toggleSort("createdAt")}
+                  >
+                    Importado em
+                  </th>
+                ) : null}
 
                 <th
                   className={`w-32 cursor-pointer px-3 py-3 text-center text-black hover:text-black ${STICKY_HEADER_CLASSNAME}`}
@@ -1353,11 +1648,13 @@ export function AdminProductTable({
                 </th>
 
 
-                <th
-                  className={`w-28 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}
-                >
-                  Acao
-                </th>
+                {showActionsColumn ? (
+                  <th
+                    className={`w-28 px-3 py-3 text-center text-black ${STICKY_HEADER_CLASSNAME}`}
+                  >
+                    Acao
+                  </th>
+                ) : null}
               </tr>
             </thead>
 
@@ -1365,6 +1662,9 @@ export function AdminProductTable({
               {paginatedProducts.map((p) => {
                 const attrs = (p.attributes as DynamicAttributes) || {};
                 const isInternal = p.source === "internal";
+                const sellerLabel =
+                  String(attrs.seller || attrs.vendedor || getCanonicalSellerFromAttributes(attrs) || "").trim() ||
+                  "---";
 
                 return (
                   <tr
@@ -1373,45 +1673,49 @@ export function AdminProductTable({
                       selectedIds.includes(p.id) ? "bg-yellow-50/40" : ""
                     }`}
                   >
-                    <td className="px-3 py-3 text-center">
-                      <input
-                        type="checkbox"
-                        disabled={isInternal}
-                        checked={selectedIds.includes(p.id)}
-                        onChange={() =>
-                          setSelectedIds((prev) =>
-                            prev.includes(p.id)
-                              ? prev.filter((i) => i !== p.id)
-                              : [...prev, p.id]
-                          )
-                        }
-                      />
-                    </td>
+                    {showSelectionColumn ? (
+                      <td className="px-3 py-3 text-center">
+                        <input
+                          type="checkbox"
+                          disabled={isInternal}
+                          checked={selectedIds.includes(p.id)}
+                          onChange={() =>
+                            setSelectedIds((prev) =>
+                              prev.includes(p.id)
+                                ? prev.filter((i) => i !== p.id)
+                                : [...prev, p.id]
+                            )
+                          }
+                        />
+                      </td>
+                    ) : null}
 
                     <td className="px-3 py-3 text-center">
-                      <div
-                        className="group relative mx-auto mb-1.5 h-10 w-10 cursor-zoom-in overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
-                        onClick={() => setZoomImage(p.imageUrl)}
-                      >
-                        {p.imageUrl && (
-                          <Image
-                            src={p.imageUrl}
-                            alt=""
-                            fill
-                            className="object-contain p-1 transition-transform group-hover:scale-110"
-                          />
-                        )}
+                      <div className="mx-auto flex w-fit flex-col items-center">
+                        <div
+                          className="group relative mx-auto mb-1.5 h-10 w-10 cursor-zoom-in overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
+                          onClick={() => setZoomImage(p.imageUrl)}
+                        >
+                          {p.imageUrl && (
+                            <Image
+                              src={p.imageUrl}
+                              alt=""
+                              fill
+                              className="object-contain p-1 transition-transform group-hover:scale-110"
+                            />
+                          )}
+                        </div>
+
+                        <a
+                          href={`https://www.amazon.com.br/dp/${String(attrs.asin)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block rounded bg-blue-50 px-2 py-0.5 font-mono text-[9px] font-bold uppercase text-blue-500 transition-all hover:bg-blue-600 hover:text-white"
+                          title="Abrir na Amazon"
+                        >
+                          {String(attrs.asin || "---")}
+                        </a>
                       </div>
-
-                      <a
-                        href={`https://www.amazon.com.br/dp/${String(attrs.asin)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block rounded bg-blue-50 py-0.5 font-mono text-[9px] font-bold uppercase text-blue-500 transition-all hover:bg-blue-600 hover:text-white"
-                        title="Abrir na Amazon"
-                      >
-                        {String(attrs.asin || "---")} {"->"}
-                      </a>
                     </td>
 
                     <td
@@ -1441,50 +1745,56 @@ export function AdminProductTable({
                       </td>
                     ) : null}
 
-                    {dynamicColumns.map((col) => {
-                      const currentValue = getAttributeValue(attrs, col.key);
-                      let displayValue = currentValue == null ? "" : String(currentValue);
-                      if (col.type === "text" && displayValue) {
-                        displayValue = formatAdminTextValue(displayValue, col.key);
-                      }
-                      const isMissing = isMissingEditableValue(currentValue);
+                    {showDynamicColumns
+                      ? dynamicColumns.map((col) => {
+                          const currentValue = getAttributeValue(attrs, col.key);
+                          let displayValue = currentValue == null ? "" : String(currentValue);
+                          if (col.type === "text" && displayValue) {
+                            displayValue = formatAdminTextValue(displayValue, col.key);
+                          }
+                          const isMissing = isMissingEditableValue(currentValue);
 
-                      return (
-                        <td key={col.key} className="px-3 py-3 text-center">
-                          <input
-                            disabled={isInternal}
-                            className={`w-full max-w-[84px] rounded-lg border bg-white px-1.5 py-1 text-center text-[10px] font-black outline-none focus:border-yellow-400 ${
-                              isMissing ? "border-red-500" : "border-black"
-                            }`}
-                            defaultValue={displayValue}
-                            onBlur={(e) => {
-                              let val =
-                                col.type === "number"
-                                  ? solveMath(e.target.value)
-                                  : e.target.value;
+                          return (
+                            <td key={col.key} className="px-3 py-3 text-center">
+                              <input
+                                disabled={isInternal}
+                                className={`w-full max-w-[84px] rounded-lg border bg-white px-1.5 py-1 text-center text-[10px] font-black outline-none focus:border-yellow-400 ${
+                                  isMissing ? "border-red-500" : "border-black"
+                                }`}
+                                defaultValue={displayValue}
+                                onBlur={(e) => {
+                                  let val =
+                                    col.type === "number"
+                                      ? solveMath(e.target.value)
+                                      : e.target.value;
 
-                              if (col.type === "text") {
-                                val = formatAdminTextValue(String(val), col.key);
-                              }
+                                  if (col.type === "text") {
+                                    val = formatAdminTextValue(String(val), col.key);
+                                  }
 
-                              e.target.value = String(val);
+                                  e.target.value = String(val);
 
-                              if (!isInternal) {
-                                handleQuickUpdate(
-                                  p.id,
-                                  col.key === "volume" ? "volumeMl" : col.key,
-                                  col.type === "number" ? Number(val) : String(val),
-                                  true
-                                );
-                              }
-                            }}
-                          />
-                        </td>
-                      );
-                    })}
+                                  if (!isInternal) {
+                                    handleQuickUpdate(
+                                      p.id,
+                                      col.key === "volume" ? "volumeMl" : col.key,
+                                      col.type === "number" ? Number(val) : String(val),
+                                      true
+                                    );
+                                  }
+                                }}
+                              />
+                            </td>
+                          );
+                        })
+                      : null}
 
                     <td className="px-3 py-3 text-center">
-                      {isInternal ? (
+                      {isBlockedView ? (
+                        <span className="inline-flex min-w-[90px] items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-center text-[10px] font-black text-gray-700">
+                          {sellerLabel}
+                        </span>
+                      ) : isInternal ? (
                         <button
                           type="button"
                           onClick={() =>
@@ -1520,14 +1830,16 @@ export function AdminProductTable({
                       )}
                     </td>
 
-                    <td className="px-3 py-3 text-center">
-                      <div className="text-[10px] font-black uppercase text-gray-700">
-                        {formatBrazilDate(p.createdAt)}
-                      </div>
-                      <div className="mt-1 text-[10px] font-semibold text-gray-400">
-                        {formatBrazilTime(p.createdAt)}
-                      </div>
-                    </td>
+                    {showImportedAtColumn ? (
+                      <td className="px-3 py-3 text-center">
+                        <div className="text-[10px] font-black uppercase text-gray-700">
+                          {formatBrazilDate(p.createdAt)}
+                        </div>
+                        <div className="mt-1 text-[10px] font-semibold text-gray-400">
+                          {formatBrazilTime(p.createdAt)}
+                        </div>
+                      </td>
+                    ) : null}
 
                     <td className="px-3 py-3 text-center text-[11px] font-black text-green-700">
                       R${" "}
@@ -1547,77 +1859,79 @@ export function AdminProductTable({
                         }
                       />
                     </td>
-                    <td className="px-3 py-3 text-center">
-                      <div className="flex flex-col items-center gap-1.5">
-                        {isInternal ? (
-                          <>
-                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-emerald-700">
-                              Interno
-                            </span>
-                            <select
-                              value={internalCategoryDrafts[p.id] ?? ""}
-                              onChange={(event) =>
-                                setInternalCategoryDrafts((current) => ({
-                                  ...current,
-                                  [p.id]: event.target.value,
-                                }))
-                              }
-                              className="min-w-[120px] rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-gray-700 outline-none transition-colors hover:border-gray-300"
-                            >
-                              <option value="">Categoria</option>
-                              {categories.map((category) => (
-                                <option key={category.id} value={category.id}>
-                                  {category.name}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              onClick={() => void handlePromoteInternalProduct(p.id)}
-                              className="text-[10px] font-black uppercase text-blue-500 transition-colors hover:text-blue-700"
-                            >
-                              Adicionar
-                            </button>
-                            <button
-                              onClick={() => void handleDeleteInternalProduct(p.id)}
-                              className="text-[10px] font-black uppercase text-red-300 transition-colors hover:text-red-600"
-                            >
-                              Excluir
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <select
-                              value={normalizeDynamicVisibilityStatus(
-                                p.visibilityStatus,
-                                p.isVisibleOnSite
-                              )}
-                              onChange={(e) =>
-                                handleVisibilityChange(
-                                  p.id,
-                                  e.currentTarget.value as DynamicVisibilityStatus
-                                )
-                              }
-                              disabled={savingVisibilityIds.includes(p.id)}
-                              className="min-w-[100px] rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-gray-700 outline-none transition-colors hover:border-gray-300"
-                            >
-                              <option value="visible">Visivel</option>
-                              <option value="pending">Pendente</option>
-                              <option value="hidden">Oculto</option>
-                            </select>
+                    {showActionsColumn ? (
+                      <td className="px-3 py-3 text-center">
+                        <div className="flex flex-col items-center gap-1.5">
+                          {isInternal ? (
+                            <>
+                              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-emerald-700">
+                                Interno
+                              </span>
+                              <select
+                                value={internalCategoryDrafts[p.id] ?? ""}
+                                onChange={(event) =>
+                                  setInternalCategoryDrafts((current) => ({
+                                    ...current,
+                                    [p.id]: event.target.value,
+                                  }))
+                                }
+                                className="min-w-[120px] rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-gray-700 outline-none transition-colors hover:border-gray-300"
+                              >
+                                <option value="">Categoria</option>
+                                {categories.map((category) => (
+                                  <option key={category.id} value={category.id}>
+                                    {category.name}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                onClick={() => void handlePromoteInternalProduct(p.id)}
+                                className="text-[10px] font-black uppercase text-blue-500 transition-colors hover:text-blue-700"
+                              >
+                                Adicionar
+                              </button>
+                              <button
+                                onClick={() => void handleDeleteInternalProduct(p.id)}
+                                className="text-[10px] font-black uppercase text-red-300 transition-colors hover:text-red-600"
+                              >
+                                Excluir
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <select
+                                value={normalizeDynamicVisibilityStatus(
+                                  p.visibilityStatus,
+                                  p.isVisibleOnSite
+                                )}
+                                onChange={(e) =>
+                                  handleVisibilityChange(
+                                    p.id,
+                                    e.currentTarget.value as DynamicVisibilityStatus
+                                  )
+                                }
+                                disabled={savingVisibilityIds.includes(p.id)}
+                                className="min-w-[100px] rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-gray-700 outline-none transition-colors hover:border-gray-300"
+                              >
+                                <option value="visible">Visivel</option>
+                                <option value="pending">Pendente</option>
+                                <option value="hidden">Oculto</option>
+                              </select>
 
-                            <button
-                              onClick={() =>
-                                confirm("Excluir?") &&
-                                deleteDynamicProduct(p.id).then(() => router.refresh())
-                              }
-                              className="text-[10px] font-black uppercase text-red-300 transition-colors hover:text-red-600"
-                            >
-                              Excluir
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
+                              <button
+                                onClick={() =>
+                                  confirm("Excluir?") &&
+                                  deleteDynamicProduct(p.id).then(() => router.refresh())
+                                }
+                                className="text-[10px] font-black uppercase text-red-300 transition-colors hover:text-red-600"
+                              >
+                                Excluir
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    ) : null}
                   </tr>
                 );
               })}
