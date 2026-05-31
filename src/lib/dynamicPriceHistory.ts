@@ -118,44 +118,64 @@ export function formatPriceHistoryRangeLabel(range: PriceHistoryChartRange) {
   return range === 365 ? "1 ano" : `${range}d`;
 }
 
+function getSortedCollectedPriceHistoryDateKeys(
+  dateKeys: string[],
+  referenceDate = new Date()
+) {
+  const todayKey = getPriceHistoryBusinessDateKey(referenceDate);
+
+  return Array.from(new Set(dateKeys))
+    .filter((dateKey) => dateKey <= todayKey)
+    .sort();
+}
+
 export function getAvailablePriceHistoryChartRangesFromDateKeys(
   dateKeys: string[],
   referenceDate = new Date()
 ): PriceHistoryChartRange[] {
-  const todayKey = getPriceHistoryBusinessDateKey(referenceDate);
-  const uniqueDateKeys = Array.from(new Set(dateKeys))
-    .filter((dateKey) => dateKey <= todayKey)
-    .sort();
+  const uniqueDateKeys = getSortedCollectedPriceHistoryDateKeys(
+    dateKeys,
+    referenceDate
+  );
 
   if (uniqueDateKeys.length === 0) {
     return [];
   }
 
-  const firstAvailableKey = uniqueDateKeys[0];
-  const lastAvailableKey = uniqueDateKeys[uniqueDateKeys.length - 1];
-  const spanDays = Math.max(
-    1,
-    Math.round(
-      (new Date(`${lastAvailableKey}T00:00:00.000Z`).getTime() -
-        new Date(`${firstAvailableKey}T00:00:00.000Z`).getTime()) /
-        (24 * 60 * 60 * 1000)
-    ) + 1
-  );
+  const collectedDays = uniqueDateKeys.length;
 
   const availableRanges: PriceHistoryChartRange[] = [];
 
-  if (spanDays < 30) {
-    availableRanges.push(spanDays);
+  if (collectedDays < 30) {
+    availableRanges.push(collectedDays);
     return availableRanges;
   }
 
   for (const range of PRICE_HISTORY_CHART_RANGES) {
     if (range === 7) continue;
 
-    if (spanDays >= range) {
+    if (collectedDays >= range) {
       availableRanges.push(range);
     }
   }
 
   return availableRanges;
+}
+
+export function getCollectedPriceHistoryWindowStartDateKey(
+  dateKeys: string[],
+  range: PriceHistoryChartRange,
+  referenceDate = new Date()
+) {
+  const uniqueDateKeys = getSortedCollectedPriceHistoryDateKeys(
+    dateKeys,
+    referenceDate
+  );
+
+  if (uniqueDateKeys.length === 0) {
+    return null;
+  }
+
+  const startIndex = Math.max(0, uniqueDateKeys.length - range);
+  return uniqueDateKeys[startIndex] ?? null;
 }

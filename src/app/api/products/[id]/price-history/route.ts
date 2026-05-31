@@ -7,9 +7,9 @@ import {
 } from "@/lib/dynamicFallback";
 import {
   getAvailablePriceHistoryChartRangesFromDateKeys,
+  getCollectedPriceHistoryWindowStartDateKey,
   type PriceHistoryChartRange,
   getPriceHistoryBusinessDateKey,
-  shiftPriceHistoryDateKey,
 } from "@/lib/dynamicPriceHistory";
 
 function formatDateKey(date: Date) {
@@ -168,20 +168,15 @@ export async function GET(
               .map(([date, price]) => ({ date, price }))
               .sort((a, b) => a.date.localeCompare(b.date));
 
-            if (range < 30) {
-              const observedTail = fullHistory.slice(-range);
-              const observedStartDate = observedTail[0]?.date;
+            const sinceKey = getCollectedPriceHistoryWindowStartDateKey(
+              Array.from(historyByDate.keys()),
+              range,
+              new Date()
+            );
 
-              if (!observedStartDate) {
-                return observedTail;
-              }
-
-              return fullHistory.filter((point) => {
-                return point.date >= observedStartDate && point.date <= todayKey;
-              });
+            if (!sinceKey) {
+              return fullHistory;
             }
-
-            const sinceKey = shiftPriceHistoryDateKey(todayKey, -(range - 1));
 
             return fullHistory.filter((point) => {
               return point.date >= sinceKey && point.date <= todayKey;

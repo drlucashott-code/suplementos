@@ -36,48 +36,10 @@ type PriceHistoryResponse = {
   };
 };
 
-type RangeHorizon = "short" | "medium" | "long";
-
-const RANGE_HORIZON_META: Record<
-  RangeHorizon,
-  {
-    label: string;
-    sectionText: string;
-    inactiveClassName: string;
-    activeClassName: string;
-  }
-> = {
-  short: {
-    label: "Curto prazo",
-    sectionText: "text-[#565959]",
-    inactiveClassName:
-      "border-[#D5D9D9] bg-white text-[#0F1111] hover:border-[#AAB7B8] hover:bg-[#F7F8F8]",
-    activeClassName:
-      "border-[#F7CA00] bg-[#FFD814] text-[#0F1111] shadow-sm",
-  },
-  medium: {
-    label: "Médio prazo",
-    sectionText: "text-[#565959]",
-    inactiveClassName:
-      "border-[#D5D9D9] bg-white text-[#0F1111] hover:border-[#AAB7B8] hover:bg-[#F7F8F8]",
-    activeClassName:
-      "border-[#F7CA00] bg-[#FFD814] text-[#0F1111] shadow-sm",
-  },
-  long: {
-    label: "Longo prazo",
-    sectionText: "text-[#565959]",
-    inactiveClassName:
-      "border-[#D5D9D9] bg-white text-[#0F1111] hover:border-[#AAB7B8] hover:bg-[#F7F8F8]",
-    activeClassName:
-      "border-[#F7CA00] bg-[#FFD814] text-[#0F1111] shadow-sm",
-  },
-};
-
-function getRangeHorizon(range: SupportedRange): RangeHorizon {
-  if (range <= 60) return "short";
-  if (range <= 180) return "medium";
-  return "long";
-}
+const RANGE_BUTTON_INACTIVE_CLASSNAME =
+  "border-[#D5D9D9] bg-white text-[#0F1111] hover:border-[#AAB7B8] hover:bg-[#F7F8F8]";
+const RANGE_BUTTON_ACTIVE_CLASSNAME =
+  "border-[#F7CA00] bg-[#FFD814] text-[#0F1111] shadow-sm";
 
 function formatCurrency(value: number | null) {
   if (value === null || Number.isNaN(value)) return "--";
@@ -179,24 +141,6 @@ export function PriceHistoryButton({
     () => getVisiblePriceHistoryChartRanges(availableRanges),
     [availableRanges]
   );
-
-  const visibleRangeSections = useMemo(() => {
-    const sections: Array<{ horizon: RangeHorizon; ranges: SupportedRange[] }> = [];
-
-    for (const currentRange of visibleRanges) {
-      const horizon = getRangeHorizon(currentRange);
-      const lastSection = sections[sections.length - 1];
-
-      if (lastSection && lastSection.horizon === horizon) {
-        lastSection.ranges.push(currentRange);
-        continue;
-      }
-
-      sections.push({ horizon, ranges: [currentRange] });
-    }
-
-    return sections;
-  }, [visibleRanges]);
 
   const closeBackdropSafely = (
     event:
@@ -439,7 +383,6 @@ export function PriceHistoryButton({
           ? "up"
           : "flat";
   const deltaPercent = formatDeltaPercent(deltaFromAverage);
-
   return (
     <>
       <button
@@ -500,49 +443,40 @@ export function PriceHistoryButton({
                   {emptyMessage}
                 </div>
               ) : visibleRanges.length > 1 ? (
-                <div className="flex flex-wrap items-start gap-3">
-                  {visibleRangeSections.map((section) => {
-                    const sectionMeta = RANGE_HORIZON_META[section.horizon];
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-[#D5D9D9] bg-white px-3 py-2.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {visibleRanges.map((sectionRange) => {
+                      const isActive = range === sectionRange;
 
-                    return (
-                      <div key={section.horizon} className="flex min-w-[92px] flex-col gap-1.5">
-                        {visibleRangeSections.length > 1 ? (
-                          <span
-                            className={`px-1 text-[10px] font-black uppercase tracking-[0.18em] ${sectionMeta.sectionText}`}
-                          >
-                            {sectionMeta.label}
-                          </span>
-                        ) : null}
+                      return (
+                        <button
+                          key={sectionRange}
+                          type="button"
+                          onClick={() => setRange(sectionRange)}
+                          className={`rounded-[999px] border px-3 py-1.5 text-[12px] font-semibold transition ${
+                            isActive
+                              ? RANGE_BUTTON_ACTIVE_CLASSNAME
+                              : RANGE_BUTTON_INACTIVE_CLASSNAME
+                          }`}
+                        >
+                          {formatPriceHistoryRangeLabel(sectionRange)}
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
-                          {section.ranges.map((sectionRange) => {
-                            const isActive = range === sectionRange;
-
-                            return (
-                              <button
-                                key={sectionRange}
-                                type="button"
-                                onClick={() => setRange(sectionRange)}
-                                className={`rounded-[999px] border px-3 py-1.5 text-[12px] font-semibold transition ${
-                                  isActive
-                                    ? sectionMeta.activeClassName
-                                    : sectionMeta.inactiveClassName
-                                }`}
-                              >
-                                {formatPriceHistoryRangeLabel(sectionRange)}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  <p className="text-[11px] font-medium text-[#565959]">
+                    Dias com estoque valido
+                  </p>
                 </div>
               ) : !showFreshMessage && visibleRanges.length === 1 ? (
-                <div className="flex items-center">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-[#D5D9D9] bg-white px-3 py-2.5">
                   <span className="inline-flex rounded-full border border-[#D5D9D9] bg-white px-3 py-1 text-[11px] font-medium text-[#565959]">
                     Histórico de {formatPriceHistoryRangeLabel(visibleRanges[0])}
                   </span>
+                  <p className="text-[11px] font-medium text-[#565959]">
+                    Dias com estoque valido
+                  </p>
                 </div>
               ) : null}
 
