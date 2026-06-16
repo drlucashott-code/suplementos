@@ -57,7 +57,6 @@ export default function ProductCard({ product }: ProductCardProps) {
           fill 
           className="object-contain p-2 group-hover:scale-105 transition-transform" 
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-          unoptimized
         />
       </div>
 

@@ -662,7 +662,6 @@ export function MobileProductCard({
                 sizes="160px"
                 priority={priority}
                 className="h-auto w-auto max-h-[190px] max-w-[120px] object-contain mix-blend-multiply"
-                unoptimized
               />
             </div>
           ) : (

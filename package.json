@@ -55,6 +55,7 @@
     "react": "19.2.1",
     "react-dom": "19.2.1",
     "react-hot-toast": "^2.6.0",
+    "sharp": "^0.35.1",
     "web-push": "^3.6.7"
   },
   "devDependencies": {

@@ -336,7 +336,6 @@ export default function BestDealProductCard({
                   compact ? "(max-width: 768px) 42vw, 180px" : "(max-width: 768px) 42vw, 220px"
                 }
                 className="object-contain p-1.5"
-                unoptimized
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-[#F8FAFA] text-[#98A2B3]">

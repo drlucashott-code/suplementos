@@ -183,7 +183,6 @@ export default async function CategoryGroupPage({ params }: PageProps) {
                             fill
                             sizes="80px"
                             className="object-contain p-1.5 mix-blend-multiply transition-transform group-hover:scale-110"
-                            unoptimized
                           />
                         ) : null}
                       </div>

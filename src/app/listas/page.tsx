@@ -175,7 +175,6 @@ export default async function PublicListsPage({
                             fill
                             sizes="64px"
                             className="object-contain p-1.5"
-                            unoptimized
                           />
                         </div>
                       ))
