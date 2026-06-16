@@ -29,8 +29,12 @@ export default function ProgressiveBestDealsGrid({
   desktopVisibleCount,
   className = "",
 }: ProgressiveBestDealsGridProps) {
+  // `mounted` evita hydration mismatch: a 1ª renderização (server + hidratação)
+  // ignora window/matchMedia; o ajuste responsivo só entra depois do mount.
+  const [mounted, setMounted] = useState(false);
+
   const getResponsiveLimit = () => {
-    if (typeof window === "undefined") return maxVisibleCount;
+    if (!mounted || typeof window === "undefined") return maxVisibleCount;
     if (desktopVisibleCount && window.matchMedia("(min-width: 1024px)").matches) {
       return desktopVisibleCount;
     }
@@ -47,11 +51,15 @@ export default function ProgressiveBestDealsGrid({
   const loadingRef = useRef(false);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     const limit = getResponsiveLimit();
     setVisibleCount(Math.min(items.length, limit ?? items.length, initialVisibleCount));
     loadingRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialVisibleCount, items, maxVisibleCount, mobileVisibleCount, desktopVisibleCount]);
+  }, [mounted, initialVisibleCount, items, maxVisibleCount, mobileVisibleCount, desktopVisibleCount]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
