@@ -926,32 +926,8 @@ async function fetchDynamicCatalogBaseData(
       const fallbackConfig = await getDynamicFallbackConfig();
       const productIds = categoryData.products.map((product) => product.id);
 
-      const fallbackRows =
-        productIds.length > 0
-          ? await prisma.$queryRaw<
-              Array<
-                DynamicProductFallbackState & {
-                  id: string;
-                  averagePrice30d: number | null;
-                  lowestPrice30d: number | null;
-                  highestPrice30d: number | null;
-                  lowestPrice365d: number | null;
-                }
-              >
-            >(Prisma.sql`
-              SELECT
-                "id",
-                "lastValidPrice",
-                "lastValidPriceAt",
-                "availabilityStatus",
-                "averagePrice30d",
-                "lowestPrice30d",
-                "highestPrice30d",
-                "lowestPrice365d"
-              FROM "DynamicProduct"
-              WHERE "id" IN (${Prisma.join(productIds)})
-            `)
-          : [];
+      // As colunas de preço/disponibilidade já vêm em categoryData.products
+      // (via include), então não há query separada de "fallbackRows".
 
       const reactionRows =
         productIds.length > 0
@@ -1116,20 +1092,20 @@ async function fetchDynamicCatalogBaseData(
       );
 
       const productStateMap = new Map(
-        fallbackRows.map((row) => [
-          row.id,
+        categoryData.products.map((product) => [
+          product.id,
           {
-            lastValidPrice: row.lastValidPrice,
-            lastValidPriceAt: row.lastValidPriceAt,
-            availabilityStatus: row.availabilityStatus,
-            averagePrice30d: row.averagePrice30d,
-            lowestPrice30d: row.lowestPrice30d,
-            highestPrice30d: row.highestPrice30d,
-            lowestPrice365d: row.lowestPrice365d,
-            priceHistoryBadgeWindows: historyBadgeMap.get(row.id) ?? [],
-            likeCount: reactionMap.get(row.id)?.likeCount ?? 0,
-            dislikeCount: reactionMap.get(row.id)?.dislikeCount ?? 0,
-            commentCount: commentMap.get(row.id) ?? 0,
+            lastValidPrice: product.lastValidPrice,
+            lastValidPriceAt: product.lastValidPriceAt,
+            availabilityStatus: product.availabilityStatus,
+            averagePrice30d: product.averagePrice30d,
+            lowestPrice30d: product.lowestPrice30d,
+            highestPrice30d: product.highestPrice30d,
+            lowestPrice365d: product.lowestPrice365d,
+            priceHistoryBadgeWindows: historyBadgeMap.get(product.id) ?? [],
+            likeCount: reactionMap.get(product.id)?.likeCount ?? 0,
+            dislikeCount: reactionMap.get(product.id)?.dislikeCount ?? 0,
+            commentCount: commentMap.get(product.id) ?? 0,
           },
         ])
       );

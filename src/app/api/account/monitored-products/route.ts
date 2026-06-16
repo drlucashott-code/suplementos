@@ -772,14 +772,19 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ ok: false, error: "invalid_order" }, { status: 400 });
     }
 
-    for (let index = 0; index < orderedIds.length; index += 1) {
-      await prisma.$executeRaw`
-        UPDATE "SiteUserMonitoredProduct"
-        SET "sortOrder" = ${index}, "updatedAt" = NOW()
-        WHERE "id" = ${orderedIds[index]!}
-          AND "userId" = ${user.id}
-      `;
-    }
+    // Atualiza todas as posições em um único UPDATE (antes era um round-trip
+    // por item — N queries para reordenar N produtos).
+    const orderCases = orderedIds.map(
+      (itemId, index) => Prisma.sql`WHEN ${itemId} THEN ${index}`
+    );
+
+    await prisma.$executeRaw(Prisma.sql`
+      UPDATE "SiteUserMonitoredProduct"
+      SET "sortOrder" = CASE "id" ${Prisma.join(orderCases, " ")} END,
+          "updatedAt" = NOW()
+      WHERE "userId" = ${user.id}
+        AND "id" IN (${Prisma.join(orderedIds)})
+    `);
 
     return NextResponse.json({ ok: true });
   } catch (error) {
