@@ -195,6 +195,12 @@ model DynamicProduct {
   listItems        SiteUserListItem[]
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
+
+  // Índices do caminho de leitura das páginas (catálogo/grupo) e do scheduler de refresh.
+  @@index([categoryId, visibilityStatus, totalPrice])
+  @@index([categoryId, visibilityStatus, createdAt(sort: Desc)])
+  @@index([nextPriceRefreshAt])
+  @@index([refreshTier, priorityScore])
 }
 
 model DynamicCategoryAsinDecision {
