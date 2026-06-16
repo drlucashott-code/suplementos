@@ -11,8 +11,9 @@ import {
   getCanonicalSellerFromAttributes,
 } from "@/lib/blockedMerchants";
 import { getBlockedMerchantsConfig } from "@/lib/blockedMerchantsConfig";
+import { unstable_cache } from "next/cache";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 interface PageProps {
   params: Promise<{ category: string }>;
@@ -57,34 +58,44 @@ export default async function CategoryGroupPage({ params }: PageProps) {
     blockedConfig.allBlockedMerchants
   );
 
-  const categories = await (
-    prisma.dynamicCategory as unknown as {
-      findMany: (args: Record<string, unknown>) => Promise<CategoryWithVisibleProducts[]>;
-    }
-  ).findMany({
-    where: {
-      group: categoryParam.toLowerCase(),
-    },
-    include: {
-      _count: {
-        select: {
+  // Query cacheada por grupo (revalida a cada 300s) — evita re-consultar o
+  // banco a cada request. A filtragem de merchants bloqueados continua por
+  // request, mas roda em memória sobre o resultado já cacheado.
+  const loadCategoryGroup = unstable_cache(
+    async (groupParam: string) =>
+      (
+        prisma.dynamicCategory as unknown as {
+          findMany: (args: Record<string, unknown>) => Promise<CategoryWithVisibleProducts[]>;
+        }
+      ).findMany({
+        where: {
+          group: groupParam,
+        },
+        include: {
+          _count: {
+            select: {
+              products: {
+                where: {
+                  visibilityStatus: "visible",
+                },
+              },
+            },
+          },
           products: {
             where: {
               visibilityStatus: "visible",
             },
+            take: 4,
+            orderBy: { createdAt: "desc" },
           },
         },
-      },
-      products: {
-        where: {
-          visibilityStatus: "visible",
-        },
-        take: 4,
-        orderBy: { createdAt: "desc" },
-      },
-    },
-    orderBy: { name: "asc" },
-  });
+        orderBy: { name: "asc" },
+      }),
+    ["category-group-page"],
+    { revalidate: 300, tags: ["dynamic-catalog-group"] }
+  );
+
+  const categories = await loadCategoryGroup(categoryParam.toLowerCase());
 
   if (!categories || categories.length === 0) return notFound();
 

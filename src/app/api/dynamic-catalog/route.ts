@@ -36,11 +36,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
-  return NextResponse.json({
-    ok: true,
-    products: catalog.products,
-    totalProducts: catalog.totalProducts,
-    hasMore: catalog.hasMore,
-    nextOffset: offset + catalog.products.length,
-  });
+  return NextResponse.json(
+    {
+      ok: true,
+      products: catalog.products,
+      totalProducts: catalog.totalProducts,
+      hasMore: catalog.hasMore,
+      nextOffset: offset + catalog.products.length,
+    },
+    {
+      // Catálogo é público (não varia por usuário); deixa CDN/browser
+      // reaproveitarem por 5min e servirem stale por mais 10min enquanto revalida.
+      headers: {
+        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+      },
+    }
+  );
 }

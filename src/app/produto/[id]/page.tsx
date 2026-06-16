@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Prisma } from "@prisma/client";
@@ -63,7 +64,9 @@ type ProductDetailRecord =
       commentsCount: number;
     };
 
-async function resolveProductDetailRecord(id: string): Promise<ProductDetailRecord | null> {
+// Memoizado por request: generateMetadata() e o componente da página chamam
+// isto com o mesmo id, então cache() evita resolver o produto duas vezes.
+const resolveProductDetailRecord = cache(async (id: string): Promise<ProductDetailRecord | null> => {
   const dynamicRows = await prisma.$queryRaw<
     Array<{
       id: string;
@@ -236,7 +239,7 @@ async function resolveProductDetailRecord(id: string): Promise<ProductDetailReco
     description: descriptionParts.join(" • "),
     commentsCount: await countProductComments(monitoredRow.asin),
   };
-}
+});
 
 async function countProductComments(productAsin: string) {
   const rows = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
