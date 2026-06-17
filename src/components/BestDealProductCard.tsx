@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { AlertTriangle, Heart, ImageOff, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -25,6 +24,7 @@ import { getAccountListsCount } from "@/lib/client/accountLists";
 import { ProductShareInlineButton } from "@/lib/client/productShare";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 import amazonImageLoader from "@/lib/amazonImageLoader";
+import { ExpandableProductTitle } from "@/components/ExpandableProductTitle";
 
 const REPORT_REASONS = [
   "Preço desatualizado",
@@ -367,21 +367,15 @@ export default function BestDealProductCard({
                 {decisionLabel}
               </div>
             ) : null}
-            <Link
+            <ExpandableProductTitle
+              name={item.name}
               href={`/produto/${item.asin}`}
+              clampLines={2}
               className={`block font-medium leading-[20px] text-[#0F1111] hover:text-[#007185] ${
                 compact ? "text-[12px]" : "text-[13px]"
               }`}
-              style={{
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-                minHeight: uniformHeight ? "40px" : undefined,
-              }}
-            >
-              {item.name}
-            </Link>
+              style={{ minHeight: uniformHeight ? "40px" : undefined }}
+            />
           </div>
 
           <div className={`mt-auto ${uniformHeight ? "flex flex-col justify-end" : ""}`}>

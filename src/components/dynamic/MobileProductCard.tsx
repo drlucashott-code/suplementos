@@ -21,6 +21,7 @@ import type { PriceDecision } from "@/lib/priceDecision";
 import { ProductShareInlineButton } from "@/lib/client/productShare";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
 import amazonImageLoader from "@/lib/amazonImageLoader";
+import { ExpandableProductTitle } from "@/components/ExpandableProductTitle";
 
 export type DynamicProductType = {
   id: string;
@@ -710,9 +711,12 @@ export function MobileProductCard({
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col py-4 pr-2">
-          <h2 className="mb-1 line-clamp-3 text-[14px] font-normal leading-tight text-[#0F1111]">
-            {product.name}
-          </h2>
+          <ExpandableProductTitle
+            as="h2"
+            name={product.name}
+            clampLines={3}
+            className="mb-1 text-[14px] font-normal leading-tight text-[#0F1111]"
+          />
 
           {(rating > 0 || reviewsCount > 0) && (
             <div className="mb-2 flex items-center gap-1 text-[12px]">
