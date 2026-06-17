@@ -110,7 +110,8 @@ export function AmazonHeader() {
                 window.scrollTo({ top: 0 });
                 router.refresh();
                 const header = event.currentTarget.closest("header");
-                const content = header?.nextElementSibling as HTMLElement | null;
+                const content = (header?.nextElementSibling ??
+                  header?.parentElement?.nextElementSibling) as HTMLElement | null;
                 if (content) {
                   content.style.animation = "none";
                   void content.offsetWidth;

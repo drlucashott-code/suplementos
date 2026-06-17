@@ -24,8 +24,8 @@ export const metadata: Metadata = {
 };
 
 const PAGE_SIZE = 50;
-const POOL_SIZE = 200;
-const DEALS_PER_GROUP_WHEN_ALL = 67;
+const POOL_SIZE = 100;
+const DEALS_PER_GROUP_WHEN_ALL = 34;
 
 const filters = [
   { label: "Todos", value: "todos" },

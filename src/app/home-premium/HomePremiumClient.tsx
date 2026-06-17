@@ -434,8 +434,8 @@ export default function HomePremiumClient({
             category="home_premium_ofertas"
             compact
             showActions={false}
-            initialVisibleCount={8}
-            step={8}
+            initialVisibleCount={10}
+            step={10}
             mobileVisibleCount={8}
             desktopVisibleCount={10}
             className="mt-6"

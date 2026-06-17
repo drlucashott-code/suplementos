@@ -266,54 +266,75 @@ export default function BestDealProductCard({
     }
   }
 
+  const saveBtn = (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void handleToggleSave();
+      }}
+      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
+        saved
+          ? "border-[#f0c14b] bg-[#fff7d6] text-[#b77900]"
+          : "border-[#d9dee3] bg-white text-gray-500 hover:text-[#0F1111]"
+      }`}
+      aria-label={saved ? "Remover da Minha lista" : "Salvar na Minha lista"}
+    >
+      <Heart className={`h-3.5 w-3.5 ${saved ? "fill-current" : ""}`} />
+    </button>
+  );
+  const commentsBtn = (
+    <ProductCommentsSheet productId={item.id} productName={item.name} initialCount={0} iconOnly />
+  );
+  const shareBtn = (
+    <ProductShareInlineButton
+      productShareKey={item.asin}
+      productName={item.name}
+      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9dee3] bg-white text-gray-500 transition hover:text-[#0F1111]"
+      iconClassName="h-3.5 w-3.5"
+      ariaLabel="Compartilhar produto"
+    />
+  );
+  const reportBtn = (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setReportOpen(true);
+        setReportState("idle");
+      }}
+      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9dee3] bg-white text-gray-500 transition hover:text-[#0F1111]"
+      aria-label="Reportar problema"
+    >
+      <AlertTriangle className="h-3.5 w-3.5" />
+    </button>
+  );
+
   return (
     <>
       <div className="relative h-full">
         {showActions ? (
-          <div className="absolute right-1.5 top-1.5 z-20 flex flex-col items-center gap-1.5">
-            <button
-              type="button"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                void handleToggleSave();
-              }}
-              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
-                saved
-                  ? "border-[#f0c14b] bg-[#fff7d6] text-[#b77900]"
-                  : "border-[#d9dee3] bg-white text-gray-500 hover:text-[#0F1111]"
-              }`}
-              aria-label={saved ? "Remover da Minha lista" : "Salvar na Minha lista"}
-            >
-              <Heart className={`h-3.5 w-3.5 ${saved ? "fill-current" : ""}`} />
-            </button>
-            <ProductCommentsSheet
-              productId={item.id}
-              productName={item.name}
-              initialCount={0}
-              iconOnly
-            />
-            <ProductShareInlineButton
-              productShareKey={item.asin}
-              productName={item.name}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9dee3] bg-white text-gray-500 transition hover:text-[#0F1111]"
-              iconClassName="h-3.5 w-3.5"
-              ariaLabel="Compartilhar produto"
-            />
-            <button
-              type="button"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setReportOpen(true);
-                setReportState("idle");
-              }}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9dee3] bg-white text-gray-500 transition hover:text-[#0F1111]"
-              aria-label="Reportar problema"
-            >
-              <AlertTriangle className="h-3.5 w-3.5" />
-            </button>
-          </div>
+          <>
+            {/* MOBILE: curtir + comentar à esquerda da foto */}
+            <div className="absolute left-1 top-1.5 z-20 flex flex-col items-center gap-1.5 lg:hidden">
+              {saveBtn}
+              {commentsBtn}
+            </div>
+            {/* MOBILE: compartilhar + reportar à direita da foto */}
+            <div className="absolute right-1 top-1.5 z-20 flex flex-col items-center gap-1.5 lg:hidden">
+              {shareBtn}
+              {reportBtn}
+            </div>
+            {/* DESKTOP: pilha única à direita */}
+            <div className="absolute right-1.5 top-1.5 z-20 hidden flex-col items-center gap-1.5 lg:flex">
+              {saveBtn}
+              {commentsBtn}
+              {shareBtn}
+              {reportBtn}
+            </div>
+          </>
         ) : null}
 
         <div
@@ -381,6 +402,7 @@ export default function BestDealProductCard({
             </div>
 
             {hasPrice ? (
+              <>
               <div className="flex items-end justify-between gap-2">
                 <div className="flex flex-col">
                   <div className="flex min-h-[36px] items-end gap-1.5">
@@ -429,11 +451,25 @@ export default function BestDealProductCard({
                   value={item.totalPrice}
                   category={category}
                   disabled={disableNavigation}
-                  className="mb-0.5 flex shrink-0 items-center justify-center rounded-lg border border-[#FCD200] bg-[#FFD814] px-3 py-2 text-center text-[12px] font-normal text-[#0F1111] shadow-sm transition hover:bg-[#F7CA00]"
+                  className="mb-0.5 hidden shrink-0 items-center justify-center rounded-lg border border-[#FCD200] bg-[#FFD814] px-3 py-2 text-center text-[12px] font-normal text-[#0F1111] shadow-sm transition hover:bg-[#F7CA00] lg:flex"
                 >
                   Ver na Amazon
                 </TrackedDealLink>
               </div>
+
+              <TrackedDealLink
+                asin={item.asin}
+                href={item.url}
+                productId={item.id}
+                productName={item.name}
+                value={item.totalPrice}
+                category={category}
+                disabled={disableNavigation}
+                className="mt-2 block w-full rounded-lg border border-[#FCD200] bg-[#FFD814] py-2 text-center text-[13px] font-normal text-[#0F1111] shadow-sm transition hover:bg-[#F7CA00] lg:hidden"
+              >
+                Ver na Amazon
+              </TrackedDealLink>
+              </>
             ) : (
               <div className="mt-3 min-h-[58px] rounded-2xl border border-[#FECACA] bg-[#FFF5F5] px-3 py-3 text-sm font-bold text-[#B42318]">
                 Sem estoque
