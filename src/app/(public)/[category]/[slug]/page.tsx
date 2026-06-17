@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { ProductList } from "@/components/dynamic/ProductList";
 import { MobileFiltersDrawer } from "@/components/dynamic/MobileFiltersDrawer";
+import { DesktopFiltersSidebar } from "@/components/dynamic/DesktopFiltersSidebar";
 import {
   FloatingFiltersBar,
   type DynamicSortOption,
@@ -143,7 +144,7 @@ export default async function DynamicCategoryPage({
         <AmazonHeader />
       </Suspense>
 
-      <div className="mx-auto max-w-[1200px]">
+      <div className="mx-auto max-w-[1400px]">
         <Suspense
           fallback={<div className="h-14 w-full border-b border-zinc-200 bg-white" />}
         >
@@ -164,18 +165,32 @@ export default async function DynamicCategoryPage({
             />
           </Suspense>
 
-          <div className="mt-4 w-full pb-10">
-            <p className="mb-2 px-1 text-[13px] font-medium text-zinc-800">
-              {catalog.totalProducts} produtos encontrados em {catalog.categoryName}
-            </p>
-            {((search.order as string) ?? catalog.defaultOrder) === "best_value" &&
-            catalog.bestValueHelperText ? (
-              <p className="mb-3 px-1 text-[12px] text-zinc-600">
-                {catalog.bestValueHelperText}
-              </p>
-            ) : null}
+          <div className="mt-4 flex gap-5 pb-10">
+            <aside className="hidden w-[230px] shrink-0 lg:block">
+              <div className="sticky top-4">
+                <Suspense fallback={null}>
+                  <DesktopFiltersSidebar
+                    brands={catalog.sortedBrands}
+                    sellers={catalog.sortedSellers}
+                    ratingOptions={catalog.ratingOptions}
+                    dynamicConfigs={catalog.filterableConfigs}
+                    dynamicOptions={catalog.sortedDynamicOptions}
+                  />
+                </Suspense>
+              </div>
+            </aside>
 
-            <div className="w-full">
+            <div className="min-w-0 flex-1">
+              <p className="mb-2 px-1 text-[13px] font-medium text-zinc-800">
+                {catalog.totalProducts} produtos encontrados em {catalog.categoryName}
+              </p>
+              {((search.order as string) ?? catalog.defaultOrder) === "best_value" &&
+              catalog.bestValueHelperText ? (
+                <p className="mb-3 px-1 text-[12px] text-zinc-600">
+                  {catalog.bestValueHelperText}
+                </p>
+              ) : null}
+
               <ProductList
                 products={catalog.products}
                 totalProducts={catalog.totalProducts}
