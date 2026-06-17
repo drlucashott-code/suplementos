@@ -15,7 +15,6 @@ type PriceStatsRow = {
 
 export async function refreshDynamicProductPriceStats(productId: string) {
   const todayKey = getPriceHistoryBusinessDateKey();
-  const thirtyDaysAgoKey = shiftPriceHistoryDateKey(todayKey, -29);
   const threeHundredSixtyFiveDaysAgoKey = shiftPriceHistoryDateKey(todayKey, -364);
 
   const rows = await prisma.$queryRaw<PriceStatsRow[]>(Prisma.sql`
@@ -29,13 +28,22 @@ export async function refreshDynamicProductPriceStats(productId: string) {
         AND DATE("date") >= ${threeHundredSixtyFiveDaysAgoKey}::date
         AND "price" > 0
       ORDER BY DATE("date"), "date" DESC, "updatedAt" DESC, "createdAt" DESC
+    ),
+    "rankedHistory" AS (
+      SELECT
+        "historyDate",
+        "price",
+        ROW_NUMBER() OVER (ORDER BY "historyDate" DESC) AS "recencyRank"
+      FROM "dailyHistory"
     )
+    -- Janela igual à do gráfico: os últimos 30 dias COM preço coletado
+    -- (por contagem), não os últimos 30 dias de calendário.
     SELECT
-      AVG("price") FILTER (WHERE "historyDate" >= ${thirtyDaysAgoKey}::date)::float AS "averagePrice30d",
-      MIN("price") FILTER (WHERE "historyDate" >= ${thirtyDaysAgoKey}::date)::float AS "lowestPrice30d",
-      MAX("price") FILTER (WHERE "historyDate" >= ${thirtyDaysAgoKey}::date)::float AS "highestPrice30d",
+      AVG("price") FILTER (WHERE "recencyRank" <= 30)::float AS "averagePrice30d",
+      MIN("price") FILTER (WHERE "recencyRank" <= 30)::float AS "lowestPrice30d",
+      MAX("price") FILTER (WHERE "recencyRank" <= 30)::float AS "highestPrice30d",
       MIN("price")::float AS "lowestPrice365d"
-    FROM "dailyHistory"
+    FROM "rankedHistory"
   `);
 
   const row = rows[0];
@@ -57,7 +65,6 @@ export async function refreshDynamicProductPriceStatsBulk(productIds: string[]) 
   if (uniqueProductIds.length === 0) return;
 
   const todayKey = getPriceHistoryBusinessDateKey();
-  const thirtyDaysAgoKey = shiftPriceHistoryDateKey(todayKey, -29);
   const threeHundredSixtyFiveDaysAgoKey = shiftPriceHistoryDateKey(todayKey, -364);
 
   const rows = await prisma.$queryRaw<PriceStatsRow[]>(Prisma.sql`
@@ -72,14 +79,24 @@ export async function refreshDynamicProductPriceStatsBulk(productIds: string[]) 
         AND DATE("date") >= ${threeHundredSixtyFiveDaysAgoKey}::date
         AND "price" > 0
       ORDER BY "productId", DATE("date"), "date" DESC, "updatedAt" DESC, "createdAt" DESC
+    ),
+    "rankedHistory" AS (
+      SELECT
+        "productId",
+        "historyDate",
+        "price",
+        ROW_NUMBER() OVER (PARTITION BY "productId" ORDER BY "historyDate" DESC) AS "recencyRank"
+      FROM "dailyHistory"
     )
+    -- Janela igual à do gráfico: os últimos 30 dias COM preço coletado
+    -- (por contagem), não os últimos 30 dias de calendário.
     SELECT
       "productId",
-      AVG("price") FILTER (WHERE "historyDate" >= ${thirtyDaysAgoKey}::date)::float AS "averagePrice30d",
-      MIN("price") FILTER (WHERE "historyDate" >= ${thirtyDaysAgoKey}::date)::float AS "lowestPrice30d",
-      MAX("price") FILTER (WHERE "historyDate" >= ${thirtyDaysAgoKey}::date)::float AS "highestPrice30d",
+      AVG("price") FILTER (WHERE "recencyRank" <= 30)::float AS "averagePrice30d",
+      MIN("price") FILTER (WHERE "recencyRank" <= 30)::float AS "lowestPrice30d",
+      MAX("price") FILTER (WHERE "recencyRank" <= 30)::float AS "highestPrice30d",
       MIN("price")::float AS "lowestPrice365d"
-    FROM "dailyHistory"
+    FROM "rankedHistory"
     GROUP BY "productId"
   `);
 
