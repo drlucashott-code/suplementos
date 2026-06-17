@@ -69,6 +69,9 @@ export default function ProgressiveBestDealsGrid({
       (entries) => {
         const [entry] = entries;
         if (!entry?.isIntersecting || loadingRef.current) return;
+        // Só carrega mais depois do mount: antes disso getResponsiveLimit()
+        // retorna undefined (sem limite) e estouraria o cap responsivo (ex: 10 no desktop).
+        if (!mounted) return;
         if (visibleCount >= items.length) return;
         const limit = getResponsiveLimit();
         if (typeof limit === "number" && visibleCount >= limit) return;
@@ -86,7 +89,7 @@ export default function ProgressiveBestDealsGrid({
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [items.length, maxVisibleCount, mobileVisibleCount, desktopVisibleCount, step, visibleCount]);
+  }, [mounted, items.length, maxVisibleCount, mobileVisibleCount, desktopVisibleCount, step, visibleCount]);
 
   const visibleItems = items.slice(0, visibleCount);
   const hasMore =
