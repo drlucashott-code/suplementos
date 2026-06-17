@@ -635,52 +635,15 @@ export function MobileProductCard({
 
   return (
     <>
-      <div className="relative flex min-h-[250px] items-stretch gap-3 rounded-xl border border-[#D5D9D9] bg-white font-sans shadow-[0_1px_3px_rgba(15,17,17,0.06)] transition hover:shadow-[0_6px_20px_rgba(15,17,17,0.10)]">
+      <div className="relative flex h-full flex-col rounded-xl border border-[#D5D9D9] bg-white font-sans shadow-[0_1px_3px_rgba(15,17,17,0.06)] transition hover:shadow-[0_6px_20px_rgba(15,17,17,0.10)]">
         {(product.discountPercent ?? 0) > 0 && (
-          <div className="absolute left-0 top-4 z-10 bg-[#CC0C39] px-2 py-0.5 text-[11px] font-bold text-white">
+          <div className="absolute left-0 top-3 z-10 rounded-br-md rounded-tl-xl bg-[#CC0C39] px-2 py-0.5 text-[11px] font-bold text-white">
             {product.discountPercent}% OFF
           </div>
         )}
 
-        <div className="relative flex w-[160px] flex-shrink-0 flex-col items-center justify-center rounded-l-xl bg-[#f3f3f3] p-3">
-          <div className="absolute right-3 top-3 z-20">
-            <ProductShareInlineButton
-              productShareKey={asin || product.id}
-              productName={product.name}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-[6px] border border-[#d9dee3] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
-              iconClassName="h-3.5 w-3.5"
-              ariaLabel="Compartilhar produto"
-            />
-          </div>
-          {product.imageUrl ? (
-            <div className="flex h-[220px] w-full items-center justify-center">
-              <Image
-                src={getOptimizedAmazonUrl(product.imageUrl, 320)}
-                alt={product.name}
-                width={260}
-                height={260}
-                sizes="160px"
-                priority={priority}
-                className="h-auto w-auto max-h-[190px] max-w-[120px] object-contain mix-blend-multiply"
-              />
-            </div>
-          ) : (
-            <span className="text-[10px] text-zinc-400">Sem imagem</span>
-          )}
-
-          <div className="mt-2 flex items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setReportOpen(true);
-                setReportState("idle");
-              }}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300"
-              aria-label="Reportar problema"
-            >
-              <AlertTriangle className="h-3.5 w-3.5" />
-            </button>
-
+        <div className="relative flex h-[190px] w-full items-center justify-center rounded-t-xl bg-white p-4">
+          <div className="absolute right-2 top-2 z-20 flex items-center gap-1.5">
             <button
               type="button"
               onClick={(event) => {
@@ -691,27 +654,37 @@ export function MobileProductCard({
               className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
                 saved
                   ? "border-[#f0c14b] bg-[#fff7d6] text-[#b77900]"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                  : "border-[#d9dee3] bg-white text-gray-600 hover:border-gray-300"
               }`}
               aria-label={saved ? "Remover da Minha lista" : "Salvar na Minha lista"}
             >
               <Heart className={`h-3.5 w-3.5 ${saved ? "fill-current" : ""}`} />
             </button>
-          </div>
-
-          <div className="mt-2 flex w-full justify-center">
-            <ProductCommentsSheet
-              productId={product.id}
+            <ProductShareInlineButton
+              productShareKey={asin || product.id}
               productName={product.name}
-              initialCount={commentCount}
-              onCountChange={setCommentCount}
-              triggerClassName="w-full max-w-[126px] justify-center px-2.5 py-1 text-[11px] font-semibold text-gray-600"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9dee3] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
+              iconClassName="h-3.5 w-3.5"
+              ariaLabel="Compartilhar produto"
             />
           </div>
+          {product.imageUrl ? (
+            <Image
+              src={getOptimizedAmazonUrl(product.imageUrl, 320)}
+              alt={product.name}
+              width={260}
+              height={260}
+              sizes="(max-width: 768px) 45vw, 240px"
+              priority={priority}
+              className="h-auto max-h-[170px] w-auto max-w-[80%] object-contain mix-blend-multiply"
+            />
+          ) : (
+            <span className="text-[10px] text-zinc-400">Sem imagem</span>
+          )}
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col py-4 pr-2">
-          <h2 className="mb-1 line-clamp-3 text-[14px] font-normal leading-tight text-[#0F1111]">
+        <div className="flex min-w-0 flex-1 flex-col px-3 pb-3 pt-2">
+          <h2 className="mb-1 line-clamp-2 min-h-[34px] text-[13px] font-normal leading-tight text-[#0F1111]">
             {product.name}
           </h2>
 
@@ -912,11 +885,32 @@ export function MobileProductCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={handleTrackClick}
-                className="block w-full rounded-full border border-[#FCD200] bg-[#FFD814] py-2.5 text-center text-[13px] font-medium text-[#0F1111] shadow-sm transition-transform active:scale-95"
+                className="block w-full rounded-lg border border-[#FCD200] bg-[#FFD814] py-2 text-center text-[13px] font-semibold text-[#0F1111] shadow-sm transition hover:bg-[#F7CA00] active:scale-[0.99]"
               >
                 Ver na Amazon
               </a>
             </div>
+          </div>
+
+          <div className="mt-2.5 flex items-center justify-between border-t border-gray-100 pt-2">
+            <ProductCommentsSheet
+              productId={product.id}
+              productName={product.name}
+              initialCount={commentCount}
+              onCountChange={setCommentCount}
+              triggerClassName="justify-center px-1 py-0.5 text-[11px] font-semibold text-gray-500"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setReportOpen(true);
+                setReportState("idle");
+              }}
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400 transition hover:text-gray-600"
+              aria-label="Reportar problema"
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
       </div>
