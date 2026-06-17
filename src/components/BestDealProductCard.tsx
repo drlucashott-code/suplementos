@@ -103,7 +103,6 @@ export default function BestDealProductCard({
     item.averagePrice30d > item.totalPrice && hasPrice && item.discountPercent > 0;
   const price = formatPriceParts(hasPrice ? item.totalPrice : 0);
   const hasRating = (item.ratingAverage || 0) > 0 && (item.ratingCount || 0) > 0;
-  const [showFullTitle, setShowFullTitle] = useState(false);
   const [saved, setSaved] = useState(false);
   const [accountAlert, setAccountAlert] = useState<null | "unverified">(null);
   const [reportOpen, setReportOpen] = useState(false);
@@ -357,44 +356,16 @@ export default function BestDealProductCard({
               className={`block font-medium leading-[20px] text-[#0F1111] hover:text-[#007185] ${
                 compact ? "text-[12px]" : "text-[13px]"
               }`}
-              style={
-                uniformHeight
-                  ? {
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                      minHeight: compact ? "40px" : "42px",
-                      maxHeight: "40px",
-                    }
-                  : showFullTitle
-                  ? undefined
-                  : {
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                      maxHeight: "40px",
-                    }
-              }
+              style={{
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+                minHeight: uniformHeight ? "40px" : undefined,
+              }}
             >
               {item.name}
             </Link>
-            {item.name.length > 58 ? (
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  setShowFullTitle((current) => !current);
-                }}
-                className="mt-1 text-[11px] font-bold text-[#2162A1] hover:text-[#174e87]"
-              >
-                {showFullTitle ? "Ver menos" : "Ver mais"}
-              </button>
-            ) : (
-              <div className="h-[18px]" />
-            )}
           </div>
 
           <div className={`mt-auto ${uniformHeight ? "flex flex-col justify-end" : ""}`}>

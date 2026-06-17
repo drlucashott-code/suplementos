@@ -23,9 +23,9 @@ export const metadata: Metadata = {
   },
 };
 
-const PAGE_SIZE = 100;
-const DEALS_PER_GROUP_WHEN_ALL = 34;
-const MAX_DEALS = 100;
+const PAGE_SIZE = 50;
+const POOL_SIZE = 200;
+const DEALS_PER_GROUP_WHEN_ALL = 67;
 
 const filters = [
   { label: "Todos", value: "todos" },
@@ -47,44 +47,32 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
   const normalizedGroup = selectedGroup === "todos" ? undefined : selectedGroup;
   const requestedPage = Math.max(1, Number.parseInt(params.pagina ?? "1", 10) || 1);
 
-  const { deals, totalDeals, totalPages, currentPage } =
+  const pool =
     selectedGroup === "todos"
-      ? await (async () => {
-          const [supplements, home, pets] = await Promise.all([
+      ? (
+          await Promise.all([
             getBestDeals(DEALS_PER_GROUP_WHEN_ALL, "suplementos", 0),
             getBestDeals(DEALS_PER_GROUP_WHEN_ALL, "casa", 0),
             getBestDeals(DEALS_PER_GROUP_WHEN_ALL, "pets", 0),
-          ]);
-
-          const merged = [...supplements, ...home, ...pets].sort((a, b) => {
+          ])
+        )
+          .flat()
+          .sort((a, b) => {
             if (b.discountPercent !== a.discountPercent) {
               return b.discountPercent - a.discountPercent;
             }
-
             if (b.averagePrice30d !== a.averagePrice30d) {
               return b.averagePrice30d - a.averagePrice30d;
             }
-
             return (b.ratingCount ?? 0) - (a.ratingCount ?? 0);
-          });
-          const trimmed = merged.slice(0, MAX_DEALS);
-          return {
-            deals: trimmed,
-            totalDeals: trimmed.length,
-            totalPages: 1,
-            currentPage: 1,
-          };
-        })()
-      : await (async () => {
-          const pageDeals = await getBestDeals(PAGE_SIZE, normalizedGroup, 0);
+          })
+          .slice(0, POOL_SIZE)
+      : await getBestDeals(POOL_SIZE, normalizedGroup, 0);
 
-          return {
-            deals: pageDeals,
-            totalDeals: pageDeals.length,
-            totalPages: 1,
-            currentPage: 1,
-          };
-        })();
+  const totalDeals = pool.length;
+  const totalPages = Math.max(1, Math.ceil(totalDeals / PAGE_SIZE));
+  const currentPage = Math.min(requestedPage, totalPages);
+  const deals = pool.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const buildPageHref = (page: number) => {
     const query = new URLSearchParams();
@@ -166,8 +154,8 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
           <ProgressiveBestDealsGrid
             items={deals}
             category="pagina_ofertas"
-            initialVisibleCount={24}
-            step={16}
+            initialVisibleCount={PAGE_SIZE}
+            step={PAGE_SIZE}
           />
 
           {totalPages > 1 ? (
