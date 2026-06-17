@@ -638,7 +638,7 @@ export function MobileProductCard({
     <>
       <div className="relative flex h-full flex-col rounded-xl border border-[#D5D9D9] bg-white font-sans shadow-[0_1px_3px_rgba(15,17,17,0.06)] transition hover:shadow-[0_6px_20px_rgba(15,17,17,0.10)]">
         {(product.discountPercent ?? 0) > 0 && (
-          <div className="absolute left-0 top-3 z-10 rounded-br-md rounded-tl-xl bg-[#CC0C39] px-2 py-0.5 text-[11px] font-bold text-white">
+          <div className="absolute left-0 top-0 z-10 rounded-br-md rounded-tl-xl bg-[#CC0C39] px-2 py-0.5 text-[11px] font-bold text-white">
             {product.discountPercent}% OFF
           </div>
         )}
