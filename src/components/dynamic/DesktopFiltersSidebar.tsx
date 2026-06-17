@@ -103,9 +103,9 @@ export function DesktopFiltersSidebar({
   };
 
   return (
-    <div className="rounded-xl border border-[#D5D9D9] bg-white">
-      <div className="flex items-center justify-between border-b border-[#E7E7E7] px-4 py-3">
-        <h2 className="text-[15px] font-bold text-[#0F1111]">Filtros</h2>
+    <div className="pr-1">
+      <div className="mb-3 flex items-center justify-between border-b border-[#E7E7E7] pb-2">
+        <h2 className="text-[16px] font-bold text-[#0F1111]">Filtros</h2>
         {selectedCount > 0 ? (
           <button
             type="button"
@@ -117,7 +117,7 @@ export function DesktopFiltersSidebar({
         ) : null}
       </div>
 
-      <div className="divide-y divide-[#E7E7E7]">
+      <div className="space-y-4">
         {sections.map((section) => {
           const selected = getSelected(section.paramKey);
           const isExpanded = expanded[section.key];
@@ -126,8 +126,8 @@ export function DesktopFiltersSidebar({
             : section.options.slice(0, DEFAULT_VISIBLE);
 
           return (
-            <div key={section.key} className="px-4 py-3">
-              <h3 className="mb-2 text-[13px] font-bold text-[#0F1111]">{section.title}</h3>
+            <div key={section.key}>
+              <h3 className="mb-1.5 text-[15px] font-bold text-[#0F1111]">{section.title}</h3>
               <ul className="space-y-1.5">
                 {visible.map((option) => {
                   const active = selected.includes(option.value);

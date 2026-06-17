@@ -135,7 +135,7 @@ export default async function DynamicCategoryPage({
   };
 
   return (
-    <main className="min-h-screen bg-[#EAEDED]">
+    <main className="min-h-screen bg-white">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}

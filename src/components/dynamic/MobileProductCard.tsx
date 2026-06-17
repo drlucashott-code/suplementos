@@ -523,6 +523,30 @@ export function MobileProductCard({
     analysisTitleTemplate ||
     displayConfig.find((config) => config.tableHeaderTemplate)?.tableHeaderTemplate;
 
+  // Custo por unidade inline (estilo Amazon: "R$ 91,43 (R$ 11,43/90g)").
+  const resolvedAnalysisTitle = tableHeaderTemplate
+    ? resolveTemplate(tableHeaderTemplate, product.attributes)
+    : "";
+  const perUnitUnit = (resolvedAnalysisTitle.match(/\(([^)]+)\)/)?.[1] ?? "")
+    .trim()
+    .toLowerCase();
+  const currencyConfig = displayConfig.find((config) => config.type === "currency");
+  const perUnitValue = currencyConfig
+    ? getFallbackCurrencyValue(currencyConfig.key, product.attributes, product.price, displayConfig)
+    : 0;
+  const perUnitLabel =
+    currencyConfig && !Number.isNaN(perUnitValue) && perUnitValue > 0
+      ? `${formatCurrencyValue(perUnitValue)}${perUnitUnit ? ` / ${perUnitUnit}` : ""}`
+      : "";
+  const nonCurrencyMetrics = displayConfig
+    .filter((config) => config.type !== "currency")
+    .map((config) => {
+      const value = formatDisplayValue(product.attributes[config.key], config);
+      if (!value || value === "-") return null;
+      return config.hideLabel ? value : `${value} ${config.label.toLowerCase()}`;
+    })
+    .filter((value): value is string => Boolean(value));
+
   const handleTrackClick = () => {
     if (!asin) return;
 
@@ -696,7 +720,7 @@ export function MobileProductCard({
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col px-3 pb-3 pt-2">
-          <h2 className="mb-1 line-clamp-2 min-h-[34px] text-[13px] font-normal leading-tight text-[#0F1111]">
+          <h2 className="mb-1 line-clamp-2 min-h-[36px] text-[14px] font-normal leading-tight text-[#0F1111]">
             {product.name}
           </h2>
 
@@ -726,63 +750,10 @@ export function MobileProductCard({
             </div>
           )}
 
-          {displayConfig.length > 0 ? (
-            <div
-              className={`mb-3 grid gap-2 divide-x divide-zinc-200 rounded border border-zinc-200 bg-white p-2 ${
-                rating === 0 && visibleHighlights.length === 0 ? "mt-2" : ""
-              }`}
-              style={{
-                gridTemplateColumns: `repeat(${Math.max(displayConfig.length, 1)}, minmax(0, 1fr))`,
-              }}
-            >
-              {tableHeaderTemplate && (
-                <div
-                  className="border-b border-zinc-200 pb-2 text-center text-[11px] font-bold uppercase tracking-wide text-zinc-500"
-                  style={{ gridColumn: "1 / -1" }}
-                >
-                  {resolveTemplate(tableHeaderTemplate, product.attributes)}
-                </div>
-              )}
-
-              {displayConfig.map((config) => {
-                const rawValue = product.attributes[config.key];
-                let displayValue = rawValue ? String(rawValue) : "-";
-                let valueClass = "text-[#0F1111]";
-
-                if (config.type === "currency") {
-                  const numericRaw = getFallbackCurrencyValue(
-                    config.key,
-                    product.attributes,
-                    product.price,
-                    displayConfig
-                  );
-
-                  displayValue =
-                    !Number.isNaN(numericRaw) && numericRaw > 0
-                      ? formatCurrencyValue(numericRaw)
-                      : "R$ 0,00";
-
-                  valueClass = "text-green-700";
-                } else {
-                  displayValue = formatDisplayValue(rawValue, config) || "-";
-                }
-
-                return (
-                  <div key={config.key} className="flex flex-col overflow-hidden px-1 text-center">
-                    <span className={`mb-1 truncate text-[12px] font-semibold leading-none ${valueClass}`}>
-                      {displayValue}
-                    </span>
-                    <span
-                      className={`truncate text-[9px] font-bold uppercase tracking-wide ${
-                        config.type === "currency" ? "text-green-600" : "text-zinc-400"
-                      }`}
-                    >
-                      {config.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+          {nonCurrencyMetrics.length > 0 ? (
+            <p className="mb-2 line-clamp-1 text-[12px] text-zinc-600">
+              {nonCurrencyMetrics.join(" · ")}
+            </p>
           ) : null}
 
           <div className="mt-auto flex flex-col">
@@ -807,7 +778,7 @@ export function MobileProductCard({
 
                 <div className="flex items-end justify-between gap-2">
                   <div className="flex min-w-0 flex-col">
-                    <div className="flex items-start">
+                    <div className="flex items-end gap-1.5">
                       <div className="flex items-start">
                         <span className="mt-1 text-[13px] font-medium text-[#0F1111]">R$</span>
                         <span className="text-3xl font-medium leading-none tracking-tight text-[#0F1111]">
@@ -818,8 +789,14 @@ export function MobileProductCard({
                         </span>
                       </div>
 
+                      {perUnitLabel ? (
+                        <span className="pb-1 text-[12px] font-semibold leading-none text-green-700">
+                          ({perUnitLabel})
+                        </span>
+                      ) : null}
+
                       {!showReferencePrice ? (
-                        <div className="ml-2 mt-1 shrink-0">
+                        <div className="mb-0.5 shrink-0">
                           <PriceHistoryButton
                             productId={product.id}
                             productName={product.name}
