@@ -644,45 +644,9 @@ export function MobileProductCard({
           </div>
         )}
 
-        <div className="relative flex w-[160px] flex-shrink-0 flex-col items-center justify-center bg-[#f3f3f3] p-3">
-          <div className="absolute right-3 top-3 z-20">
-            <ProductShareInlineButton
-              productShareKey={asin || product.id}
-              productName={product.name}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-[6px] border border-[#d9dee3] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
-              iconClassName="h-3.5 w-3.5"
-              ariaLabel="Compartilhar produto"
-            />
-          </div>
-          {product.imageUrl ? (
-            <div className="flex h-[220px] w-full items-center justify-center">
-              <Image
-                src={getOptimizedAmazonUrl(product.imageUrl, 320)}
-                alt={product.name}
-                width={260}
-                height={260}
-                sizes="160px"
-                priority={priority}
-                className="h-auto w-auto max-h-[190px] max-w-[120px] object-contain mix-blend-multiply"
-              />
-            </div>
-          ) : (
-            <span className="text-[10px] text-zinc-400">Sem imagem</span>
-          )}
-
-          <div className="mt-2 flex items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setReportOpen(true);
-                setReportState("idle");
-              }}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300"
-              aria-label="Reportar problema"
-            >
-              <AlertTriangle className="h-3.5 w-3.5" />
-            </button>
-
+        <div className="relative flex w-[188px] flex-shrink-0 items-center justify-center bg-[#f3f3f3] p-2">
+          {/* curtir + comentar à esquerda da foto */}
+          <div className="absolute left-0 top-1/2 z-20 flex -translate-y-1/2 flex-col items-center gap-1.5">
             <button
               type="button"
               onClick={(event) => {
@@ -693,23 +657,54 @@ export function MobileProductCard({
               className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
                 saved
                   ? "border-[#f0c14b] bg-[#fff7d6] text-[#b77900]"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                  : "border-[#d9dee3] bg-white text-gray-600 hover:border-gray-300"
               }`}
               aria-label={saved ? "Remover da Minha lista" : "Salvar na Minha lista"}
             >
               <Heart className={`h-3.5 w-3.5 ${saved ? "fill-current" : ""}`} />
             </button>
-          </div>
-
-          <div className="mt-2 flex w-full justify-center">
             <ProductCommentsSheet
               productId={product.id}
               productName={product.name}
               initialCount={commentCount}
               onCountChange={setCommentCount}
-              triggerClassName="w-full max-w-[126px] justify-center px-2.5 py-1 text-[11px] font-semibold text-gray-600"
+              iconOnly
             />
           </div>
+          {/* compartilhar + reportar à direita da foto */}
+          <div className="absolute right-0 top-1/2 z-20 flex -translate-y-1/2 flex-col items-center gap-1.5">
+            <ProductShareInlineButton
+              productShareKey={asin || product.id}
+              productName={product.name}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9dee3] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
+              iconClassName="h-3.5 w-3.5"
+              ariaLabel="Compartilhar produto"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setReportOpen(true);
+                setReportState("idle");
+              }}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9dee3] bg-white text-gray-500 transition hover:border-gray-300 hover:text-gray-700"
+              aria-label="Reportar problema"
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {product.imageUrl ? (
+            <Image
+              src={getOptimizedAmazonUrl(product.imageUrl, 320)}
+              alt={product.name}
+              width={260}
+              height={260}
+              sizes="160px"
+              priority={priority}
+              className="h-auto max-h-[200px] w-auto max-w-[100px] object-contain mix-blend-multiply"
+            />
+          ) : (
+            <span className="text-[10px] text-zinc-400">Sem imagem</span>
+          )}
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col py-4 pr-2">
