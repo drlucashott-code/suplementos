@@ -21,7 +21,7 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-const PAGE_SIZE = 40;
+const PAGE_SIZE = 32;
 
 export async function generateMetadata({
   params,
@@ -168,16 +168,18 @@ export default async function DynamicCategoryPage({
             </aside>
 
             <div className="min-w-0 flex-1">
-              <h2 className="px-1 text-[20px] font-bold text-[#0F1111]">Resultados</h2>
+              <div className="flex flex-wrap items-baseline gap-x-2 px-1">
+                <h2 className="text-[20px] font-bold text-[#0F1111]">Resultados</h2>
+                {((search.order as string) ?? catalog.defaultOrder) === "best_value" &&
+                catalog.bestValueHelperText ? (
+                  <span className="text-[13px] font-normal text-zinc-600">
+                    ({catalog.bestValueHelperText})
+                  </span>
+                ) : null}
+              </div>
               <p className="mb-3 px-1 text-[13px] text-zinc-600">
                 {catalog.totalProducts} produtos em {catalog.categoryName}
               </p>
-              {((search.order as string) ?? catalog.defaultOrder) === "best_value" &&
-              catalog.bestValueHelperText ? (
-                <p className="mb-3 px-1 text-[12px] text-zinc-600">
-                  {catalog.bestValueHelperText}
-                </p>
-              ) : null}
 
               <ProductList
                 products={catalog.products}
