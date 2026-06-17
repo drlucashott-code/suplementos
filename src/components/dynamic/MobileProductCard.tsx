@@ -645,13 +645,6 @@ export function MobileProductCard({
 
         <div className="relative flex h-[190px] w-full items-center justify-center rounded-t-xl bg-white p-4">
           <div className="absolute right-2 top-2 z-20 flex flex-col items-center gap-1.5">
-            <ProductShareInlineButton
-              productShareKey={asin || product.id}
-              productName={product.name}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9dee3] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
-              iconClassName="h-3.5 w-3.5"
-              ariaLabel="Compartilhar produto"
-            />
             <button
               type="button"
               onClick={(event) => {
@@ -674,6 +667,13 @@ export function MobileProductCard({
               initialCount={commentCount}
               onCountChange={setCommentCount}
               iconOnly
+            />
+            <ProductShareInlineButton
+              productShareKey={asin || product.id}
+              productName={product.name}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9dee3] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
+              iconClassName="h-3.5 w-3.5"
+              ariaLabel="Compartilhar produto"
             />
             <button
               type="button"
@@ -721,16 +721,15 @@ export function MobileProductCard({
           )}
 
           {visibleHighlights.length > 0 && (
-            <div className="mb-2 flex flex-wrap items-center gap-x-1 text-[11px] text-zinc-500">
+            <div className="mb-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] text-zinc-500">
               {visibleHighlights.map((item) => (
-                <span key={item.key} className="inline-flex items-center">
-                  <span className="mr-1 text-zinc-400">•</span>
+                <span key={item.key} className="truncate">
                   {item.hideLabel ? (
                     <b className="font-medium text-zinc-700">{item.value}</b>
                   ) : (
                     <>
-                      {item.label}:
-                      <b className="ml-0.5 font-medium text-zinc-700">{item.value}</b>
+                      {item.label}:{" "}
+                      <b className="font-medium text-zinc-700">{item.value}</b>
                     </>
                   )}
                 </span>

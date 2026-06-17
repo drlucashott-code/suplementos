@@ -519,7 +519,7 @@ export function ProductCommentsSheet({
           aria-label={iconOnly ? "Comentários" : undefined}
           className={
             iconOnly
-              ? `inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9dee3] bg-white text-gray-600 transition hover:bg-[#F8FAFA] ${
+              ? `inline-flex h-8 min-w-8 items-center justify-center gap-1 rounded-full border border-[#d9dee3] bg-white px-2 text-[11px] font-semibold text-gray-600 transition hover:bg-[#F8FAFA] ${
                   triggerClassName ?? ""
                 }`
               : `inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] ${
@@ -528,7 +528,7 @@ export function ProductCommentsSheet({
           }
         >
           <MessageCircle className="h-3.5 w-3.5" />
-          {iconOnly ? null : resolvedTriggerLabel}
+          {iconOnly ? <span>{commentCount}</span> : resolvedTriggerLabel}
         </button>
       ) : null}
 
