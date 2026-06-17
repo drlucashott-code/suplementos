@@ -20,6 +20,7 @@ import type { PriceHistoryChartRange } from "@/lib/dynamicPriceHistory";
 import type { PriceDecision } from "@/lib/priceDecision";
 import { ProductShareInlineButton } from "@/lib/client/productShare";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
+import amazonImageLoader from "@/lib/amazonImageLoader";
 
 export type DynamicProductType = {
   id: string;
@@ -694,6 +695,7 @@ export function MobileProductCard({
           </div>
           {product.imageUrl ? (
             <Image
+              loader={amazonImageLoader}
               src={getOptimizedAmazonUrl(product.imageUrl, 500)}
               alt={product.name}
               width={260}
@@ -976,6 +978,7 @@ export function MobileProductCard({
           </div>
           {product.imageUrl ? (
             <Image
+              loader={amazonImageLoader}
               src={getOptimizedAmazonUrl(product.imageUrl, 500)}
               alt={product.name}
               width={260}

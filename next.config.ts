@@ -13,9 +13,15 @@ const nextConfig: NextConfig = {
       CONFIGURAÇÕES DE IMAGEM
      ========================= */
   images: {
+    // 🖼️ As imagens de produto NÃO usam o otimizador da Vercel (que estourou
+    // a cota e passou a responder 402 OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED).
+    // Em vez disso cada <Image> recebe um `loader` custom (src/lib/amazonImageLoader.ts)
+    // que serve direto do CDN da Amazon, que já redimensiona via token ._SL{n}_.,
+    // mantendo lazy-load e srcset responsivo sem consumir cota.
+
     // 🚀 Otimização de Formatos de Próxima Geração:
     formats: ['image/avif', 'image/webp'],
-    
+
     // ⚡ Política de Cache Agressiva (1 ano):
     minimumCacheTTL: 31536000,
 

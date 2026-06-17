@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
+import amazonImageLoader from "@/lib/amazonImageLoader";
 import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -183,6 +184,7 @@ export default async function CategoryGroupPage({ params }: PageProps) {
                       >
                         {product.imageUrl ? (
                           <Image
+                            loader={amazonImageLoader}
                             src={getOptimizedAmazonUrl(product.imageUrl, 160)}
                             alt={product.name}
                             fill

@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { getOptimizedAmazonUrl } from '@/lib/utils';
+import amazonImageLoader from '@/lib/amazonImageLoader';
 
 // 1. Interfaces para eliminar o 'any'
 interface DisplayConfigField {
@@ -51,8 +52,9 @@ export default function ProductCard({ product }: ProductCardProps) {
     >
       {/* Imagem do Produto */}
       <div className="relative w-full h-44 mb-4 bg-gray-50 rounded-xl overflow-hidden">
-        <Image 
-          src={imageUrl ? getOptimizedAmazonUrl(imageUrl, 320) : '/placeholder.png'} 
+        <Image
+          loader={amazonImageLoader}
+          src={imageUrl ? getOptimizedAmazonUrl(imageUrl, 320) : '/placeholder.png'}
           alt={name} 
           fill 
           className="object-contain p-2 group-hover:scale-105 transition-transform" 

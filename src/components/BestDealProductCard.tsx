@@ -24,6 +24,7 @@ import {
 import { getAccountListsCount } from "@/lib/client/accountLists";
 import { ProductShareInlineButton } from "@/lib/client/productShare";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
+import amazonImageLoader from "@/lib/amazonImageLoader";
 
 const REPORT_REASONS = [
   "Preço desatualizado",
@@ -342,6 +343,7 @@ export default function BestDealProductCard({
           >
             {imageSrc ? (
               <Image
+                loader={amazonImageLoader}
                 src={imageSrc}
                 alt={item.name}
                 fill

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import amazonImageLoader from "@/lib/amazonImageLoader";
 import { usePathname, useRouter } from "next/navigation";
 import {
   updateManyProducts,
@@ -1974,7 +1975,7 @@ export function AdminProductTable({
           onClick={() => setZoomImage(null)}
         >
           <div className="relative h-full w-full max-w-4xl">
-            <Image src={zoomImage} alt="Zoom" fill className="object-contain" priority />
+            <Image loader={amazonImageLoader} src={zoomImage} alt="Zoom" fill className="object-contain" priority />
           </div>
         </div>
       )}

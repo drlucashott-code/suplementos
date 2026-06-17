@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type UIEvent } from "react";
 import Image from "next/image";
+import amazonImageLoader from "@/lib/amazonImageLoader";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -320,6 +321,7 @@ export default function HomePremiumClient({
                     {carouselSlides.map((slide, index) => (
                       <div key={slide.src} className="relative h-full w-full shrink-0 snap-start">
                         <Image
+                          loader={amazonImageLoader}
                           src={slide.src}
                           alt={slide.alt}
                           fill
@@ -489,6 +491,7 @@ export default function HomePremiumClient({
                           className="relative h-16 w-16 overflow-hidden rounded-[16px] border border-[#EDF2F7] bg-white"
                         >
                         <Image
+                          loader={amazonImageLoader}
                           src={imageSrc}
                           alt={`${list.title} preview ${index + 1}`}
                           fill
@@ -559,6 +562,7 @@ function CategoryCard({
     >
       <div className="relative h-[138px] overflow-hidden rounded-[18px] border border-[#EEF2F6] bg-[#F8FAFC]">
         <Image
+          loader={amazonImageLoader}
           src={category.imageSrc}
           alt={category.title}
           fill
