@@ -5,6 +5,7 @@ import { ProductList } from "@/components/dynamic/ProductList";
 import { MobileFiltersDrawer } from "@/components/dynamic/MobileFiltersDrawer";
 import { DesktopFiltersSidebar } from "@/components/dynamic/DesktopFiltersSidebar";
 import { SiteFooter } from "@/components/SiteFooter";
+import { Pagination } from "@/components/dynamic/Pagination";
 import {
   FloatingFiltersBar,
   type DynamicSortOption,
@@ -20,7 +21,7 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-const INITIAL_PAGE_SIZE = 12;
+const PAGE_SIZE = 40;
 
 export async function generateMetadata({
   params,
@@ -66,33 +67,20 @@ export default async function DynamicCategoryPage({
 }: PageProps) {
   const { category: group, slug } = await params;
   const search = await searchParams;
+  const pageParam = Array.isArray(search.page) ? search.page[0] : search.page;
+  const currentPage = Math.max(1, Number(pageParam) || 1);
+  const offset = (currentPage - 1) * PAGE_SIZE;
 
   const catalog = await getDynamicCatalogData({
     group,
     slug,
     search,
-    limit: INITIAL_PAGE_SIZE,
-    offset: 0,
+    limit: PAGE_SIZE,
+    offset,
   });
 
   if (!catalog) return notFound();
 
-  const loadMoreParams = new URLSearchParams();
-  loadMoreParams.set("group", group);
-  loadMoreParams.set("slug", slug);
-
-  Object.entries(search).forEach(([key, value]) => {
-    if (value === undefined) return;
-
-    if (Array.isArray(value)) {
-      value.forEach((item) => loadMoreParams.append(key, item));
-      return;
-    }
-
-    loadMoreParams.set(key, value);
-  });
-
-  const loadMoreUrl = `/api/dynamic-catalog?${loadMoreParams.toString()}`;
   const canonicalPath = `/${group}/${slug}`;
   const structuredData = {
     "@context": "https://schema.org",
@@ -196,13 +184,18 @@ export default async function DynamicCategoryPage({
               <ProductList
                 products={catalog.products}
                 totalProducts={catalog.totalProducts}
-                hasMore={catalog.hasMore}
-                loadMoreUrl={loadMoreUrl}
-                pageSize={INITIAL_PAGE_SIZE}
+                hasMore={false}
+                pageSize={PAGE_SIZE}
                 viewEventName="view_dynamic_list"
                 displayConfig={catalog.publicTableConfig}
                 highlightConfig={catalog.publicHighlightConfig}
                 analysisTitleTemplate={catalog.categorySettings.analysisTitleTemplate}
+              />
+
+              <Pagination
+                totalItems={catalog.totalProducts}
+                pageSize={PAGE_SIZE}
+                currentPage={currentPage}
               />
             </div>
           </div>
