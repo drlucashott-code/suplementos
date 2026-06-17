@@ -644,7 +644,7 @@ export function MobileProductCard({
           </div>
         )}
 
-        <div className="relative flex w-[160px] flex-shrink-0 items-center justify-center rounded-l-xl bg-white p-2">
+        <div className="relative flex w-[160px] flex-shrink-0 items-center justify-center rounded-l-xl bg-[#f3f3f3] p-2">
           {/* curtir + comentar à esquerda da foto (espalhados, deixando espaço p/ o selo) */}
           <div className="absolute bottom-3 left-0.5 top-7 z-20 flex flex-col items-center justify-between">
             <button
@@ -700,7 +700,7 @@ export function MobileProductCard({
               height={260}
               sizes="160px"
               priority={priority}
-              className="h-auto max-h-[200px] w-auto max-w-[140px] object-contain"
+              className="h-auto max-h-[200px] w-auto max-w-[140px] object-contain mix-blend-multiply"
             />
           ) : (
             <span className="text-[10px] text-zinc-400">Sem imagem</span>
@@ -926,7 +926,7 @@ export function MobileProductCard({
           </div>
         )}
 
-        <div className="relative flex h-[190px] w-full items-center justify-center rounded-t-xl bg-white p-4">
+        <div className="relative flex h-[190px] w-full items-center justify-center rounded-t-xl bg-[#f3f3f3] p-4">
           {/* curtir + comentar à esquerda (abaixo do selo de desconto) */}
           <div className="absolute left-2 top-10 z-20 flex flex-col items-center gap-1.5">
             <button
@@ -982,7 +982,7 @@ export function MobileProductCard({
               height={260}
               sizes="(max-width: 768px) 45vw, 240px"
               priority={priority}
-              className="h-auto max-h-[170px] w-auto max-w-[80%] object-contain"
+              className="h-auto max-h-[170px] w-auto max-w-[80%] object-contain mix-blend-multiply"
             />
           ) : (
             <span className="text-[10px] text-zinc-400">Sem imagem</span>

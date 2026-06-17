@@ -336,7 +336,7 @@ export default function BestDealProductCard({
           }`}
         >
           <div
-            className={`relative overflow-hidden rounded-md bg-white ${
+            className={`relative overflow-hidden rounded-md bg-[#f3f3f3] ${
               compact ? "h-[72px]" : "h-[104px]"
             }`}
           >
@@ -348,7 +348,7 @@ export default function BestDealProductCard({
                 sizes={
                   compact ? "(max-width: 768px) 42vw, 180px" : "(max-width: 768px) 42vw, 220px"
                 }
-                className="object-contain p-1.5"
+                className="object-contain p-1.5 mix-blend-multiply"
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-[#F8FAFA] text-[#98A2B3]">
