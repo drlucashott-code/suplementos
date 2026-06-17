@@ -644,7 +644,7 @@ export function MobileProductCard({
           </div>
         )}
 
-        <div className="relative flex w-[160px] flex-shrink-0 items-center justify-center rounded-l-xl bg-[#f3f3f3] p-2">
+        <div className="relative flex w-[160px] flex-shrink-0 items-center justify-center rounded-l-xl bg-white p-2">
           {/* curtir + comentar à esquerda da foto (espalhados, deixando espaço p/ o selo) */}
           <div className="absolute bottom-3 left-0.5 top-7 z-20 flex flex-col items-center justify-between">
             <button
@@ -694,13 +694,13 @@ export function MobileProductCard({
           </div>
           {product.imageUrl ? (
             <Image
-              src={getOptimizedAmazonUrl(product.imageUrl, 320)}
+              src={getOptimizedAmazonUrl(product.imageUrl, 500)}
               alt={product.name}
               width={260}
               height={260}
               sizes="160px"
               priority={priority}
-              className="h-auto max-h-[200px] w-auto max-w-[140px] object-contain mix-blend-multiply"
+              className="h-auto max-h-[200px] w-auto max-w-[140px] object-contain"
             />
           ) : (
             <span className="text-[10px] text-zinc-400">Sem imagem</span>
@@ -976,13 +976,13 @@ export function MobileProductCard({
           </div>
           {product.imageUrl ? (
             <Image
-              src={getOptimizedAmazonUrl(product.imageUrl, 320)}
+              src={getOptimizedAmazonUrl(product.imageUrl, 500)}
               alt={product.name}
               width={260}
               height={260}
               sizes="(max-width: 768px) 45vw, 240px"
               priority={priority}
-              className="h-auto max-h-[170px] w-auto max-w-[80%] object-contain mix-blend-multiply"
+              className="h-auto max-h-[170px] w-auto max-w-[80%] object-contain"
             />
           ) : (
             <span className="text-[10px] text-zinc-400">Sem imagem</span>

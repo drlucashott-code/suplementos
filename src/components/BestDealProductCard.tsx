@@ -117,7 +117,7 @@ export default function BestDealProductCard({
   );
   const router = useRouter();
   const imageSrc = item.imageUrl?.trim()
-    ? getOptimizedAmazonUrl(item.imageUrl, compact ? 240 : 320)
+    ? getOptimizedAmazonUrl(item.imageUrl, compact ? 320 : 500)
     : null;
   const freshProduct = (() => {
     if (!item.createdAt) return false;
