@@ -104,18 +104,15 @@ export function DesktopFiltersSidebar({
 
   return (
     <div className="pr-1">
-      <div className="mb-3 flex items-center justify-between border-b border-[#E7E7E7] pb-2">
-        <h2 className="text-[16px] font-bold text-[#0F1111]">Filtros</h2>
-        {selectedCount > 0 ? (
-          <button
-            type="button"
-            onClick={clearAll}
-            className="text-[12px] font-semibold text-[#2162A1] hover:text-[#174e87]"
-          >
-            Limpar ({selectedCount})
-          </button>
-        ) : null}
-      </div>
+      {selectedCount > 0 ? (
+        <button
+          type="button"
+          onClick={clearAll}
+          className="mb-3 block text-[12px] font-semibold text-[#2162A1] hover:text-[#174e87]"
+        >
+          Limpar filtros ({selectedCount})
+        </button>
+      ) : null}
 
       <div className="space-y-4">
         {sections.map((section) => {
@@ -138,20 +135,22 @@ export function DesktopFiltersSidebar({
                         onClick={() => toggle(section.paramKey, option.value)}
                         className="flex w-full items-center gap-2 text-left text-[13px] text-[#0F1111] transition hover:text-[#007185]"
                       >
-                        <span
-                          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                            active
-                              ? "border-[#007185] bg-[#007185] text-white"
-                              : "border-[#888C8C] bg-white"
-                          }`}
-                          aria-hidden="true"
-                        >
-                          {active ? (
-                            <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.5">
-                              <path d="M3 8.5l3 3 7-7" />
-                            </svg>
-                          ) : null}
-                        </span>
+                        {!section.isRating ? (
+                          <span
+                            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                              active
+                                ? "border-[#007185] bg-[#007185] text-white"
+                                : "border-[#888C8C] bg-white"
+                            }`}
+                            aria-hidden="true"
+                          >
+                            {active ? (
+                              <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M3 8.5l3 3 7-7" />
+                              </svg>
+                            ) : null}
+                          </span>
+                        ) : null}
                         {section.isRating ? (
                           <RatingLabel label={option.label} />
                         ) : (

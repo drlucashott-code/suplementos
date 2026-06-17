@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import SiteUserEntry from "@/components/SiteUserEntry";
 import SiteNotificationsBell from "@/components/SiteNotificationsBell";
@@ -32,55 +32,13 @@ export function AmazonHeader() {
     router.push(`${pathname}?${params.toString()}`);
   }
 
-  function handleBack() {
-    if (typeof window === "undefined") {
-      router.replace("/");
-      return;
-    }
-
-    const historyState = window.history.state as { idx?: number } | null;
-
-    if (typeof historyState?.idx === "number") {
-      if (historyState.idx > 0) {
-        router.back();
-        return;
-      }
-
-      router.replace("/");
-      return;
-    }
-
-    try {
-      if (document.referrer) {
-        const referrerUrl = new URL(document.referrer);
-
-        if (referrerUrl.origin === window.location.origin) {
-          router.back();
-          return;
-        }
-      }
-    } catch {
-      // Ignore invalid referrer URLs and fall back to the home page.
-    }
-
-    router.replace("/");
-  }
-
   return (
     <>
       <header className="sticky top-0 z-40 w-full bg-[#131921] text-white shadow-md">
         <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-2 px-3 md:gap-3">
-          <button
-            onClick={handleBack}
-            className="flex-shrink-0 rounded-md p-1 transition-colors hover:bg-white/10 active:bg-white/10"
-            aria-label="Voltar"
-          >
-            <ArrowLeft className="h-6 w-6 stroke-[2.5px]" />
-          </button>
-
           <Link
             href="/"
-            className="hidden flex-shrink-0 select-none items-baseline rounded px-1 text-[22px] font-bold leading-none tracking-tight sm:flex"
+            className="flex flex-shrink-0 select-none items-baseline rounded px-1 text-[20px] font-bold leading-none tracking-tight sm:text-[22px]"
             aria-label="amazonpicks - inicio"
           >
             <span>amazon</span>
