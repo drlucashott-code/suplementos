@@ -99,6 +99,7 @@ export function ProductCommentsSheet({
   initialOpen = false,
   hideTrigger = false,
   inline = false,
+  iconOnly = false,
 }: {
   productId: string;
   productName: string;
@@ -109,6 +110,7 @@ export function ProductCommentsSheet({
   initialOpen?: boolean;
   hideTrigger?: boolean;
   inline?: boolean;
+  iconOnly?: boolean;
 }) {
   const [open, setOpen] = useState(initialOpen || inline);
   const [comments, setComments] = useState<ProductCommentItem[]>([]);
@@ -514,12 +516,19 @@ export function ProductCommentsSheet({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className={`inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] ${
-            triggerClassName ?? ""
-          }`}
+          aria-label={iconOnly ? "Comentários" : undefined}
+          className={
+            iconOnly
+              ? `inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9dee3] bg-white text-gray-600 transition hover:bg-[#F8FAFA] ${
+                  triggerClassName ?? ""
+                }`
+              : `inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-[#0F1111] transition hover:bg-[#F8FAFA] ${
+                  triggerClassName ?? ""
+                }`
+          }
         >
           <MessageCircle className="h-3.5 w-3.5" />
-          {resolvedTriggerLabel}
+          {iconOnly ? null : resolvedTriggerLabel}
         </button>
       ) : null}
 

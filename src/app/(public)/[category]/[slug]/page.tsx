@@ -156,17 +156,15 @@ export default async function DynamicCategoryPage({
 
           <div className="mt-4 flex gap-5 pb-10">
             <aside className="hidden w-[230px] shrink-0 lg:block">
-              <div className="sticky top-4">
-                <Suspense fallback={null}>
-                  <DesktopFiltersSidebar
-                    brands={catalog.sortedBrands}
-                    sellers={catalog.sortedSellers}
-                    ratingOptions={catalog.ratingOptions}
-                    dynamicConfigs={catalog.filterableConfigs}
-                    dynamicOptions={catalog.sortedDynamicOptions}
-                  />
-                </Suspense>
-              </div>
+              <Suspense fallback={null}>
+                <DesktopFiltersSidebar
+                  brands={catalog.sortedBrands}
+                  sellers={catalog.sortedSellers}
+                  ratingOptions={catalog.ratingOptions}
+                  dynamicConfigs={catalog.filterableConfigs}
+                  dynamicOptions={catalog.sortedDynamicOptions}
+                />
+              </Suspense>
             </aside>
 
             <div className="min-w-0 flex-1">

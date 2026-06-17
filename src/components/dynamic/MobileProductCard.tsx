@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { AlertTriangle, Heart, RefreshCw, ShoppingCart, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -667,6 +668,13 @@ export function MobileProductCard({
             >
               <Heart className={`h-3.5 w-3.5 ${saved ? "fill-current" : ""}`} />
             </button>
+            <ProductCommentsSheet
+              productId={product.id}
+              productName={product.name}
+              initialCount={commentCount}
+              onCountChange={setCommentCount}
+              iconOnly
+            />
             <button
               type="button"
               onClick={() => {
@@ -695,8 +703,13 @@ export function MobileProductCard({
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col px-3 pb-3 pt-2">
-          <h2 className="mb-1 line-clamp-2 min-h-[36px] text-[14px] font-normal leading-tight text-[#0F1111]">
-            {product.name}
+          <h2 className="mb-1 min-h-[36px]">
+            <Link
+              href={`/produto/${asin || product.id}`}
+              className="line-clamp-2 text-[14px] font-normal leading-tight text-[#0F1111] transition hover:text-[#007185]"
+            >
+              {product.name}
+            </Link>
           </h2>
 
           {(rating > 0 || reviewsCount > 0) && (
@@ -893,15 +906,6 @@ export function MobileProductCard({
             </div>
           </div>
 
-          <div className="mt-2.5 border-t border-gray-100 pt-2">
-            <ProductCommentsSheet
-              productId={product.id}
-              productName={product.name}
-              initialCount={commentCount}
-              onCountChange={setCommentCount}
-              triggerClassName="justify-center px-1 py-0.5 text-[11px] font-semibold text-gray-500"
-            />
-          </div>
         </div>
       </div>
 
