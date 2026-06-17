@@ -637,7 +637,7 @@ export function MobileProductCard({
     <>
       <div className="relative flex h-full flex-col rounded-xl border border-[#D5D9D9] bg-white font-sans shadow-[0_1px_3px_rgba(15,17,17,0.06)] transition hover:shadow-[0_6px_20px_rgba(15,17,17,0.10)]">
         {(product.discountPercent ?? 0) > 0 && (
-          <div className="absolute left-0 top-3 z-10 rounded-br-md rounded-tl-xl bg-[#CC0C39] px-2 py-0.5 text-[11px] font-bold text-white">
+          <div className="absolute left-0 top-12 z-10 rounded-r-md bg-[#CC0C39] px-2 py-0.5 text-[11px] font-bold text-white">
             {product.discountPercent}% OFF
           </div>
         )}
@@ -668,6 +668,18 @@ export function MobileProductCard({
               ariaLabel="Compartilhar produto"
             />
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setReportOpen(true);
+              setReportState("idle");
+            }}
+            className="absolute left-2 top-2 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9dee3] bg-white text-gray-500 transition hover:border-gray-300 hover:text-gray-700"
+            aria-label="Reportar problema"
+          >
+            <AlertTriangle className="h-3.5 w-3.5" />
+          </button>
           {product.imageUrl ? (
             <Image
               src={getOptimizedAmazonUrl(product.imageUrl, 320)}
@@ -793,75 +805,65 @@ export function MobileProductCard({
                   </div>
                 ) : null}
 
-                <div className="flex items-start">
-                  <div className="flex items-start">
-                    <span
-                      className={`mt-1 text-[13px] font-medium ${
-                        "text-[#0F1111]"
-                      }`}
-                    >
-                      R$
-                    </span>
-                    <span
-                      className={`text-3xl font-medium leading-none tracking-tight ${
-                        "text-[#0F1111]"
-                      }`}
-                    >
-                      {intCents[0]}
-                    </span>
-                    <span
-                      className={`mt-[3px] text-[14px] font-medium leading-none ${
-                        "text-[#0F1111]"
-                      }`}
-                    >
-                      {intCents[1]}
-                    </span>
+                <div className="flex items-end justify-between gap-2">
+                  <div className="flex min-w-0 flex-col">
+                    <div className="flex items-start">
+                      <div className="flex items-start">
+                        <span className="mt-1 text-[13px] font-medium text-[#0F1111]">R$</span>
+                        <span className="text-3xl font-medium leading-none tracking-tight text-[#0F1111]">
+                          {intCents[0]}
+                        </span>
+                        <span className="mt-[3px] text-[14px] font-medium leading-none text-[#0F1111]">
+                          {intCents[1]}
+                        </span>
+                      </div>
+
+                      {!showReferencePrice ? (
+                        <div className="ml-2 mt-1 shrink-0">
+                          <PriceHistoryButton
+                            productId={product.id}
+                            productName={product.name}
+                            createdAt={product.createdAt}
+                            freshProduct={freshProduct}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {showReferencePrice ? (
+                      <div className="relative mt-0.5 flex items-center gap-1 text-[11px] text-zinc-500">
+                        <span className="font-medium">De:</span>
+                        <span className="line-through">
+                          R$ {product.avgPrice!.toFixed(2).replace(".", ",")}
+                        </span>
+                        <PriceHistoryButton
+                          productId={product.id}
+                          productName={product.name}
+                          createdAt={product.createdAt}
+                          freshProduct={freshProduct}
+                        />
+                      </div>
+                    ) : null}
                   </div>
 
-                  {!showReferencePrice ? (
-                    <div className="ml-2 mt-1 shrink-0">
-                      <PriceHistoryButton
-                        productId={product.id}
-                        productName={product.name}
-                        createdAt={product.createdAt}
-                        freshProduct={freshProduct}
-                      />
+                  {programAndSavePrice && programAndSaveParts ? (
+                    <div className="inline-flex shrink-0 flex-col rounded-md border border-[#d5d9d9] bg-[#f3f4f6] px-2 py-1">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0F1111]">
+                        Programe e Poupe
+                        <ProgramAndSaveIcon />
+                      </span>
+                      <div className="mt-0.5 flex items-start leading-none">
+                        <span className="mt-1 text-[9px] font-medium text-[#0F1111]">R$</span>
+                        <span className="text-[21px] font-medium leading-none tracking-tight text-[#0F1111]">
+                          {programAndSaveParts.whole}
+                        </span>
+                        <span className="mt-[2px] text-[10px] font-medium leading-none text-[#0F1111]">
+                          {programAndSaveParts.cents}
+                        </span>
+                      </div>
                     </div>
                   ) : null}
                 </div>
-
-                {showReferencePrice ? (
-                  <div className="relative mt-0.5 flex items-center gap-1 text-[11px] text-zinc-500">
-                    <span className="font-medium">De:</span>
-                    <span className="line-through">
-                      R$ {product.avgPrice!.toFixed(2).replace(".", ",")}
-                    </span>
-                    <PriceHistoryButton
-                      productId={product.id}
-                      productName={product.name}
-                      createdAt={product.createdAt}
-                      freshProduct={freshProduct}
-                    />
-                  </div>
-                ) : null}
-
-                {programAndSavePrice && programAndSaveParts ? (
-                  <div className="mt-1 inline-flex w-fit flex-col rounded-md border border-[#d5d9d9] bg-[#f3f4f6] px-2 py-1">
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0F1111]">
-                      Programe e Poupe
-                      <ProgramAndSaveIcon />
-                    </span>
-                    <div className="mt-0.5 flex items-start leading-none">
-                      <span className="mt-1 text-[9px] font-medium text-[#0F1111]">R$</span>
-                      <span className="text-[21px] font-medium leading-none tracking-tight text-[#0F1111]">
-                        {programAndSaveParts.whole}
-                      </span>
-                      <span className="mt-[2px] text-[10px] font-medium leading-none text-[#0F1111]">
-                        {programAndSaveParts.cents}
-                      </span>
-                    </div>
-                  </div>
-                ) : null}
 
                 <div className="mt-1 flex items-center">
                   <span className="flex items-center text-[12px] font-black italic leading-none">
@@ -892,7 +894,7 @@ export function MobileProductCard({
             </div>
           </div>
 
-          <div className="mt-2.5 flex items-center justify-between border-t border-gray-100 pt-2">
+          <div className="mt-2.5 border-t border-gray-100 pt-2">
             <ProductCommentsSheet
               productId={product.id}
               productName={product.name}
@@ -900,17 +902,6 @@ export function MobileProductCard({
               onCountChange={setCommentCount}
               triggerClassName="justify-center px-1 py-0.5 text-[11px] font-semibold text-gray-500"
             />
-            <button
-              type="button"
-              onClick={() => {
-                setReportOpen(true);
-                setReportState("idle");
-              }}
-              className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400 transition hover:text-gray-600"
-              aria-label="Reportar problema"
-            >
-              <AlertTriangle className="h-3.5 w-3.5" />
-            </button>
           </div>
         </div>
       </div>
