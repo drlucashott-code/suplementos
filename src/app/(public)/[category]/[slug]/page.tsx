@@ -132,16 +132,16 @@ export default async function DynamicCategoryPage({
         <AmazonHeader />
       </Suspense>
 
-      <div className="mx-auto max-w-[1400px]">
-        <Suspense
-          fallback={<div className="h-14 w-full border-b border-zinc-200 bg-white" />}
-        >
-          <FloatingFiltersBar
-            sortOptions={catalog.allSortOptions as DynamicSortOption[]}
-            defaultOrder={catalog.defaultOrder}
-          />
-        </Suspense>
+      <Suspense
+        fallback={<div className="h-14 w-full border-b border-zinc-200 bg-white" />}
+      >
+        <FloatingFiltersBar
+          sortOptions={catalog.allSortOptions as DynamicSortOption[]}
+          defaultOrder={catalog.defaultOrder}
+        />
+      </Suspense>
 
+      <div className="mx-auto max-w-[1400px]">
         <div className="px-3">
           <Suspense fallback={null}>
             <MobileFiltersDrawer

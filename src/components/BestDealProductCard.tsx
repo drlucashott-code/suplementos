@@ -317,20 +317,13 @@ export default function BestDealProductCard({
       <div className="relative h-full">
         {showActions ? (
           <>
-            {/* MOBILE: curtir + comentar à esquerda da foto */}
-            <div className="absolute left-1 top-1.5 z-20 flex flex-col items-center gap-1.5 lg:hidden">
+            {/* curtir + comentar à esquerda da foto */}
+            <div className="absolute left-1 top-1.5 z-20 flex flex-col items-center gap-1.5">
               {saveBtn}
               {commentsBtn}
             </div>
-            {/* MOBILE: compartilhar + reportar à direita da foto */}
-            <div className="absolute right-1 top-1.5 z-20 flex flex-col items-center gap-1.5 lg:hidden">
-              {shareBtn}
-              {reportBtn}
-            </div>
-            {/* DESKTOP: pilha única à direita */}
-            <div className="absolute right-1.5 top-1.5 z-20 hidden flex-col items-center gap-1.5 lg:flex">
-              {saveBtn}
-              {commentsBtn}
+            {/* compartilhar + reportar à direita da foto */}
+            <div className="absolute right-1 top-1.5 z-20 flex flex-col items-center gap-1.5">
               {shareBtn}
               {reportBtn}
             </div>
