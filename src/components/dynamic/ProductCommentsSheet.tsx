@@ -527,15 +527,18 @@ export function ProductCommentsSheet({
                 }`
           }
         >
-          <MessageCircle className="h-3.5 w-3.5" />
           {iconOnly ? (
-            commentCount > 0 ? (
-              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#007185] px-1 text-[10px] font-bold leading-none text-white">
+            <span className="relative inline-flex items-center justify-center">
+              <MessageCircle className="h-[18px] w-[18px]" />
+              <span className="pointer-events-none absolute inset-0 flex items-center justify-center pb-[2px] text-[8px] font-bold leading-none text-gray-700">
                 {commentCount > 99 ? "99+" : commentCount}
               </span>
-            ) : null
+            </span>
           ) : (
-            resolvedTriggerLabel
+            <>
+              <MessageCircle className="h-3.5 w-3.5" />
+              {resolvedTriggerLabel}
+            </>
           )}
         </button>
       ) : null}
