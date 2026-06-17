@@ -111,9 +111,11 @@ export default function RootLayout({
           <main>
             {children}
           </main>
-        </Suspense>
 
-        <SiteFooter />
+          {/* Dentro do mesmo Suspense do conteúdo: o rodapé passa a aparecer
+              junto com a página, não antes dela (evita "rodapé primeiro"). */}
+          <SiteFooter />
+        </Suspense>
 
         <Toaster position="top-right" />
       </body>
