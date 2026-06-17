@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { ArrowLeft, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import SiteUserEntry from "@/components/SiteUserEntry";
 import SiteNotificationsBell from "@/components/SiteNotificationsBell";
@@ -32,10 +32,76 @@ export function AmazonHeader() {
     router.push(`${pathname}?${params.toString()}`);
   }
 
+  function handleBack() {
+    if (typeof window === "undefined") {
+      router.replace("/");
+      return;
+    }
+
+    const historyState = window.history.state as { idx?: number } | null;
+
+    if (typeof historyState?.idx === "number") {
+      if (historyState.idx > 0) {
+        router.back();
+        return;
+      }
+
+      router.replace("/");
+      return;
+    }
+
+    try {
+      if (document.referrer) {
+        const referrerUrl = new URL(document.referrer);
+
+        if (referrerUrl.origin === window.location.origin) {
+          router.back();
+          return;
+        }
+      }
+    } catch {
+      // Ignore invalid referrer URLs and fall back to the home page.
+    }
+
+    router.replace("/");
+  }
+
   return (
     <>
-      <header className="sticky top-0 z-40 w-full bg-[#131921] text-white shadow-md">
-        <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-2 px-3 md:gap-3">
+      {/* MOBILE: header original (sem alterações) */}
+      <header className="sticky top-0 z-40 w-full bg-[#232f3e] text-white shadow-md lg:hidden">
+        <div className="mx-auto flex h-14 max-w-[1200px] items-center gap-2 px-3">
+          <button
+            onClick={handleBack}
+            className="flex-shrink-0 rounded-full p-1 transition-colors active:bg-white/10"
+            aria-label="Voltar"
+          >
+            <ArrowLeft className="h-6 w-6 stroke-[2.5px]" />
+          </button>
+
+          <form
+            onSubmit={handleSearch}
+            className="flex flex-1 items-center rounded-md bg-white px-3 py-1.5 shadow-inner"
+            role="search"
+          >
+            <Search className="mr-2 h-5 w-5 flex-shrink-0 text-zinc-500" aria-hidden="true" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Pesquisar nesta categoria..."
+              className="w-full bg-transparent text-[16px] font-normal text-[#0F1111] outline-none placeholder-zinc-500"
+              enterKeyHint="search"
+            />
+          </form>
+          <SiteNotificationsBell />
+          <SiteUserEntry compact />
+        </div>
+      </header>
+
+      {/* DESKTOP: header novo (estilo Amazon) */}
+      <header className="sticky top-0 z-40 hidden w-full bg-[#131921] text-white shadow-md lg:block">
+        <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-3 px-3">
           <Link
             href="/"
             onClick={(event) => {

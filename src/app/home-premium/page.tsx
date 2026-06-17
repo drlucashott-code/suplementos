@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Header from "@/app/Header";
 import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
 import HomePremiumClient, { type CategoryItem } from "./HomePremiumClient";
 import { normalizeDynamicDisplayConfig } from "@/lib/dynamicCategoryMetrics";
@@ -202,6 +203,12 @@ export default async function HomePremiumPage() {
       `,
     ]);
 
+  const headerCategories = [
+    ...supplementCategories,
+    ...houseCategories,
+    ...petCategories,
+  ];
+
   const publicListsWithDates = publicLists.map((list) => ({
     ...list,
     createdAt: list.createdAt.toISOString(),
@@ -209,9 +216,14 @@ export default async function HomePremiumPage() {
 
   return (
     <>
-      <Suspense fallback={<div className="h-14 w-full bg-[#131921]" />}>
-        <AmazonHeader />
-      </Suspense>
+      <div className="lg:hidden">
+        <Header extraCategories={headerCategories} />
+      </div>
+      <div className="hidden lg:block">
+        <Suspense fallback={<div className="h-14 w-full bg-[#131921]" />}>
+          <AmazonHeader />
+        </Suspense>
+      </div>
       <HomePremiumClient
         supplementCategories={supplementCategories}
         houseCategories={houseCategories}

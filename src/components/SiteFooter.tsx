@@ -42,7 +42,7 @@ export function SiteFooter() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="mt-12 bg-[#131921] text-white">
+    <footer className="mt-12 hidden bg-[#131921] text-white lg:block">
       <button
         type="button"
         onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
