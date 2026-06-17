@@ -637,16 +637,16 @@ export function MobileProductCard({
   return (
     <>
       {/* MOBILE: layout original (horizontal) — sem alterações */}
-      <div className="relative flex min-h-[250px] items-stretch gap-3 border-b border-gray-100 bg-white font-sans lg:hidden">
+      <div className="relative flex min-h-[250px] items-stretch gap-3 rounded-xl border border-[#D5D9D9] bg-white font-sans shadow-[0_1px_3px_rgba(15,17,17,0.06)] lg:hidden">
         {(product.discountPercent ?? 0) > 0 && (
-          <div className="absolute left-0 top-4 z-10 bg-[#CC0C39] px-2 py-0.5 text-[11px] font-bold text-white">
+          <div className="absolute left-0 top-0 z-10 rounded-br-md rounded-tl-xl bg-[#CC0C39] px-2 py-0.5 text-[11px] font-bold text-white">
             {product.discountPercent}% OFF
           </div>
         )}
 
-        <div className="relative flex w-[188px] flex-shrink-0 items-center justify-center bg-[#f3f3f3] p-2">
-          {/* curtir + comentar à esquerda da foto */}
-          <div className="absolute left-0 top-1/2 z-20 flex -translate-y-1/2 flex-col items-center gap-1.5">
+        <div className="relative flex w-[160px] flex-shrink-0 items-center justify-center rounded-l-xl bg-[#f3f3f3] p-2">
+          {/* curtir + comentar à esquerda da foto (espalhados, deixando espaço p/ o selo) */}
+          <div className="absolute bottom-3 left-0.5 top-7 z-20 flex flex-col items-center justify-between">
             <button
               type="button"
               onClick={(event) => {
@@ -671,8 +671,8 @@ export function MobileProductCard({
               iconOnly
             />
           </div>
-          {/* compartilhar + reportar à direita da foto */}
-          <div className="absolute right-0 top-1/2 z-20 flex -translate-y-1/2 flex-col items-center gap-1.5">
+          {/* compartilhar + reportar à direita da foto (espalhados, mesma altura) */}
+          <div className="absolute bottom-3 right-0.5 top-7 z-20 flex flex-col items-center justify-between">
             <ProductShareInlineButton
               productShareKey={asin || product.id}
               productName={product.name}
@@ -700,7 +700,7 @@ export function MobileProductCard({
               height={260}
               sizes="160px"
               priority={priority}
-              className="h-auto max-h-[200px] w-auto max-w-[100px] object-contain mix-blend-multiply"
+              className="h-auto max-h-[200px] w-auto max-w-[140px] object-contain mix-blend-multiply"
             />
           ) : (
             <span className="text-[10px] text-zinc-400">Sem imagem</span>
