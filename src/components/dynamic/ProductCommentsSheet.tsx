@@ -422,7 +422,7 @@ export function ProductCommentsSheet({
                 onChange={(event) => setDraft(event.target.value)}
                 rows={3}
                 placeholder="Digite o seu comentário."
-                className="w-full rounded-xl bg-[#F2F4F7] px-4 py-3 text-sm outline-none transition focus:bg-white focus:ring-2 focus:ring-[#B9E6FE]"
+                className="w-full rounded-xl bg-[#F2F4F7] px-4 py-3 text-sm outline-none transition focus:bg-white focus:ring-2 focus:ring-[#C7D7EA]"
               />
 
               {replyingTo ? (
@@ -467,7 +467,7 @@ export function ProductCommentsSheet({
                   type="button"
                   onClick={() => void submitComment()}
                   disabled={status === "submitting"}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#0EA5E9] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#0284C7] disabled:opacity-70"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#2162A1] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#174e87] disabled:opacity-70"
                 >
                   <Send className="h-4 w-4" />
                   {editingCommentId ? "salvar" : "comentar"}
@@ -565,7 +565,7 @@ export function ProductCommentsSheet({
               </button>
               <Link
                 href="/entrar"
-                className="inline-flex items-center rounded-xl bg-[#0EA5E9] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#0284C7]"
+                className="inline-flex items-center rounded-xl bg-[#2162A1] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#174e87]"
               >
                 Entrar agora
               </Link>
@@ -596,7 +596,7 @@ export function ProductCommentsSheet({
               </button>
               <Link
                 href="/minha-conta"
-                className="inline-flex items-center rounded-xl bg-[#0EA5E9] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#0284C7]"
+                className="inline-flex items-center rounded-xl bg-[#2162A1] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#174e87]"
               >
                 Ir para minha conta
               </Link>

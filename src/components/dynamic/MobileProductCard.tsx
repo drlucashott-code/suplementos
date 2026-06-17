@@ -824,21 +824,21 @@ export function MobileProductCard({
                   <div className="flex items-start">
                     <span
                       className={`mt-1 text-[13px] font-medium ${
-                        (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
+                        "text-[#0F1111]"
                       }`}
                     >
                       R$
                     </span>
                     <span
                       className={`text-3xl font-medium leading-none tracking-tight ${
-                        (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
+                        "text-[#0F1111]"
                       }`}
                     >
                       {intCents[0]}
                     </span>
                     <span
                       className={`mt-[3px] text-[14px] font-medium leading-none ${
-                        (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
+                        "text-[#0F1111]"
                       }`}
                     >
                       {intCents[1]}
