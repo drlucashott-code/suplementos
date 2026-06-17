@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { AlertTriangle, Heart, ImageOff, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -8,6 +9,7 @@ import toast from "react-hot-toast";
 import AccountListPickerModal from "@/components/AccountListPickerModal";
 import TrackedDealLink from "@/components/TrackedDealLink";
 import { PriceHistoryButton } from "@/components/dynamic/PriceHistoryButton";
+import { ProductCommentsSheet } from "@/components/dynamic/ProductCommentsSheet";
 import type { BestDeal } from "@/lib/bestDeals";
 import {
   accountIconButtonClass,
@@ -269,55 +271,53 @@ export default function BestDealProductCard({
     <>
       <div className="relative h-full">
         {showActions ? (
-          <div className="absolute inset-x-2 top-2 z-10 flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  setReportOpen(true);
-                  setReportState("idle");
-                }}
-                className={accountIconButtonClass}
-                aria-label="Reportar problema"
-              >
-                <AlertTriangle className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  void handleToggleSave();
-                }}
-                className={`inline-flex h-8 w-8 items-center justify-center rounded-md border transition ${
-                  saved
-                    ? "border-[#f0c14b] bg-[#fff7d6] text-[#b77900]"
-                    : "border-gray-200 bg-white text-gray-500 hover:text-[#0F1111]"
-                }`}
-                aria-label={saved ? "Remover da Minha lista" : "Salvar na Minha lista"}
-              >
-                <Heart className={`h-4 w-4 ${saved ? "fill-current" : ""}`} />
-              </button>
-            </div>
+          <div className="absolute right-1.5 top-1.5 z-20 flex flex-col items-center gap-1.5">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void handleToggleSave();
+              }}
+              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
+                saved
+                  ? "border-[#f0c14b] bg-[#fff7d6] text-[#b77900]"
+                  : "border-[#d9dee3] bg-white text-gray-500 hover:text-[#0F1111]"
+              }`}
+              aria-label={saved ? "Remover da Minha lista" : "Salvar na Minha lista"}
+            >
+              <Heart className={`h-3.5 w-3.5 ${saved ? "fill-current" : ""}`} />
+            </button>
+            <ProductCommentsSheet
+              productId={item.id}
+              productName={item.name}
+              initialCount={0}
+              iconOnly
+            />
             <ProductShareInlineButton
               productShareKey={item.asin}
               productName={item.name}
-              className={accountIconButtonClass}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9dee3] bg-white text-gray-500 transition hover:text-[#0F1111]"
+              iconClassName="h-3.5 w-3.5"
               ariaLabel="Compartilhar produto"
             />
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setReportOpen(true);
+                setReportState("idle");
+              }}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9dee3] bg-white text-gray-500 transition hover:text-[#0F1111]"
+              aria-label="Reportar problema"
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+            </button>
           </div>
         ) : null}
 
-        <TrackedDealLink
-          asin={item.asin}
-          href={item.url}
-          productId={item.id}
-          productName={item.name}
-          value={item.totalPrice}
-          category={category}
-          disabled={disableNavigation}
+        <div
           className={`group flex h-full flex-col rounded-[6px] border border-[#d5d9d9] bg-white p-2.5 text-left transition hover:border-[#c7cfd0] ${
             compact && uniformHeight ? "min-h-[0]" : ""
           }`}
@@ -344,7 +344,7 @@ export default function BestDealProductCard({
             )}
           </div>
 
-          <div className="mt-1.5">
+          <div className="mt-1.5 pr-8">
             {decisionLabel ? (
               <div
                 className={`mb-1.5 inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.22em] ${decisionStyles}`}
@@ -352,8 +352,9 @@ export default function BestDealProductCard({
                 {decisionLabel}
               </div>
             ) : null}
-            <p
-              className={`font-medium leading-[20px] text-[#2162A1] group-hover:text-[#174e87] ${
+            <Link
+              href={`/produto/${item.asin}`}
+              className={`block font-medium leading-[20px] text-[#0F1111] hover:text-[#007185] ${
                 compact ? "text-[12px]" : "text-[13px]"
               }`}
               style={
@@ -378,7 +379,7 @@ export default function BestDealProductCard({
               }
             >
               {item.name}
-            </p>
+            </Link>
             {item.name.length > 58 ? (
               <button
                 type="button"
@@ -409,42 +410,36 @@ export default function BestDealProductCard({
             </div>
 
             {hasPrice ? (
-              <>
-                <div className="flex min-h-[36px] items-end gap-1.5">
-                  <div className="flex items-end gap-1 font-variant-numeric-tabular">
-                    {hasReferencePrice ? (
-                      <>
-                        <span className="pb-[3px] text-[11px] font-medium leading-none text-[#CC0C39]">-</span>
-                        <span className="text-[16px] font-medium leading-none text-[#CC0C39]">
-                          {item.discountPercent}%
-                        </span>
-                      </>
-                    ) : null}
-                    <span className={`pb-[4px] text-[11px] leading-none text-[#565959] ${hasReferencePrice ? "pl-1" : ""}`}>
-                      R$
-                    </span>
-                    <span className="text-[22px] font-normal leading-none text-[#0F1111]">
-                      {price.whole}
-                    </span>
-                    <span className="pb-[6px] text-[11px] leading-none text-[#0F1111]">
-                      {price.cents}
-                    </span>
+              <div className="flex items-end justify-between gap-2">
+                <div className="flex flex-col">
+                  <div className="flex min-h-[36px] items-end gap-1.5">
+                    <div className="flex items-end gap-1 font-variant-numeric-tabular">
+                      {hasReferencePrice ? (
+                        <>
+                          <span className="pb-[3px] text-[11px] font-medium leading-none text-[#CC0C39]">-</span>
+                          <span className="text-[16px] font-medium leading-none text-[#CC0C39]">
+                            {item.discountPercent}%
+                          </span>
+                        </>
+                      ) : null}
+                      <span className={`pb-[4px] text-[11px] leading-none text-[#565959] ${hasReferencePrice ? "pl-1" : ""}`}>
+                        R$
+                      </span>
+                      <span className="text-[22px] font-normal leading-none text-[#0F1111]">
+                        {price.whole}
+                      </span>
+                      <span className="pb-[6px] text-[11px] leading-none text-[#0F1111]">
+                        {price.cents}
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                <div className="mt-0.5 flex min-h-[18px] items-center gap-1.5 text-[11px] text-[#565959]">
-                  {hasReferencePrice ? (
-                    <p>
-                      De: <span className="line-through">{formatCurrency(item.averagePrice30d)}</span>
-                    </p>
-                  ) : null}
-                  <div
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                    }}
-                    className="inline-flex shrink-0"
-                  >
+                  <div className="mt-0.5 flex min-h-[18px] items-center gap-1.5 text-[11px] text-[#565959]">
+                    {hasReferencePrice ? (
+                      <p>
+                        De: <span className="line-through">{formatCurrency(item.averagePrice30d)}</span>
+                      </p>
+                    ) : null}
                     <PriceHistoryButton
                       productId={item.id}
                       productName={item.name}
@@ -452,9 +447,22 @@ export default function BestDealProductCard({
                       freshProduct={freshProduct}
                     />
                   </div>
+                  {insightText ? <p className="mt-1 text-[11px] leading-5 text-[#6B7280]">{insightText}</p> : null}
                 </div>
-                {insightText ? <p className="mt-1 text-[11px] leading-5 text-[#6B7280]">{insightText}</p> : null}
-              </>
+
+                <TrackedDealLink
+                  asin={item.asin}
+                  href={item.url}
+                  productId={item.id}
+                  productName={item.name}
+                  value={item.totalPrice}
+                  category={category}
+                  disabled={disableNavigation}
+                  className="mb-0.5 flex shrink-0 items-center justify-center rounded-lg border border-[#FCD200] bg-[#FFD814] px-3 py-2 text-center text-[12px] font-normal text-[#0F1111] shadow-sm transition hover:bg-[#F7CA00]"
+                >
+                  Ver na Amazon
+                </TrackedDealLink>
+              </div>
             ) : (
               <div className="mt-3 min-h-[58px] rounded-2xl border border-[#FECACA] bg-[#FFF5F5] px-3 py-3 text-sm font-bold text-[#B42318]">
                 Sem estoque
@@ -462,7 +470,7 @@ export default function BestDealProductCard({
             )}
 
           </div>
-        </TrackedDealLink>
+        </div>
       </div>
 
       {showActions && reportOpen ? (
