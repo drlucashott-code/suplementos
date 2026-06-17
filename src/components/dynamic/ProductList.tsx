@@ -129,17 +129,19 @@ function ProductListContent({
   }, [hasMore, items.length, loadMoreUrl, pageSize]);
 
   return (
-    <section className="flex-1 space-y-4">
-      {items.map((product, index) => (
-        <MobileProductCard
-          key={product.id}
-          product={product}
-          priority={index < 4}
-          displayConfig={displayConfig}
-          highlightConfig={highlightConfig}
-          analysisTitleTemplate={analysisTitleTemplate}
-        />
-      ))}
+    <section className="flex-1">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {items.map((product, index) => (
+          <MobileProductCard
+            key={product.id}
+            product={product}
+            priority={index < 4}
+            displayConfig={displayConfig}
+            highlightConfig={highlightConfig}
+            analysisTitleTemplate={analysisTitleTemplate}
+          />
+        ))}
+      </div>
 
       {hasMore && (
         <div ref={loadMoreRef} className="flex h-28 items-center justify-center">

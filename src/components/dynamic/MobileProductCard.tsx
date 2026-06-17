@@ -635,14 +635,14 @@ export function MobileProductCard({
 
   return (
     <>
-      <div className="relative flex min-h-[250px] items-stretch gap-3 border-b border-gray-100 bg-white font-sans">
+      <div className="relative flex min-h-[250px] items-stretch gap-3 rounded-xl border border-[#D5D9D9] bg-white font-sans shadow-[0_1px_3px_rgba(15,17,17,0.06)] transition hover:shadow-[0_6px_20px_rgba(15,17,17,0.10)]">
         {(product.discountPercent ?? 0) > 0 && (
           <div className="absolute left-0 top-4 z-10 bg-[#CC0C39] px-2 py-0.5 text-[11px] font-bold text-white">
             {product.discountPercent}% OFF
           </div>
         )}
 
-        <div className="relative flex w-[160px] flex-shrink-0 flex-col items-center justify-center bg-[#f3f3f3] p-3">
+        <div className="relative flex w-[160px] flex-shrink-0 flex-col items-center justify-center rounded-l-xl bg-[#f3f3f3] p-3">
           <div className="absolute right-3 top-3 z-20">
             <ProductShareInlineButton
               productShareKey={asin || product.id}
