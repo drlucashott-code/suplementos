@@ -46,7 +46,7 @@ export function FloatingFiltersBar({
       }`}
       style={{ fontFamily: "Arial, Helvetica, sans-serif" }}
     >
-      <div className="mx-auto flex max-w-[1400px] items-center gap-3 lg:justify-end">
+      <div className="flex w-full items-center gap-3 lg:justify-end">
         <button
           onClick={openFilters}
           className="flex flex-shrink-0 items-center justify-center rounded-lg border border-zinc-300 bg-white p-2.5 shadow-sm transition-colors active:bg-zinc-100 lg:hidden"
