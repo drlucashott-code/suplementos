@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { getOptimizedAmazonUrl } from "@/lib/utils";
+import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
 import { notFound } from "next/navigation";
 import { DynamicProduct } from "@prisma/client";
 import { buildAbsoluteUrl } from "@/lib/siteUrl";
@@ -138,12 +140,15 @@ export default async function CategoryGroupPage({ params }: PageProps) {
   };
 
   return (
-    <main className="min-h-screen bg-[#EAEDED] p-4 md:p-8">
+    <main className="min-h-screen bg-[#EAEDED]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <div className="mx-auto max-w-6xl font-sans">
+      <Suspense fallback={<div className="h-14 w-full bg-[#131921]" />}>
+        <AmazonHeader />
+      </Suspense>
+      <div className="mx-auto max-w-6xl p-4 font-sans md:p-8">
         <div className="mb-6">
           <p className="mb-1 text-xs font-bold uppercase tracking-widest text-gray-500">
             Nicho selecionado

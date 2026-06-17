@@ -5,6 +5,7 @@ import { Toaster } from "react-hot-toast";
 import { ScrollToTop } from "@/components/ScrollToTop"; // ✅ Importação do componente
 import { AttributionCapture } from "@/components/AttributionCapture";
 import DeferredGoogleAnalytics from "@/components/DeferredGoogleAnalytics";
+import { SiteFooter } from "@/components/SiteFooter";
 import { buildAbsoluteUrl, getPublicSiteUrl } from "@/lib/siteUrl";
 import "./globals.css";
 
@@ -111,6 +112,8 @@ export default function RootLayout({
             {children}
           </main>
         </Suspense>
+
+        <SiteFooter />
 
         <Toaster position="top-right" />
       </body>

@@ -38,11 +38,25 @@ export function AmazonHeader() {
         <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-2 px-3 md:gap-3">
           <Link
             href="/"
-            className="flex flex-shrink-0 select-none items-baseline rounded px-1 text-[20px] font-bold leading-none tracking-tight sm:text-[22px]"
+            onClick={(event) => {
+              if (pathname === "/") {
+                event.preventDefault();
+                window.scrollTo({ top: 0 });
+                router.refresh();
+                const header = event.currentTarget.closest("header");
+                const content = header?.nextElementSibling as HTMLElement | null;
+                if (content) {
+                  content.style.animation = "none";
+                  void content.offsetWidth;
+                  content.style.animation = "refresh-flash 0.5s ease";
+                }
+              }
+            }}
+            className="flex flex-shrink-0 select-none items-baseline rounded px-1 text-[24px] font-bold leading-none tracking-tight"
             aria-label="amazonpicks - inicio"
           >
             <span>amazon</span>
-            <span className="text-[#FF9900]">picks</span>
+            <span className="text-[#febd69]">picks</span>
           </Link>
 
           <form
@@ -51,7 +65,6 @@ export function AmazonHeader() {
             role="search"
           >
             <div className="flex flex-1 items-center bg-white px-3">
-              <Search className="mr-2 h-5 w-5 flex-shrink-0 text-zinc-500" aria-hidden="true" />
               <input
                 type="text"
                 value={query}

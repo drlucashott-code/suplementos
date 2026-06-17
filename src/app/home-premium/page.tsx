@@ -1,4 +1,5 @@
-import Header from "@/app/Header";
+import { Suspense } from "react";
+import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
 import HomePremiumClient, { type CategoryItem } from "./HomePremiumClient";
 import { normalizeDynamicDisplayConfig } from "@/lib/dynamicCategoryMetrics";
 import { prisma } from "@/lib/prisma";
@@ -200,11 +201,6 @@ export default async function HomePremiumPage() {
         LIMIT 4
       `,
     ]);
-  const headerCategories = [
-    ...supplementCategories,
-    ...houseCategories,
-    ...petCategories,
-  ];
 
   const publicListsWithDates = publicLists.map((list) => ({
     ...list,
@@ -213,7 +209,9 @@ export default async function HomePremiumPage() {
 
   return (
     <>
-      <Header extraCategories={headerCategories} />
+      <Suspense fallback={<div className="h-14 w-full bg-[#131921]" />}>
+        <AmazonHeader />
+      </Suspense>
       <HomePremiumClient
         supplementCategories={supplementCategories}
         houseCategories={houseCategories}

@@ -534,15 +534,6 @@ export default function HomePremiumClient({
             </div>
           )}
         </section>
-
-        <footer className="mt-8 px-4 pb-6 pt-3 text-center">
-          <div className="mx-auto max-w-[560px] border-t border-[#D8DEE6] pt-5">
-            <p className="text-[11px] leading-5 text-[#667085]">
-              Participamos do Programa de Associados da Amazon Services LLC.
-            </p>
-            <p className="mt-2 text-[11px] text-[#667085]">© 2026 Amazonpicks.</p>
-          </div>
-        </footer>
       </div>
     </main>
   );
