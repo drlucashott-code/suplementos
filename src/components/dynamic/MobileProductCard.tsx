@@ -637,13 +637,20 @@ export function MobileProductCard({
     <>
       <div className="relative flex h-full flex-col rounded-xl border border-[#D5D9D9] bg-white font-sans shadow-[0_1px_3px_rgba(15,17,17,0.06)] transition hover:shadow-[0_6px_20px_rgba(15,17,17,0.10)]">
         {(product.discountPercent ?? 0) > 0 && (
-          <div className="absolute left-0 top-12 z-10 rounded-r-md bg-[#CC0C39] px-2 py-0.5 text-[11px] font-bold text-white">
+          <div className="absolute left-0 top-3 z-10 rounded-br-md rounded-tl-xl bg-[#CC0C39] px-2 py-0.5 text-[11px] font-bold text-white">
             {product.discountPercent}% OFF
           </div>
         )}
 
         <div className="relative flex h-[190px] w-full items-center justify-center rounded-t-xl bg-white p-4">
-          <div className="absolute right-2 top-2 z-20 flex items-center gap-1.5">
+          <div className="absolute right-2 top-2 z-20 flex flex-col items-center gap-1.5">
+            <ProductShareInlineButton
+              productShareKey={asin || product.id}
+              productName={product.name}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9dee3] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
+              iconClassName="h-3.5 w-3.5"
+              ariaLabel="Compartilhar produto"
+            />
             <button
               type="button"
               onClick={(event) => {
@@ -660,26 +667,18 @@ export function MobileProductCard({
             >
               <Heart className={`h-3.5 w-3.5 ${saved ? "fill-current" : ""}`} />
             </button>
-            <ProductShareInlineButton
-              productShareKey={asin || product.id}
-              productName={product.name}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9dee3] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
-              iconClassName="h-3.5 w-3.5"
-              ariaLabel="Compartilhar produto"
-            />
+            <button
+              type="button"
+              onClick={() => {
+                setReportOpen(true);
+                setReportState("idle");
+              }}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9dee3] bg-white text-gray-500 transition hover:border-gray-300 hover:text-gray-700"
+              aria-label="Reportar problema"
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+            </button>
           </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              setReportOpen(true);
-              setReportState("idle");
-            }}
-            className="absolute left-2 top-2 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9dee3] bg-white text-gray-500 transition hover:border-gray-300 hover:text-gray-700"
-            aria-label="Reportar problema"
-          >
-            <AlertTriangle className="h-3.5 w-3.5" />
-          </button>
           {product.imageUrl ? (
             <Image
               src={getOptimizedAmazonUrl(product.imageUrl, 320)}

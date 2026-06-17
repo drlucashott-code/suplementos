@@ -33,6 +33,15 @@ a {
   color: inherit;
 }
 
+/* Mãozinha em tudo que é clicável (o Tailwind não faz isso por padrão) */
+button:not(:disabled),
+[role="button"],
+label[for],
+summary,
+select {
+  cursor: pointer;
+}
+
 /* Mantém o helper de acessibilidade que usamos nos outros arquivos */
 .sr-only {
   position: absolute;
