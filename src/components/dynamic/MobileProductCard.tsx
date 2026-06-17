@@ -636,7 +636,295 @@ export function MobileProductCard({
 
   return (
     <>
-      <div className="relative flex h-full flex-col rounded-xl border border-[#D5D9D9] bg-white font-sans shadow-[0_1px_3px_rgba(15,17,17,0.06)] transition hover:shadow-[0_6px_20px_rgba(15,17,17,0.10)]">
+      {/* MOBILE: layout original (horizontal) — sem alterações */}
+      <div className="relative flex min-h-[250px] items-stretch gap-3 border-b border-gray-100 bg-white font-sans lg:hidden">
+        {(product.discountPercent ?? 0) > 0 && (
+          <div className="absolute left-0 top-4 z-10 bg-[#CC0C39] px-2 py-0.5 text-[11px] font-bold text-white">
+            {product.discountPercent}% OFF
+          </div>
+        )}
+
+        <div className="relative flex w-[160px] flex-shrink-0 flex-col items-center justify-center bg-[#f3f3f3] p-3">
+          <div className="absolute right-3 top-3 z-20">
+            <ProductShareInlineButton
+              productShareKey={asin || product.id}
+              productName={product.name}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-[6px] border border-[#d9dee3] bg-white text-[#0F1111] transition hover:bg-[#F8FAFA]"
+              iconClassName="h-3.5 w-3.5"
+              ariaLabel="Compartilhar produto"
+            />
+          </div>
+          {product.imageUrl ? (
+            <div className="flex h-[220px] w-full items-center justify-center">
+              <Image
+                src={getOptimizedAmazonUrl(product.imageUrl, 320)}
+                alt={product.name}
+                width={260}
+                height={260}
+                sizes="160px"
+                priority={priority}
+                className="h-auto w-auto max-h-[190px] max-w-[120px] object-contain mix-blend-multiply"
+              />
+            </div>
+          ) : (
+            <span className="text-[10px] text-zinc-400">Sem imagem</span>
+          )}
+
+          <div className="mt-2 flex items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setReportOpen(true);
+                setReportState("idle");
+              }}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300"
+              aria-label="Reportar problema"
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void handleToggleSave();
+              }}
+              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
+                saved
+                  ? "border-[#f0c14b] bg-[#fff7d6] text-[#b77900]"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+              }`}
+              aria-label={saved ? "Remover da Minha lista" : "Salvar na Minha lista"}
+            >
+              <Heart className={`h-3.5 w-3.5 ${saved ? "fill-current" : ""}`} />
+            </button>
+          </div>
+
+          <div className="mt-2 flex w-full justify-center">
+            <ProductCommentsSheet
+              productId={product.id}
+              productName={product.name}
+              initialCount={commentCount}
+              onCountChange={setCommentCount}
+              triggerClassName="w-full max-w-[126px] justify-center px-2.5 py-1 text-[11px] font-semibold text-gray-600"
+            />
+          </div>
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col py-4 pr-2">
+          <h2 className="mb-1 line-clamp-3 text-[14px] font-normal leading-tight text-[#0F1111]">
+            {product.name}
+          </h2>
+
+          {(rating > 0 || reviewsCount > 0) && (
+            <div className="mb-2 flex items-center gap-1 text-[12px]">
+              <span className="font-normal text-[#0F1111]">{rating.toFixed(1)}</span>
+              <AmazonStars rating={rating} />
+              <span className="text-[#007185]">({formattedCount})</span>
+            </div>
+          )}
+
+          {visibleHighlights.length > 0 && (
+            <div className="mb-2 flex flex-wrap items-center gap-x-1 text-[11px] text-zinc-500">
+              {visibleHighlights.map((item) => (
+                <span key={item.key} className="inline-flex items-center">
+                  <span className="mr-1 text-zinc-400">•</span>
+                  {item.hideLabel ? (
+                    <b className="font-medium text-zinc-700">{item.value}</b>
+                  ) : (
+                    <>
+                      {item.label}:
+                      <b className="ml-0.5 font-medium text-zinc-700">{item.value}</b>
+                    </>
+                  )}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {displayConfig.length > 0 ? (
+            <div
+              className={`mb-3 grid gap-2 divide-x divide-zinc-200 rounded border border-zinc-200 bg-white p-2 ${
+                rating === 0 && visibleHighlights.length === 0 ? "mt-2" : ""
+              }`}
+              style={{
+                gridTemplateColumns: `repeat(${Math.max(displayConfig.length, 1)}, minmax(0, 1fr))`,
+              }}
+            >
+              {tableHeaderTemplate && (
+                <div
+                  className="border-b border-zinc-200 pb-2 text-center text-[11px] font-bold uppercase tracking-wide text-zinc-500"
+                  style={{ gridColumn: "1 / -1" }}
+                >
+                  {resolveTemplate(tableHeaderTemplate, product.attributes)}
+                </div>
+              )}
+
+              {displayConfig.map((config) => {
+                const rawValue = product.attributes[config.key];
+                let displayValue = rawValue ? String(rawValue) : "-";
+                let valueClass = "text-[#0F1111]";
+
+                if (config.type === "currency") {
+                  const numericRaw = getFallbackCurrencyValue(
+                    config.key,
+                    product.attributes,
+                    product.price,
+                    displayConfig
+                  );
+
+                  displayValue =
+                    !Number.isNaN(numericRaw) && numericRaw > 0
+                      ? formatCurrencyValue(numericRaw)
+                      : "R$ 0,00";
+
+                  valueClass = "text-green-700";
+                } else {
+                  displayValue = formatDisplayValue(rawValue, config) || "-";
+                }
+
+                return (
+                  <div key={config.key} className="flex flex-col overflow-hidden px-1 text-center">
+                    <span className={`mb-1 truncate text-[12px] font-semibold leading-none ${valueClass}`}>
+                      {displayValue}
+                    </span>
+                    <span
+                      className={`truncate text-[9px] font-bold uppercase tracking-wide ${
+                        config.type === "currency" ? "text-green-600" : "text-zinc-400"
+                      }`}
+                    >
+                      {config.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+
+          <div className="mt-auto flex flex-col">
+            {hasPrice && intCents ? (
+              <>
+                {priceDecision && priceDecisionStyles ? (
+                  <div className="mb-1.5 flex flex-col items-start gap-0.5">
+                    <span
+                      className={`inline-flex items-center border px-2.5 py-1 text-[11px] font-semibold leading-none ${priceDecisionStyles.badge}`}
+                    >
+                      {priceDecision.label}
+                    </span>
+                    {shouldShowDecisionMessage ? (
+                      <p
+                        className={`text-[10px] font-medium leading-snug ${priceDecisionStyles.insight} opacity-80`}
+                      >
+                        {priceDecision.message}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                <div className="flex items-start">
+                  <div className="flex items-start">
+                    <span
+                      className={`mt-1 text-[13px] font-medium ${
+                        (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
+                      }`}
+                    >
+                      R$
+                    </span>
+                    <span
+                      className={`text-3xl font-medium leading-none tracking-tight ${
+                        (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
+                      }`}
+                    >
+                      {intCents[0]}
+                    </span>
+                    <span
+                      className={`mt-[3px] text-[14px] font-medium leading-none ${
+                        (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
+                      }`}
+                    >
+                      {intCents[1]}
+                    </span>
+                  </div>
+
+                  {!showReferencePrice ? (
+                    <div className="ml-2 mt-1 shrink-0">
+                      <PriceHistoryButton
+                        productId={product.id}
+                        productName={product.name}
+                        createdAt={product.createdAt}
+                        freshProduct={freshProduct}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+
+                {showReferencePrice ? (
+                  <div className="relative mt-0.5 flex items-center gap-1 text-[11px] text-zinc-500">
+                    <span className="font-medium">De:</span>
+                    <span className="line-through">
+                      R$ {product.avgPrice!.toFixed(2).replace(".", ",")}
+                    </span>
+                    <PriceHistoryButton
+                      productId={product.id}
+                      productName={product.name}
+                      createdAt={product.createdAt}
+                      freshProduct={freshProduct}
+                    />
+                  </div>
+                ) : null}
+
+                {programAndSavePrice && programAndSaveParts ? (
+                  <div className="mt-1 inline-flex w-fit flex-col rounded-md border border-[#d5d9d9] bg-[#f3f4f6] px-2 py-1">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0F1111]">
+                      Programe e Poupe
+                      <ProgramAndSaveIcon />
+                    </span>
+                    <div className="mt-0.5 flex items-start leading-none">
+                      <span className="mt-1 text-[9px] font-medium text-[#0F1111]">R$</span>
+                      <span className="text-[21px] font-medium leading-none tracking-tight text-[#0F1111]">
+                        {programAndSaveParts.whole}
+                      </span>
+                      <span className="mt-[2px] text-[10px] font-medium leading-none text-[#0F1111]">
+                        {programAndSaveParts.cents}
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="mt-1 flex items-center">
+                  <span className="flex items-center text-[12px] font-black italic leading-none">
+                    <span
+                      className="mr-0.5 text-[13px] not-italic text-[#FEBD69]"
+                      aria-hidden="true"
+                    >
+                      ✓
+                    </span>
+                    <span className="text-[#00A8E1]">prime</span>
+                  </span>
+                </div>
+              </>
+            ) : (
+              <p className="text-[13px] italic text-zinc-800">Preço indisponível</p>
+            )}
+
+            <div className="mt-2">
+              <a
+                href={product.affiliateUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={handleTrackClick}
+                className="block w-full rounded-full border border-[#FCD200] bg-[#FFD814] py-2.5 text-center text-[13px] font-medium text-[#0F1111] shadow-sm transition-transform active:scale-95"
+              >
+                Ver na Amazon
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* DESKTOP: layout novo (vertical, estilo Amazon) */}
+      <div className="relative hidden h-full flex-col rounded-xl border border-[#D5D9D9] bg-white font-sans shadow-[0_1px_3px_rgba(15,17,17,0.06)] transition hover:shadow-[0_6px_20px_rgba(15,17,17,0.10)] lg:flex">
         {(product.discountPercent ?? 0) > 0 && (
           <div className="absolute left-0 top-0 z-10 rounded-br-md rounded-tl-xl bg-[#CC0C39] px-2 py-0.5 text-[11px] font-bold text-white">
             {product.discountPercent}% OFF
