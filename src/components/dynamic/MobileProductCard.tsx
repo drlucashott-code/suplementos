@@ -932,7 +932,8 @@ export function MobileProductCard({
         )}
 
         <div className="relative flex h-[190px] w-full items-center justify-center rounded-t-xl bg-white p-4">
-          <div className="absolute right-2 top-2 z-20 flex flex-col items-center gap-1.5">
+          {/* curtir + comentar à esquerda (abaixo do selo de desconto) */}
+          <div className="absolute left-2 top-10 z-20 flex flex-col items-center gap-1.5">
             <button
               type="button"
               onClick={(event) => {
@@ -956,6 +957,9 @@ export function MobileProductCard({
               onCountChange={setCommentCount}
               iconOnly
             />
+          </div>
+          {/* compartilhar + reportar à direita (mesma altura) */}
+          <div className="absolute right-2 top-10 z-20 flex flex-col items-center gap-1.5">
             <ProductShareInlineButton
               productShareKey={asin || product.id}
               productName={product.name}
