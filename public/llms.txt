@@ -1,0 +1,25 @@
+# Amazonpicks
+
+> Comparador de produtos da Amazon com filtros inteligentes e curadoria, focado no custo-benefício real (suplementos, casa e pets).
+
+Amazonpicks compara preços e atributos de produtos da Amazon e destaca o valor real de cada oferta — preço por grama, dose, unidade ou lavagem, histórico de preço e descontos com preço atual válido. O conteúdo é em português do Brasil.
+
+## Principais páginas
+
+- [Início](https://www.amazonpicks.com.br/): home com categorias em destaque e as melhores ofertas do dia
+- [Ofertas](https://www.amazonpicks.com.br/ofertas): descontos atuais relevantes com preço válido
+- [Suplementos](https://www.amazonpicks.com.br/suplementos): categorias de suplementos (whey, creatina, pré-treino, barras, entre outros)
+- [Casa](https://www.amazonpicks.com.br/casa): categorias de produtos para casa
+- [Pets](https://www.amazonpicks.com.br/pets): categorias de produtos para pets
+- [Listas públicas](https://www.amazonpicks.com.br/listas): coleções de produtos criadas pela comunidade
+
+## Opcional
+
+- [Sitemap](https://www.amazonpicks.com.br/sitemap.xml): mapa completo do site
+- [Robots](https://www.amazonpicks.com.br/robots.txt): regras de rastreamento
+
+## Observações
+
+- Preços e disponibilidade são da Amazon e podem mudar a qualquer momento.
+- O site utiliza links de afiliado da Amazon.
+- A comparação destaca o custo real (preço por unidade de medida) e o histórico de preço por produto.
