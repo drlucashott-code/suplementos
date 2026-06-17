@@ -898,7 +898,7 @@ export function MobileProductCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={handleTrackClick}
-                className="block w-full rounded-lg border border-[#FCD200] bg-[#FFD814] py-2 text-center text-[13px] font-semibold text-[#0F1111] shadow-sm transition hover:bg-[#F7CA00] active:scale-[0.99]"
+                className="block w-full rounded-lg border border-[#FCD200] bg-[#FFD814] py-2 text-center text-[13px] font-normal text-[#0F1111] shadow-sm transition hover:bg-[#F7CA00] active:scale-[0.99]"
               >
                 Ver na Amazon
               </a>
