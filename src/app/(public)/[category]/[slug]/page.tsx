@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ProductList } from "@/components/dynamic/ProductList";
 import { MobileFiltersDrawer } from "@/components/dynamic/MobileFiltersDrawer";
 import { DesktopFiltersSidebar } from "@/components/dynamic/DesktopFiltersSidebar";
+import { SiteFooter } from "@/components/SiteFooter";
 import {
   FloatingFiltersBar,
   type DynamicSortOption,
@@ -207,6 +208,8 @@ export default async function DynamicCategoryPage({
           </div>
         </div>
       </div>
+
+      <SiteFooter />
     </main>
   );
 }
