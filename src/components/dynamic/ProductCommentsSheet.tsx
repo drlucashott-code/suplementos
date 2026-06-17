@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 type ProductCommentItem = {
   id: string;
@@ -543,25 +544,29 @@ export function ProductCommentsSheet({
         </button>
       ) : null}
 
-      {open && !inline ? (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 px-4"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {commentsBody}
-          </div>
-        </div>
-      ) : null}
+      {open && !inline && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 px-4"
+              onClick={() => setOpen(false)}
+            >
+              <div
+                className="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {commentsBody}
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
 
       {open && inline ? (
         <div className="rounded-3xl border border-[#EAECF0] bg-white p-6 shadow-sm">{commentsBody}</div>
       ) : null}
 
-      {open && showLoginAlert ? (
+      {open && showLoginAlert && typeof document !== "undefined" ? (
+        createPortal(
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 px-4"
           onClick={() => setShowLoginAlert(false)}
@@ -591,10 +596,13 @@ export function ProductCommentsSheet({
               </Link>
             </div>
           </div>
-        </div>
+        </div>,
+          document.body
+        )
       ) : null}
 
-      {open && showVerificationAlert ? (
+      {open && showVerificationAlert && typeof document !== "undefined" ? (
+        createPortal(
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 px-4"
           onClick={() => setShowVerificationAlert(false)}
@@ -622,7 +630,9 @@ export function ProductCommentsSheet({
               </Link>
             </div>
           </div>
-        </div>
+        </div>,
+          document.body
+        )
       ) : null}
     </>
   );
