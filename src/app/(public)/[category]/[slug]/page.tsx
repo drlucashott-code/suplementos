@@ -181,8 +181,9 @@ export default async function DynamicCategoryPage({
             </aside>
 
             <div className="min-w-0 flex-1">
-              <p className="mb-2 px-1 text-[13px] font-medium text-zinc-800">
-                {catalog.totalProducts} produtos encontrados em {catalog.categoryName}
+              <h2 className="px-1 text-[20px] font-bold text-[#0F1111]">Resultados</h2>
+              <p className="mb-3 px-1 text-[13px] text-zinc-600">
+                {catalog.totalProducts} produtos em {catalog.categoryName}
               </p>
               {((search.order as string) ?? catalog.defaultOrder) === "best_value" &&
               catalog.bestValueHelperText ? (

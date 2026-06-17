@@ -46,16 +46,16 @@ export function FloatingFiltersBar({
       }`}
       style={{ fontFamily: "Arial, Helvetica, sans-serif" }}
     >
-      <div className="mx-auto flex max-w-[1200px] items-center gap-3">
+      <div className="mx-auto flex max-w-[1400px] items-center gap-3 lg:justify-end">
         <button
           onClick={openFilters}
-          className="flex flex-shrink-0 items-center justify-center rounded-lg border border-zinc-300 bg-white p-2.5 shadow-sm transition-colors active:bg-zinc-100"
+          className="flex flex-shrink-0 items-center justify-center rounded-lg border border-zinc-300 bg-white p-2.5 shadow-sm transition-colors active:bg-zinc-100 lg:hidden"
           aria-label="Abrir filtros"
         >
           <SlidersHorizontal className="h-5 w-5 text-zinc-900" />
         </button>
 
-        <div className="flex flex-1 items-center gap-2">
+        <div className="flex flex-1 items-center gap-2 lg:flex-none">
           <label
             htmlFor="sort-select"
             className="whitespace-nowrap text-[13px] font-normal leading-none text-zinc-600"
@@ -63,7 +63,7 @@ export function FloatingFiltersBar({
             Ordenar por:
           </label>
 
-          <div className="relative flex-1">
+          <div className="relative flex-1 lg:w-[280px] lg:flex-none">
             <select
               id="sort-select"
               value={order}
