@@ -85,7 +85,7 @@ function CircleBtn({ children, className = "" }: { children: React.ReactNode; cl
   );
 }
 
-function AnaliseTabela({ p, estilo }: { p: Sample; estilo: "atual" | "limpo" }) {
+function AnaliseTabela({ p, estilo }: { p: Sample; estilo: "atual" | "limpo" | "minusculo" }) {
   if (estilo === "atual") {
     return (
       <div className="grid gap-2 divide-x divide-zinc-200 rounded border border-zinc-200 bg-white p-2">
@@ -108,7 +108,7 @@ function AnaliseTabela({ p, estilo }: { p: Sample; estilo: "atual" | "limpo" }) 
   return (
     <div className="rounded-md bg-[#F4F6F8] px-2 py-1.5">
       <div className="mb-1 text-center text-[10px] font-semibold text-zinc-500">
-        Análise por unidade (90g)
+        {estilo === "minusculo" ? "análise por unidade (90g)" : "Análise por unidade (90g)"}
       </div>
       <div className="grid grid-cols-2 divide-x divide-[#E3E6E6]">
         <div className="flex flex-col items-center">
@@ -286,6 +286,94 @@ function MockCard({ v, p }: { v: Variant; p: Sample }) {
   );
 }
 
+function Chip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex rounded-[6px] bg-[#E7E9EC] px-2 py-0.5 text-[12px] font-semibold text-[#232F3E]">
+      {children}
+    </span>
+  );
+}
+
+// Proposto C — base no modelo do usuário (foto + tabela à esquerda), porém com
+// as infos viradas em selos e a coluna direita imitando o card do app da Amazon.
+function AmazonCard({ p }: { p: Sample }) {
+  return (
+    <div className="relative flex min-h-[230px] items-stretch gap-3 rounded-xl border border-[#D5D9D9] bg-white font-sans shadow-[0_1px_3px_rgba(15,17,17,0.06)]">
+      {p.discountPercent ? (
+        <div className="absolute left-0 top-0 z-10 rounded-br-md rounded-tl-xl bg-[#CC0C39] px-2 py-0.5 text-[11px] font-bold text-white">
+          {p.discountPercent}% OFF
+        </div>
+      ) : null}
+
+      {/* ESQUERDA: foto + tabela (minúscula) */}
+      <div className="flex w-[150px] flex-shrink-0 flex-col gap-2 border-r border-[#EEF0F0] p-2">
+        <div className="relative flex h-[140px] items-center justify-center rounded-lg bg-[#f3f3f3]">
+          <div className="absolute bottom-1 left-1 z-20">
+            <CircleBtn className="h-8 w-8">
+              <Heart className="h-4 w-4" />
+            </CircleBtn>
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={p.image} alt={p.name} className="h-auto max-h-[150px] w-auto max-w-[120px] object-contain mix-blend-multiply" />
+        </div>
+        <AnaliseTabela p={p} estilo="minusculo" />
+      </div>
+
+      {/* DIREITA: estilo app da Amazon */}
+      <div className="flex min-w-0 flex-1 flex-col py-3 pr-2">
+        <h2 className="mb-1.5 line-clamp-3 text-[14px] font-normal leading-snug text-[#0F1111]">
+          {p.name}
+        </h2>
+
+        <div className="mb-1.5 flex flex-wrap gap-1.5">
+          <Chip>{p.sabor}</Chip>
+          <Chip>{p.unidades} unidades</Chip>
+          <Chip>{p.peso} g</Chip>
+        </div>
+
+        <div className="mb-1 flex items-center gap-1 text-[12px]">
+          <span className="text-[#0F1111]">{p.rating.toFixed(1).replace(".", ",")}</span>
+          <Stars rating={p.rating} />
+          <span className="text-[#007185]">({p.reviews})</span>
+        </div>
+
+        <div className="mt-auto">
+          <div className="flex flex-wrap items-baseline gap-x-1.5">
+            <span className="flex items-start text-[#0F1111]">
+              <span className="mt-0.5 text-[13px] font-bold">R$</span>
+              <span className="text-[26px] font-bold leading-none tracking-tight">{p.price[0]}</span>
+              <span className="mt-0.5 text-[13px] font-bold">{p.price[1]}</span>
+            </span>
+            <span className="text-[12px] text-[#565959]">
+              (R$ {p.precoUnidade.replace("R$ ", "")}/unidade)
+            </span>
+          </div>
+
+          {p.refPrice ? (
+            <div className="mt-0.5 text-[12px] text-[#565959]">
+              De: <span className="line-through">R$ {p.refPrice}</span>
+            </div>
+          ) : null}
+
+          <div className="mt-1 flex items-center text-[12px]">
+            <span className="flex items-center font-black italic leading-none">
+              <span className="mr-0.5 text-[13px] not-italic text-[#FEBD69]">✓</span>
+              <span className="text-[#00A8E1]">prime</span>
+            </span>
+            <span className="ml-1 not-italic text-[#0F1111]">Mesmo dia</span>
+          </div>
+
+          <div className="mt-2">
+            <span className="block w-full rounded-full border border-[#FCD200] bg-[#FFD814] py-2.5 text-center text-[13px] font-medium text-[#0F1111] shadow-sm">
+              Ver na Amazon
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Tag({ text, color }: { text: string; color: string }) {
   return (
     <div
@@ -303,7 +391,7 @@ export default function CompararCardPage() {
       <div className="sticky top-0 z-30 bg-[#131921] px-4 py-3 text-white">
         <p className="text-[15px] font-bold">Comparação — card do catálogo (mobile)</p>
         <p className="text-[12px] text-white/70">
-          Abra no celular. Por produto: <b>ATUAL</b>, <b>PROPOSTO A</b> e <b>PROPOSTO B</b> (foto + tabela à esquerda).
+          Abra no celular. Por produto: <b>ATUAL</b>, <b>A</b> (foto limpa), <b>B</b> (foto + tabela à esquerda) e <b>C</b> (selos + estilo Amazon).
         </p>
       </div>
 
@@ -323,6 +411,11 @@ export default function CompararCardPage() {
             </div>
             <MockCard v="esquerda" p={p} />
 
+            <div className="pt-3">
+              <Tag text="Proposto C — selos + estilo Amazon" color="#B8860B" />
+            </div>
+            <AmazonCard p={p} />
+
             <div className="!mt-8 border-b border-dashed border-[#C9D3DD]" />
           </div>
         ))}
@@ -332,6 +425,7 @@ export default function CompararCardPage() {
           <ul className="list-disc space-y-1 pl-5">
             <li><b>Proposto A:</b> foto limpa (só coração), tabela sem borda, "Programe e Poupe" ao lado do preço, ações secundárias numa linha.</li>
             <li><b>Proposto B:</b> tudo do A + a tabela "análise por unidade" vai pra <b>baixo da foto, na coluna esquerda</b> — aproveita o espaço morto e deixa a coluna direita só com título/preço/CTA.</li>
+            <li><b>Proposto C:</b> base no B (tabela à esquerda, em minúsculas) + as infos viram <b>selos</b> (sabor, unidades, peso) e a direita imita o app da Amazon: preço grande, <b>preço/unidade</b>, "De:", prime.</li>
           </ul>
         </div>
       </div>
