@@ -1,14 +1,11 @@
-import { Suspense } from "react";
-import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
+import { SiteHeaderInstant } from "@/components/SiteHeaderInstant";
 import { BestDealGridSkeleton } from "@/components/skeletons/BestDealCardSkeleton";
 
 export default function Loading() {
   return (
     <main className="min-h-screen bg-[#E3E6E6] pb-10">
       {/* Header real (é sempre o mesmo) em vez de skeleton. */}
-      <Suspense fallback={<div className="h-14 w-full bg-[#131921]" />}>
-        <AmazonHeader />
-      </Suspense>
+      <SiteHeaderInstant />
 
       <div className="bg-[#37475A] px-4 py-2">
         <div className="mx-auto h-4 w-64 animate-pulse rounded bg-white/20" />

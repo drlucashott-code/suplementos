@@ -3,7 +3,7 @@ import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Prisma } from "@prisma/client";
-import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
+import { SiteHeader } from "@/components/SiteHeader";
 import BestDealProductCard from "@/components/BestDealProductCard";
 import ProductCommentsSheet from "@/components/dynamic/ProductCommentsSheet";
 import { prisma } from "@/lib/prisma";
@@ -367,7 +367,7 @@ export default async function ProductDetailPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <AmazonHeader />
+      <SiteHeader />
 
       <div className="mx-auto max-w-[1500px] px-3 py-4 md:px-5">
         {record.categoryGroup && record.categorySlug ? (

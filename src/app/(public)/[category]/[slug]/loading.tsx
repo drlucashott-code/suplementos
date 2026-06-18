@@ -1,5 +1,4 @@
-import { Suspense } from "react";
-import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
+import { SiteHeaderInstant } from "@/components/SiteHeaderInstant";
 import { FloatingFiltersBarSkeleton } from "@/components/skeletons/FloatingFiltersBarSkeleton";
 import { DesktopFiltersSidebarSkeleton } from "@/components/skeletons/FiltersSidebarSkeleton";
 import { ProductListSkeleton } from "@/components/skeletons/ProductCardSkeleton";
@@ -8,9 +7,7 @@ export default function Loading() {
   return (
     <main className="min-h-screen bg-[#EAEDED]">
       {/* Header real (é sempre o mesmo) em vez de skeleton. */}
-      <Suspense fallback={<div className="h-14 w-full bg-[#232f3e]" />}>
-        <AmazonHeader />
-      </Suspense>
+      <SiteHeaderInstant />
 
       <FloatingFiltersBarSkeleton />
 

@@ -1,6 +1,6 @@
 ﻿import Link from "next/link";
 import BestDealProductCard from "@/components/BestDealProductCard";
-import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
+import { SiteHeader } from "@/components/SiteHeader";
 import ListCommentsSheet from "@/components/dynamic/ListCommentsSheet";
 import SavePublicListButton from "@/components/SavePublicListButton";
 import PublicListSortSelect from "@/components/PublicListSortSelect";
@@ -313,7 +313,7 @@ export default async function PublicUserListPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <AmazonHeader />
+      <SiteHeader />
 
       <div className="mx-auto max-w-[1500px] px-3 pt-4 md:px-5 md:pt-5">
         <div className="sticky top-14 z-30 border-b border-zinc-200 bg-white px-3 py-2 shadow-sm">

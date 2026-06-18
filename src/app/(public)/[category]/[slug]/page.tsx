@@ -9,7 +9,7 @@ import {
   FloatingFiltersBar,
   type DynamicSortOption,
 } from "@/components/dynamic/FloatingFiltersBar";
-import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
+import { SiteHeader } from "@/components/SiteHeader";
 import { getDynamicCatalogData } from "@/lib/dynamicCatalog";
 import { buildAbsoluteUrl } from "@/lib/siteUrl";
 
@@ -128,9 +128,7 @@ export default async function DynamicCategoryPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <Suspense fallback={<div className="h-14 w-full bg-[#232f3e]" />}>
-        <AmazonHeader />
-      </Suspense>
+      <SiteHeader />
 
       <Suspense
         fallback={<div className="h-14 w-full border-b border-zinc-200 bg-white" />}

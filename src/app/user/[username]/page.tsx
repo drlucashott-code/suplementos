@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Prisma } from "@prisma/client";
-import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
+import { SiteHeader } from "@/components/SiteHeader";
 import { prisma } from "@/lib/prisma";
 import { buildPublicListPath } from "@/lib/siteSocial";
 
@@ -61,7 +61,7 @@ export default async function PublicUserListsPage({
 
   return (
     <main className="min-h-screen bg-[#E3E6E6] pb-10">
-      <AmazonHeader />
+      <SiteHeader />
 
       <div className="mx-auto max-w-[1500px] px-3 py-4 md:px-5">
         <section className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm md:p-5">

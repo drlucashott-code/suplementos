@@ -5,7 +5,7 @@ import amazonImageLoader from "@/lib/amazonImageLoader";
 import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
+import { SiteHeader } from "@/components/SiteHeader";
 import { notFound } from "next/navigation";
 import { DynamicProduct } from "@prisma/client";
 import { buildAbsoluteUrl } from "@/lib/siteUrl";
@@ -146,9 +146,7 @@ export default async function CategoryGroupPage({ params }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <Suspense fallback={<div className="h-14 w-full bg-[#131921]" />}>
-        <AmazonHeader />
-      </Suspense>
+      <SiteHeader />
       <div className="mx-auto max-w-6xl p-4 font-sans md:p-8">
         <div className="mb-6">
           <p className="mb-1 text-xs font-bold uppercase tracking-widest text-gray-500">

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
+import { SiteHeader } from "@/components/SiteHeader";
 import { getBestDeals } from "@/lib/bestDeals";
 import ProgressiveBestDealsGrid from "@/components/ProgressiveBestDealsGrid";
 import { buildAbsoluteUrl } from "@/lib/siteUrl";
@@ -114,7 +114,7 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <AmazonHeader />
+      <SiteHeader />
 
       <div className="mx-auto max-w-[1500px] px-3 py-4 md:px-5">
         <section className="rounded-2xl border border-[#d5d9d9] bg-white p-4 shadow-sm md:p-5">
