@@ -823,61 +823,39 @@ export function MobileProductCard({
                   </div>
                 ) : null}
 
-                {/* Preço atual + "Programe e Poupe" lado a lado (à direita),
-                    para encurtar a altura do card no mobile. */}
-                <div className="flex items-end justify-between gap-2">
+                <div className="flex items-start">
                   <div className="flex items-start">
-                    <div className="flex items-start">
-                      <span
-                        className={`mt-1 text-[13px] font-medium ${
-                          (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
-                        }`}
-                      >
-                        R$
-                      </span>
-                      <span
-                        className={`text-3xl font-medium leading-none tracking-tight ${
-                          (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
-                        }`}
-                      >
-                        {intCents[0]}
-                      </span>
-                      <span
-                        className={`mt-[3px] text-[14px] font-medium leading-none ${
-                          (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
-                        }`}
-                      >
-                        {intCents[1]}
-                      </span>
-                    </div>
-
-                    {!showReferencePrice ? (
-                      <div className="ml-2 mt-1 shrink-0">
-                        <PriceHistoryButton
-                          productId={product.id}
-                          productName={product.name}
-                          createdAt={product.createdAt}
-                          freshProduct={freshProduct}
-                        />
-                      </div>
-                    ) : null}
+                    <span
+                      className={`mt-1 text-[13px] font-medium ${
+                        (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
+                      }`}
+                    >
+                      R$
+                    </span>
+                    <span
+                      className={`text-3xl font-medium leading-none tracking-tight ${
+                        (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
+                      }`}
+                    >
+                      {intCents[0]}
+                    </span>
+                    <span
+                      className={`mt-[3px] text-[14px] font-medium leading-none ${
+                        (product.discountPercent ?? 0) > 0 ? "text-[#CC0C39]" : "text-[#0F1111]"
+                      }`}
+                    >
+                      {intCents[1]}
+                    </span>
                   </div>
 
-                  {programAndSavePrice && programAndSaveParts ? (
-                    <div className="inline-flex w-fit shrink-0 flex-col rounded-md border border-[#d5d9d9] bg-[#f3f4f6] px-1.5 py-0.5">
-                      <span className="inline-flex items-center gap-1 text-[9px] font-bold leading-none text-[#0F1111]">
-                        Programe e Poupe
-                        <ProgramAndSaveIcon />
-                      </span>
-                      <div className="mt-0.5 flex items-start leading-none">
-                        <span className="mt-0.5 text-[8px] font-medium text-[#0F1111]">R$</span>
-                        <span className="text-[16px] font-medium leading-none tracking-tight text-[#0F1111]">
-                          {programAndSaveParts.whole}
-                        </span>
-                        <span className="mt-[1px] text-[8px] font-medium leading-none text-[#0F1111]">
-                          {programAndSaveParts.cents}
-                        </span>
-                      </div>
+                  {!showReferencePrice ? (
+                    <div className="ml-2 mt-1 shrink-0">
+                      <PriceHistoryButton
+                        productId={product.id}
+                        productName={product.name}
+                        createdAt={product.createdAt}
+                        freshProduct={freshProduct}
+                      />
                     </div>
                   ) : null}
                 </div>
@@ -894,6 +872,24 @@ export function MobileProductCard({
                       createdAt={product.createdAt}
                       freshProduct={freshProduct}
                     />
+                  </div>
+                ) : null}
+
+                {programAndSavePrice && programAndSaveParts ? (
+                  <div className="mt-1 inline-flex w-fit flex-col rounded-md border border-[#d5d9d9] bg-[#f3f4f6] px-2 py-1">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0F1111]">
+                      Programe e Poupe
+                      <ProgramAndSaveIcon />
+                    </span>
+                    <div className="mt-0.5 flex items-start leading-none">
+                      <span className="mt-1 text-[9px] font-medium text-[#0F1111]">R$</span>
+                      <span className="text-[21px] font-medium leading-none tracking-tight text-[#0F1111]">
+                        {programAndSaveParts.whole}
+                      </span>
+                      <span className="mt-[2px] text-[10px] font-medium leading-none text-[#0F1111]">
+                        {programAndSaveParts.cents}
+                      </span>
+                    </div>
                   </div>
                 ) : null}
 
