@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ShieldCheck } from "lucide-react";
-import Header from "@/app/Header";
+import { SiteHeader } from "@/components/SiteHeader";
 
 type AuthShellProps = {
   eyebrow: string;
@@ -30,7 +30,7 @@ export default function AuthShell({
 }: AuthShellProps) {
   return (
     <main className="min-h-screen bg-[#E3E6E6] pb-10">
-      <Header />
+      <SiteHeader />
 
       <div className="mx-auto max-w-[1180px] px-4 py-6 md:py-8">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">

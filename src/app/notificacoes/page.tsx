@@ -1,4 +1,4 @@
-import Header from "@/app/Header";
+import { SiteHeader } from "@/components/SiteHeader";
 import NotificationsCenter from "@/components/NotificationsCenter";
 import { requireCurrentSiteUser } from "@/lib/siteAuth";
 import { getSiteNotifications, syncFavoriteNotifications } from "@/lib/siteNotifications";
@@ -12,7 +12,7 @@ export default async function NotificationsPage() {
 
   return (
     <main className="min-h-screen bg-[#E3E6E6] pb-10">
-      <Header />
+      <SiteHeader />
 
       <div className="mx-auto max-w-[1280px] px-4 py-8">
         <NotificationsCenter notifications={notifications} />

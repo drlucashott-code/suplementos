@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import Header from "@/app/Header";
+import HeaderClient from "@/components/HeaderClient";
 import { AmazonHeader } from "@/components/dynamic/AmazonHeader";
 import HomePremiumClient, { type CategoryItem } from "./HomePremiumClient";
 import { normalizeDynamicDisplayConfig } from "@/lib/dynamicCategoryMetrics";
@@ -217,11 +217,11 @@ export default async function HomePremiumPage() {
   return (
     <>
       <div className="lg:hidden">
-        <Header extraCategories={headerCategories} />
+        <HeaderClient extraCategories={headerCategories} />
       </div>
       <div className="hidden lg:block">
         <Suspense fallback={<div className="h-14 w-full bg-[#131921]" />}>
-          <AmazonHeader />
+          <AmazonHeader extraCategories={headerCategories} />
         </Suspense>
       </div>
       <HomePremiumClient

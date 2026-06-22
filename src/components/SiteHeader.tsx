@@ -15,7 +15,7 @@ export function SiteHeader({ extraCategories }: HeaderProps = {}) {
       </div>
       <div className="hidden lg:block">
         <Suspense fallback={<div className="h-14 w-full bg-[#131921]" />}>
-          <AmazonHeader />
+          <AmazonHeader extraCategories={extraCategories} />
         </Suspense>
       </div>
     </>

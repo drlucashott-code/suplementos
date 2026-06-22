@@ -1,4 +1,4 @@
-import Header from "@/app/Header";
+import { SiteHeader } from "@/components/SiteHeader";
 import { Prisma } from "@prisma/client";
 import SiteAccountWorkspace from "@/components/SiteAccountWorkspace";
 import { prisma } from "@/lib/prisma";
@@ -509,7 +509,7 @@ export default async function AccountListsPage() {
 
   return (
     <main className="min-h-screen bg-[#E3E6E6] pb-10">
-      <Header />
+      <SiteHeader />
 
       <div className="mx-auto max-w-[1280px] px-4 py-8">
         <SiteAccountWorkspace

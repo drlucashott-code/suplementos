@@ -5,70 +5,33 @@ import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import SiteUserEntry, { type SessionUser } from "@/components/SiteUserEntry";
 import SiteNotificationsBell from "@/components/SiteNotificationsBell";
-
-const removeAccents = (str: string) => {
-  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-};
-
-type SearchCategory = {
-  name: string;
-  path: string;
-  keywords: string[];
-};
+import {
+  buildSearchCategories,
+  filterCategorySuggestions,
+  resolveCategoryTarget,
+  type CategorySuggestion,
+  type ExtraCategory,
+} from "@/lib/client/categorySearch";
 
 export type HeaderClientProps = {
-  extraCategories?: Array<{
-    title: string;
-    path: string;
-  }>;
+  extraCategories?: ExtraCategory[];
   initialUser?: SessionUser | null;
 };
 
-const BASE_CATEGORIES: SearchCategory[] = [
-  { name: "Creatina", path: "/suplementos/creatina", keywords: ["creatina", "creatine"] },
-  { name: "Whey Protein", path: "/suplementos/whey", keywords: ["whey", "protein", "proteina"] },
-  { name: "Barra de proteína", path: "/suplementos/barra", keywords: ["barra", "barrinha"] },
-  { name: "Pré-treino", path: "/suplementos/pre-treino", keywords: ["pre", "treino", "pretreino"] },
-  { name: "Bebida proteica", path: "/suplementos/bebidaproteica", keywords: ["bebida", "pronta"] },
-  { name: "Café funcional", path: "/suplementos/cafe-funcional", keywords: ["cafe", "funcional"] },
-];
-
 export default function HeaderClient({
   extraCategories = [],
-  initialUser = null,
+  initialUser,
 }: HeaderClientProps) {
   const [query, setQuery] = useState("");
-  const [suggestions, setSuggestions] = useState<Array<{ name: string; path: string }>>([]);
+  const [suggestions, setSuggestions] = useState<CategorySuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const router = useRouter();
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const categories = useMemo<SearchCategory[]>(() => {
-    const normalizedExtras = extraCategories.map((category) => {
-      const normalizedTitle = removeAccents(category.title.toLowerCase());
-      const slugKeywords = category.path
-        .split("/")
-        .filter(Boolean)
-        .flatMap((part) => removeAccents(part.toLowerCase()).split("-"));
-      const titleKeywords = normalizedTitle.split(/[\s/&-]+/).filter(Boolean);
-
-      return {
-        name: category.title,
-        path: category.path,
-        keywords: Array.from(new Set([normalizedTitle, ...titleKeywords, ...slugKeywords])),
-      };
-    });
-
-    const deduped = new Map<string, SearchCategory>();
-
-    for (const category of [...BASE_CATEGORIES, ...normalizedExtras]) {
-      if (!deduped.has(category.path)) {
-        deduped.set(category.path, category);
-      }
-    }
-
-    return Array.from(deduped.values());
-  }, [extraCategories]);
+  const categories = useMemo(
+    () => buildSearchCategories(extraCategories),
+    [extraCategories]
+  );
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -86,11 +49,7 @@ export default function HeaderClient({
     setQuery(value);
 
     if (value.length > 0) {
-      const normalizedValue = removeAccents(value.toLowerCase());
-      const filtered = categories.filter((cat) =>
-        removeAccents(cat.name.toLowerCase()).includes(normalizedValue)
-      );
-      setSuggestions(filtered);
+      setSuggestions(filterCategorySuggestions(value, categories));
       setShowSuggestions(true);
     } else {
       setSuggestions([]);
@@ -101,17 +60,9 @@ export default function HeaderClient({
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const searchString = removeAccents(query.trim().toLowerCase());
-    if (!searchString) return;
+    if (!query.trim()) return;
 
-    let targetPath: string | null = null;
-
-    for (const category of categories) {
-      if (category.keywords.some((keyword) => searchString.includes(keyword))) {
-        targetPath = category.path;
-        break;
-      }
-    }
+    const targetPath = resolveCategoryTarget(query, categories);
 
     if (targetPath) {
       router.push(`${targetPath}?q=${encodeURIComponent(query)}`);
@@ -173,7 +124,7 @@ export default function HeaderClient({
             ) : null}
           </div>
 
-          {initialUser ? <SiteNotificationsBell /> : null}
+          <SiteNotificationsBell />
           <SiteUserEntry compact initialUser={initialUser} />
         </div>
       </div>
