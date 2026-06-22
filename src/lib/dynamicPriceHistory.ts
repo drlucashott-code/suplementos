@@ -159,6 +159,15 @@ export function getAvailablePriceHistoryChartRangesFromDateKeys(
     }
   }
 
+  // Quando há mais dias coletados do que a maior faixa padrão disponível
+  // (ex.: 47 dias coletados só liberariam "30d", escondendo ~17 dias que
+  // existem), expõe a faixa exata para o histórico completo ficar visível —
+  // consistente com o caso < 30 dias, que já mostra o número exato de dias.
+  const largestStandardRange = availableRanges[availableRanges.length - 1] ?? 0;
+  if (collectedDays > largestStandardRange && collectedDays < 365) {
+    availableRanges.push(collectedDays);
+  }
+
   return availableRanges;
 }
 
