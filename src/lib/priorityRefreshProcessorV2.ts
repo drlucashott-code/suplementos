@@ -24,6 +24,7 @@ import { prisma } from "@/lib/prisma";
 import { refreshDynamicProductPriceStats } from "@/lib/dynamicPriceStats";
 import { getPriceHistoryCanonicalDate } from "@/lib/dynamicPriceHistory";
 import { writeDynamicDailyPriceHistoryIfChanged } from "@/lib/priceHistoryWrites";
+import { notifyFavoritesOfDynamicPriceChange } from "@/lib/siteNotifications";
 import { applyDynamicRefreshOutcome, markDynamicRefreshAttempt } from "@/lib/priceRefreshSignals";
 import { reservePriceRefreshBudget } from "@/lib/priceRefreshBudget";
 import { getBlockedMerchantMatcher } from "@/lib/blockedMerchantsConfig";
@@ -130,6 +131,7 @@ function extractNotBeforeAtFromMessage(message: Message) {
 async function persistDynamicUpdate(params: {
   product: {
     id: string;
+    asin: string;
     name: string;
     totalPrice: number;
     attributes: unknown;
@@ -237,6 +239,25 @@ async function persistDynamicUpdate(params: {
     if (wroteHistory) {
       await refreshDynamicProductPriceStats(product.id);
     }
+  }
+
+  // Notifica quem favoritou este produto no instante real da mudança (job),
+  // com createdAt correto. Idempotente: só dispara quando o preço/estoque
+  // persistido muda (hasMeaningfulChange) — o preço armazenado avança junto.
+  if (result.status === "OK" && hasMeaningfulChange) {
+    const oldPrice = product.totalPrice > 0 ? product.totalPrice : null;
+    const newPrice = result.price > 0 ? result.price : null;
+    await notifyFavoritesOfDynamicPriceChange({
+      productId: product.id,
+      productName: product.name,
+      asin: product.asin ?? null,
+      oldPrice,
+      newPrice,
+      wasOutOfStock: product.availabilityStatus === "OUT_OF_STOCK",
+      isInStock: true,
+    }).catch((error) => {
+      console.error("notify_favorites_of_dynamic_price_change_failed", product.id, error);
+    });
   }
 }
 

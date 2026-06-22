@@ -266,6 +266,209 @@ export async function syncFavoriteNotifications(userId: string) {
   }
 }
 
+// Gera notificações de queda de preço / volta ao estoque para quem favoritou o
+// produto, no momento em que o evento realmente acontece (chamado pelo job de
+// atualização de preço). createdAt = agora = hora real do evento, corrigindo o
+// timestamp que antes refletia a hora da visita. Idempotente: o job só chama
+// isto quando o preço persistido muda de verdade.
+export async function notifyFavoritesOfDynamicPriceChange(params: {
+  productId: string;
+  productName: string;
+  asin: string | null;
+  oldPrice: number | null;
+  newPrice: number | null;
+  wasOutOfStock: boolean;
+  isInStock: boolean;
+}) {
+  const priceDropped =
+    params.newPrice != null &&
+    params.newPrice > 0 &&
+    params.oldPrice != null &&
+    params.oldPrice > 0 &&
+    params.newPrice < params.oldPrice;
+  const backInStock = params.wasOutOfStock && params.isInStock;
+
+  if (!priceDropped && !backInStock) return;
+
+  let favorites: Array<{ userId: string }>;
+  try {
+    favorites = await prisma.siteUserFavorite.findMany({
+      where: { productId: params.productId },
+      select: { userId: true },
+    });
+  } catch (error) {
+    if (isMissingRelationError(error, "SiteUserFavorite")) return;
+    throw error;
+  }
+
+  if (favorites.length === 0) return;
+
+  const href = `/produto/${params.asin || params.productId}`;
+  const priceDropPercent =
+    priceDropped && params.oldPrice
+      ? Math.round(((params.oldPrice - (params.newPrice as number)) / params.oldPrice) * 100)
+      : null;
+
+  for (const favorite of favorites) {
+    try {
+      if (backInStock && priceDropped) {
+        await notifyComposedPriceStock({
+          userId: favorite.userId,
+          productId: params.productId,
+          productName: params.productName,
+          href,
+          oldPrice: params.oldPrice,
+          newPrice: params.newPrice,
+          priceDropPercent,
+        });
+      } else if (priceDropped) {
+        await notifyPriceChange({
+          userId: favorite.userId,
+          productId: params.productId,
+          productName: params.productName,
+          href,
+          type: "favorite_price_drop",
+          oldPrice: params.oldPrice,
+          newPrice: params.newPrice,
+          priceDropPercent,
+        });
+      } else if (backInStock) {
+        await notifyPriceChange({
+          userId: favorite.userId,
+          productId: params.productId,
+          productName: params.productName,
+          href,
+          type: "favorite_back_in_stock",
+          oldPrice: params.oldPrice,
+          newPrice: params.newPrice,
+        });
+      }
+    } catch (error) {
+      console.error(
+        "notify_favorite_price_change_failed",
+        { userId: favorite.userId, productId: params.productId },
+        error
+      );
+    }
+  }
+
+  // Alinha o watermark dos favoritos com o preço/estoque atual, para o sync
+  // lazy (na visita às páginas) não recriar a mesma notificação.
+  try {
+    await prisma.siteUserFavorite.updateMany({
+      where: { productId: params.productId },
+      data: {
+        lastTrackedPrice: params.newPrice,
+        lastTrackedAvailability: params.isInStock ? "IN_STOCK" : "OUT_OF_STOCK",
+      },
+    });
+  } catch (error) {
+    if (!isMissingColumnError(error, "lastTrackedPrice")) {
+      console.error("favorite_watermark_update_failed", params.productId, error);
+    }
+  }
+}
+
+// Análogo para produtos MONITORADOS (SiteUserMonitoredProduct, ligados a um
+// SiteTrackedAmazonProduct). Chamado pelo job de atualização (z-UpdatePrices) no
+// instante real da mudança, com createdAt correto, e alinha o watermark dos
+// monitorados para o sync lazy não duplicar na visita.
+export async function notifyMonitorsOfTrackedPriceChange(params: {
+  trackedProductId: string;
+  productName: string;
+  asin: string | null;
+  oldPrice: number | null;
+  newPrice: number | null;
+  wasOutOfStock: boolean;
+  isInStock: boolean;
+}) {
+  const priceDropped =
+    params.newPrice != null &&
+    params.newPrice > 0 &&
+    params.oldPrice != null &&
+    params.oldPrice > 0 &&
+    params.newPrice < params.oldPrice;
+  const backInStock = params.wasOutOfStock && params.isInStock;
+
+  if (!priceDropped && !backInStock) return;
+
+  let monitors: Array<{ id: string; userId: string }>;
+  try {
+    monitors = await prisma.siteUserMonitoredProduct.findMany({
+      where: { trackedProductId: params.trackedProductId },
+      select: { id: true, userId: true },
+    });
+  } catch (error) {
+    if (isMissingRelationError(error, "SiteUserMonitoredProduct")) return;
+    throw error;
+  }
+
+  if (monitors.length === 0) return;
+
+  const href = `/produto/${params.asin || params.trackedProductId}`;
+  const priceDropPercent =
+    priceDropped && params.oldPrice
+      ? Math.round(((params.oldPrice - (params.newPrice as number)) / params.oldPrice) * 100)
+      : null;
+
+  for (const monitor of monitors) {
+    try {
+      if (backInStock && priceDropped) {
+        await notifyComposedPriceStock({
+          userId: monitor.userId,
+          productId: monitor.id,
+          productName: params.productName,
+          href,
+          oldPrice: params.oldPrice,
+          newPrice: params.newPrice,
+          priceDropPercent,
+        });
+      } else if (priceDropped) {
+        await notifyPriceChange({
+          userId: monitor.userId,
+          productId: monitor.id,
+          productName: params.productName,
+          href,
+          type: "monitored_price_drop",
+          oldPrice: params.oldPrice,
+          newPrice: params.newPrice,
+          priceDropPercent,
+        });
+      } else if (backInStock) {
+        await notifyPriceChange({
+          userId: monitor.userId,
+          productId: monitor.id,
+          productName: params.productName,
+          href,
+          type: "monitored_back_in_stock",
+          oldPrice: params.oldPrice,
+          newPrice: params.newPrice,
+        });
+      }
+    } catch (error) {
+      console.error(
+        "notify_monitored_price_change_failed",
+        { userId: monitor.userId, trackedProductId: params.trackedProductId },
+        error
+      );
+    }
+  }
+
+  try {
+    await prisma.siteUserMonitoredProduct.updateMany({
+      where: { trackedProductId: params.trackedProductId },
+      data: {
+        lastTrackedPrice: params.newPrice,
+        lastTrackedAvailability: params.isInStock ? "IN_STOCK" : "OUT_OF_STOCK",
+      },
+    });
+  } catch (error) {
+    if (!isMissingColumnError(error, "lastTrackedPrice")) {
+      console.error("monitored_watermark_update_failed", params.trackedProductId, error);
+    }
+  }
+}
+
 export {
   listSiteNotifications,
   countUnreadNotifications,

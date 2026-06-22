@@ -65,25 +65,42 @@ export default function SiteNotificationsBell() {
   useEffect(() => {
     let active = true;
 
-    async function loadUnreadCount() {
+    // Pré-carrega a lista completa (não só a contagem) ao montar, para o
+    // dropdown abrir instantâneo, e revalida a cada 60s + ao focar a aba — assim
+    // alertas (queda de preço etc.) aparecem sem precisar abrir/recarregar.
+    async function refreshInbox() {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        return;
+      }
       try {
-        const response = await fetch("/api/account/notifications?summary=1", { cache: "no-store" });
+        const response = await fetch("/api/account/notifications", { cache: "no-store" });
         if (!response.ok) return;
         const data = (await response.json()) as {
           ok?: boolean;
+          notifications?: NotificationItem[];
           unreadCount?: number;
         };
         if (!active || !data.ok) return;
+        setNotifications(data.notifications ?? []);
         setUnreadCount(data.unreadCount ?? 0);
+        setNotificationsLoaded(true);
       } catch (error) {
         console.error("notifications_load_failed", error);
       }
     }
 
-    void loadUnreadCount();
+    void refreshInbox();
+    const intervalId = setInterval(() => void refreshInbox(), 60_000);
+
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") void refreshInbox();
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
       active = false;
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
 
@@ -107,25 +124,14 @@ export default function SiteNotificationsBell() {
     }
   }
 
-  async function handleOpen() {
+  function handleOpen() {
     const nextOpen = !open;
     setOpen(nextOpen);
 
+    // Apenas abre — não marca tudo como lido. A leitura é por item clicado
+    // (markClicked) ou pelo botão explícito "Marcar todas como lidas".
     if (nextOpen) {
       void loadNotifications();
-    }
-
-    if (!nextOpen || unreadCount === 0) return;
-
-    setLoading(true);
-    try {
-      await fetch("/api/account/notifications", { method: "PATCH" });
-      setNotifications((current) => current.map((item) => ({ ...item, isRead: true })));
-      setUnreadCount(0);
-    } catch (error) {
-      console.error("notifications_mark_read_failed", error);
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -144,11 +150,23 @@ export default function SiteNotificationsBell() {
     }
   }
 
-  async function markClicked(notificationId: string) {
-    await fetch(`/api/account/notifications/${notificationId}`, {
-      method: "PATCH",
-      keepalive: true,
-    });
+  async function markClicked(notificationId: string, wasUnread: boolean) {
+    setNotifications((current) =>
+      current.map((item) =>
+        item.id === notificationId ? { ...item, isRead: true } : item
+      )
+    );
+    if (wasUnread) {
+      setUnreadCount((current) => Math.max(0, current - 1));
+    }
+    try {
+      await fetch(`/api/account/notifications/${notificationId}`, {
+        method: "PATCH",
+        keepalive: true,
+      });
+    } catch (error) {
+      console.error("notification_mark_clicked_failed", error);
+    }
   }
 
   return (
@@ -213,7 +231,7 @@ export default function SiteNotificationsBell() {
                     key={notification.id}
                     href={notification.href}
                     onClick={() => {
-                      void markClicked(notification.id);
+                      void markClicked(notification.id, !notification.isRead);
                       setOpen(false);
                     }}
                     className={`block rounded-[10px] px-3 py-3 transition hover:bg-[#F8FAFA] ${

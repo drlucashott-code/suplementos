@@ -13,6 +13,10 @@ import {
 } from "../src/lib/priceRefreshDiff";
 import { refreshTrackedAmazonProductPriceStatsBulk } from "../src/lib/siteTrackedAmazonPriceStats";
 import {
+  notifyFavoritesOfDynamicPriceChange,
+  notifyMonitorsOfTrackedPriceChange,
+} from "../src/lib/siteNotifications";
+import {
   fetchAmazonPriceSnapshots,
 } from "../src/lib/amazonApiClient";
 import { getBlockedMerchantMatcher } from "../src/lib/blockedMerchantsConfig";
@@ -182,6 +186,7 @@ type PersistDynamicUpdateResult = {
 type TrackedProductLite = {
   id: string;
   asin: string;
+  name: string;
   totalPrice: number;
   availabilityStatus: string | null;
   programAndSavePrice: number | null;
@@ -359,6 +364,22 @@ async function persistDynamicUpdate(
         })
     );
 
+    if (hasMeaningfulChange) {
+      const oldPrice = product.totalPrice > 0 ? product.totalPrice : null;
+      const newPrice = result.price > 0 ? result.price : null;
+      await notifyFavoritesOfDynamicPriceChange({
+        productId: product.id,
+        productName: product.name,
+        asin: product.asin ?? null,
+        oldPrice,
+        newPrice,
+        wasOutOfStock: product.availabilityStatus === "OUT_OF_STOCK",
+        isInStock: true,
+      }).catch((error) =>
+        console.error("notify_favorites_of_dynamic_price_change_failed", product.id, error)
+      );
+    }
+
     return {
       logStatus: `OK R$ ${result.price.toFixed(2)}`,
       outcome: "UPDATED" as PersistOutcome,
@@ -412,6 +433,7 @@ async function refreshMonitoredProducts() {
       SELECT
         tp."id",
         tp."asin",
+        tp."name",
         tp."totalPrice",
         tp."availabilityStatus",
         tp."programAndSavePrice",
@@ -567,6 +589,22 @@ async function refreshMonitoredProducts() {
             })
           : Promise.resolve({ count: 0 })
       );
+
+      if (result?.status === "OK" && hasMeaningfulChange) {
+        const oldPrice = trackedProduct.totalPrice > 0 ? trackedProduct.totalPrice : null;
+        const newPrice = totalPrice > 0 ? totalPrice : null;
+        await notifyMonitorsOfTrackedPriceChange({
+          trackedProductId: trackedProduct.id,
+          productName: trackedProduct.name,
+          asin: trackedProduct.asin,
+          oldPrice,
+          newPrice,
+          wasOutOfStock: trackedProduct.availabilityStatus === "OUT_OF_STOCK",
+          isInStock: true,
+        }).catch((error) =>
+          console.error("notify_monitors_of_tracked_price_change_failed", trackedProduct.id, error)
+        );
+      }
 
       await withDatabaseRetry(`siteTrackedAmazonProduct.scheduler:${trackedProduct.id}`, async () =>
         applyTrackedRefreshOutcome({
