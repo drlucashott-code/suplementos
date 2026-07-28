@@ -1,0 +1,10 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 4 });
+const pg = await ctx.newPage();
+await pg.goto("http://localhost:3000/suplementos/barra", { waitUntil: "networkidle", timeout: 45000 });
+await pg.waitForTimeout(1500);
+const stack = pg.locator(".absolute.right-2.top-2").first();
+await stack.screenshot({ path: "C:/Users/lucas/suplementos/tmp/audit/p1-icons.png" });
+console.log("ok icons");
+await browser.close();

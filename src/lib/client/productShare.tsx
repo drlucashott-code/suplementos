@@ -49,6 +49,8 @@ type ProductShareInlineButtonProps = {
   className: string;
   iconClassName?: string;
   ariaLabel?: string;
+  /** Quando definido, exibe um rótulo ao lado do ícone. */
+  label?: string;
 };
 
 export function ProductShareInlineButton({
@@ -57,6 +59,7 @@ export function ProductShareInlineButton({
   className,
   iconClassName = "h-4 w-4",
   ariaLabel = "Compartilhar produto",
+  label,
 }: ProductShareInlineButtonProps) {
   return (
     <button
@@ -70,6 +73,7 @@ export function ProductShareInlineButton({
       aria-label={ariaLabel}
     >
       <ExternalLink className={iconClassName} />
+      {label ? <span>{label}</span> : null}
     </button>
   );
 }

@@ -1,0 +1,24 @@
+
+> suplementos@0.1.0 dev
+> next dev
+
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+   ▲ Next.js 16.0.10 (Turbopack)
+   - Local:         http://localhost:3139
+   - Network:       http://192.168.0.13:3139
+   - Environments: .env
+   - Experiments (use with caution):
+     · optimizePackageImports
+
+ ✓ Starting...
+ ✓ Ready in 1464ms
+ GET /__preview-skeletons 200 in 3.0s
+ GET /__preview-skeletons 200 in 312ms (compile: 12ms, render: 300ms)
+ GET /__preview-skeletons 200 in 306ms (compile: 3ms, render: 303ms)
+ GET /__preview-skeletons 200 in 354ms (compile: 10ms, render: 344ms)
+ GET /__preview-skeletons 200 in 457ms (compile: 112ms, render: 345ms)
+ GET /preview-skeletons 200 in 854ms (compile: 455ms, render: 399ms)
+ GET /preview-skeletons 200 in 462ms (compile: 4ms, render: 459ms)
+ GET /preview-skeletons 200 in 337ms (compile: 2ms, render: 334ms)
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[?25h

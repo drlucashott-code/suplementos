@@ -1,0 +1,641 @@
+"use client";
+
+import Image from "next/image";
+import { AlertTriangle, Heart, ImageOff, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
+import AccountListPickerModal from "@/components/AccountListPickerModal";
+import TrackedDealLink from "@/components/TrackedDealLink";
+import { PriceHistoryButton } from "@/components/dynamic/PriceHistoryButton";
+import type { BestDeal } from "@/lib/bestDeals";
+import {
+  accountIconButtonClass,
+  accountPrimaryButtonClass,
+  accountSecondaryButtonClass,
+} from "@/components/account/accountUi";
+import {
+  ACCOUNT_FAVORITES_EVENT,
+  isAccountFavorite,
+  toggleAccountFavorite,
+} from "@/lib/client/accountFavorites";
+import { getAccountListsCount } from "@/lib/client/accountLists";
+import { ProductShareInlineButton } from "@/lib/client/productShare";
+import { getOptimizedAmazonUrl } from "@/lib/utils";
+
+const REPORT_REASONS = [
+  "Preço desatualizado",
+  "Produto indisponível",
+  "Informação incorreta",
+  "Outro",
+] as const;
+
+function formatCurrency(value: number) {
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+function formatPriceParts(value: number) {
+  const [whole, cents] = value.toFixed(2).split(".");
+  return { whole, cents };
+}
+
+function formatCount(value: number) {
+  return value.toLocaleString("pt-BR");
+}
+
+const UNVERIFIED_ACCOUNT_MESSAGE =
+  "Para ativarmos a sua conta na Amazonpicks, precisamos que você confirme o seu endereço de email.";
+
+function StarRow({ rating }: { rating: number }) {
+  const rounded = Math.round(rating * 2) / 2;
+
+  return (
+    <div className="flex items-center gap-[1px] text-[14px] leading-none text-[#DE7921]">
+      {[0, 1, 2, 3, 4].map((index) => {
+        const diff = rounded - index;
+        const fillWidth = diff >= 1 ? "100%" : diff >= 0.5 ? "50%" : "0%";
+
+        return (
+          <span key={index} className="relative inline-flex">
+            <span className="text-[#D5D9D9]">★</span>
+            <span
+              className="absolute inset-y-0 left-0 overflow-hidden text-[#DE7921]"
+              style={{ width: fillWidth }}
+            >
+              ★
+            </span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+export default function BestDealProductCard({
+  item,
+  category,
+  compact = false,
+  showActions = true,
+  disableNavigation = false,
+  decisionLabel,
+  insightText,
+  decisionTone = "emerald",
+  uniformHeight = false,
+}: {
+  item: BestDeal;
+  category: string;
+  compact?: boolean;
+  showActions?: boolean;
+  disableNavigation?: boolean;
+  decisionLabel?: string;
+  insightText?: string;
+  decisionTone?: "emerald" | "amber" | "rose";
+  uniformHeight?: boolean;
+}) {
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+  const hasPrice = item.totalPrice > 0;
+  const hasReferencePrice =
+    item.averagePrice30d > item.totalPrice && hasPrice && item.discountPercent > 0;
+  const price = formatPriceParts(hasPrice ? item.totalPrice : 0);
+  const hasRating = (item.ratingAverage || 0) > 0 && (item.ratingCount || 0) > 0;
+  const [showFullTitle, setShowFullTitle] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [accountAlert, setAccountAlert] = useState<null | "unverified">(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [listPickerOpen, setListPickerOpen] = useState(false);
+  const [accountListCount, setAccountListCount] = useState<number | null>(null);
+  const [reason, setReason] = useState<(typeof REPORT_REASONS)[number]>(
+    "Preço desatualizado"
+  );
+  const [details, setDetails] = useState("");
+  const [reportState, setReportState] = useState<"idle" | "submitting" | "success" | "error">(
+    "idle"
+  );
+  const router = useRouter();
+  const imageSrc = item.imageUrl?.trim()
+    ? getOptimizedAmazonUrl(item.imageUrl, compact ? 240 : 320)
+    : null;
+  const freshProduct = (() => {
+    if (!item.createdAt) return false;
+    const createdAt = item.createdAt instanceof Date ? item.createdAt : new Date(item.createdAt);
+    if (Number.isNaN(createdAt.getTime())) return false;
+    return Date.now() - createdAt.getTime() <= ONE_DAY_MS;
+  })();
+
+  const decisionStyles = {
+    emerald: "border-emerald-100 bg-emerald-50 text-emerald-700",
+    amber: "border-amber-100 bg-amber-50 text-amber-700",
+    rose: "border-rose-100 bg-rose-50 text-rose-700",
+  }[decisionTone];
+
+  useEffect(() => {
+    let active = true;
+    void isAccountFavorite(item.id).then((value) => {
+      if (active) setSaved(value);
+    });
+    return () => {
+      active = false;
+    };
+  }, [item.id]);
+
+  useEffect(() => {
+    let active = true;
+    void getAccountListsCount().then((count) => {
+      if (active) setAccountListCount(count);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const syncSaved = () => {
+      void isAccountFavorite(item.id).then(setSaved);
+    };
+
+    window.addEventListener("storage", syncSaved);
+    window.addEventListener(ACCOUNT_FAVORITES_EVENT, syncSaved);
+
+    return () => {
+      window.removeEventListener("storage", syncSaved);
+      window.removeEventListener(ACCOUNT_FAVORITES_EVENT, syncSaved);
+    };
+  }, [item.id]);
+
+  async function submitReport() {
+    if (reportState === "submitting") return;
+
+    try {
+      setReportState("submitting");
+
+      const response = await fetch("/api/product-issue-reports", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          asin: item.asin,
+          reason,
+          details,
+          pagePath: window.location.pathname,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("report_failed");
+      }
+
+      setReportState("success");
+      setDetails("");
+
+      window.setTimeout(() => {
+        setReportOpen(false);
+        setReportState("idle");
+      }, 1200);
+    } catch (error) {
+      console.error("Erro ao reportar problema:", error);
+      setReportState("error");
+    }
+  }
+
+  async function handleToggleSave() {
+    try {
+      const nextSaved = !saved;
+
+      if (nextSaved) {
+        const listCount = accountListCount ?? (await getAccountListsCount());
+        if (accountListCount === null) {
+          setAccountListCount(listCount);
+        }
+
+        if (listCount > 1) {
+          setListPickerOpen(true);
+          return;
+        }
+      }
+
+      const result = await toggleAccountFavorite(item.id, nextSaved);
+      if (result.unauthorized) {
+        router.push("/entrar");
+        return;
+      }
+      if ("unverified" in result && result.unverified) {
+        setAccountAlert("unverified");
+        return;
+      }
+      if (!result.ok) {
+        toast.error(result.errorDetail ?? result.error ?? "Não foi possível salvar agora.");
+        return;
+      }
+
+      setSaved(nextSaved);
+      if (nextSaved) {
+        const listTitle = result.list?.title ?? "Minha lista";
+        toast.custom((t) => (
+          <div
+            className={`flex w-full max-w-sm items-center justify-between gap-3 rounded-[10px] border border-[#D5D9D9] bg-white px-4 py-3 shadow-[0_12px_28px_rgba(0,0,0,0.16)] transition ${
+              t.visible ? "animate-in fade-in slide-in-from-top-2" : "animate-out fade-out"
+            }`}
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-[#0F1111]">Salvo em {listTitle}</p>
+              <p className="mt-0.5 text-xs text-[#565959]">
+                Você pode alterar depois sem perder o produto.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                toast.dismiss(t.id);
+                router.push("/minha-conta/listas");
+              }}
+              className={accountPrimaryButtonClass + " h-8 px-3 text-xs"}
+            >
+              Alterar
+            </button>
+          </div>
+        ));
+      }
+    } catch (error) {
+      console.error("best_deal_save_failed", error);
+      toast.error("Não foi possível salvar agora.");
+    }
+  }
+
+  return (
+    <>
+      <div className="relative h-full">
+        {showActions ? (
+          <div className="absolute inset-x-2 top-2 z-10 flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setReportOpen(true);
+                  setReportState("idle");
+                }}
+                className={accountIconButtonClass}
+                aria-label="Reportar problema"
+              >
+                <AlertTriangle className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  void handleToggleSave();
+                }}
+                className={`inline-flex h-8 w-8 items-center justify-center rounded-md border transition ${
+                  saved
+                    ? "border-[#f0c14b] bg-[#fff7d6] text-[#b77900]"
+                    : "border-gray-200 bg-white text-gray-500 hover:text-[#0F1111]"
+                }`}
+                aria-label={saved ? "Remover da Minha lista" : "Salvar na Minha lista"}
+              >
+                <Heart className={`h-4 w-4 ${saved ? "fill-current" : ""}`} />
+              </button>
+            </div>
+            <ProductShareInlineButton
+              productShareKey={item.asin}
+              productName={item.name}
+              className={accountIconButtonClass}
+              ariaLabel="Compartilhar produto"
+            />
+          </div>
+        ) : null}
+
+        <TrackedDealLink
+          asin={item.asin}
+          href={item.url}
+          productId={item.id}
+          productName={item.name}
+          value={item.totalPrice}
+          category={category}
+          disabled={disableNavigation}
+          className={`group flex h-full flex-col rounded-[6px] border border-[#d5d9d9] bg-white p-2.5 text-left transition hover:border-[#c7cfd0] ${
+            compact && uniformHeight ? "min-h-[0]" : ""
+          }`}
+        >
+          <div
+            className={`relative overflow-hidden rounded-md bg-white ${
+              compact ? "h-[72px]" : "h-[104px]"
+            }`}
+          >
+            {imageSrc ? (
+              <Image
+                src={imageSrc}
+                alt={item.name}
+                fill
+                sizes={
+                  compact ? "(max-width: 768px) 42vw, 180px" : "(max-width: 768px) 42vw, 220px"
+                }
+                className="object-contain p-1.5"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-[#F8FAFA] text-[#98A2B3]">
+                <ImageOff className="h-8 w-8" />
+              </div>
+            )}
+          </div>
+
+          <div className="mt-1.5">
+            {decisionLabel ? (
+              <div
+                className={`mb-1.5 inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.22em] ${decisionStyles}`}
+              >
+                {decisionLabel}
+              </div>
+            ) : null}
+            <p
+              className={`font-medium leading-[20px] text-[#2162A1] group-hover:text-[#174e87] ${
+                compact ? "text-[12px]" : "text-[13px]"
+              }`}
+              style={
+                uniformHeight
+                  ? {
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                      minHeight: compact ? "40px" : "42px",
+                      maxHeight: "40px",
+                    }
+                  : showFullTitle
+                  ? undefined
+                  : {
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                      maxHeight: "40px",
+                    }
+              }
+            >
+              {item.name}
+            </p>
+            {item.name.length > 58 ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setShowFullTitle((current) => !current);
+                }}
+                className="mt-1 text-[11px] font-bold text-[#2162A1] hover:text-[#174e87]"
+              >
+                {showFullTitle ? "Ver menos" : "Ver mais"}
+              </button>
+            ) : (
+              <div className="h-[18px]" />
+            )}
+          </div>
+
+          <div className={`mt-auto ${uniformHeight ? "flex flex-col justify-end" : ""}`}>
+            <div className="min-h-[16px]">
+              {hasRating ? (
+                <div className="flex items-center gap-1.5">
+                  <StarRow rating={Number(item.ratingAverage)} />
+                  <span className="text-[12px] text-[#2162A1]">
+                    {formatCount(Number(item.ratingCount))}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+
+            {hasPrice ? (
+              <>
+                <div className="flex min-h-[36px] items-end gap-1.5">
+                  <div className="flex items-end gap-1 font-variant-numeric-tabular">
+                    {hasReferencePrice ? (
+                      <>
+                        <span className="pb-[3px] text-[11px] font-medium leading-none text-[#CC0C39]">-</span>
+                        <span className="text-[16px] font-medium leading-none text-[#CC0C39]">
+                          {item.discountPercent}%
+                        </span>
+                      </>
+                    ) : null}
+                    <span className={`pb-[4px] text-[11px] leading-none text-[#565959] ${hasReferencePrice ? "pl-1" : ""}`}>
+                      R$
+                    </span>
+                    <span className="text-[22px] font-normal leading-none text-[#0F1111]">
+                      {price.whole}
+                    </span>
+                    <span className="pb-[6px] text-[11px] leading-none text-[#0F1111]">
+                      {price.cents}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-0.5 flex min-h-[18px] items-center gap-1.5 text-[11px] text-[#565959]">
+                  {hasReferencePrice ? (
+                    <p>
+                      De: <span className="line-through">{formatCurrency(item.averagePrice30d)}</span>
+                    </p>
+                  ) : null}
+                  <div
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    className="inline-flex shrink-0"
+                  >
+                    <PriceHistoryButton
+                      productId={item.id}
+                      productName={item.name}
+                      createdAt={item.createdAt}
+                      freshProduct={freshProduct}
+                    />
+                  </div>
+                </div>
+                {insightText ? <p className="mt-1 text-[11px] leading-5 text-[#6B7280]">{insightText}</p> : null}
+              </>
+            ) : (
+              <div className="mt-3 min-h-[58px] rounded-2xl border border-[#FECACA] bg-[#FFF5F5] px-3 py-3 text-sm font-bold text-[#B42318]">
+                Sem estoque
+              </div>
+            )}
+
+          </div>
+        </TrackedDealLink>
+      </div>
+
+      {showActions && reportOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4"
+          onClick={() => {
+            setReportOpen(false);
+            setReportState("idle");
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-[10px] border border-[#D5D9D9] bg-white p-5 shadow-[0_16px_40px_rgba(0,0,0,0.22)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-black text-gray-900">Reportar problema</h3>
+                <p className="mt-1 text-sm text-gray-500">{item.name}</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setReportOpen(false);
+                  setReportState("idle");
+                }}
+                className={accountIconButtonClass}
+                aria-label="Fechar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {REPORT_REASONS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setReason(option)}
+                    className={`rounded-md border px-3 py-2 text-left text-[13px] font-semibold transition ${
+                      reason === option
+                        ? "border-blue-200 bg-blue-50 text-blue-700"
+                        : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+
+              <textarea
+                value={details}
+                onChange={(event) => setDetails(event.target.value)}
+                rows={4}
+                maxLength={1000}
+                placeholder="Detalhe opcional"
+                className="w-full rounded-md border border-[#D0D5DD] px-3 py-2 text-[13px] text-[#0F1111] outline-none transition placeholder:text-gray-400 focus:border-blue-300"
+              />
+
+              {reportState === "success" ? (
+                <p className="text-sm font-semibold text-green-600">Problema registrado.</p>
+              ) : null}
+
+              {reportState === "error" ? (
+                <p className="text-sm font-semibold text-red-600">
+                  Falha ao enviar. Tente de novo.
+                </p>
+              ) : null}
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReportOpen(false);
+                    setReportState("idle");
+                  }}
+                  className={accountSecondaryButtonClass + " px-4"}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={submitReport}
+                  disabled={reportState === "submitting"}
+                  className={accountPrimaryButtonClass + " px-4 disabled:cursor-not-allowed disabled:opacity-60"}
+                >
+                  {reportState === "submitting" ? "Enviando..." : "Enviar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {accountAlert ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 px-4"
+          onClick={() => setAccountAlert(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-[10px] border border-[#D5D9D9] bg-white p-6 shadow-[0_16px_40px_rgba(0,0,0,0.22)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h4 className="text-[18px] font-black text-[#0F1111]">Confirmação pendente</h4>
+            <p className="mt-3 text-sm leading-6 text-[#565959]">{UNVERIFIED_ACCOUNT_MESSAGE}</p>
+            <div className="mt-5 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setAccountAlert(null)}
+                className="rounded-md px-4 py-2 text-[13px] font-semibold text-[#2162A1] hover:text-[#174e87]"
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/minha-conta")}
+                className={accountPrimaryButtonClass + " px-4"}
+              >
+                Ir para minha conta
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <AccountListPickerModal
+        open={listPickerOpen}
+        productId={item.id}
+        productName={item.name}
+        selectionMode="single"
+        actionLabel="Salvar"
+        onConfirmSingleList={async (list) => {
+          const result = await toggleAccountFavorite(item.id, true, list.id);
+          if (result.unauthorized) {
+            router.push("/entrar");
+            return;
+          }
+          if ("unverified" in result && result.unverified) {
+            setAccountAlert("unverified");
+            return;
+          }
+          if (result.ok) {
+            setSaved(true);
+            const listTitle = result.list?.title ?? list.title;
+            toast.custom((t) => (
+              <div
+                className={`flex w-full max-w-sm items-center justify-between gap-3 rounded-[10px] border border-[#D5D9D9] bg-white px-4 py-3 shadow-[0_12px_28px_rgba(0,0,0,0.16)] transition ${
+                  t.visible ? "animate-in fade-in slide-in-from-top-2" : "animate-out fade-out"
+                }`}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-[#0F1111]">Salvo em {listTitle}</p>
+                  <p className="mt-0.5 text-xs text-[#565959]">
+                    Você pode alterar depois sem perder o produto.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    router.push("/minha-conta/listas");
+                  }}
+                  className={accountPrimaryButtonClass + " h-8 px-3 text-xs"}
+                >
+                  Alterar
+                </button>
+              </div>
+            ));
+          }
+        }}
+        onClose={() => setListPickerOpen(false)}
+      />
+    </>
+  );
+}

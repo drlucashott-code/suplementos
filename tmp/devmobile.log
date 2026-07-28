@@ -1,0 +1,25 @@
+
+> suplementos@0.1.0 dev
+> next dev
+
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+   ▲ Next.js 16.0.10 (Turbopack)
+   - Local:         http://localhost:3140
+   - Network:       http://192.168.0.13:3140
+   - Environments: .env
+   - Experiments (use with caution):
+     · optimizePackageImports
+
+ ✓ Starting...
+ ✓ Ready in 1279ms
+ GET /suplementos/barra 200 in 5.6s (compile: 3.2s, render: 2.4s)
+ GET /suplementos/barra 200 in 884ms (compile: 12ms, render: 873ms)
+ GET /suplementos/barra 200 in 1077ms (compile: 10ms, render: 1067ms)
+ GET /api/auth/session 200 in 467ms (compile: 433ms, render: 33ms)
+ GET /api/auth/session 200 in 370ms (compile: 354ms, render: 16ms)
+ GET /api/auth/session 200 in 472ms (compile: 366ms, render: 106ms)
+ GET /api/account/lists 401 in 565ms (compile: 497ms, render: 68ms)
+ GET /api/account/notifications?summary=1 401 in 473ms (compile: 453ms, render: 19ms)
+ GET /api/account/notifications?summary=1 401 in 491ms (compile: 479ms, render: 12ms)
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[?25h

@@ -1,0 +1,11 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
+const pg = await ctx.newPage();
+await pg.goto("http://localhost:3000/suplementos/barra", { waitUntil: "networkidle", timeout: 45000 });
+await pg.waitForTimeout(1500);
+await pg.locator('[aria-label="Comentários"]').first().click();
+await pg.waitForTimeout(1200);
+await pg.screenshot({ path: "C:/Users/lucas/suplementos/tmp/audit/p1-modal.png", fullPage: false });
+console.log("ok modal");
+await browser.close();
