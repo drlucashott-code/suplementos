@@ -19,15 +19,14 @@ export async function refreshDynamicProductPriceStats(productId: string) {
 
   const rows = await prisma.$queryRaw<PriceStatsRow[]>(Prisma.sql`
     WITH "dailyHistory" AS (
-      SELECT DISTINCT ON (DATE("date"))
+      SELECT
         DATE("date") AS "historyDate",
         "price"
       FROM "DynamicPriceHistory"
       WHERE
         "productId" = ${productId}
-        AND DATE("date") >= ${threeHundredSixtyFiveDaysAgoKey}::date
+        AND "date" >= ${threeHundredSixtyFiveDaysAgoKey}::date
         AND "price" > 0
-      ORDER BY DATE("date"), "date" DESC, "updatedAt" DESC, "createdAt" DESC
     ),
     "rankedHistory" AS (
       SELECT
@@ -69,16 +68,15 @@ export async function refreshDynamicProductPriceStatsBulk(productIds: string[]) 
 
   const rows = await prisma.$queryRaw<PriceStatsRow[]>(Prisma.sql`
     WITH "dailyHistory" AS (
-      SELECT DISTINCT ON ("productId", DATE("date"))
+      SELECT
         "productId",
         DATE("date") AS "historyDate",
         "price"
       FROM "DynamicPriceHistory"
       WHERE
         "productId" IN (${Prisma.join(uniqueProductIds)})
-        AND DATE("date") >= ${threeHundredSixtyFiveDaysAgoKey}::date
+        AND "date" >= ${threeHundredSixtyFiveDaysAgoKey}::date
         AND "price" > 0
-      ORDER BY "productId", DATE("date"), "date" DESC, "updatedAt" DESC, "createdAt" DESC
     ),
     "rankedHistory" AS (
       SELECT

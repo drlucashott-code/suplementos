@@ -23,16 +23,15 @@ export async function refreshTrackedAmazonProductPriceStatsBulk(trackedProductId
 
   const rows = await prisma.$queryRaw<PriceStatsRow[]>(Prisma.sql`
     WITH "dailyHistory" AS (
-      SELECT DISTINCT ON ("trackedProductId", DATE("date"))
+      SELECT
         "trackedProductId",
         DATE("date") AS "historyDate",
         "price"
       FROM "SiteTrackedAmazonProductPriceHistory"
       WHERE
         "trackedProductId" IN (${Prisma.join(uniqueTrackedProductIds)})
-        AND DATE("date") >= ${threeHundredSixtyFiveDaysAgoKey}::date
+        AND "date" >= ${threeHundredSixtyFiveDaysAgoKey}::date
         AND "price" > 0
-      ORDER BY "trackedProductId", DATE("date"), "date" DESC, "updatedAt" DESC, "createdAt" DESC
     )
     SELECT
       "trackedProductId",

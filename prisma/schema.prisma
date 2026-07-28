@@ -430,7 +430,6 @@ model DynamicPriceHistory {
   updatedAt   DateTime       @updatedAt
 
   @@unique([productId, date])
-  @@index([productId, date])
 }
 
 model DynamicProductClickStats {
@@ -674,7 +673,6 @@ model SiteTrackedAmazonProductPriceHistory {
   updatedAt        DateTime                 @updatedAt
 
   @@unique([trackedProductId, date])
-  @@index([trackedProductId, date])
 }
 
 model SiteProductComment {

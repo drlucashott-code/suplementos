@@ -61,8 +61,10 @@ async function claimDynamicRefreshAttemptByWhere(whereSql: Prisma.Sql) {
         AND (
           p."nextPriceRefreshAt" IS NULL
           OR p."nextPriceRefreshAt" <= ${now}
-          OR p."lastSuccessfulRefreshAt" IS NULL
-          OR p."lastSuccessfulRefreshAt" <= ${now} - ${MANDATORY_REFRESH_INTERVAL_SQL}
+          OR (
+            p."refreshFailCount" = 0
+            AND p."lastSuccessfulRefreshAt" <= ${now} - ${MANDATORY_REFRESH_INTERVAL_SQL}
+          )
         )
       LIMIT 1
       FOR UPDATE
@@ -129,8 +131,10 @@ async function claimTrackedRefreshAttemptByWhere(whereSql: Prisma.Sql) {
         AND (
           tp."nextPriceRefreshAt" IS NULL
           OR tp."nextPriceRefreshAt" <= ${now}
-          OR tp."lastSuccessfulRefreshAt" IS NULL
-          OR tp."lastSuccessfulRefreshAt" <= ${now} - ${MANDATORY_REFRESH_INTERVAL_SQL}
+          OR (
+            tp."refreshFailCount" = 0
+            AND tp."lastSuccessfulRefreshAt" <= ${now} - ${MANDATORY_REFRESH_INTERVAL_SQL}
+          )
         )
       LIMIT 1
       FOR UPDATE
