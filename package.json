@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "update:amazon": "tsx scripts/z-UpdatePrices.ts",
+    "report:neon": "tsx scripts/reportNeonUsage.ts",
     "backfill:dynamic:price-stats": "tsx scripts/backfillDynamicPriceStats.ts",
     "normalize:dynamic:attributes": "tsx scripts/normalizeDynamicCategoryAttributes.ts",
     "normalize:dynamic:whey-weight": "tsx scripts/normalizeDynamicCategoryAttributes.ts --group=suplementos --slug=whey",
