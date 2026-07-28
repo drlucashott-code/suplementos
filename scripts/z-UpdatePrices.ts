@@ -141,6 +141,7 @@ type PersistOutcome = "UPDATED" | "FAILED" | "OUT_OF_STOCK" | "EXCLUDED";
 type RunCounters = {
   totalOffers: number;
   updatedOffers: number;
+  priceHistoryChanged: number;
   failedOffers: number;
   maxConsecutiveFailedOffers: number;
   outOfStockOffers: number;
@@ -673,10 +674,12 @@ async function updateAmazonPrices() {
     );
   }
 
+  const runStartedAt = Date.now();
   const runId = crypto.randomUUID();
   const counters: RunCounters = {
     totalOffers: 0,
     updatedOffers: 0,
+    priceHistoryChanged: 0,
     failedOffers: 0,
     maxConsecutiveFailedOffers: 0,
     outOfStockOffers: 0,
@@ -916,6 +919,7 @@ async function updateAmazonPrices() {
         incrementCounters(counters, outcome);
         if (shouldRefreshPriceStats) {
           statsRefreshProductIds.add(product.id);
+          counters.priceHistoryChanged += 1;
         }
         if (outcome === "FAILED") {
           currentFailedStreak += 1;
@@ -958,6 +962,15 @@ async function updateAmazonPrices() {
       status: "success",
       counters,
     });
+
+    console.log(
+      JSON.stringify({
+        event: "global_price_refresh_summary",
+        durationSeconds: Math.round((Date.now() - runStartedAt) / 1000),
+        ...counters,
+        statsRefreshProducts: statsRefreshProductIds.size,
+      })
+    );
 
     await withDatabaseRetry("reconcileDynamicFallbackState:success", async () =>
       reconcileDynamicFallbackState()

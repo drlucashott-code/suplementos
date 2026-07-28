@@ -6,48 +6,23 @@ export async function writeDynamicDailyPriceHistoryIfChanged(params: {
   date: Date;
   price: number;
 }) {
-  return prisma.$transaction(async (tx) => {
-    const existing = await tx.dynamicPriceHistory.findFirst({
-      where: {
-        productId: params.productId,
-        date: params.date,
-      },
-      select: {
-        id: true,
-        price: true,
-      },
-    });
+  const changedRows = await prisma.$queryRaw<Array<{ changed: number }>>`
+    INSERT INTO "DynamicPriceHistory" (
+      "id", "productId", "date", "price", "updateCount", "createdAt", "updatedAt"
+    )
+    VALUES (
+      ${randomUUID()}, ${params.productId}, ${params.date}, ${params.price}, 1, NOW(), NOW()
+    )
+    ON CONFLICT ("productId", "date") DO UPDATE
+    SET
+      "price" = EXCLUDED."price",
+      "updateCount" = "DynamicPriceHistory"."updateCount" + 1,
+      "updatedAt" = NOW()
+    WHERE "DynamicPriceHistory"."price" IS DISTINCT FROM EXCLUDED."price"
+    RETURNING 1 AS changed
+  `;
 
-    if (!existing) {
-      await tx.dynamicPriceHistory.create({
-        data: {
-          id: randomUUID(),
-          productId: params.productId,
-          date: params.date,
-          price: params.price,
-          updateCount: 1,
-        },
-      });
-      return true;
-    }
-
-    if (existing.price === params.price) {
-      return false;
-    }
-
-    await tx.dynamicPriceHistory.update({
-      where: { id: existing.id },
-      data: {
-        price: params.price,
-        updateCount: {
-          increment: 1,
-        },
-        updatedAt: new Date(),
-      },
-    });
-
-    return true;
-  });
+  return changedRows.length > 0;
 }
 
 export async function writeTrackedDailyPriceHistoryIfChanged(params: {
@@ -55,46 +30,21 @@ export async function writeTrackedDailyPriceHistoryIfChanged(params: {
   date: Date;
   price: number;
 }) {
-  return prisma.$transaction(async (tx) => {
-    const existing = await tx.siteTrackedAmazonProductPriceHistory.findFirst({
-      where: {
-        trackedProductId: params.trackedProductId,
-        date: params.date,
-      },
-      select: {
-        id: true,
-        price: true,
-      },
-    });
+  const changedRows = await prisma.$queryRaw<Array<{ changed: number }>>`
+    INSERT INTO "SiteTrackedAmazonProductPriceHistory" (
+      "id", "trackedProductId", "date", "price", "updateCount", "createdAt", "updatedAt"
+    )
+    VALUES (
+      ${randomUUID()}, ${params.trackedProductId}, ${params.date}, ${params.price}, 1, NOW(), NOW()
+    )
+    ON CONFLICT ("trackedProductId", "date") DO UPDATE
+    SET
+      "price" = EXCLUDED."price",
+      "updateCount" = "SiteTrackedAmazonProductPriceHistory"."updateCount" + 1,
+      "updatedAt" = NOW()
+    WHERE "SiteTrackedAmazonProductPriceHistory"."price" IS DISTINCT FROM EXCLUDED."price"
+    RETURNING 1 AS changed
+  `;
 
-    if (!existing) {
-      await tx.siteTrackedAmazonProductPriceHistory.create({
-        data: {
-          id: randomUUID(),
-          trackedProductId: params.trackedProductId,
-          date: params.date,
-          price: params.price,
-          updateCount: 1,
-        },
-      });
-      return true;
-    }
-
-    if (existing.price === params.price) {
-      return false;
-    }
-
-    await tx.siteTrackedAmazonProductPriceHistory.update({
-      where: { id: existing.id },
-      data: {
-        price: params.price,
-        updateCount: {
-          increment: 1,
-        },
-        updatedAt: new Date(),
-      },
-    });
-
-    return true;
-  });
+  return changedRows.length > 0;
 }
