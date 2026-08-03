@@ -21,7 +21,7 @@ import {
 import { enrichDynamicAttributesForCategory } from "@/lib/dynamicCategoryMetrics";
 import { hasMeaningfulDynamicStateChange } from "@/lib/priceRefreshDiff";
 import { prisma } from "@/lib/prisma";
-import { refreshDynamicProductPriceStats } from "@/lib/dynamicPriceStats";
+import { refreshDynamicProductPriceStatsBulk } from "@/lib/dynamicPriceStats";
 import { getPriceHistoryCanonicalDate } from "@/lib/dynamicPriceHistory";
 import { writeDynamicDailyPriceHistoryIfChanged } from "@/lib/priceHistoryWrites";
 import { notifyFavoritesOfDynamicPriceChange } from "@/lib/siteNotifications";
@@ -188,11 +188,10 @@ async function persistDynamicUpdate(params: {
     : nextAttributesBase;
 
   const now = new Date();
-  const nextAvailabilityStatus =
-    result.status === "OK" ? "IN_STOCK" : result.status === "OUT_OF_STOCK" ? "OUT_OF_STOCK" : "IN_STOCK";
+  const nextAvailabilityStatus = result.status === "OK" ? "IN_STOCK" : "OUT_OF_STOCK";
   const hasMeaningfulChange = hasMeaningfulDynamicStateChange({
     currentPrice: product.totalPrice,
-    nextPrice: result.status === "OK" ? result.price : result.status === "OUT_OF_STOCK" ? 0 : product.totalPrice,
+    nextPrice: result.status === "OK" ? result.price : 0,
     currentAvailabilityStatus: product.availabilityStatus,
     nextAvailabilityStatus,
     currentAttributes,
@@ -219,26 +218,22 @@ async function persistDynamicUpdate(params: {
             lastValidPriceAt: now,
             availabilityStatus: "IN_STOCK",
           }
-        : result.status === "OUT_OF_STOCK"
-          ? {
-              availabilityStatus: "OUT_OF_STOCK",
-            }
-          : {}),
+        : {
+            totalPrice: 0,
+            availabilityStatus: "OUT_OF_STOCK",
+          }),
       lastAvailabilityCheckedAt: now,
     },
   });
 
+  let wroteHistory = false;
   if (result.status === "OK") {
     const historyDate = getPriceHistoryCanonicalDate(now);
-    const wroteHistory = await writeDynamicDailyPriceHistoryIfChanged({
+    wroteHistory = await writeDynamicDailyPriceHistoryIfChanged({
       productId: product.id,
       date: historyDate,
       price: result.price,
     });
-
-    if (wroteHistory) {
-      await refreshDynamicProductPriceStats(product.id);
-    }
   }
 
   // Notifica quem favoritou este produto no instante real da mudança (job),
@@ -259,6 +254,7 @@ async function persistDynamicUpdate(params: {
       console.error("notify_favorites_of_dynamic_price_change_failed", product.id, error);
     });
   }
+  return wroteHistory;
 }
 
 export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }) {
@@ -361,6 +357,7 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
     runId,
   };
   const updatedCategoryRefs = new Map<string, DynamicCatalogCategoryRef>();
+  const statsRefreshProductIds = new Set<string>();
 
   try {
     const processMessages = async (messages: Message[]) => {
@@ -540,7 +537,7 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
         price = 0;
       }
 
-        await persistDynamicUpdate({
+        const wroteHistory = await persistDynamicUpdate({
           product,
           affiliateUrl:
             snapshot.affiliateUrl ||
@@ -552,6 +549,9 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
             status,
           },
         });
+        if (wroteHistory) {
+          statsRefreshProductIds.add(product.id);
+        }
         await applyDynamicRefreshOutcome({
           productId: product.id,
           previousState: refreshState,
@@ -602,6 +602,10 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
       if (!hadMessages) {
         break;
       }
+    }
+
+    if (statsRefreshProductIds.size > 0) {
+      await refreshDynamicProductPriceStatsBulk([...statsRefreshProductIds]);
     }
 
     summary.updatedCategoryRefs = dedupeDynamicCatalogCategoryRefs([

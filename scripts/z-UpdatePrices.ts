@@ -211,6 +211,7 @@ type TrackedProductLite = {
 
 type ClaimedDynamicState = NonNullable<Awaited<ReturnType<typeof markDynamicRefreshAttemptById>>>;
 type ClaimedTrackedState = NonNullable<Awaited<ReturnType<typeof markTrackedRefreshAttemptById>>>;
+type BlockedMerchantMatcher = Awaited<ReturnType<typeof getBlockedMerchantMatcher>>;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -266,11 +267,11 @@ async function withDatabaseRetry<T>(label: string, operation: () => Promise<T>):
 }
 
 async function fetchAmazonPricesBatch(
-  asins: string[]
+  asins: string[],
+  blockedMerchantMatcher: BlockedMerchantMatcher
 ): Promise<Record<string, PriceResult>> {
   if (asins.length === 0) return {};
 
-  const blockedMerchantMatcher = await getBlockedMerchantMatcher();
   const snapshots = await fetchAmazonPriceSnapshots(asins);
   const results: Record<string, PriceResult> = {};
 
@@ -428,7 +429,7 @@ async function persistDynamicUpdate(
   };
 }
 
-async function refreshMonitoredProducts() {
+async function refreshMonitoredProducts(blockedMerchantMatcher: BlockedMerchantMatcher) {
   const now = new Date();
   const trackedProducts = await withDatabaseRetry("siteTrackedAmazonProduct.query", async () =>
     prisma.$queryRaw<TrackedProductLite[]>(Prisma.sql`
@@ -477,28 +478,22 @@ async function refreshMonitoredProducts() {
   console.log(`Atualizando ${trackedProducts.length} produtos Amazon monitorados internamente`);
   const historyDate = getPriceHistoryCanonicalDate();
   const trackedProductIdsWithHistory = new Set<string>();
+  const trackedBudget = await withDatabaseRetry("reservePriceRefreshBudget:tracked", async () =>
+    reservePriceRefreshBudget({
+      scope: "global_tracked_refresh",
+      amount: trackedProducts.length,
+      hourlyLimit: Math.max(10, Math.floor(GLOBAL_HOURLY_REQUEST_LIMIT * 0.35)),
+      dailyLimit: Math.max(50, Math.floor(GLOBAL_DAILY_REQUEST_LIMIT * 0.35)),
+    })
+  );
+  let remainingTrackedBudget = trackedBudget.granted;
 
-  for (let i = 0; i < trackedProducts.length; i += BATCH_SIZE) {
+  for (let i = 0; i < trackedProducts.length && remainingTrackedBudget > 0; i += BATCH_SIZE) {
     const chunk = trackedProducts.slice(i, i + BATCH_SIZE);
     const asins = [...new Set(chunk.map((product) => product.asin).filter((asin) => !!asin))];
-    const budget = await withDatabaseRetry("reservePriceRefreshBudget:tracked", async () =>
-      reservePriceRefreshBudget({
-        scope: "global_tracked_refresh",
-        amount: asins.length,
-        hourlyLimit: Math.max(10, Math.floor(GLOBAL_HOURLY_REQUEST_LIMIT * 0.35)),
-        dailyLimit: Math.max(50, Math.floor(GLOBAL_DAILY_REQUEST_LIMIT * 0.35)),
-      })
-    );
-
-    if (budget.granted <= 0) {
-      console.warn(
-        `Orcamento dos monitorados esgotado (${budget.blockedBy ?? "janela"}). Restante hora=${budget.hourlyRemaining} dia=${budget.dailyRemaining}`
-      );
-      break;
-    }
-
-    const allowedAsins = new Set(asins.slice(0, budget.granted));
+    const allowedAsins = new Set(asins.slice(0, remainingTrackedBudget));
     const budgetedChunk = chunk.filter((product) => allowedAsins.has(product.asin));
+    remainingTrackedBudget -= budgetedChunk.length;
     const claimedTrackedProducts: Array<{
       product: TrackedProductLite;
       claimedState: ClaimedTrackedState;
@@ -522,7 +517,8 @@ async function refreshMonitoredProducts() {
 
     try {
       apiResults = await fetchAmazonPricesBatch(
-        claimedTrackedProducts.map(({ product }) => product.asin)
+        claimedTrackedProducts.map(({ product }) => product.asin),
+        blockedMerchantMatcher
       );
     } catch (error) {
       console.error("Erro ao atualizar lote de produtos monitorados:", error);
@@ -845,33 +841,30 @@ async function updateAmazonPrices() {
       `Processando ${dynamicProducts.length} produtos em lotes de ${BATCH_SIZE}`
     );
 
-    let globalBudgetStoppedEarly = false;
+    const blockedMerchantMatcher = await withDatabaseRetry(
+      "getBlockedMerchantMatcher:global",
+      getBlockedMerchantMatcher
+    );
+    const totalDynamicAsins = dynamicProducts.filter((product) => Boolean(product.asin)).length;
+    const globalBudget = await withDatabaseRetry("reservePriceRefreshBudget:global", async () =>
+      reservePriceRefreshBudget({
+        scope: "global_dynamic_refresh",
+        amount: totalDynamicAsins,
+        hourlyLimit: GLOBAL_HOURLY_REQUEST_LIMIT,
+        dailyLimit: GLOBAL_DAILY_REQUEST_LIMIT,
+      })
+    );
+    let remainingGlobalBudget = globalBudget.granted;
+    const globalBudgetStoppedEarly = globalBudget.granted < totalDynamicAsins;
 
-    for (let i = 0; i < dynamicProducts.length; i += BATCH_SIZE) {
+    for (let i = 0; i < dynamicProducts.length && remainingGlobalBudget > 0; i += BATCH_SIZE) {
       const chunk = dynamicProducts.slice(i, i + BATCH_SIZE);
       const asins = chunk
         .map((product) => product.asin)
         .filter((id): id is string => !!id);
-
-      const budget = await withDatabaseRetry("reservePriceRefreshBudget:global", async () =>
-        reservePriceRefreshBudget({
-          scope: "global_dynamic_refresh",
-          amount: asins.length,
-          hourlyLimit: GLOBAL_HOURLY_REQUEST_LIMIT,
-          dailyLimit: GLOBAL_DAILY_REQUEST_LIMIT,
-        })
-      );
-
-      if (budget.granted <= 0) {
-        console.warn(
-          `Orcamento do update global esgotado (${budget.blockedBy ?? "janela"}). Restante hora=${budget.hourlyRemaining} dia=${budget.dailyRemaining}`
-        );
-        globalBudgetStoppedEarly = true;
-        break;
-      }
-
-      const allowedAsins = new Set(asins.slice(0, budget.granted));
+      const allowedAsins = new Set(asins.slice(0, remainingGlobalBudget));
       const budgetedChunk = chunk.filter((product) => product.asin && allowedAsins.has(product.asin));
+      remainingGlobalBudget -= budgetedChunk.length;
       const claimedProducts: Array<{
         product: DynamicProductLite;
         claimedState: ClaimedDynamicState;
@@ -898,7 +891,8 @@ async function updateAmazonPrices() {
           apiResults = await fetchAmazonPricesBatch(
             claimedProducts
               .map(({ product }) => product.asin)
-              .filter((asin): asin is string => Boolean(asin))
+              .filter((asin): asin is string => Boolean(asin)),
+            blockedMerchantMatcher
           );
         }
       } catch (error) {
@@ -969,7 +963,7 @@ async function updateAmazonPrices() {
       );
     }
 
-    await refreshMonitoredProducts();
+    await refreshMonitoredProducts(blockedMerchantMatcher);
 
     await finalizeGlobalRun({
       runId,
