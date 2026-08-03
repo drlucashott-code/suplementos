@@ -560,15 +560,23 @@ async function refreshMonitoredProducts(blockedMerchantMatcher: BlockedMerchantM
       );
 
       if (totalPrice > 0) {
-        const wroteTrackedHistory = await withDatabaseRetry(
-          `siteTrackedAmazonProductPriceHistory.upsert:${trackedProduct.id}`,
-          async () =>
-            writeTrackedDailyPriceHistoryIfChanged({
-              trackedProductId: trackedProduct.id,
-              date: historyDate,
-              price: totalPrice,
-            })
-        );
+        let wroteTrackedHistory = false;
+        try {
+          wroteTrackedHistory = await withDatabaseRetry(
+            `siteTrackedAmazonProductPriceHistory.upsert:${trackedProduct.id}`,
+            async () =>
+              writeTrackedDailyPriceHistoryIfChanged({
+                trackedProductId: trackedProduct.id,
+                date: historyDate,
+                price: totalPrice,
+              })
+          );
+        } catch (error) {
+          console.error(
+            `Falha ao salvar historico do monitorado ${trackedProduct.id}; atualizacao principal preservada:`,
+            error
+          );
+        }
         if (wroteTrackedHistory) {
           trackedProductIdsWithHistory.add(trackedProduct.id);
         }

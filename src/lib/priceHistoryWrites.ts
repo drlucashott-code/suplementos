@@ -6,12 +6,16 @@ export async function writeDynamicDailyPriceHistoryIfChanged(params: {
   date: Date;
   price: number;
 }) {
+  if (!Number.isFinite(params.price) || !Number.isFinite(params.date.getTime())) {
+    return false;
+  }
+
   const changedRows = await prisma.$queryRaw<Array<{ changed: number }>>`
     INSERT INTO "DynamicPriceHistory" (
       "id", "productId", "date", "price", "updateCount", "createdAt", "updatedAt"
     )
     VALUES (
-      ${randomUUID()}, ${params.productId}, ${params.date}, ${params.price}, 1, NOW(), NOW()
+      ${randomUUID()}, ${params.productId}, ${params.date}::timestamptz, ${params.price}::double precision, 1, NOW(), NOW()
     )
     ON CONFLICT ("productId", "date") DO UPDATE
     SET
@@ -30,12 +34,16 @@ export async function writeTrackedDailyPriceHistoryIfChanged(params: {
   date: Date;
   price: number;
 }) {
+  if (!Number.isFinite(params.price) || !Number.isFinite(params.date.getTime())) {
+    return false;
+  }
+
   const changedRows = await prisma.$queryRaw<Array<{ changed: number }>>`
     INSERT INTO "SiteTrackedAmazonProductPriceHistory" (
       "id", "trackedProductId", "date", "price", "updateCount", "createdAt", "updatedAt"
     )
     VALUES (
-      ${randomUUID()}, ${params.trackedProductId}, ${params.date}, ${params.price}, 1, NOW(), NOW()
+      ${randomUUID()}, ${params.trackedProductId}, ${params.date}::timestamptz, ${params.price}::double precision, 1, NOW(), NOW()
     )
     ON CONFLICT ("trackedProductId", "date") DO UPDATE
     SET
