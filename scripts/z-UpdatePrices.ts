@@ -409,18 +409,12 @@ async function persistDynamicUpdate(
     prisma.dynamicProduct.update({
       where: { id: product.id },
       data: {
-        ...(result?.status === "OUT_OF_STOCK"
-            ? {
-                totalPrice: 0,
-                availabilityStatus: "OUT_OF_STOCK",
-                lastAvailabilityCheckedAt: new Date(),
-              }
-            : result?.status === "EXCLUDED"
-            ? {
-                totalPrice: 0,
-                lastAvailabilityCheckedAt: new Date(),
-              }
-            : {}),
+        // Qualquer falha individual deixa o produto fora do catalogo ate uma
+        // nova consulta valida. Falhas de lote nao chegam aqui: o lote e
+        // preservado e os demais continuam sendo processados.
+        totalPrice: 0,
+        availabilityStatus: "OUT_OF_STOCK",
+        lastAvailabilityCheckedAt: new Date(),
         attributes: nextAttributes as Prisma.InputJsonValue,
       },
     })

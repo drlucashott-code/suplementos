@@ -156,7 +156,10 @@ const TIER_MAX_AGES: Record<RefreshTier, number> = {
 };
 
 const FIRST_FAILURE_RETRY_MS = 1 * HOUR_MS;
-const MAX_FAILURE_RETRY_MS = 3 * DAY_MS;
+// Produtos que falham individualmente deixam de aparecer no catalogo, mas
+// continuam sendo sondados para detectar uma recuperacao. O limite de 7 dias
+// reduz consultas repetitivas sem abandonar permanentemente o produto.
+const MAX_FAILURE_RETRY_MS = 7 * DAY_MS;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));

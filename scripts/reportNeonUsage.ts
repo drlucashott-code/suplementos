@@ -147,7 +147,7 @@ async function collectReport(): Promise<NeonReport> {
          COUNT(*) FILTER (WHERE "lastSuccessfulRefreshAt" IS NULL)::int AS "neverSuccessful",
          COUNT(*) FILTER (WHERE "refreshFailCount" > 0)::int AS failures,
          COUNT(*) FILTER (WHERE "refreshFailCount" >= 4)::int AS "repeatedFailures",
-         COUNT(*) FILTER (WHERE COALESCE("lastSuccessfulRefreshAt", "createdAt") < NOW() - INTERVAL '72 hours')::int AS "staleOver72h"
+         COUNT(*) FILTER (WHERE COALESCE("lastSuccessfulRefreshAt", "createdAt") < NOW() - INTERVAL '7 days')::int AS "staleOver7d"
        FROM "DynamicProduct"`
     );
 
@@ -229,7 +229,7 @@ function printHuman(report: NeonReport) {
     `Histórico 24h: ${history.dynamicCreated} pontos criados, ${history.dynamicTouched} pontos tocados, ${history.dynamicProducts} produtos`
   );
   console.log(
-    `Scheduler: ${scheduler.total} produtos, ${scheduler.due} vencidos, ${scheduler.repeatedFailures} com falhas repetidas, ${scheduler.staleOver72h} >72h sem sucesso`
+    `Scheduler: ${scheduler.total} produtos, ${scheduler.due} vencidos, ${scheduler.repeatedFailures} com falhas repetidas, ${scheduler.staleOver7d} >7d sem sucesso`
   );
   console.log(`Notificações 30d: ${notificationsValue(report.notifications)}`);
   console.log("Maiores tabelas:");
@@ -258,7 +258,7 @@ function buildComparison(current: NeonReport, previous: NeonSnapshot) {
     ["history24h.dynamicTouched", field(current.history24h, "dynamicTouched"), field(previous.history24h, "dynamicTouched")],
     ["scheduler.due", field(current.scheduler, "due"), field(previous.scheduler, "due")],
     ["scheduler.repeatedFailures", field(current.scheduler, "repeatedFailures"), field(previous.scheduler, "repeatedFailures")],
-    ["scheduler.staleOver72h", field(current.scheduler, "staleOver72h"), field(previous.scheduler, "staleOver72h")],
+    ["scheduler.staleOver7d", field(current.scheduler, "staleOver7d"), field(previous.scheduler, "staleOver7d")],
   ];
 
   return metrics.map(([metric, currentValue, previousValue]) => {
