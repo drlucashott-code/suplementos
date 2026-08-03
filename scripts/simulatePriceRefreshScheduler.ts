@@ -33,6 +33,11 @@ type SimulationMetrics = {
   relativeEfficiency: number;
 };
 
+type IntervalRule = {
+  name: string;
+  intervalDays: (risk: number) => number;
+};
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HISTORY_DAYS = 135;
 const TRAIN_DAYS = 90;
@@ -314,6 +319,85 @@ function simulatePolicy(params: {
     }
   }
   return { queries, detections, meanDelayDays: detections === 0 ? null : totalDelay / detections };
+}
+
+function simulateIntervalRule(params: {
+  rule: IntervalRule;
+  rowsByDay: Map<number, PriceRow[]>;
+  warmStates: Map<string, SchedulerState>;
+  risk: ReturnType<typeof makeRiskTable>;
+}) {
+  const states = new Map<string, SchedulerState>();
+  const nextDue = new Map<string, number>();
+  for (const [productId, warm] of params.warmStates) {
+    const state = cloneState(warm);
+    states.set(productId, state);
+    const { rate, recency } = rateAndRecency(state, (state.lastCheckedDay ?? 0) + 1);
+    nextDue.set(
+      productId,
+      (state.lastCheckedDay ?? 0) + params.rule.intervalDays(params.risk.score(rate, recency))
+    );
+  }
+  let queries = 0;
+  let detections = 0;
+  let totalDelay = 0;
+  for (const day of [...params.rowsByDay.keys()].sort((a, b) => a - b)) {
+    const rows = params.rowsByDay.get(day) ?? [];
+    for (const row of rows) {
+      const state = states.get(row.productId) ?? {
+        lastPrice: null,
+        lastCheckedDay: null,
+        lastChangeDay: null,
+        observations: [],
+        pendingChangeDay: null,
+      };
+      if (row.changedFromPrevious && state.pendingChangeDay === null) state.pendingChangeDay = day;
+      const due = state.lastPrice === null || (nextDue.get(row.productId) ?? day) <= day;
+      if (!due) {
+        states.set(row.productId, state);
+        continue;
+      }
+      queries += 1;
+      const detected =
+        state.lastPrice !== null &&
+        state.lastPrice !== row.price &&
+        state.pendingChangeDay !== null;
+      if (detected) {
+        detections += 1;
+        totalDelay += Math.max(0, day - (state.pendingChangeDay ?? day));
+      }
+      state.pendingChangeDay = null;
+      state.observations.push({ day, changed: detected });
+      if (detected) state.lastChangeDay = day;
+      state.lastPrice = row.price;
+      state.lastCheckedDay = day;
+      const { rate, recency } = rateAndRecency(state, day);
+      nextDue.set(row.productId, day + params.rule.intervalDays(params.risk.score(rate, recency)));
+      states.set(row.productId, state);
+    }
+  }
+  return { queries, detections, meanDelayDays: detections === 0 ? null : totalDelay / detections };
+}
+
+function clampInterval(value: number) {
+  return Math.max(1, Math.min(3, Math.round(value)));
+}
+
+function hazardInterval(risk: number, targetCumulativeRisk: number) {
+  if (risk <= 0) return 3;
+  const days = Math.log(1 - targetCumulativeRisk) / Math.log(1 - Math.min(1 - 1e-9, risk));
+  return clampInterval(days);
+}
+
+function hazardIntervalWithRounding(
+  risk: number,
+  targetCumulativeRisk: number,
+  rounding: "floor" | "round" | "ceil"
+) {
+  if (risk <= 0) return 3;
+  const continuousDays = Math.log(1 - targetCumulativeRisk) / Math.log(1 - Math.min(1 - 1e-9, risk));
+  const rounded = rounding === "floor" ? Math.floor(continuousDays) : rounding === "ceil" ? Math.ceil(continuousDays) : Math.round(continuousDays);
+  return Math.max(1, Math.min(3, rounded));
 }
 
 function fixedIntervalProductEfficiency(rows: PriceRow[], testStartDay: number, intervalDays: number) {
@@ -600,6 +684,59 @@ async function main() {
     });
     return { budgetShare, ...result, changesPerQuery: result.detections / Math.max(1, result.queries) };
   });
+  const intervalRules: IntervalRule[] = [
+    { name: "Linear", intervalDays: (risk) => clampInterval(3 - 2 * risk) },
+    { name: "Exponencial", intervalDays: (risk) => clampInterval(3 ** (1 - risk)) },
+    {
+      name: "Logaritmica (k=8)",
+      intervalDays: (risk) => clampInterval(1 + 2 * (1 - Math.log1p(8 * risk) / Math.log(9))),
+    },
+    ...[0.1, 0.2, 0.3, 0.4, 0.5].map((target) => ({
+      name: `Hazard q=${target.toFixed(1)}`,
+      intervalDays: (risk: number) => hazardInterval(risk, target),
+    })),
+    ...(["floor", "round", "ceil"] as const).map((rounding) => ({
+      name: `Hazard q=0.2 (${rounding})`,
+      intervalDays: (risk: number) => hazardIntervalWithRounding(risk, 0.2, rounding),
+    })),
+    ...[
+      [0.1, 0.25],
+      [0.15, 0.35],
+      [0.2, 0.45],
+      [0.25, 0.55],
+      [0.3, 0.65],
+    ].map(([low, high]) => ({
+      name: `Piecewise ${low.toFixed(2)}/${high.toFixed(2)}`,
+      intervalDays: (risk: number) => (risk >= high ? 1 : risk >= low ? 2 : 3),
+    })),
+  ];
+  const intervalResults = intervalRules.map((rule) => {
+    const result = simulateIntervalRule({ rule, rowsByDay, warmStates, risk });
+    return {
+      name: rule.name,
+      ...result,
+      queryShare: result.queries / Math.max(1, metrics[0].queries),
+      detectionRate: result.detections / Math.max(1, totalUnderlyingChanges),
+      changesPerQuery: result.detections / Math.max(1, result.queries),
+    };
+  });
+  const paretoIntervalResults = intervalResults.filter((candidate) =>
+    !intervalResults.some(
+      (other) =>
+        other !== candidate &&
+        other.queries <= candidate.queries &&
+        other.detections >= candidate.detections &&
+        (other.meanDelayDays ?? Number.POSITIVE_INFINITY) <=
+          (candidate.meanDelayDays ?? Number.POSITIVE_INFINITY) &&
+        (other.queries < candidate.queries || other.detections > candidate.detections || other.meanDelayDays !== candidate.meanDelayDays)
+    )
+  );
+  const balancedInterval = [...intervalResults].sort(
+    (left, right) =>
+      Math.abs(left.queryShare - 0.6) - Math.abs(right.queryShare - 0.6) ||
+      right.detectionRate - left.detectionRate ||
+      (left.meanDelayDays ?? Number.POSITIVE_INFINITY) - (right.meanDelayDays ?? Number.POSITIVE_INFINITY)
+  )[0];
 
   console.log(`\nSimulacao adicional do scheduler — ${new Date().toISOString()}`);
   console.log(`Serie minima nova: ${history.length.toLocaleString("pt-BR")} snapshots (preco/data apenas), ${clicks.length.toLocaleString("pt-BR")} cliques. Periodo de teste: ${dayKey(new Date(testStartDay * DAY_MS))} a ${dayKey(new Date(maxDay * DAY_MS))}.`);
@@ -618,6 +755,15 @@ async function main() {
   for (const [index, cluster] of clusterSummary.entries()) console.log(`- Grupo ${index + 1}: ${cluster.members.toLocaleString("pt-BR")} produtos, taxa=${formatPercent(cluster.rate)}, intervalo medio=${cluster.averageGap.toFixed(1)}d, magnitude media=${formatPercent(cluster.magnitude)}`);
   console.log("\nCurva de saturacao do risco (teto de 72h preservado):");
   for (const item of saturation) console.log(`- ${(item.budgetShare * 100).toFixed(0)}%: ${item.queries.toLocaleString("pt-BR")} consultas, ${item.detections.toLocaleString("pt-BR")} deteccoes, ${formatPercent(item.detections / Math.max(1, totalUnderlyingChanges))}, ${item.changesPerQuery.toFixed(4)} deteccoes/consulta`);
+  console.log("\nFuncoes risco -> intervalo (validacao diaria; 24h, 48h ou 72h):");
+  for (const item of intervalResults) {
+    console.log(`- ${item.name}: ${formatPercent(item.queryShare)} consultas, ${formatPercent(item.detectionRate)} deteccoes, atraso=${item.meanDelayDays?.toFixed(2) ?? "-"}d, eficiencia=${item.changesPerQuery.toFixed(4)}`);
+  }
+  console.log("\nFronteira de Pareto das funcoes de intervalo:");
+  for (const item of paretoIntervalResults) {
+    console.log(`- ${item.name}: ${formatPercent(item.queryShare)} consultas, ${formatPercent(item.detectionRate)} deteccoes, atraso=${item.meanDelayDays?.toFixed(2) ?? "-"}d`);
+  }
+  console.log(`Modo balanceado (mais proximo do joelho de 60%): ${balancedInterval.name} | ${formatPercent(balancedInterval.queryShare)} consultas | ${formatPercent(balancedInterval.detectionRate)} deteccoes | atraso ${balancedInterval.meanDelayDays?.toFixed(2) ?? "-"}d.`);
   console.log("\nLimite dos dados: snapshots diarios nao identificam a hora real de mudanca nem o resultado de segunda consulta no mesmo dia. Logo, 1–12h e orcamentos acima de uma consulta/produto/dia nao podem ser estimados sem telemetria de tentativas com timestamp.");
 }
 
