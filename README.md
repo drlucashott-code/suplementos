@@ -20,6 +20,18 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Relatório de uso do Neon
+
+O relatório é somente leitura e mede armazenamento, índices, execuções de atualização, histórico, scheduler, falhas e conexões:
+
+```bash
+npm run report:neon
+npm run report:neon -- --out=tmp/neon-usage-YYYY-MM-DD.json
+npm run report:neon -- --compare=tmp/neon-usage-anterior.json
+```
+
+Para automação, use `--json`. O snapshot salvo em `--out` pode ser usado como baseline antes de cada mudança e comparado depois de 24 horas ou 7 dias.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

@@ -103,6 +103,10 @@ type PriceHistoryButtonProps = {
   freshProduct?: boolean;
   createdAt?: string | Date | null;
   emptyMessage?: string;
+  /** Quando definido, renderiza um gatilho com rótulo (versão destacada para a PDP). */
+  triggerLabel?: string;
+  /** Classe custom para o gatilho destacado. */
+  triggerClassName?: string;
 };
 
 export function PriceHistoryButton({
@@ -111,6 +115,8 @@ export function PriceHistoryButton({
   freshProduct = false,
   createdAt,
   emptyMessage = "Sem histórico. Produto adicionado hoje ao banco de dados.",
+  triggerLabel,
+  triggerClassName,
 }: PriceHistoryButtonProps) {
   const [open, setOpen] = useState(false);
   const [range, setRange] = useState<SupportedRange>(30);
@@ -385,19 +391,39 @@ export function PriceHistoryButton({
   const deltaPercent = formatDeltaPercent(deltaFromAverage);
   return (
     <>
-      <button
-        type="button"
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          setOpen(true);
-        }}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-[#6B7280] transition hover:border-[#D1D5DB] hover:bg-[#FAFAFA] hover:text-[#374151]"
-        aria-label="Ver histórico de preço"
-        title="Ver histórico de preço"
-      >
-        <TrendingUp className="h-3 w-3" />
-      </button>
+      {triggerLabel ? (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setOpen(true);
+          }}
+          className={
+            triggerClassName ??
+            "inline-flex w-full items-center justify-center gap-2 rounded-[8px] border border-[#D5D9D9] bg-white px-3 py-2.5 text-[13px] font-bold text-[#0F1111] transition hover:border-[#AAB7B8] hover:bg-[#F7F8F8]"
+          }
+          aria-label={triggerLabel}
+          title={triggerLabel}
+        >
+          <TrendingUp className="h-4 w-4 text-[#007185]" />
+          {triggerLabel}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setOpen(true);
+          }}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-[#6B7280] transition hover:border-[#D1D5DB] hover:bg-[#FAFAFA] hover:text-[#374151]"
+          aria-label="Ver histórico de preço"
+          title="Ver histórico de preço"
+        >
+          <TrendingUp className="h-3 w-3" />
+        </button>
+      )}
 
       {open && typeof document !== "undefined" ? createPortal((
         <div

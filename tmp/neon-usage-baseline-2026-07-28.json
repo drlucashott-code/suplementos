@@ -1,0 +1,321 @@
+{
+  "generatedAt": "2026-07-28T14:31:54.350Z",
+  "database": {
+    "database": "neondb",
+    "serverTime": "2026-07-28T14:31:53.390Z"
+  },
+  "activity": {
+    "connections": 3,
+    "active": 1
+  },
+  "storage": [
+    {
+      "table": "DynamicPriceHistory",
+      "liveRows": "709005",
+      "deadRows": "1060",
+      "bytes": "193601536",
+      "size": "185 MB"
+    },
+    {
+      "table": "DynamicProduct",
+      "liveRows": "6854",
+      "deadRows": "400",
+      "bytes": "14385152",
+      "size": "14 MB"
+    },
+    {
+      "table": "OfferPriceHistory",
+      "liveRows": "55994",
+      "deadRows": "124",
+      "bytes": "12910592",
+      "size": "12 MB"
+    },
+    {
+      "table": "PriorityRefreshRun",
+      "liveRows": "14094",
+      "deadRows": "155",
+      "bytes": "8945664",
+      "size": "8736 kB"
+    },
+    {
+      "table": "DynamicDiscoveryRun",
+      "liveRows": "62",
+      "deadRows": "27",
+      "bytes": "8159232",
+      "size": "7968 kB"
+    },
+    {
+      "table": "DynamicCategoryAsinDecision",
+      "liveRows": "3619",
+      "deadRows": "0",
+      "bytes": "5365760",
+      "size": "5240 kB"
+    },
+    {
+      "table": "SiteTrackedAmazonProductPriceHistory",
+      "liveRows": "6935",
+      "deadRows": "31",
+      "bytes": "2301952",
+      "size": "2248 kB"
+    },
+    {
+      "table": "DynamicDiscoveryProductStatus",
+      "liveRows": "1501",
+      "deadRows": "174",
+      "bytes": "1515520",
+      "size": "1480 kB"
+    },
+    {
+      "table": "PriceRefreshBudgetWindow",
+      "liveRows": "2703",
+      "deadRows": "238",
+      "bytes": "1384448",
+      "size": "1352 kB"
+    },
+    {
+      "table": "DynamicProductClickEvent",
+      "liveRows": "2685",
+      "deadRows": "6",
+      "bytes": "1376256",
+      "size": "1344 kB"
+    },
+    {
+      "table": "Offer",
+      "liveRows": "940",
+      "deadRows": "0",
+      "bytes": "835584",
+      "size": "816 kB"
+    },
+    {
+      "table": "SiteUserNotification",
+      "liveRows": "503",
+      "deadRows": "105",
+      "bytes": "811008",
+      "size": "792 kB"
+    },
+    {
+      "table": "DynamicImportRun",
+      "liveRows": "65",
+      "deadRows": "14",
+      "bytes": "802816",
+      "size": "784 kB"
+    },
+    {
+      "table": "DynamicClickSession",
+      "liveRows": "912",
+      "deadRows": "103",
+      "bytes": "655360",
+      "size": "640 kB"
+    },
+    {
+      "table": "DynamicDiscoveryBrandStatus",
+      "liveRows": "463",
+      "deadRows": "87",
+      "bytes": "385024",
+      "size": "376 kB"
+    },
+    {
+      "table": "Product",
+      "liveRows": "941",
+      "deadRows": "106",
+      "bytes": "368640",
+      "size": "360 kB"
+    },
+    {
+      "table": "GlobalPriceRefreshRun",
+      "liveRows": "1082",
+      "deadRows": "35",
+      "bytes": "368640",
+      "size": "360 kB"
+    },
+    {
+      "table": "DynamicProductClickStats",
+      "liveRows": "792",
+      "deadRows": "58",
+      "bytes": "311296",
+      "size": "304 kB"
+    },
+    {
+      "table": "SiteUserListItem",
+      "liveRows": "102",
+      "deadRows": "68",
+      "bytes": "262144",
+      "size": "256 kB"
+    },
+    {
+      "table": "SiteUserMonitoredProduct",
+      "liveRows": "95",
+      "deadRows": "34",
+      "bytes": "237568",
+      "size": "232 kB"
+    }
+  ],
+  "indexes": [
+    {
+      "table": "DynamicPriceHistory",
+      "index": "DynamicPriceHistory_productId_date_key",
+      "bytes": "54968320",
+      "size": "52 MB"
+    },
+    {
+      "table": "DynamicPriceHistory",
+      "index": "DynamicPriceHistory_pkey",
+      "bytes": "44990464",
+      "size": "43 MB"
+    },
+    {
+      "table": "OfferPriceHistory",
+      "index": "OfferPriceHistory_offerId_createdAt_idx",
+      "bytes": "4358144",
+      "size": "4256 kB"
+    },
+    {
+      "table": "OfferPriceHistory",
+      "index": "OfferPriceHistory_pkey",
+      "bytes": "2826240",
+      "size": "2760 kB"
+    },
+    {
+      "table": "PriorityRefreshRun",
+      "index": "PriorityRefreshRun_pkey",
+      "bytes": "1187840",
+      "size": "1160 kB"
+    },
+    {
+      "table": "DynamicProduct",
+      "index": "DynamicProduct_categoryId_visibilityStatus_totalPrice_idx",
+      "bytes": "999424",
+      "size": "976 kB"
+    },
+    {
+      "table": "DynamicCategoryAsinDecision",
+      "index": "DynamicCategoryAsinDecision_categoryId_status_lastSeenAt_idx",
+      "bytes": "958464",
+      "size": "936 kB"
+    },
+    {
+      "table": "DynamicProduct",
+      "index": "DynamicProduct_pkey",
+      "bytes": "720896",
+      "size": "704 kB"
+    },
+    {
+      "table": "SiteTrackedAmazonProductPriceHistory",
+      "index": "SiteTrackedAmazonProductPriceHistory_trackedProductId_date_key",
+      "bytes": "647168",
+      "size": "632 kB"
+    },
+    {
+      "table": "DynamicCategoryAsinDecision",
+      "index": "DynamicCategoryAsinDecision_status_lastSeenAt_idx",
+      "bytes": "622592",
+      "size": "608 kB"
+    },
+    {
+      "table": "SiteTrackedAmazonProductPriceHistory",
+      "index": "SiteTrackedAmazonProductPriceHistory_pkey",
+      "bytes": "589824",
+      "size": "576 kB"
+    },
+    {
+      "table": "DynamicCategoryAsinDecision",
+      "index": "DynamicCategoryAsinDecision_categoryId_asin_key",
+      "bytes": "589824",
+      "size": "576 kB"
+    },
+    {
+      "table": "PriorityRefreshRun",
+      "index": "PriorityRefreshRun_startedAt_idx",
+      "bytes": "589824",
+      "size": "576 kB"
+    },
+    {
+      "table": "DynamicProduct",
+      "index": "DynamicProduct_categoryId_visibilityStatus_createdAt_idx",
+      "bytes": "483328",
+      "size": "472 kB"
+    },
+    {
+      "table": "DynamicProduct",
+      "index": "DynamicProduct_refreshTier_priorityScore_idx",
+      "bytes": "458752",
+      "size": "448 kB"
+    },
+    {
+      "table": "DynamicProduct",
+      "index": "DynamicProduct_asin_key",
+      "bytes": "442368",
+      "size": "432 kB"
+    },
+    {
+      "table": "DynamicCategoryAsinDecision",
+      "index": "DynamicCategoryAsinDecision_pkey",
+      "bytes": "368640",
+      "size": "360 kB"
+    },
+    {
+      "table": "DynamicProduct",
+      "index": "DynamicProduct_nextPriceRefreshAt_idx",
+      "bytes": "360448",
+      "size": "352 kB"
+    },
+    {
+      "table": "PriceRefreshBudgetWindow",
+      "index": "PriceRefreshBudgetWindow_scope_windowType_windowStart_idx",
+      "bytes": "286720",
+      "size": "280 kB"
+    },
+    {
+      "table": "DynamicDiscoveryProductStatus",
+      "index": "DynamicDiscoveryProductStatus_categoryId_status_relevanceSc_idx",
+      "bytes": "278528",
+      "size": "272 kB"
+    }
+  ],
+  "refresh24h": {
+    "runs": 10,
+    "offers": "10000",
+    "updated": "6925",
+    "failed": "28",
+    "outOfStock": "1957",
+    "avgDurationSeconds": "1523.4"
+  },
+  "priority24h": {
+    "runs": 3,
+    "messages": "3",
+    "asins": "3",
+    "updated": "3"
+  },
+  "history24h": {
+    "dynamicCreated": "6386",
+    "dynamicTouched": "6636",
+    "dynamicProducts": "4334",
+    "trackedTouched": "50"
+  },
+  "scheduler": {
+    "total": 6854,
+    "due": 134,
+    "outOfStock": 1407,
+    "neverSuccessful": 408,
+    "failures": 1471,
+    "repeatedFailures": 1383,
+    "staleOver72h": 1374
+  },
+  "notifications": {
+    "total": "300"
+  },
+  "extensions": [
+    {
+      "name": "hypopg",
+      "installedVersion": null
+    },
+    {
+      "name": "pg_stat_statements",
+      "installedVersion": null
+    }
+  ],
+  "statementStats": [],
+  "limitations": [
+    "pg_stat_statements não está instalado; ranking de queries indisponível."
+  ]
+}

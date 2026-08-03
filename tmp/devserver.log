@@ -1,0 +1,45 @@
+
+> suplementos@0.1.0 dev
+> next dev
+
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+   ▲ Next.js 16.0.10 (Turbopack)
+   - Local:         http://localhost:3137
+   - Network:       http://192.168.0.13:3137
+   - Environments: .env
+   - Experiments (use with caution):
+     · optimizePackageImports
+
+ ✓ Starting...
+ ✓ Ready in 1411ms
+ GET / 200 in 3.0s (compile: 2.6s, render: 389ms)
+C:\Users\lucas\suplementos\.next\dev\server\chunks\ssr\node_modules_bf4a654f._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+ ⨯ Error: Image with src "/home-premium/carousel/01-whey.webp" is missing "loader" prop.
+Read more: https://nextjs.org/docs/messages/next-image-missing-loader
+    at ignore-listed frames {
+  digest: '3926842887'
+}
+ GET / 200 in 432ms (compile: 4ms, render: 428ms)
+C:\Users\lucas\suplementos\.next\dev\server\chunks\ssr\node_modules_bf4a654f._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+ ⨯ Error: Image with src "https://m.media-amazon.com/images/I/51HrcWZ4mmL._SL500_.jpg" is missing "loader" prop.
+Read more: https://nextjs.org/docs/messages/next-image-missing-loader
+    at ignore-listed frames {
+  digest: '3869134745'
+}
+ GET /suplementos/barra 200 in 2.2s (compile: 1020ms, render: 1159ms)
+C:\Users\lucas\suplementos\.next\dev\server\chunks\ssr\node_modules_bf4a654f._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+ ⨯ Error: Image with src "https://m.media-amazon.com/images/I/51HrcWZ4mmL._SL500_.jpg" is missing "loader" prop.
+Read more: https://nextjs.org/docs/messages/next-image-missing-loader
+    at ignore-listed frames {
+  digest: '1086410009'
+}
+ GET /suplementos/barra 200 in 158ms (compile: 12ms, render: 146ms)
+C:\Users\lucas\suplementos\.next\dev\server\chunks\ssr\node_modules_bf4a654f._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+ ⨯ Error: Image with src "https://m.media-amazon.com/images/I/51HrcWZ4mmL._SL500_.jpg" is missing "loader" prop.
+Read more: https://nextjs.org/docs/messages/next-image-missing-loader
+    at ignore-listed frames {
+  digest: '1086410009'
+}
+ GET /suplementos/barra 200 in 159ms (compile: 3ms, render: 156ms)
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[?25h

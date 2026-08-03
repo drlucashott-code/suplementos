@@ -141,6 +141,7 @@ type PersistOutcome = "UPDATED" | "FAILED" | "OUT_OF_STOCK" | "EXCLUDED";
 type RunCounters = {
   totalOffers: number;
   updatedOffers: number;
+  priceHistoryChanged: number;
   failedOffers: number;
   maxConsecutiveFailedOffers: number;
   outOfStockOffers: number;
@@ -161,6 +162,7 @@ type DynamicProductLite = {
   lastRefreshAttemptAt: Date | null;
   lastPriceRefreshAt: Date | null;
   lastSuccessfulRefreshAt: Date | null;
+  priceStatsUpdatedAt: Date | null;
   nextPriceRefreshAt: Date | null;
   nextPriorityEnqueueAt: Date | null;
   refreshFailCount: number | null;
@@ -180,6 +182,7 @@ type DynamicProductLite = {
 type PersistDynamicUpdateResult = {
   logStatus: string;
   outcome: PersistOutcome;
+  priceHistoryChanged: boolean;
   shouldRefreshPriceStats: boolean;
 };
 
@@ -363,6 +366,9 @@ async function persistDynamicUpdate(
         price: result.price,
         })
     );
+    const shouldRefreshPriceStats =
+      priceHistoryWrote &&
+      (!product.priceStatsUpdatedAt || product.priceStatsUpdatedAt < today);
 
     if (hasMeaningfulChange) {
       const oldPrice = product.totalPrice > 0 ? product.totalPrice : null;
@@ -383,7 +389,8 @@ async function persistDynamicUpdate(
     return {
       logStatus: `OK R$ ${result.price.toFixed(2)}`,
       outcome: "UPDATED" as PersistOutcome,
-      shouldRefreshPriceStats: priceHistoryWrote,
+      priceHistoryChanged: priceHistoryWrote,
+      shouldRefreshPriceStats,
     };
   }
 
@@ -422,6 +429,7 @@ async function persistDynamicUpdate(
   return {
     logStatus,
     outcome,
+    priceHistoryChanged: false,
     shouldRefreshPriceStats: false,
   };
 }
@@ -457,8 +465,10 @@ async function refreshMonitoredProducts() {
         AND (
           tp."nextPriceRefreshAt" IS NULL
           OR tp."nextPriceRefreshAt" <= ${now}
-          OR tp."lastSuccessfulRefreshAt" IS NULL
-          OR tp."lastSuccessfulRefreshAt" <= ${now} - ${MANDATORY_REFRESH_INTERVAL_SQL}
+          OR (
+            tp."refreshFailCount" = 0
+            AND tp."lastSuccessfulRefreshAt" <= ${now} - ${MANDATORY_REFRESH_INTERVAL_SQL}
+          )
         )
       ORDER BY
         ${TRACKED_REFRESH_ORDER_BY_SQL}
@@ -673,10 +683,12 @@ async function updateAmazonPrices() {
     );
   }
 
+  const runStartedAt = Date.now();
   const runId = crypto.randomUUID();
   const counters: RunCounters = {
     totalOffers: 0,
     updatedOffers: 0,
+    priceHistoryChanged: 0,
     failedOffers: 0,
     maxConsecutiveFailedOffers: 0,
     outOfStockOffers: 0,
@@ -749,8 +761,16 @@ async function updateAmazonPrices() {
           OR: [
             { nextPriceRefreshAt: null },
             { nextPriceRefreshAt: { lte: now } },
-            { lastSuccessfulRefreshAt: null },
-            { lastSuccessfulRefreshAt: { lte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } },
+            {
+              AND: [
+                { refreshFailCount: 0 },
+                {
+                  lastSuccessfulRefreshAt: {
+                    lte: new Date(now.getTime() - 24 * 60 * 60 * 1000),
+                  },
+                },
+              ],
+            },
           ],
         },
       ],
@@ -770,6 +790,7 @@ async function updateAmazonPrices() {
       lastRefreshAttemptAt: true,
       lastPriceRefreshAt: true,
       lastSuccessfulRefreshAt: true,
+      priceStatsUpdatedAt: true,
       nextPriceRefreshAt: true,
       nextPriorityEnqueueAt: true,
       refreshFailCount: true,
@@ -901,7 +922,7 @@ async function updateAmazonPrices() {
         const asin = product.asin || "---";
         const result = apiResults[asin];
 
-        const { logStatus, outcome, shouldRefreshPriceStats } =
+        const { logStatus, outcome, priceHistoryChanged, shouldRefreshPriceStats } =
           await persistDynamicUpdate(product, result);
         await withDatabaseRetry(`dynamicProduct.scheduler:${product.id}`, async () =>
           applyDynamicRefreshOutcome({
@@ -914,6 +935,9 @@ async function updateAmazonPrices() {
           })
         );
         incrementCounters(counters, outcome);
+        if (priceHistoryChanged) {
+          counters.priceHistoryChanged += 1;
+        }
         if (shouldRefreshPriceStats) {
           statsRefreshProductIds.add(product.id);
         }
@@ -958,6 +982,15 @@ async function updateAmazonPrices() {
       status: "success",
       counters,
     });
+
+    console.log(
+      JSON.stringify({
+        event: "global_price_refresh_summary",
+        durationSeconds: Math.round((Date.now() - runStartedAt) / 1000),
+        ...counters,
+        statsRefreshProducts: statsRefreshProductIds.size,
+      })
+    );
 
     await withDatabaseRetry("reconcileDynamicFallbackState:success", async () =>
       reconcileDynamicFallbackState()

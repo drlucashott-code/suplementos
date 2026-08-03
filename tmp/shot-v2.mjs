@@ -1,0 +1,12 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ viewport:{width:1600,height:900}, deviceScaleFactor:2 });
+const pg = await ctx.newPage();
+await pg.goto("http://localhost:3000/suplementos/barra", { waitUntil:"networkidle", timeout:45000 }).catch(()=>{});
+await pg.waitForTimeout(1500);
+await pg.screenshot({ path:"C:/Users/lucas/suplementos/tmp/audit/v2-catalogo.png", fullPage:false });
+await pg.goto("http://localhost:3000/ofertas", { waitUntil:"networkidle", timeout:45000 }).catch(()=>{});
+await pg.waitForTimeout(1500);
+await pg.screenshot({ path:"C:/Users/lucas/suplementos/tmp/audit/v2-ofertas.png", fullPage:false });
+await browser.close();
+console.log("done");

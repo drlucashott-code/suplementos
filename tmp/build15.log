@@ -1,0 +1,166 @@
+
+> suplementos@0.1.0 build
+> prisma generate && next build
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+
+✔ Generated Prisma Client (v5.10.0) to .\node_modules\@prisma\client in 331ms
+
+Start using Prisma Client in Node.js (See: https://pris.ly/d/client)
+```
+import { PrismaClient } from '@prisma/client'
+const prisma = new PrismaClient()
+```
+or start using Prisma Client at the edge (See: https://pris.ly/d/accelerate)
+```
+import { PrismaClient } from '@prisma/client/edge'
+const prisma = new PrismaClient()
+```
+
+See other ways of importing Prisma Client: http://pris.ly/d/importing-client
+
+┌─────────────────────────────────────────────────────────────┐
+│  Deploying your app to serverless or edge functions?        │
+│  Try Prisma Accelerate for connection pooling and caching.  │
+│  https://pris.ly/cli/accelerate                             │
+└─────────────────────────────────────────────────────────────┘
+
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+   ▲ Next.js 16.0.10 (Turbopack)
+   - Environments: .env
+   - Experiments (use with caution):
+     · optimizePackageImports
+
+   Creating an optimized production build ...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+ ✓ Compiled successfully in 7.1s
+   Running TypeScript ...
+   Collecting page data using 11 workers ...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+   Generating static pages using 11 workers (0/54) ...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+   Generating static pages using 11 workers (13/54) 
+   Generating static pages using 11 workers (26/54) 
+   Generating static pages using 11 workers (40/54) 
+ ✓ Generating static pages using 11 workers (54/54) in 2.5s
+   Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ○ /_not-found
+├ ƒ /[category]
+├ ƒ /[category]/[slug]
+├ ○ /admin
+├ ƒ /admin/barra
+├ ƒ /admin/bebidaproteica
+├ ƒ /admin/cafe-funcional
+├ ƒ /admin/creatina
+├ ƒ /admin/dynamic
+├ ○ /admin/dynamic/categorias
+├ ƒ /admin/dynamic/cliques
+├ ƒ /admin/dynamic/comentarios
+├ ƒ /admin/dynamic/contas
+├ ƒ /admin/dynamic/contas/[id]
+├ ƒ /admin/dynamic/discovery
+├ ƒ /admin/dynamic/execucoes
+├ ƒ /admin/dynamic/expansoes
+├ ƒ /admin/dynamic/fallback
+├ ○ /admin/dynamic/importar
+├ ○ /admin/dynamic/nova-categoria
+├ ○ /admin/dynamic/novo-produto
+├ ƒ /admin/dynamic/pendencias
+├ ƒ /admin/dynamic/produtos
+├ ƒ /admin/dynamic/produtos/[id]
+├ ƒ /admin/dynamic/refresh-scheduler
+├ ƒ /admin/dynamic/rejeitados
+├ ƒ /admin/dynamic/reports
+├ ƒ /admin/dynamic/sugestoes
+├ ○ /admin/importar
+├ ƒ /admin/pre-treino
+├ ƒ /admin/whey
+├ ƒ /api/account/activity
+├ ƒ /api/account/favorites
+├ ƒ /api/account/lists
+├ ƒ /api/account/lists/[id]
+├ ƒ /api/account/lists/[id]/items
+├ ƒ /api/account/monitored-products
+├ ƒ /api/account/notification-preferences
+├ ƒ /api/account/notifications
+├ ƒ /api/account/notifications/[id]
+├ ƒ /api/account/profile
+├ ƒ /api/account/push-subscriptions
+├ ƒ /api/account/saved-lists
+├ ƒ /api/account/security
+├ ƒ /api/account/suggestions
+├ ƒ /api/account/tracked-products/reorder
+├ ƒ /api/auth/forgot-password
+├ ƒ /api/auth/google/callback
+├ ƒ /api/auth/google/start
+├ ƒ /api/auth/login
+├ ƒ /api/auth/logout
+├ ƒ /api/auth/register
+├ ƒ /api/auth/resend-verification
+├ ƒ /api/auth/reset-password
+├ ƒ /api/auth/session
+├ ƒ /api/auth/verify
+├ ƒ /api/click-session/close
+├ ƒ /api/cron/process-priority-refresh
+├ ƒ /api/cron/sync-max-priority
+├ ƒ /api/dynamic-catalog
+├ ƒ /api/internal/revalidate-dynamic-catalog
+├ ƒ /api/lists/[id]/comments
+├ ƒ /api/lists/comments/[commentId]
+├ ƒ /api/lists/comments/[commentId]/like
+├ ƒ /api/priority-refresh
+├ ƒ /api/product-issue-reports
+├ ƒ /api/product-reactions
+├ ƒ /api/products/[id]/comments
+├ ƒ /api/products/[id]/price-history
+├ ƒ /api/products/comments/[commentId]
+├ ƒ /api/products/comments/[commentId]/like
+├ ƒ /cadastro
+├ ○ /comparar-card
+├ ƒ /entrar
+├ ƒ /esqueci-senha
+├ ○ /home-backup
+├ ƒ /home-premium
+├ ○ /home-v2
+├ ○ /home-v3
+├ ○ /home-v4
+├ ○ /icon.png
+├ ƒ /listas
+├ ƒ /listas/[slug]
+├ ƒ /minha-conta
+├ ƒ /minha-conta/configuracoes
+├ ƒ /minha-conta/listas
+├ ƒ /notificacoes
+├ ƒ /ofertas
+├ ○ /opengraph-image.png
+├ ƒ /produto/[id]
+├ ƒ /redefinir-senha
+├ ○ /robots.txt
+├ ○ /salvos
+├ ○ /sitemap.xml
+├ ƒ /user/[username]
+├ ƒ /user/[username]/[slug]
+└ ƒ /verificar-email
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

@@ -155,6 +155,9 @@ const TIER_MAX_AGES: Record<RefreshTier, number> = {
   cold: 24 * HOUR_MS,
 };
 
+const FIRST_FAILURE_RETRY_MS = 1 * HOUR_MS;
+const MAX_FAILURE_RETRY_MS = 3 * DAY_MS;
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
@@ -273,13 +276,24 @@ export function computeNextRefreshAt(params: {
   refreshTier: RefreshTier;
   priceChangeFrequency: number;
   refreshFailCount: number;
+  maxFailureRetryMs?: number;
 }) {
   const now = params.now ?? new Date();
   const cooldown = TIER_COOLDOWNS[params.refreshTier];
 
+  if (params.refreshFailCount > 0) {
+    const retryExponent = Math.min(params.refreshFailCount - 1, 8);
+    const retryDelay = FIRST_FAILURE_RETRY_MS * 2 ** retryExponent;
+    const maxRetryDelay = Math.max(
+      FIRST_FAILURE_RETRY_MS,
+      Math.min(params.maxFailureRetryMs ?? MAX_FAILURE_RETRY_MS, MAX_FAILURE_RETRY_MS)
+    );
+
+    return new Date(now.getTime() + Math.min(retryDelay, maxRetryDelay));
+  }
+
   const volatilityReduction = cooldown * clamp(params.priceChangeFrequency, 0, 0.5);
-  const failurePenalty = params.refreshFailCount > 0 ? params.refreshFailCount * 10 * MINUTE_MS : 0;
-  const nextDelay = clamp(cooldown - volatilityReduction + failurePenalty, 5 * MINUTE_MS, 3 * DAY_MS);
+  const nextDelay = clamp(cooldown - volatilityReduction, 5 * MINUTE_MS, 3 * DAY_MS);
 
   return new Date(now.getTime() + nextDelay);
 }
@@ -302,6 +316,7 @@ export function resolveEffectiveNextPriceRefreshAt(params: {
   now?: Date;
   nextPriceRefreshAt?: Date | null;
   lastSuccessfulRefreshAt?: Date | null;
+  refreshFailCount?: number | null;
 }) {
   const mandatoryRefreshAt = computeMandatoryRefreshAt({
     now: params.now,
@@ -310,6 +325,13 @@ export function resolveEffectiveNextPriceRefreshAt(params: {
 
   if (!params.nextPriceRefreshAt) {
     return mandatoryRefreshAt;
+  }
+
+  // After a failed attempt, the retry schedule is authoritative. Otherwise
+  // the 24-hour freshness safeguard could make an old successful timestamp
+  // override the exponential backoff and immediately requeue the product.
+  if ((params.refreshFailCount ?? 0) > 0) {
+    return params.nextPriceRefreshAt;
   }
 
   return pickEarlierDate(params.nextPriceRefreshAt, mandatoryRefreshAt);
@@ -338,11 +360,14 @@ export function createSchedulerSnapshot(
     refreshTier,
     priceChangeFrequency,
     refreshFailCount,
+    maxFailureRetryMs:
+      options?.monitorCount && options.monitorCount > 0 ? 24 * HOUR_MS : undefined,
   });
   const nextPriceRefreshAt = resolveEffectiveNextPriceRefreshAt({
     now,
     nextPriceRefreshAt: input.nextPriceRefreshAt ?? computedNextPriceRefreshAt,
     lastSuccessfulRefreshAt: input.lastSuccessfulRefreshAt,
+    refreshFailCount,
   });
   const nextPriorityEnqueueAt =
     input.nextPriorityEnqueueAt ??
@@ -399,6 +424,8 @@ export function applyPrioritySignal(
     refreshTier,
     priceChangeFrequency: base.priceChangeFrequency,
     refreshFailCount: base.refreshFailCount,
+    maxFailureRetryMs:
+      options?.monitorCount && options.monitorCount > 0 ? 24 * HOUR_MS : undefined,
   });
   const earliestAllowedAt = getSignalEarliestEligibleAt({
     signal,
@@ -522,6 +549,8 @@ export function applyRefreshResult(
     refreshTier,
     priceChangeFrequency: nextFrequency,
     refreshFailCount,
+    maxFailureRetryMs:
+      options.monitorCount && options.monitorCount > 0 ? 24 * HOUR_MS : undefined,
   });
 
   return {
@@ -553,6 +582,7 @@ export function shouldAttemptEnqueue(params: {
   nextPriorityEnqueueAt?: Date | null;
   nextPriceRefreshAt?: Date | null;
   lastSuccessfulRefreshAt?: Date | null;
+  refreshFailCount?: number | null;
 }) {
   const now = params.now ?? new Date();
   if (params.refreshLockUntil && params.refreshLockUntil.getTime() > now.getTime()) return false;
@@ -561,6 +591,7 @@ export function shouldAttemptEnqueue(params: {
     now,
     nextPriceRefreshAt: params.nextPriceRefreshAt,
     lastSuccessfulRefreshAt: params.lastSuccessfulRefreshAt,
+    refreshFailCount: params.refreshFailCount,
   });
   if (effectiveNextPriceRefreshAt.getTime() > now.getTime()) return false;
   return true;
