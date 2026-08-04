@@ -7,6 +7,8 @@ import {
   shouldAttemptSignalEnqueue,
   type RefreshSignal,
 } from "@/lib/priceRefreshScheduler";
+import { requestSchedulerV2UrgentRefresh } from "@/lib/scheduler/schedulerV2";
+import { schedulerConfig } from "@/lib/scheduler/scheduler.config";
 
 type DynamicSchedulerRow = {
   id: string;
@@ -25,6 +27,7 @@ type DynamicSchedulerRow = {
   dataFreshnessScore: number | null;
   refreshLockUntil: Date | null;
   availabilityStatus: string | null;
+  schedulerVersion: string;
 };
 
 type TrackedSchedulerRow = DynamicSchedulerRow & { monitorCount: number | null };
@@ -194,13 +197,26 @@ export async function touchDynamicProductPriority(params: {
       p."priceChangeFrequency",
       p."dataFreshnessScore",
       p."refreshLockUntil",
-      p."availabilityStatus"
+      p."availabilityStatus",
+      p."schedulerVersion"
     FROM "DynamicProduct" p
     WHERE p."id" = ${params.productId}
     LIMIT 1
   `);
   const row = rows[0];
   if (!row) return null;
+
+  if (row.schedulerVersion === schedulerConfig.policyVersion) {
+    const asin =
+      params.signal === "click"
+        ? await requestSchedulerV2UrgentRefresh(params.productId)
+        : null;
+    return {
+      asin: row.asin,
+      shouldEnqueue: Boolean(asin),
+      enqueueNotBeforeAt: null,
+    };
+  }
 
   const now = new Date();
   const next = applyPrioritySignal(row, params.signal, { extraBoost: params.extraBoost });
