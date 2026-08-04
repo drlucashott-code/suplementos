@@ -475,6 +475,7 @@ export async function activateSchedulerV2Cohort(params?: { rolloutPercentage?: n
     Array<{
       id: string;
       nextPriceRefreshAt: Date | null;
+      refreshFailCount: number;
       validObservations: bigint;
       changes: bigint;
       firstObservationAt: Date | null;
@@ -483,6 +484,7 @@ export async function activateSchedulerV2Cohort(params?: { rolloutPercentage?: n
     SELECT
       p."id",
       p."nextPriceRefreshAt",
+      p."refreshFailCount",
       COUNT(h."id")::bigint AS "validObservations",
       COALESCE(SUM(GREATEST(h."updateCount" - 1, 0)), 0)::bigint AS "changes",
       MIN(h."date") AS "firstObservationAt"
@@ -491,7 +493,7 @@ export async function activateSchedulerV2Cohort(params?: { rolloutPercentage?: n
       ON h."productId" = p."id"
       AND h."date" >= ${windowStart}
     WHERE p."schedulerVersion" = 'legacy'
-    GROUP BY p."id", p."nextPriceRefreshAt"
+    GROUP BY p."id", p."nextPriceRefreshAt", p."refreshFailCount"
   `);
   const eligibleRows = rows.filter((row) =>
     isSchedulerV2RolloutEligible(row.id, rolloutPercentage)
@@ -516,9 +518,24 @@ export async function activateSchedulerV2Cohort(params?: { rolloutPercentage?: n
       schedulerBootstrapSawChange: changes > 0,
       schedulerFirstBaseObservationAt: row.firstObservationAt,
       basePriceChangeRate30d: changeRate30d,
-      refreshFailCount: 0,
+      refreshFailCount: row.refreshFailCount,
     };
-    const { policy, nextPriceRefreshAt } = makeDecision(state, now, changeRate30d);
+    const { policy, nextPriceRefreshAt: baseNextPriceRefreshAt } = makeDecision(
+      state,
+      now,
+      changeRate30d
+    );
+    // Produtos que já falhavam no scheduler anterior não devem ganhar uma
+    // tentativa base antecipada apenas por terem acabado de entrar no V2.
+    const nextPriceRefreshAt =
+      row.refreshFailCount > 0
+        ? computeFailureRetryAt({
+            completedAt: now,
+            failureCount: row.refreshFailCount,
+            firstRetryMinutes: schedulerConfig.failures.firstRetryMinutes,
+            maximumRetryMinutes: schedulerConfig.failures.maximumRetryMinutes,
+          })
+        : baseNextPriceRefreshAt;
 
     return {
       id: row.id,
