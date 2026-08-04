@@ -1,5 +1,2 @@
-import { redirect } from "next/navigation";
-
-export default function HomeBackupPage() {
-  redirect("/");
-}
+export { default } from "../home-premium/page";
+export const revalidate = 600;
