@@ -28,6 +28,7 @@ export type AmazonListing = {
 
 export type AmazonItem = {
   ASIN?: string;
+  ParentASIN?: string;
   DetailPageURL?: string;
   ItemInfo?: {
     Title?: {
@@ -116,9 +117,14 @@ type CreatorsSdkModule = {
       marketplace: string,
       opts: { searchItemsRequestContent: Record<string, unknown> }
     ) => Promise<{ searchResult?: { items?: unknown[] }; errors?: unknown[] }>;
+    getVariations: (
+      marketplace: string,
+      request: Record<string, unknown>
+    ) => Promise<{ variationsResult?: { items?: unknown[] }; errors?: unknown[] }>;
   };
   GetItemsRequestContent: new () => Record<string, unknown>;
   SearchItemsRequestContent: new () => Record<string, unknown>;
+  GetVariationsRequestContent: new () => Record<string, unknown>;
 };
 
 type CreatorsDebugSnapshot = {
@@ -144,6 +150,14 @@ export function setCreatorsDebugEnabled(value: boolean) {
 type GetAmazonItemsInput = {
   itemIds: string[];
   resources: string[];
+  marketplace?: string;
+};
+
+export type GetAmazonVariationsInput = {
+  asin: string;
+  resources: string[];
+  variationPage: number;
+  variationCount?: number;
   marketplace?: string;
 };
 
@@ -219,7 +233,8 @@ function isCreatorsSdkModule(value: Partial<CreatorsSdkModule> | null | undefine
       value.ApiClient &&
       value.DefaultApi &&
       value.GetItemsRequestContent &&
-      value.SearchItemsRequestContent
+      value.SearchItemsRequestContent &&
+      value.GetVariationsRequestContent
   );
 }
 
@@ -410,7 +425,8 @@ function loadCreatorsSdk(): CreatorsSdkModule {
         loaded.ApiClient &&
         loaded.DefaultApi &&
         loaded.GetItemsRequestContent &&
-        loaded.SearchItemsRequestContent
+        loaded.SearchItemsRequestContent &&
+        loaded.GetVariationsRequestContent
       ) {
         creatorsSdkCache = loaded as CreatorsSdkModule;
         return creatorsSdkCache;
@@ -541,6 +557,7 @@ function normalizeCreatorsItem(item: any): AmazonItem {
 
   return {
     ASIN: typeof item?.asin === "string" ? item.asin : undefined,
+    ParentASIN: typeof item?.parentASIN === "string" ? item.parentASIN : undefined,
     DetailPageURL:
       typeof item?.detailPageURL === "string" ? item.detailPageURL : undefined,
     ItemInfo: {
@@ -1151,6 +1168,39 @@ async function getItemsViaCreators(input: GetAmazonItemsInput): Promise<AmazonIt
 
 export async function getAmazonItemsViaCreators(input: GetAmazonItemsInput): Promise<AmazonItem[]> {
   return getItemsViaCreators(input);
+}
+
+// A expansão de famílias precisa da Creators API porque a PA-API legada pode
+// estar indisponível mesmo quando o provedor oficial de preços está ativo.
+// Não há fallback para PA-API: um 403 não deve parecer "sem variações".
+export async function getAmazonVariationsViaCreators(
+  input: GetAmazonVariationsInput
+): Promise<AmazonItem[]> {
+  const { sdk, api } = buildCreatorsApi();
+  const request = new sdk.GetVariationsRequestContent();
+  request.partnerTag = AMAZON_PARTNER_TAG;
+  request.asin = input.asin;
+  request.resources = normalizeCreatorsResources(input.resources);
+  request.variationPage = input.variationPage;
+  request.variationCount = input.variationCount ?? 10;
+
+  const response = await api.getVariations(normalizeMarketplace(input.marketplace), request);
+  const items = Array.isArray(response?.variationsResult?.items)
+    ? response.variationsResult.items
+    : [];
+  const errors = Array.isArray(response?.errors) ? response.errors : [];
+  const onlyNoResults =
+    errors.length > 0 &&
+    errors.every(
+      (error) =>
+        error && typeof error === "object" && "code" in error && error.code === "NoResults"
+    );
+
+  if (items.length === 0 && errors.length > 0 && !onlyNoResults) {
+    throw new Error(extractCreatorsErrorMessage(errors));
+  }
+
+  return items.map(normalizeCreatorsItem);
 }
 
 async function searchItemsViaCreators(

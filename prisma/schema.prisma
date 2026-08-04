@@ -142,6 +142,7 @@ model DynamicCategory {
   discoveryBrands DynamicDiscoveryBrandStatus[]
   discoveryProducts DynamicDiscoveryProductStatus[]
   discoveryRuns DynamicDiscoveryRun[]
+  expansionRuns DynamicCategoryExpansionRun[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
@@ -244,6 +245,30 @@ model DynamicCategoryAsinDecision {
   @@index([categoryId, status, lastSeenAt(sort: Desc)])
   @@index([asin])
   @@index([status, lastSeenAt(sort: Desc)])
+}
+
+// Auditoria compacta de cada varredura de famílias. Guarda somente os totais
+// e amostras dos erros, para permitir diagnóstico sem transformar a expansão
+// em uma tabela de eventos por ASIN.
+model DynamicCategoryExpansionRun {
+  id                String          @id @default(cuid())
+  categoryId        String
+  category          DynamicCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  status            String
+  totalBaseAsins    Int             @default(0)
+  processedFamilies Int             @default(0)
+  discoveredItems   Int             @default(0)
+  missingAsins      Int             @default(0)
+  failedBases       Int             @default(0)
+  noResultsBases    Int             @default(0)
+  errorSummary      Json?
+  startedAt         DateTime        @default(now())
+  finishedAt        DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([categoryId, startedAt(sort: Desc)])
+  @@index([status, startedAt(sort: Desc)])
 }
 
 model DynamicDiscoveryCategoryConfig {

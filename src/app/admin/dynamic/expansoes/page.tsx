@@ -9,6 +9,20 @@ type SearchParams = Promise<{
   notice?: string;
 }>;
 
+type ExpansionRun = {
+  id: string;
+  status: string;
+  totalBaseAsins: number;
+  processedFamilies: number;
+  discoveredItems: number;
+  missingAsins: number;
+  failedBases: number;
+  noResultsBases: number;
+  errorSummary: unknown;
+  startedAt: Date;
+  finishedAt: Date | null;
+};
+
 function safeDecode(value: string) {
   try {
     return decodeURIComponent(value);
@@ -40,6 +54,7 @@ export default async function AdminDynamicExpansionPage({
         selectedCategory={null}
         baseProductCount={0}
         decisions={[]}
+        expansionRuns={[]}
       />
     );
   }
@@ -73,6 +88,24 @@ export default async function AdminDynamicExpansionPage({
       createdAt: true,
     },
   });
+  const expansionRuns = await prisma.dynamicCategoryExpansionRun.findMany({
+    where: { categoryId: selectedCategoryId },
+    orderBy: { startedAt: "desc" },
+    take: 5,
+    select: {
+      id: true,
+      status: true,
+      totalBaseAsins: true,
+      processedFamilies: true,
+      discoveredItems: true,
+      missingAsins: true,
+      failedBases: true,
+      noResultsBases: true,
+      errorSummary: true,
+      startedAt: true,
+      finishedAt: true,
+    },
+  });
 
   return (
     <ExpansionWorkbenchClient
@@ -81,6 +114,11 @@ export default async function AdminDynamicExpansionPage({
       notice={notice}
       selectedCategory={selectedCategory}
       baseProductCount={baseProductCount}
+      expansionRuns={expansionRuns.map((run: ExpansionRun) => ({
+        ...run,
+        startedAt: run.startedAt.toISOString(),
+        finishedAt: run.finishedAt?.toISOString() ?? null,
+      }))}
       decisions={decisions.map((decision) => ({
         id: decision.id,
         asin: decision.asin,

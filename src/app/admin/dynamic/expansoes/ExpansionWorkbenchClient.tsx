@@ -36,6 +36,20 @@ type ExpansionDecisionRow = {
   createdAt: string;
 };
 
+type ExpansionRunRow = {
+  id: string;
+  status: string;
+  totalBaseAsins: number;
+  processedFamilies: number;
+  discoveredItems: number;
+  missingAsins: number;
+  failedBases: number;
+  noResultsBases: number;
+  errorSummary: unknown;
+  startedAt: string;
+  finishedAt: string | null;
+};
+
 type ExpansionWorkbenchProps = {
   categories: CategoryOption[];
   selectedCategoryId: string;
@@ -43,6 +57,7 @@ type ExpansionWorkbenchProps = {
   selectedCategory: CategoryOption | null;
   baseProductCount: number;
   decisions: ExpansionDecisionRow[];
+  expansionRuns: ExpansionRunRow[];
 };
 
 function formatDate(value: string | null | undefined) {
@@ -67,6 +82,23 @@ function formatMoney(value: number | null | undefined) {
 
 function amazonUrl(asin: string) {
   return `https://www.amazon.com.br/dp/${asin}`;
+}
+
+function formatRunDuration(startedAt: string, finishedAt: string | null) {
+  if (!finishedAt) return "em andamento";
+  const durationSeconds = Math.max(
+    0,
+    Math.round((new Date(finishedAt).getTime() - new Date(startedAt).getTime()) / 1000)
+  );
+  if (durationSeconds < 60) return `${durationSeconds}s`;
+  return `${Math.floor(durationSeconds / 60)}min ${durationSeconds % 60}s`;
+}
+
+function getErrorSummaryLabel(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return Object.entries(value as Record<string, { count?: unknown }>)
+    .map(([code, details]) => `${code}: ${typeof details?.count === "number" ? details.count : 0}`)
+    .join(" · ");
 }
 
 function PendingSubmitButton({
@@ -289,6 +321,7 @@ export default function ExpansionWorkbenchClient({
   selectedCategory,
   baseProductCount,
   decisions,
+  expansionRuns,
 }: ExpansionWorkbenchProps) {
   const router = useRouter();
 
@@ -426,6 +459,75 @@ export default function ExpansionWorkbenchClient({
             <span>{pendingRows.length} ASINs encontrados</span>
           </div>
         </div>
+
+        {selectedCategoryId ? (
+          <section className="mb-6 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <div className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">
+                Auditoria da expansao
+              </div>
+              <p className="mt-1 text-sm font-medium text-gray-500">
+                Ultimas varreduras: resultados, duracao e causas reais de falha.
+              </p>
+            </div>
+            {expansionRuns.length === 0 ? (
+              <p className="px-5 py-6 text-sm font-semibold text-gray-400">
+                As proximas varreduras aparecerao aqui.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-[850px] w-full text-left text-sm">
+                  <thead className="bg-gray-50 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">
+                    <tr>
+                      <th className="px-5 py-3">Quando</th>
+                      <th className="px-5 py-3">Resultado</th>
+                      <th className="px-5 py-3">Cobertura</th>
+                      <th className="px-5 py-3">Descoberta</th>
+                      <th className="px-5 py-3">Falhas</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {expansionRuns.map((run) => {
+                      const errorSummary = getErrorSummaryLabel(run.errorSummary);
+                      return (
+                        <tr key={run.id}>
+                          <td className="px-5 py-4 font-medium text-gray-600">
+                            <div>{formatDate(run.startedAt)}</div>
+                            <div className="mt-1 text-xs text-gray-400">
+                              {formatRunDuration(run.startedAt, run.finishedAt)}
+                            </div>
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-widest ${run.status === "completed" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+                              {run.status === "completed" ? "Concluida" : run.status}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 font-semibold text-gray-700">
+                            {run.processedFamilies}/{run.totalBaseAsins} familias
+                            <div className="mt-1 text-xs font-medium text-gray-400">
+                              {run.noResultsBases} sem variacoes
+                            </div>
+                          </td>
+                          <td className="px-5 py-4 font-semibold text-gray-700">
+                            {run.discoveredItems} API · {run.missingAsins} novos
+                          </td>
+                          <td className="px-5 py-4 font-semibold text-gray-700">
+                            {run.failedBases === 0 ? "Nenhuma" : `${run.failedBases} ASINs`}
+                            {errorSummary ? (
+                              <div className="mt-1 max-w-72 text-xs font-medium leading-5 text-rose-600">
+                                {errorSummary}
+                              </div>
+                            ) : null}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        ) : null}
 
         {!selectedCategoryId ? (
           <div className="rounded-[2rem] border border-dashed border-gray-200 bg-white px-6 py-10 text-center shadow-sm">

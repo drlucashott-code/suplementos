@@ -1,78 +1,21 @@
 "use server";
 
-import paapi from "amazon-paapi";
+import {
+  getAmazonItemPrice,
+  getAmazonVariationsViaCreators,
+  type AmazonItem,
+} from "@/lib/amazonApiClient";
 import { enrichDynamicAttributesForCategory } from "@/lib/dynamicCategoryMetrics";
 import { getDynamicVisibilityBoolean } from "@/lib/dynamicVisibility";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-const AMAZON_ACCESS_KEY = process.env.AMAZON_ACCESS_KEY ?? "";
-const AMAZON_SECRET_KEY = process.env.AMAZON_SECRET_KEY ?? "";
 const AMAZON_PARTNER_TAG = process.env.AMAZON_PARTNER_TAG ?? "";
-
-const PAAPI_COMMON = {
-  AccessKey: AMAZON_ACCESS_KEY,
-  SecretKey: AMAZON_SECRET_KEY,
-  PartnerTag: AMAZON_PARTNER_TAG,
-  PartnerType: "Associates",
-  Marketplace: "www.amazon.com.br",
-} as const;
+const MAX_VARIATION_PAGES = 10;
+const VARIATION_PAGE_SIZE = 10;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-type PaapiError = {
-  Code?: string;
-  Message?: string;
-};
-
-type PaapiItem = {
-  ASIN?: string;
-  ParentASIN?: string;
-  ItemInfo?: {
-    Title?: {
-      DisplayValue?: string;
-    };
-    ByLineInfo?: {
-      Brand?: {
-        DisplayValue?: string;
-      };
-    };
-  };
-  Images?: {
-    Primary?: {
-      Large?: {
-        URL?: string;
-      };
-    };
-  };
-  Offers?: {
-    Listings?: Array<{
-      IsBuyBoxWinner?: boolean;
-      Price?: {
-        Amount?: number;
-        DisplayAmount?: string;
-        Money?: {
-          Amount?: number;
-          DisplayAmount?: string;
-        };
-      };
-    }>;
-  };
-  OffersV2?: {
-    Listings?: Array<{
-      IsBuyBoxWinner?: boolean;
-      Price?: {
-        Amount?: number;
-        DisplayAmount?: string;
-        Money?: {
-          Amount?: number;
-          DisplayAmount?: string;
-        };
-      };
-    }>;
-  };
-};
 
 type DynamicProductSnapshot = {
   name: string;
@@ -120,14 +63,6 @@ async function getCategoryContext(categoryId: string) {
   });
 }
 
-function getErrorCode(error: unknown) {
-  const maybe = error as { Errors?: PaapiError[] };
-  if (Array.isArray(maybe?.Errors) && maybe.Errors[0]?.Code) {
-    return maybe.Errors[0].Code;
-  }
-  return "";
-}
-
 function toPlainObject(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -136,46 +71,31 @@ function toPlainObject(value: unknown): Record<string, unknown> {
   return { ...(value as Record<string, unknown>) };
 }
 
-function getPaapiListingAmount(listing?: {
-  Price?: {
-    Amount?: number;
-    Money?: { Amount?: number };
+function getExpansionErrorDetails(error: unknown) {
+  const fallback = "unknown_error";
+  if (!error || typeof error !== "object") {
+    return { code: fallback, message: String(error) };
+  }
+
+  const candidate = error as {
+    code?: unknown;
+    message?: unknown;
+    body?: { reason?: unknown; type?: unknown; message?: unknown };
   };
-} | null): number {
-  const moneyAmount = listing?.Price?.Money?.Amount;
-  if (typeof moneyAmount === "number" && Number.isFinite(moneyAmount)) {
-    return moneyAmount;
-  }
+  const code =
+    (typeof candidate.body?.reason === "string" && candidate.body.reason) ||
+    (typeof candidate.body?.type === "string" && candidate.body.type) ||
+    (typeof candidate.code === "string" && candidate.code) ||
+    fallback;
+  const message =
+    (typeof candidate.body?.message === "string" && candidate.body.message) ||
+    (typeof candidate.message === "string" && candidate.message) ||
+    "Erro sem detalhes retornados pela Amazon.";
 
-  const amount = listing?.Price?.Amount;
-  if (typeof amount === "number" && Number.isFinite(amount)) {
-    return amount > 1000 ? amount / 100 : amount;
-  }
-
-  return 0;
+  return { code, message };
 }
 
-function getPaapiItemPrice(item: PaapiItem): number | null {
-  const listingsV2 = item.OffersV2?.Listings;
-  if (Array.isArray(listingsV2) && listingsV2.length > 0) {
-    const buyBoxListing = listingsV2.find((listing) => listing?.IsBuyBoxWinner);
-    const candidate = buyBoxListing ?? listingsV2[0];
-    const price = getPaapiListingAmount(candidate);
-    if (price > 0) return price;
-  }
-
-  const listings = item.Offers?.Listings;
-  if (Array.isArray(listings) && listings.length > 0) {
-    const buyBoxListing = listings.find((listing) => listing?.IsBuyBoxWinner);
-    const candidate = buyBoxListing ?? listings[0];
-    const price = getPaapiListingAmount(candidate);
-    if (price > 0) return price;
-  }
-
-  return null;
-}
-
-async function withPaapiRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
+async function withCreatorsRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
   let attempt = 0;
   let lastError: unknown;
   while (attempt < retries) {
@@ -183,8 +103,13 @@ async function withPaapiRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> 
       return await fn();
     } catch (error) {
       lastError = error;
-      const code = getErrorCode(error);
-      const shouldRetry = code === "TooManyRequests" || code === "RequestThrottled";
+      const { code, message } = getExpansionErrorDetails(error);
+      const retryText = `${code} ${message}`.toLowerCase();
+      const shouldRetry =
+        retryText.includes("toomanyrequests") ||
+        retryText.includes("requestthrottled") ||
+        retryText.includes("serviceunavailable") ||
+        retryText.includes("internalfailure");
       attempt += 1;
       if (!shouldRetry || attempt >= retries) {
         break;
@@ -195,61 +120,30 @@ async function withPaapiRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> 
   throw lastError;
 }
 
-async function resolveParentAsin(baseAsin: string) {
-  const lookup = await withPaapiRetry(async () =>
-    paapi.GetItems(PAAPI_COMMON, {
-      ItemIds: [baseAsin],
-      Resources: [
-        "ParentASIN",
-        "ItemInfo.Title",
-        "ItemInfo.ByLineInfo",
-        "Images.Primary.Large",
-        "Offers.Listings.Price",
-        "OffersV2.Listings.Price",
-      ],
-    })
-  );
-
-  const items = ((lookup as { ItemsResult?: { Items?: PaapiItem[] } })?.ItemsResult?.Items ??
-    []) as PaapiItem[];
-  const baseItem = items[0];
-  if (!baseItem?.ASIN) {
-    return null;
-  }
-
-  return {
-    parentAsin: baseItem.ParentASIN || baseAsin,
-    baseItem,
-  };
-}
-
-async function fetchFamilyItems(parentAsin: string) {
-  const collected = new Map<string, PaapiItem>();
+async function fetchFamilyItems(asin: string) {
+  const collected = new Map<string, AmazonItem>();
   let page = 1;
   let hasMore = true;
 
-  while (hasMore && page <= 10) {
+  while (hasMore && page <= MAX_VARIATION_PAGES) {
     if (page > 1) {
       await delay(900);
     }
 
-    const response = await withPaapiRetry(async () =>
-      paapi.GetVariations(PAAPI_COMMON, {
-        ASIN: parentAsin,
-        Resources: [
+    const items = await withCreatorsRetry(() =>
+      getAmazonVariationsViaCreators({
+        asin,
+        resources: [
+          "ParentASIN",
           "ItemInfo.Title",
           "ItemInfo.ByLineInfo",
           "Images.Primary.Large",
-          "Offers.Listings.Price",
           "OffersV2.Listings.Price",
         ],
-        VariationPage: page,
+        variationPage: page,
+        variationCount: VARIATION_PAGE_SIZE,
       })
     );
-
-    const items =
-      ((response as { VariationsResult?: { Items?: PaapiItem[] } })?.VariationsResult?.Items ??
-        []) as PaapiItem[];
 
     if (items.length === 0) {
       break;
@@ -261,7 +155,7 @@ async function fetchFamilyItems(parentAsin: string) {
       }
     }
 
-    hasMore = items.length === 10;
+    hasMore = items.length === VARIATION_PAGE_SIZE;
     page += 1;
   }
 
@@ -269,10 +163,29 @@ async function fetchFamilyItems(parentAsin: string) {
 }
 
 type DiscoveredCandidate = {
-  item: PaapiItem;
+  item: AmazonItem;
   sourceAsin: string;
   observedPrice: number | null;
 };
+
+type ExpansionErrorSummary = Record<
+  string,
+  { count: number; sampleAsins: string[]; message: string }
+>;
+
+function recordExpansionError(
+  summary: ExpansionErrorSummary,
+  asin: string,
+  error: unknown
+) {
+  const { code, message } = getExpansionErrorDetails(error);
+  const entry = summary[code] ?? { count: 0, sampleAsins: [], message };
+  entry.count += 1;
+  if (entry.sampleAsins.length < 10) {
+    entry.sampleAsins.push(asin);
+  }
+  summary[code] = entry;
+}
 
 async function getSourceProductSnapshot(sourceAsin: string) {
   return prisma.dynamicProduct.findUnique({
@@ -390,7 +303,7 @@ export async function scanCategoryExpansionGaps(formData: FormData) {
     );
   }
 
-  if (!AMAZON_ACCESS_KEY || !AMAZON_SECRET_KEY || !AMAZON_PARTNER_TAG) {
+  if (!AMAZON_PARTNER_TAG) {
     redirect(
       buildRedirectUrl({
         categoryId,
@@ -418,14 +331,20 @@ export async function scanCategoryExpansionGaps(formData: FormData) {
     },
   });
 
-  const productsInCatalog = await prisma.dynamicProduct.findMany({
-    select: {
-      asin: true,
+  const baseAsins = Array.from(new Set(products.map((item) => item.asin).filter(Boolean)));
+  const expansionRun = await prisma.dynamicCategoryExpansionRun.create({
+    data: {
+      categoryId,
+      status: "running",
+      totalBaseAsins: baseAsins.length,
     },
   });
 
-  const baseAsins = Array.from(new Set(products.map((item) => item.asin).filter(Boolean)));
   if (baseAsins.length === 0) {
+    await prisma.dynamicCategoryExpansionRun.update({
+      where: { id: expansionRun.id },
+      data: { status: "completed", finishedAt: new Date() },
+    });
     redirect(
       buildRedirectUrl({
         categoryId,
@@ -435,53 +354,60 @@ export async function scanCategoryExpansionGaps(formData: FormData) {
     );
   }
 
-  const existingAsinsInCatalogSet = new Set(
-    productsInCatalog.map((item) => item.asin).filter(Boolean)
-  );
-  const processedParents = new Set<string>();
+  const processedFamilyMembers = new Set<string>();
   const discoveredCandidates = new Map<string, DiscoveredCandidate>();
   const failedBases: string[] = [];
+  const errorSummary: ExpansionErrorSummary = {};
+  let processedFamilies = 0;
+  let noResultsBases = 0;
 
   for (const baseAsin of baseAsins) {
+    if (processedFamilyMembers.has(baseAsin)) {
+      continue;
+    }
+
     try {
-      const parentResult = await resolveParentAsin(baseAsin);
-      if (!parentResult) {
-        failedBases.push(baseAsin);
-        continue;
-      }
-
-      const parentAsin = parentResult.parentAsin;
-      if (processedParents.has(parentAsin)) {
-        continue;
-      }
-
-      const familyItems = await fetchFamilyItems(parentAsin);
+      // GetVariations aceita ASIN filho ou pai. Os filhos retornados são
+      // marcados para não consultar a mesma família novamente.
+      const familyItems = await fetchFamilyItems(baseAsin);
+      processedFamilyMembers.add(baseAsin);
       if (familyItems.length === 0) {
-        discoveredCandidates.set(baseAsin, {
-          item: parentResult.baseItem,
-          sourceAsin: baseAsin,
-          observedPrice: getPaapiItemPrice(parentResult.baseItem),
-        });
+        noResultsBases += 1;
       } else {
+        processedFamilies += 1;
         for (const item of familyItems) {
           if (item?.ASIN) {
+            processedFamilyMembers.add(item.ASIN);
+            const price = getAmazonItemPrice(item);
             discoveredCandidates.set(item.ASIN, {
               item,
               sourceAsin: baseAsin,
-              observedPrice: getPaapiItemPrice(item),
+              observedPrice: price > 0 ? price : null,
             });
           }
         }
       }
 
-      processedParents.add(parentAsin);
       await delay(700);
-    } catch {
+    } catch (error) {
       failedBases.push(baseAsin);
+      recordExpansionError(errorSummary, baseAsin, error);
     }
   }
 
   const candidateAsins = Array.from(discoveredCandidates.keys());
+  // A expansão não precisa ler o catálogo inteiro: consulta somente os
+  // ASINs retornados pela API nesta execução.
+  const existingProductsInCatalog =
+    candidateAsins.length > 0
+      ? await prisma.dynamicProduct.findMany({
+          where: { asin: { in: candidateAsins } },
+          select: { asin: true },
+        })
+      : [];
+  const existingAsinsInCatalogSet = new Set(
+    existingProductsInCatalog.map((item) => item.asin)
+  );
   const missingAsins = candidateAsins.filter((asin) => !existingAsinsInCatalogSet.has(asin));
 
   if (missingAsins.length > 0) {
@@ -558,15 +484,30 @@ export async function scanCategoryExpansionGaps(formData: FormData) {
     }
   }
 
+  await prisma.dynamicCategoryExpansionRun.update({
+    where: { id: expansionRun.id },
+    data: {
+      status: "completed",
+      processedFamilies,
+      discoveredItems: candidateAsins.length,
+      missingAsins: missingAsins.length,
+      failedBases: failedBases.length,
+      noResultsBases,
+      errorSummary: Object.keys(errorSummary).length > 0 ? errorSummary : undefined,
+      finishedAt: new Date(),
+    },
+  });
+
   revalidatePath("/admin/dynamic/expansoes");
   revalidatePath("/admin/dynamic/rejeitados");
 
   const notice = [
     `Varredura concluida em ${category.name}.`,
     `Base: ${baseAsins.length}`,
-    `Familias: ${processedParents.size}`,
+    `Familias: ${processedFamilies}`,
     `Descobertos na API: ${candidateAsins.length}`,
     `Faltantes no banco: ${missingAsins.length}`,
+    noResultsBases ? `Sem variacoes: ${noResultsBases}` : "",
     failedBases.length ? `Falhas: ${failedBases.length}` : "",
   ]
     .filter(Boolean)
