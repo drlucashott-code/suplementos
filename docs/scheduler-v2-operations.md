@@ -1,7 +1,7 @@
 # OperaÃ§Ã£o do Scheduler V2
 
-O V2 Ã© opt-in. Um deploy sem variÃ¡veis do scheduler mantÃ©m todos os produtos e
-todos os workers no comportamento legado.
+O V2 Ã© o modo operacional padrÃ£o. Um deploy sem variÃ¡veis do scheduler usa a
+agenda V2 para a coorte que jÃ¡ tiver sido ativada.
 
 ## VariÃ¡veis centralizadas
 
@@ -22,15 +22,12 @@ SCHEDULER_V2_PHASE_ANCHOR_AT=2026-01-01T00:00:00.000Z
 `SCHEDULER_V2_URGENT_QUEUE_ENABLED` sÃ³ libera mensagens SQS para cliques dos
 produtos V2. A agenda-base continua independente dela.
 
-## Ordem de rollout
+## AtivaÃ§Ã£o definitiva
 
 1. Aplicar a migration aditiva com `npx prisma migrate deploy`.
-2. Fazer deploy com todas as flags desligadas.
-3. Para shadow, definir somente `SCHEDULER_V2_SHADOW_MODE=true`; o workflow
-   registra em `PriceRefreshScheduleDecision` a agenda proposta, motivo e
-   evidÃªncia, sem mudar qualquer produto.
-4. Revisar as decisÃµes em shadow por alguns ciclos.
-5. Definir as quatro flags acima e executar uma vez:
+2. Fazer deploy com as flags padrÃ£o ou definir explicitamente as quatro flags
+   mostradas acima.
+3. Executar uma vez:
 
    ```powershell
    npm run scheduler:v2:rollout -- --percentage=5
@@ -39,8 +36,8 @@ produtos V2. A agenda-base continua independente dela.
    O comando sÃ³ migra a coorte determinÃ­stica de 5%, inicializando-a a partir
    de `DynamicPriceHistory`. Ele pode ser repetido com 10, 25, 50 e 100; cada
    produto jÃ¡ V2 fica intacto.
-6. Aumentar a variÃ¡vel `SCHEDULER_V2_ROLLOUT_PERCENTAGE` para o mesmo percentual
-   (ou maior) no GitHub Actions, para que o worker use o novo caminho.
+4. Manter `SCHEDULER_V2_ROLLOUT_PERCENTAGE=100` no GitHub Actions para que o
+   worker use a agenda V2 para todos os produtos.
 
 ## Garantias operacionais
 

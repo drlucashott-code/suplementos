@@ -497,7 +497,7 @@ export async function activateSchedulerV2Cohort(params?: { rolloutPercentage?: n
     isSchedulerV2RolloutEligible(row.id, rolloutPercentage)
   );
 
-  for (const row of eligibleRows) {
+  const activationRows = eligibleRows.map((row) => {
     const validBaseObservationCount = Math.min(
       schedulerConfig.base.bootstrap.requiredValidObservations,
       Number(row.validObservations)
@@ -520,21 +520,52 @@ export async function activateSchedulerV2Cohort(params?: { rolloutPercentage?: n
     };
     const { policy, nextPriceRefreshAt } = makeDecision(state, now, changeRate30d);
 
-    await prisma.dynamicProduct.updateMany({
-      where: { id: row.id, schedulerVersion: "legacy" },
-      data: {
-        schedulerVersion: SCHEDULER_VERSION,
-        schedulerRevision: 0,
-        schedulerBaseIntervalMinutes: policy.intervalMinutes,
-        schedulerBootstrapObservationCount: validBaseObservationCount,
-        schedulerBootstrapSawChange: changes > 0,
-        schedulerFirstBaseObservationAt: row.firstObservationAt,
-        basePriceChangeRate30d: changeRate30d,
-        nextPriceRefreshAt,
-        refreshLockUntil: null,
-        refreshClaimToken: null,
-      },
-    });
+    return {
+      id: row.id,
+      baseIntervalMinutes: policy.intervalMinutes,
+      bootstrapObservationCount: validBaseObservationCount,
+      bootstrapSawChange: changes > 0,
+      firstBaseObservationAt: row.firstObservationAt?.toISOString() ?? null,
+      changeRate30d,
+      nextPriceRefreshAt: nextPriceRefreshAt.toISOString(),
+    };
+  });
+
+  for (
+    let index = 0;
+    index < activationRows.length;
+    index += schedulerConfig.execution.rolloutWriteBatchSize
+  ) {
+    const batch = activationRows.slice(
+      index,
+      index + schedulerConfig.execution.rolloutWriteBatchSize
+    );
+    await prisma.$executeRaw(Prisma.sql`
+      UPDATE "DynamicProduct" AS p
+      SET
+        "schedulerVersion" = ${SCHEDULER_VERSION},
+        "schedulerRevision" = 0,
+        "schedulerBaseIntervalMinutes" = v."baseIntervalMinutes",
+        "schedulerBootstrapObservationCount" = v."bootstrapObservationCount",
+        "schedulerBootstrapSawChange" = v."bootstrapSawChange",
+        "schedulerFirstBaseObservationAt" = v."firstBaseObservationAt",
+        "basePriceChangeRate30d" = v."changeRate30d",
+        "nextPriceRefreshAt" = v."nextPriceRefreshAt",
+        "refreshLockUntil" = NULL,
+        "refreshClaimToken" = NULL,
+        "updatedAt" = NOW()
+      FROM jsonb_to_recordset(${JSON.stringify(batch)}::jsonb) AS v(
+        "id" text,
+        "baseIntervalMinutes" integer,
+        "bootstrapObservationCount" integer,
+        "bootstrapSawChange" boolean,
+        "firstBaseObservationAt" timestamptz,
+        "changeRate30d" double precision,
+        "nextPriceRefreshAt" timestamptz
+      )
+      WHERE p."id" = v."id"
+        AND p."schedulerVersion" = 'legacy'
+    `);
   }
 
   return {

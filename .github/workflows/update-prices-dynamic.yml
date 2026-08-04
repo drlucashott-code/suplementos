@@ -52,10 +52,3 @@ jobs:
           SCHEDULER_V2_URGENT_QUEUE_ENABLED: ${{ vars.SCHEDULER_V2_URGENT_QUEUE_ENABLED }}
           SCHEDULER_V2_ROLLOUT_PERCENTAGE: ${{ vars.SCHEDULER_V2_ROLLOUT_PERCENTAGE }}
           SCHEDULER_V2_PHASE_ANCHOR_AT: ${{ vars.SCHEDULER_V2_PHASE_ANCHOR_AT }}
-
-      - name: Record Scheduler V2 shadow decisions
-        if: vars.SCHEDULER_V2_SHADOW_MODE == 'true'
-        run: npx tsx scripts/shadowSchedulerV2.ts
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SCHEDULER_V2_SHADOW_MODE: ${{ vars.SCHEDULER_V2_SHADOW_MODE }}

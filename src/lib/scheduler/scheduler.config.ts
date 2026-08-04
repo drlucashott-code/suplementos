@@ -7,28 +7,35 @@ function daysToMinutes(days: number) {
 
 function booleanFromEnv(name: string, fallback: boolean) {
   const value = process.env[name];
-  if (value == null) return fallback;
+  if (value == null || value.trim() === "") return fallback;
   return value.trim().toLowerCase() === "true";
 }
 
 function numberFromEnv(name: string, fallback: number) {
-  const value = Number(process.env[name]);
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback;
+  const value = Number(raw);
   return Number.isFinite(value) ? value : fallback;
+}
+
+function stringFromEnv(name: string, fallback: string) {
+  return process.env[name]?.trim() || fallback;
 }
 
 export const schedulerConfig = Object.freeze({
   policyVersion: "v2",
   flags: {
-    enabled: booleanFromEnv("SCHEDULER_V2_ENABLED", false),
+    enabled: booleanFromEnv("SCHEDULER_V2_ENABLED", true),
     shadowMode: booleanFromEnv("SCHEDULER_V2_SHADOW_MODE", false),
-    observationLedgerEnabled: booleanFromEnv("SCHEDULER_V2_OBSERVATION_LEDGER_ENABLED", false),
-    urgentQueueEnabled: booleanFromEnv("SCHEDULER_V2_URGENT_QUEUE_ENABLED", false),
+    observationLedgerEnabled: booleanFromEnv("SCHEDULER_V2_OBSERVATION_LEDGER_ENABLED", true),
+    urgentQueueEnabled: booleanFromEnv("SCHEDULER_V2_URGENT_QUEUE_ENABLED", true),
   },
   execution: {
     claimLeaseMinutes: numberFromEnv("SCHEDULER_V2_CLAIM_LEASE_MINUTES", 10),
     claimBatchSize: numberFromEnv("SCHEDULER_V2_CLAIM_BATCH_SIZE", 50),
-    rolloutPercentage: numberFromEnv("SCHEDULER_V2_ROLLOUT_PERCENTAGE", 0),
-    phaseAnchorAt: process.env.SCHEDULER_V2_PHASE_ANCHOR_AT ?? "2026-01-01T00:00:00.000Z",
+    rolloutPercentage: numberFromEnv("SCHEDULER_V2_ROLLOUT_PERCENTAGE", 100),
+    rolloutWriteBatchSize: numberFromEnv("SCHEDULER_V2_ROLLOUT_WRITE_BATCH_SIZE", 250),
+    phaseAnchorAt: stringFromEnv("SCHEDULER_V2_PHASE_ANCHOR_AT", "2026-01-01T00:00:00.000Z"),
   },
   base: {
     historyWindowDays: numberFromEnv("SCHEDULER_V2_HISTORY_WINDOW_DAYS", 30),
@@ -113,6 +120,8 @@ export function validateSchedulerConfig(config: SchedulerConfig = schedulerConfi
     config.execution.claimLeaseMinutes <= 0 ||
     !Number.isInteger(config.execution.claimBatchSize) ||
     config.execution.claimBatchSize <= 0 ||
+    !Number.isInteger(config.execution.rolloutWriteBatchSize) ||
+    config.execution.rolloutWriteBatchSize <= 0 ||
     config.execution.rolloutPercentage < 0 ||
     config.execution.rolloutPercentage > 100
   ) {
