@@ -212,6 +212,63 @@ function FeaturedDealsSection({
   );
 }
 
+function HomeQuickActions() {
+  const actions = [
+    {
+      title: "Buscar ofertas",
+      description: "Veja oportunidades na Amazon",
+      href: "/ofertas",
+      icon: <Tags className="h-5 w-5" />,
+      className: "border-[#1b3d59] bg-[#131921] text-white hover:bg-[#1a2d3e]",
+      iconClassName: "bg-white/10 text-[#FFD814]",
+      copyClassName: "text-white/70",
+    },
+    {
+      title: "Comparar produtos",
+      description: "Compare o custo-benefício",
+      href: "/comparar-card",
+      icon: <TrendingUp className="h-5 w-5" />,
+      className: "border-[#D8DEE6] bg-white text-[#0F1111] hover:border-[#AAB7C4]",
+      iconClassName: "bg-[#EEF6F7] text-[#007185]",
+      copyClassName: "text-[#667085]",
+    },
+    {
+      title: "Listas públicas",
+      description: "Seleções da comunidade",
+      href: "/listas",
+      icon: <LayoutList className="h-5 w-5" />,
+      className: "border-[#D8DEE6] bg-white text-[#0F1111] hover:border-[#AAB7C4]",
+      iconClassName: "bg-[#FFF5DC] text-[#9A6500]",
+      copyClassName: "text-[#667085]",
+    },
+  ];
+
+  return (
+    <section className="mt-5 rounded-[28px] border border-[#D8DEE6] bg-white p-4 shadow-[0_10px_40px_rgba(15,17,17,0.05)] md:mt-6 md:p-5">
+      <div className="grid gap-3 md:grid-cols-3">
+        {actions.map((action) => (
+          <Link
+            key={action.href}
+            href={action.href}
+            className={`group flex min-h-[104px] items-center justify-between gap-4 rounded-[20px] border px-4 py-4 transition ${action.className}`}
+          >
+            <span className="flex items-center gap-3">
+              <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${action.iconClassName}`}>
+                {action.icon}
+              </span>
+              <span>
+                <span className="block text-[16px] font-bold leading-tight">{action.title}</span>
+                <span className={`mt-1 block text-[12px] leading-5 ${action.copyClassName}`}>{action.description}</span>
+              </span>
+            </span>
+            <ArrowRight className="h-4 w-4 shrink-0 transition group-hover:translate-x-1" />
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function HomePremiumClient({
   supplementCategories,
   houseCategories,
@@ -220,6 +277,7 @@ export default function HomePremiumClient({
   publicLists,
   offersFirst = false,
   trackingPath = "/home-premium",
+  showHero = true,
 }: {
   supplementCategories: CategoryItem[];
   houseCategories: CategoryItem[];
@@ -228,6 +286,7 @@ export default function HomePremiumClient({
   publicLists: PublicListItem[];
   offersFirst?: boolean;
   trackingPath?: string;
+  showHero?: boolean;
 }) {
   const router = useRouter();
   const [selectedHub, setSelectedHub] = useState<HubKey>("suplementos");
@@ -310,6 +369,7 @@ export default function HomePremiumClient({
       </div>
 
       <div className="mx-auto max-w-[1440px] px-4 pb-8 pt-0.5 md:px-8 md:pt-1">
+        {showHero ? (
         <section className="overflow-hidden rounded-[28px] border border-[#D8DEE6] bg-[linear-gradient(135deg,#131921_0%,#18283A_52%,#21405F_100%)] shadow-[0_20px_60px_rgba(15,17,17,0.10)]">
           <div className="grid gap-8 px-5 py-6 md:px-8 md:py-8 lg:grid-cols-[minmax(0,1.05fr)_420px] lg:items-center lg:px-10 lg:py-10">
             <div className="max-w-[720px]">
@@ -391,6 +451,9 @@ export default function HomePremiumClient({
             </div>
           </div>
         </section>
+        ) : (
+          <HomeQuickActions />
+        )}
 
         {offersFirst ? (
           <FeaturedDealsSection bestDeals={bestDeals} trackingCategory="home_v5_ofertas" />

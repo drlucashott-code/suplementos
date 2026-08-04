@@ -37,6 +37,7 @@ export default function HomeV5Client({
       publicLists={publicLists}
       offersFirst
       trackingPath="/home-v5"
+      showHero={false}
     />
   );
 }
