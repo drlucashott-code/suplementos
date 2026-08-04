@@ -99,13 +99,13 @@ const carouselSlides = [
   { src: "/home-premium/carousel/04-fralda-v2.webp", alt: "Comparação de fraldas por unidade" },
 ];
 
-function TrackHomeView() {
+function TrackHomeView({ pagePath = "/home-premium" }: { pagePath?: string }) {
   useEffect(() => {
     const win = window as typeof window & { dataLayer?: object[] };
     win.dataLayer = win.dataLayer || [];
     win.dataLayer.push({
       event: "view_home",
-      page_path: "/home-premium",
+      page_path: pagePath,
     });
   }, []);
 
@@ -163,18 +163,71 @@ function formatListDate(value: string) {
   }).format(new Date(value));
 }
 
+function FeaturedDealsSection({
+  bestDeals,
+  trackingCategory,
+}: {
+  bestDeals: BestDeal[];
+  trackingCategory: string;
+}) {
+  return (
+    <section
+      id="melhores-ofertas"
+      className="mt-6 rounded-[28px] border border-[#D8DEE6] bg-white px-5 py-5 shadow-[0_10px_40px_rgba(15,17,17,0.05)] md:px-7 md:py-6"
+    >
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="max-w-[720px]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#007185]">
+            Curadoria diária
+          </p>
+          <h2 className="mt-2 text-[28px] font-bold leading-tight text-[#0F1111] md:text-[32px]">
+            Melhores ofertas do momento
+          </h2>
+          <p className="mt-2 text-[14px] leading-6 text-[#667085] md:text-[16px]">
+            Descontos relevantes com preço atual válido e leitura rápida do valor real da oferta.
+          </p>
+        </div>
+
+        <Link
+          href="/ofertas"
+          className="inline-flex items-center gap-2 self-start rounded-full border border-[#D8DEE6] bg-[#F8FAFC] px-4 py-2.5 text-[13px] font-semibold text-[#0F1111] transition hover:border-[#C9D3DD] hover:bg-white"
+        >
+          Ver todas
+          <ArrowRight className="h-4 w-4 text-[#007185]" />
+        </Link>
+      </div>
+
+      <ProgressiveBestDealsGrid
+        items={bestDeals}
+        category={trackingCategory}
+        compact
+        showActions={false}
+        initialVisibleCount={10}
+        step={10}
+        mobileVisibleCount={8}
+        desktopVisibleCount={10}
+        className="mt-6"
+      />
+    </section>
+  );
+}
+
 export default function HomePremiumClient({
   supplementCategories,
   houseCategories,
   petCategories,
   bestDeals,
   publicLists,
+  offersFirst = false,
+  trackingPath = "/home-premium",
 }: {
   supplementCategories: CategoryItem[];
   houseCategories: CategoryItem[];
   petCategories: CategoryItem[];
   bestDeals: BestDeal[];
   publicLists: PublicListItem[];
+  offersFirst?: boolean;
+  trackingPath?: string;
 }) {
   const router = useRouter();
   const [selectedHub, setSelectedHub] = useState<HubKey>("suplementos");
@@ -247,7 +300,7 @@ export default function HomePremiumClient({
 
   return (
     <main className="min-h-screen bg-[#F4F6F8] pb-12 font-sans text-[#0F1111]">
-      <TrackHomeView />
+      <TrackHomeView pagePath={trackingPath} />
 
       <div className="border-b border-[#E5EBF0] bg-[#F8FAFC]">
         <div className="mx-auto flex max-w-[1440px] items-center justify-center gap-2 px-4 py-1.5 text-center text-[12px] font-medium text-[#475467] md:px-8 md:py-1">
@@ -339,6 +392,9 @@ export default function HomePremiumClient({
           </div>
         </section>
 
+        {offersFirst ? (
+          <FeaturedDealsSection bestDeals={bestDeals} trackingCategory="home_v5_ofertas" />
+        ) : null}
         <section
           id="categorias"
           className="mt-6 rounded-[28px] border border-[#D8DEE6] bg-white px-5 py-5 shadow-[0_10px_40px_rgba(15,17,17,0.05)] md:px-7 md:py-6"
@@ -405,44 +461,9 @@ export default function HomePremiumClient({
           </div>
         </section>
 
-        <section
-          id="melhores-ofertas"
-          className="mt-6 rounded-[28px] border border-[#D8DEE6] bg-white px-5 py-5 shadow-[0_10px_40px_rgba(15,17,17,0.05)] md:px-7 md:py-6"
-        >
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div className="max-w-[720px]">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#007185]">
-                Curadoria diária
-              </p>
-              <h2 className="mt-2 text-[28px] font-bold leading-tight text-[#0F1111] md:text-[32px]">
-                Melhores ofertas do momento
-              </h2>
-              <p className="mt-2 text-[14px] leading-6 text-[#667085] md:text-[16px]">
-                Descontos relevantes com preço atual válido e leitura rápida do valor real da oferta.
-              </p>
-            </div>
-
-            <Link
-              href="/ofertas"
-              className="inline-flex items-center gap-2 self-start rounded-full border border-[#D8DEE6] bg-[#F8FAFC] px-4 py-2.5 text-[13px] font-semibold text-[#0F1111] transition hover:border-[#C9D3DD] hover:bg-white"
-            >
-              Ver todas
-              <ArrowRight className="h-4 w-4 text-[#007185]" />
-            </Link>
-          </div>
-
-          <ProgressiveBestDealsGrid
-            items={bestDeals}
-            category="home_premium_ofertas"
-            compact
-            showActions={false}
-            initialVisibleCount={10}
-            step={10}
-            mobileVisibleCount={8}
-            desktopVisibleCount={10}
-            className="mt-6"
-          />
-        </section>
+        {!offersFirst ? (
+          <FeaturedDealsSection bestDeals={bestDeals} trackingCategory="home_premium_ofertas" />
+        ) : null}
 
         <section className="mt-6 rounded-[28px] border border-[#D8DEE6] bg-white px-5 py-5 shadow-[0_10px_40px_rgba(15,17,17,0.05)] md:px-7 md:py-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
