@@ -40,7 +40,7 @@ const queueUrl =
   process.env.AWS_PRIORITY_QUEUE_URL || process.env.AWS_QUEUE_URL || "";
 const AMAZON_PARTNER_TAG = process.env.AMAZON_PARTNER_TAG;
 const AMAZON_LINK_TAG = process.env.AMAZON_LINK_TAG ?? AMAZON_PARTNER_TAG;
-const BATCH_SIZE = 10;
+const BATCH_SIZE = schedulerConfig.urgent.queueBatchSize;
 const PRIORITY_HOURLY_REQUEST_LIMIT = Math.max(
   20,
   Number(process.env.AMAZON_PRIORITY_HOURLY_REQUEST_LIMIT ?? 240)
@@ -105,7 +105,7 @@ export type PriorityRefreshRunSummaryV2 = {
   };
 };
 
-const RUN_STALE_AFTER_MS = 10 * 60 * 1000;
+const RUN_STALE_AFTER_MS = schedulerConfig.urgent.runLeaseMinutes * 60 * 1000;
 
 function assertEnv() {
   if (!queueUrl) {
@@ -152,6 +152,7 @@ async function persistDynamicUpdate(params: {
   };
   result: PriceResult;
   affiliateUrl: string;
+  schedulerClaim?: SchedulerV2Claim;
 }) {
   const { product, result, affiliateUrl } = params;
   const currentAttributes =
@@ -204,8 +205,16 @@ async function persistDynamicUpdate(params: {
     nextAttributes: attributes,
   });
 
-  await prisma.dynamicProduct.update({
-    where: { id: product.id },
+  const updated = await prisma.dynamicProduct.updateMany({
+    where: params.schedulerClaim
+      ? {
+          id: product.id,
+          schedulerVersion: schedulerConfig.policyVersion,
+          refreshClaimToken: params.schedulerClaim.refreshClaimToken,
+          schedulerRevision: params.schedulerClaim.schedulerRevision,
+          refreshLockUntil: { gt: new Date() },
+        }
+      : { id: product.id },
     data: {
       ...(hasMeaningfulChange
         ? {
@@ -231,6 +240,7 @@ async function persistDynamicUpdate(params: {
       lastAvailabilityCheckedAt: now,
     },
   });
+  if (updated.count !== 1) return false;
 
   let wroteHistory = false;
   if (result.status === "OK") {
@@ -320,7 +330,7 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
       new ReceiveMessageCommand({
         QueueUrl: queueUrl,
         MaxNumberOfMessages: BATCH_SIZE,
-        WaitTimeSeconds: 5,
+        WaitTimeSeconds: schedulerConfig.urgent.queueLongPollSeconds,
       })
     );
 
@@ -465,6 +475,7 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
       });
 
       const productMap = new Map(products.map((product) => [product.asin, product]));
+      const terminalSkippedAsins = new Set<string>();
       const claimedByAsin = new Map<
         string,
         Awaited<ReturnType<typeof markDynamicRefreshAttempt>> | SchedulerV2Claim
@@ -474,16 +485,40 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
       // quando duas mensagens do SQS apontam para o mesmo produto.
       for (const asin of budgetedAsins) {
         const product = productMap.get(asin);
-        if (!product) continue;
+        if (!product) {
+          // A agenda-base continua responsável pela próxima tentativa; evitar
+          // redelivery imediato impede um loop caro para um item ausente.
+          terminalSkippedAsins.add(asin);
+          continue;
+        }
         const claim =
           product.schedulerVersion === schedulerConfig.policyVersion && schedulerConfig.flags.enabled
             ? await claimSchedulerV2UrgentRefresh(product.id, `priority:${runId}`)
             : await markDynamicRefreshAttempt(asin);
-        if (claim) claimedByAsin.set(asin, claim);
+        if (claim) {
+          claimedByAsin.set(asin, claim);
+        } else {
+          terminalSkippedAsins.add(asin);
+        }
       }
       const claimedAsins = [...claimedByAsin.keys()];
       if (claimedAsins.length === 0) {
         summary.skippedProducts += budgetedAsins.length;
+        const messagesToDelete = eligibleMessages.filter((message) => {
+          const asin = extractAsinFromMessage(message);
+          return Boolean(message.ReceiptHandle && asin && terminalSkippedAsins.has(asin));
+        });
+        if (messagesToDelete.length > 0) {
+          await sqsClient.send(
+            new DeleteMessageBatchCommand({
+              QueueUrl: queueUrl,
+              Entries: messagesToDelete.map((message, index) => ({
+                Id: `skip-${index}`,
+                ReceiptHandle: message.ReceiptHandle!,
+              })),
+            })
+          );
+        }
         return true;
       }
 
@@ -556,8 +591,6 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
       }
 
       const successfullyUpdatedAsins = new Set<string>();
-      const terminalSkippedAsins = new Set<string>();
-
       for (const asin of claimedAsins) {
         const product = productMap.get(asin);
         const snapshot = snapshots[asin];
@@ -580,7 +613,7 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
               errorCode: "amazon_item_missing",
             });
           }
-          // mantém mensagem na fila para retry
+          terminalSkippedAsins.add(asin);
           continue;
         }
 
@@ -603,6 +636,10 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
             programAndSavePrice: snapshot.programAndSavePrice,
             status,
           },
+          schedulerClaim:
+            product.schedulerVersion === schedulerConfig.policyVersion && schedulerConfig.flags.enabled
+              ? (refreshState as SchedulerV2Claim)
+              : undefined,
         });
         if (wroteHistory) {
           statsRefreshProductIds.add(product.id);

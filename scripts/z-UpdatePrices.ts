@@ -33,6 +33,7 @@ import {
 import { reservePriceRefreshBudget } from "../src/lib/priceRefreshBudget";
 import {
   applySchedulerV2BaseOutcome,
+  applySchedulerV2BaseBatchFailure,
   claimSchedulerV2BaseRefresh,
   type SchedulerV2Claim,
 } from "../src/lib/scheduler/schedulerV2";
@@ -142,7 +143,7 @@ type PriceResult = {
   status: ApiStatus;
 };
 
-type PersistOutcome = "UPDATED" | "FAILED" | "OUT_OF_STOCK" | "EXCLUDED";
+type PersistOutcome = "UPDATED" | "FAILED" | "OUT_OF_STOCK" | "EXCLUDED" | "SKIPPED";
 
 type RunCounters = {
   totalOffers: number;
@@ -305,7 +306,8 @@ async function fetchAmazonPricesBatch(
 
 async function persistDynamicUpdate(
   product: DynamicProductLite,
-  result?: PriceResult
+  result?: PriceResult,
+  schedulerClaim?: SchedulerV2Claim
 ): Promise<PersistDynamicUpdateResult> {
   const currentAttrs = (product.attributes as DynamicAttributesMap) || {};
   const nextAttributesBase: DynamicAttributesMap = { ...currentAttrs };
@@ -336,6 +338,15 @@ async function persistDynamicUpdate(
       })
     : nextAttributesBase;
   const today = getPriceHistoryCanonicalDate();
+  const claimWhere = schedulerClaim
+    ? {
+        id: product.id,
+        schedulerVersion: schedulerConfig.policyVersion,
+        refreshClaimToken: schedulerClaim.refreshClaimToken,
+        schedulerRevision: schedulerClaim.schedulerRevision,
+        refreshLockUntil: { gt: new Date() },
+      }
+    : { id: product.id };
 
   if (result && result.status === "OK") {
     const hasMeaningfulChange = hasMeaningfulDynamicStateChange({
@@ -347,9 +358,9 @@ async function persistDynamicUpdate(
       nextAttributes,
     });
 
-    await withDatabaseRetry(`dynamicProduct.update:${product.id}`, async () =>
-      prisma.dynamicProduct.update({
-        where: { id: product.id },
+    const updated = await withDatabaseRetry(`dynamicProduct.update:${product.id}`, async () =>
+      prisma.dynamicProduct.updateMany({
+        where: claimWhere,
         data: {
           ...(hasMeaningfulChange
             ? {
@@ -364,6 +375,14 @@ async function persistDynamicUpdate(
         },
       })
     );
+    if (updated.count !== 1) {
+      return {
+        logStatus: "Ignorado: posse do refresh expirou",
+        outcome: "SKIPPED",
+        priceHistoryChanged: false,
+        shouldRefreshPriceStats: false,
+      };
+    }
 
     const priceHistoryWrote = await withDatabaseRetry(
       `dynamicPriceHistory.upsert:${product.id}`,
@@ -413,9 +432,9 @@ async function persistDynamicUpdate(
     outcome = "OUT_OF_STOCK";
   }
 
-  await withDatabaseRetry(`dynamicProduct.update:${product.id}`, async () =>
-    prisma.dynamicProduct.update({
-      where: { id: product.id },
+  const updated = await withDatabaseRetry(`dynamicProduct.update:${product.id}`, async () =>
+    prisma.dynamicProduct.updateMany({
+      where: claimWhere,
       data: {
         // Qualquer falha individual deixa o produto fora do catalogo ate uma
         // nova consulta valida. Falhas de lote nao chegam aqui: o lote e
@@ -427,6 +446,14 @@ async function persistDynamicUpdate(
       },
     })
   );
+  if (updated.count !== 1) {
+    return {
+      logStatus: "Ignorado: posse do refresh expirou",
+      outcome: "SKIPPED",
+      priceHistoryChanged: false,
+      shouldRefreshPriceStats: false,
+    };
+  }
 
   return {
     logStatus,
@@ -936,11 +963,8 @@ async function updateAmazonPrices() {
                 entry.product.schedulerVersion === schedulerConfig.policyVersion && schedulerConfig.flags.enabled
             )
             .map(({ claimedState }) =>
-              applySchedulerV2BaseOutcome({
+              applySchedulerV2BaseBatchFailure({
                 claim: claimedState,
-                success: false,
-                priceChanged: false,
-                result: "failure",
                 errorCode: "amazon_batch_error",
               })
             )
@@ -959,7 +983,13 @@ async function updateAmazonPrices() {
         const result = apiResults[asin];
 
         const { logStatus, outcome, priceHistoryChanged, shouldRefreshPriceStats } =
-          await persistDynamicUpdate(product, result);
+          await persistDynamicUpdate(
+            product,
+            result,
+            product.schedulerVersion === schedulerConfig.policyVersion && schedulerConfig.flags.enabled
+              ? (claimedState as SchedulerV2Claim)
+              : undefined
+          );
         await withDatabaseRetry(`dynamicProduct.scheduler:${product.id}`, async () => {
           const success = Boolean(result && result.status === "OK");
           const priceChanged =

@@ -18,6 +18,7 @@ type SchedulerV2ProductState = {
   refreshLockUntil: Date | null;
   refreshClaimToken: string | null;
   schedulerRevision: number;
+  lastUrgentRefreshAt: Date | null;
   schedulerBootstrapObservationCount: number;
   schedulerBootstrapSawChange: boolean;
   schedulerFirstBaseObservationAt: Date | null;
@@ -32,7 +33,13 @@ export type SchedulerV2Claim = SchedulerV2ProductState & {
   claimedAt: Date;
 };
 
-type ObservationResult = "success" | "failure" | "out_of_stock" | "excluded";
+type ObservationResult =
+  | "running"
+  | "success"
+  | "failure"
+  | "batch_error"
+  | "out_of_stock"
+  | "excluded";
 
 function getPhaseAnchorAt() {
   return new Date(schedulerConfig.execution.phaseAnchorAt);
@@ -75,8 +82,19 @@ async function claimProduct(params: {
     params.reason === "base"
       ? Prisma.sql`AND p."nextPriceRefreshAt" <= ${now}`
       : Prisma.empty;
+  const urgentCooldownBefore = new Date(
+    now.getTime() - schedulerConfig.urgent.completedRefreshCooldownMinutes * 60 * 1000
+  );
+  const urgentCooldownCondition =
+    params.reason === "urgent"
+      ? Prisma.sql`AND (
+          p."lastUrgentRefreshAt" IS NULL
+          OR p."lastUrgentRefreshAt" <= ${urgentCooldownBefore}
+        )`
+      : Prisma.empty;
 
-  const rows = await prisma.$queryRaw<SchedulerV2ProductState[]>(Prisma.sql`
+  return prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<SchedulerV2ProductState[]>(Prisma.sql`
     WITH candidate AS (
       SELECT p."id"
       FROM "DynamicProduct" p
@@ -84,6 +102,7 @@ async function claimProduct(params: {
         AND p."schedulerVersion" = ${SCHEDULER_VERSION}
         AND (p."refreshLockUntil" IS NULL OR p."refreshLockUntil" <= ${now})
         ${dueCondition}
+        ${urgentCooldownCondition}
       FOR UPDATE SKIP LOCKED
     )
     UPDATE "DynamicProduct" p
@@ -97,20 +116,37 @@ async function claimProduct(params: {
     RETURNING
       p."id", p."asin", p."nextPriceRefreshAt", p."refreshLockUntil",
       p."refreshClaimToken", p."schedulerRevision",
+      p."lastUrgentRefreshAt",
       p."schedulerBootstrapObservationCount", p."schedulerBootstrapSawChange",
       p."schedulerFirstBaseObservationAt", p."basePriceChangeRate30d",
       p."refreshFailCount"
-  `);
-  const row = rows[0];
-  if (!row) return null;
+    `);
+    const row = rows[0];
+    if (!row) return null;
 
-  return {
-    ...row,
-    attemptId,
-    workerId: params.workerId,
-    reason: params.reason,
-    claimedAt: now,
-  } satisfies SchedulerV2Claim;
+    const claim = {
+      ...row,
+      attemptId,
+      workerId: params.workerId,
+      reason: params.reason,
+      claimedAt: now,
+    } satisfies SchedulerV2Claim;
+
+    await tx.priceRefreshObservation.create({
+      data: {
+        attemptId,
+        productId: row.id,
+        reason: params.reason,
+        schedulerVersion: SCHEDULER_VERSION,
+        scheduledAt: params.reason === "base" ? row.nextPriceRefreshAt : null,
+        startedAt: now,
+        result: "running",
+        workerId: params.workerId,
+      },
+    });
+
+    return claim;
+  });
 }
 
 export function claimSchedulerV2BaseRefresh(productId: string, workerId: string) {
@@ -160,10 +196,13 @@ export async function applySchedulerV2BaseOutcome(params: {
   const windowStart = new Date(
     finishedAt.getTime() - schedulerConfig.base.historyWindowDays * 24 * 60 * 60 * 1000
   );
-  const [counts] = await prisma.$queryRaw<Array<{ total: bigint; changes: bigint }>>(Prisma.sql`
+  const [counts] = await prisma.$queryRaw<
+    Array<{ total: bigint; changes: bigint; firstStartedAt: Date | null }>
+  >(Prisma.sql`
     SELECT
       COUNT(*)::bigint AS "total",
-      COUNT(*) FILTER (WHERE "priceChanged" = true)::bigint AS "changes"
+      COUNT(*) FILTER (WHERE "priceChanged" = true)::bigint AS "changes",
+      MIN("startedAt") AS "firstStartedAt"
     FROM "PriceRefreshObservation"
     WHERE "productId" = ${params.claim.id}
       AND "reason" = 'base'
@@ -172,7 +211,11 @@ export async function applySchedulerV2BaseOutcome(params: {
   `);
   const total = Number(counts?.total ?? 0) + 1;
   const changes = Number(counts?.changes ?? 0) + (params.priceChanged ? 1 : 0);
-  const changeRate30d = total > 0 ? changes / total : 0;
+  const v2ChangeRate30d = total > 0 ? changes / total : 0;
+  const changeRate30d =
+    counts?.firstStartedAt && counts.firstStartedAt <= windowStart
+      ? v2ChangeRate30d
+      : params.claim.basePriceChangeRate30d ?? v2ChangeRate30d;
   const state = {
     ...params.claim,
     schedulerBootstrapObservationCount: validBaseObservationCount,
@@ -199,6 +242,26 @@ export async function applySchedulerV2BaseOutcome(params: {
       sawPriceChangeDuringBootstrap,
       changeRate30d,
     },
+  });
+}
+
+/** Uma indisponibilidade de lote não pode penalizar cada produto como falha individual. */
+export async function applySchedulerV2BaseBatchFailure(params: {
+  claim: SchedulerV2Claim;
+  errorCode?: string;
+  finishedAt?: Date;
+}) {
+  const finishedAt = params.finishedAt ?? new Date();
+  return persistOutcome({
+    claim: params.claim,
+    finishedAt,
+    nextPriceRefreshAt: params.claim.nextPriceRefreshAt ?? finishedAt,
+    refreshFailCount: params.claim.refreshFailCount,
+    observedPrice: null,
+    priceChanged: null,
+    result: "batch_error",
+    errorCode: params.errorCode ?? "amazon_batch_error",
+    baseUpdate: null,
   });
 }
 
@@ -252,11 +315,17 @@ async function persistOutcome(params: {
         schedulerVersion: SCHEDULER_VERSION,
         refreshClaimToken: params.claim.refreshClaimToken,
         schedulerRevision: params.claim.schedulerRevision,
+        refreshLockUntil: { gt: params.finishedAt },
       },
       data: {
         refreshLockUntil: null,
         refreshClaimToken: null,
         refreshFailCount: params.refreshFailCount,
+        ...(params.claim.reason === "urgent" &&
+        params.result !== "failure" &&
+        params.result !== "batch_error"
+          ? { lastUrgentRefreshAt: params.finishedAt }
+          : {}),
         ...(params.claim.reason === "base"
           ? {
               nextPriceRefreshAt: params.nextPriceRefreshAt,
@@ -282,13 +351,12 @@ async function persistOutcome(params: {
 
     if (updated.count !== 1) return { applied: false as const };
 
-    await tx.priceRefreshObservation.create({
-      data: {
+    const observation = {
         attemptId: params.claim.attemptId,
         productId: params.claim.id,
         reason: params.claim.reason,
         schedulerVersion: SCHEDULER_VERSION,
-        scheduledAt: params.claim.nextPriceRefreshAt,
+        scheduledAt: params.claim.reason === "base" ? params.claim.nextPriceRefreshAt : null,
         startedAt: params.claim.claimedAt,
         finishedAt: params.finishedAt,
         durationMs: Math.max(0, params.finishedAt.getTime() - params.claim.claimedAt.getTime()),
@@ -302,6 +370,22 @@ async function persistOutcome(params: {
         result: params.result,
         errorCode: params.errorCode,
         workerId: params.claim.workerId,
+    };
+    await tx.priceRefreshObservation.upsert({
+      where: { attemptId: params.claim.attemptId },
+      create: observation,
+      update: {
+        scheduledAt: observation.scheduledAt,
+        finishedAt: observation.finishedAt,
+        durationMs: observation.durationMs,
+        baseIntervalMinutes: observation.baseIntervalMinutes,
+        decisionReason: observation.decisionReason,
+        decisionEvidence: observation.decisionEvidence,
+        observedPrice: observation.observedPrice,
+        priceChanged: observation.priceChanged,
+        result: observation.result,
+        errorCode: observation.errorCode,
+        workerId: observation.workerId,
       },
     });
 
@@ -406,6 +490,7 @@ export async function recordSchedulerV2ShadowDecisions(limit = schedulerConfig.e
           refreshLockUntil: null,
           refreshClaimToken: null,
           schedulerRevision: 0,
+          lastUrgentRefreshAt: null,
           schedulerBootstrapObservationCount: validBaseObservationCount,
           schedulerBootstrapSawChange: isV2
             ? product.schedulerBootstrapSawChange
@@ -476,7 +561,7 @@ export async function activateSchedulerV2Cohort(params?: { rolloutPercentage?: n
       id: string;
       nextPriceRefreshAt: Date | null;
       refreshFailCount: number;
-      validObservations: bigint;
+      historicalObservations: bigint;
       changes: bigint;
       firstObservationAt: Date | null;
     }>
@@ -485,7 +570,7 @@ export async function activateSchedulerV2Cohort(params?: { rolloutPercentage?: n
       p."id",
       p."nextPriceRefreshAt",
       p."refreshFailCount",
-      COUNT(h."id")::bigint AS "validObservations",
+      COUNT(h."id")::bigint AS "historicalObservations",
       COALESCE(SUM(GREATEST(h."updateCount" - 1, 0)), 0)::bigint AS "changes",
       MIN(h."date") AS "firstObservationAt"
     FROM "DynamicProduct" p
@@ -502,11 +587,13 @@ export async function activateSchedulerV2Cohort(params?: { rolloutPercentage?: n
   const activationRows = eligibleRows.map((row) => {
     const validBaseObservationCount = Math.min(
       schedulerConfig.base.bootstrap.requiredValidObservations,
-      Number(row.validObservations)
+      Number(row.historicalObservations)
     );
     const changes = Number(row.changes);
     const changeRate30d =
-      validBaseObservationCount > 0 ? Math.min(1, changes / validBaseObservationCount) : 0;
+      Number(row.historicalObservations) > 0
+        ? Math.min(1, changes / Number(row.historicalObservations))
+        : 0;
     const state: SchedulerV2ProductState = {
       id: row.id,
       asin: "",
@@ -514,6 +601,7 @@ export async function activateSchedulerV2Cohort(params?: { rolloutPercentage?: n
       refreshLockUntil: null,
       refreshClaimToken: null,
       schedulerRevision: 0,
+      lastUrgentRefreshAt: null,
       schedulerBootstrapObservationCount: validBaseObservationCount,
       schedulerBootstrapSawChange: changes > 0,
       schedulerFirstBaseObservationAt: row.firstObservationAt,

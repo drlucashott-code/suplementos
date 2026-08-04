@@ -74,6 +74,13 @@ export const schedulerConfig = Object.freeze({
   },
   urgent: {
     clickCooldownMinutes: numberFromEnv("SCHEDULER_V2_URGENT_CLICK_COOLDOWN_MINUTES", 60),
+    completedRefreshCooldownMinutes: numberFromEnv(
+      "SCHEDULER_V2_URGENT_COMPLETED_REFRESH_COOLDOWN_MINUTES",
+      60
+    ),
+    queueBatchSize: numberFromEnv("SCHEDULER_V2_URGENT_QUEUE_BATCH_SIZE", 10),
+    queueLongPollSeconds: numberFromEnv("SCHEDULER_V2_URGENT_QUEUE_LONG_POLL_SECONDS", 5),
+    runLeaseMinutes: numberFromEnv("SCHEDULER_V2_URGENT_RUN_LEASE_MINUTES", 6),
   },
   failures: {
     firstRetryMinutes: numberFromEnv("SCHEDULER_V2_FAILURE_FIRST_RETRY_MINUTES", 60),
@@ -134,6 +141,15 @@ export function validateSchedulerConfig(config: SchedulerConfig = schedulerConfi
 
   if (
     config.urgent.clickCooldownMinutes < 0 ||
+    config.urgent.completedRefreshCooldownMinutes < 0 ||
+    !Number.isInteger(config.urgent.queueBatchSize) ||
+    config.urgent.queueBatchSize <= 0 ||
+    config.urgent.queueBatchSize > 10 ||
+    !Number.isInteger(config.urgent.queueLongPollSeconds) ||
+    config.urgent.queueLongPollSeconds < 0 ||
+    config.urgent.queueLongPollSeconds > 20 ||
+    !Number.isInteger(config.urgent.runLeaseMinutes) ||
+    config.urgent.runLeaseMinutes <= 0 ||
     config.failures.firstRetryMinutes <= 0 ||
     config.failures.maximumRetryMinutes < config.failures.firstRetryMinutes
   ) {

@@ -9,6 +9,7 @@ import {
   touchDynamicProductPriority,
   touchTrackedProductPriority,
 } from "@/lib/priceRefreshSignals";
+import { requestSchedulerV2UrgentRefresh } from "@/lib/scheduler/schedulerV2";
 
 async function logSchedulerAction(params: {
   actionType: string;
@@ -89,7 +90,10 @@ export async function forceDynamicSchedulerRefresh(formData: FormData) {
   if (!product) return;
 
   if (product.schedulerVersion === "v2") {
-    const enqueue = await enqueuePriorityRefresh({ asin: product.asin, reason: "admin" });
+    const asin = await requestSchedulerV2UrgentRefresh(productId);
+    const enqueue = asin
+      ? await enqueuePriorityRefresh({ asin, reason: "admin" })
+      : { enqueued: false as const, reason: "cooldown_active" };
     await logSchedulerAction({
       actionType: "request_refresh_now",
       productSource: "dynamic",

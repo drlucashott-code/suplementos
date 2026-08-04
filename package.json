@@ -16,6 +16,7 @@
     "test:scheduler": "tsx --test tests/scheduler/*.test.ts",
     "scheduler:v2:rollout": "tsx scripts/rolloutSchedulerV2.ts",
     "scheduler:v2:reconcile-failures": "tsx scripts/reconcileSchedulerV2FailureBackoff.ts",
+    "scheduler:v2:rebase-history": "tsx scripts/rebaseSchedulerV2History.ts",
     "scheduler:v2:shadow": "tsx scripts/shadowSchedulerV2.ts",
     "backfill:dynamic:price-stats": "tsx scripts/backfillDynamicPriceStats.ts",
     "normalize:dynamic:attributes": "tsx scripts/normalizeDynamicCategoryAttributes.ts",

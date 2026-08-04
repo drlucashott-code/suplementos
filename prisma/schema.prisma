@@ -178,6 +178,7 @@ model DynamicProduct {
   dataFreshnessScore Float               @default(0)
   refreshLockUntil DateTime?
   refreshClaimToken String?
+  lastUrgentRefreshAt DateTime?
   schedulerVersion String                 @default("legacy")
   schedulerRevision Int                   @default(0)
   schedulerBaseIntervalMinutes Int?
@@ -215,6 +216,7 @@ model DynamicProduct {
   @@index([refreshTier, priorityScore])
   @@index([schedulerVersion, nextPriceRefreshAt])
   @@index([refreshLockUntil])
+  @@index([lastUrgentRefreshAt])
 }
 
 model DynamicCategoryAsinDecision {
@@ -471,6 +473,7 @@ model PriceRefreshObservation {
   createdAt           DateTime       @default(now())
 
   @@index([productId, startedAt(sort: Desc)])
+  @@index([productId, reason, result, startedAt(sort: Desc)])
   @@index([reason, startedAt(sort: Desc)])
   @@index([schedulerVersion, startedAt(sort: Desc)])
   @@index([result, startedAt(sort: Desc)])
