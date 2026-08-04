@@ -26,6 +26,12 @@ import { getPriceHistoryCanonicalDate } from "@/lib/dynamicPriceHistory";
 import { writeDynamicDailyPriceHistoryIfChanged } from "@/lib/priceHistoryWrites";
 import { notifyFavoritesOfDynamicPriceChange } from "@/lib/siteNotifications";
 import { applyDynamicRefreshOutcome, markDynamicRefreshAttempt } from "@/lib/priceRefreshSignals";
+import {
+  applySchedulerV2UrgentOutcome,
+  claimSchedulerV2UrgentRefresh,
+  type SchedulerV2Claim,
+} from "@/lib/scheduler/schedulerV2";
+import { schedulerConfig } from "@/lib/scheduler/scheduler.config";
 import { reservePriceRefreshBudget } from "@/lib/priceRefreshBudget";
 import { getBlockedMerchantMatcher } from "@/lib/blockedMerchantsConfig";
 
@@ -446,6 +452,7 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
           totalPrice: true,
           attributes: true,
           availabilityStatus: true,
+          schedulerVersion: true,
           category: {
             select: {
               name: true,
@@ -458,17 +465,61 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
       });
 
       const productMap = new Map(products.map((product) => [product.asin, product]));
-      const items = await getAmazonItemsViaCreators({
-        itemIds: budgetedAsins,
-        resources: [
-          "ItemInfo.Title",
-          "Offers.Listings.Type",
-          "Offers.Listings.Price",
-          "Offers.Listings.MerchantInfo",
-          "Offers.Listings.IsBuyBoxWinner",
-          "Offers.Listings.Availability",
-        ],
-      });
+      const claimedByAsin = new Map<
+        string,
+        Awaited<ReturnType<typeof markDynamicRefreshAttempt>> | SchedulerV2Claim
+      >();
+
+      // A posse vem antes da chamada remota, evitando consultas duplicadas
+      // quando duas mensagens do SQS apontam para o mesmo produto.
+      for (const asin of budgetedAsins) {
+        const product = productMap.get(asin);
+        if (!product) continue;
+        const claim =
+          product.schedulerVersion === schedulerConfig.policyVersion && schedulerConfig.flags.enabled
+            ? await claimSchedulerV2UrgentRefresh(product.id, `priority:${runId}`)
+            : await markDynamicRefreshAttempt(asin);
+        if (claim) claimedByAsin.set(asin, claim);
+      }
+      const claimedAsins = [...claimedByAsin.keys()];
+      if (claimedAsins.length === 0) {
+        summary.skippedProducts += budgetedAsins.length;
+        return true;
+      }
+
+      let items: Awaited<ReturnType<typeof getAmazonItemsViaCreators>>;
+      try {
+        items = await getAmazonItemsViaCreators({
+          itemIds: claimedAsins,
+          resources: [
+            "ItemInfo.Title",
+            "Offers.Listings.Type",
+            "Offers.Listings.Price",
+            "Offers.Listings.MerchantInfo",
+            "Offers.Listings.IsBuyBoxWinner",
+            "Offers.Listings.Availability",
+          ],
+        });
+      } catch (error) {
+        await Promise.all(
+          [...claimedByAsin.entries()]
+            .filter(
+              ([asin]) =>
+                productMap.get(asin)?.schedulerVersion === schedulerConfig.policyVersion &&
+                schedulerConfig.flags.enabled
+            )
+            .map(([, claim]) =>
+              applySchedulerV2UrgentOutcome({
+                claim: claim as SchedulerV2Claim,
+                success: false,
+                priceChanged: false,
+                result: "failure",
+                errorCode: "amazon_batch_error",
+              })
+            )
+        );
+        throw error;
+      }
 
       const snapshots: Record<
         string,
@@ -499,7 +550,7 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
       if (params?.debug) {
         summary.debug = {
           batchAsins: uniqueAsins,
-          missingAsins: budgetedAsins.filter((asin) => !snapshots[asin]),
+          missingAsins: claimedAsins.filter((asin) => !snapshots[asin]),
           resultsCount: Object.keys(snapshots).length,
         };
       }
@@ -507,7 +558,7 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
       const successfullyUpdatedAsins = new Set<string>();
       const terminalSkippedAsins = new Set<string>();
 
-      for (const asin of budgetedAsins) {
+      for (const asin of claimedAsins) {
         const product = productMap.get(asin);
         const snapshot = snapshots[asin];
 
@@ -517,14 +568,18 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
           continue;
         }
 
-        const refreshState = await markDynamicRefreshAttempt(asin);
-        if (!refreshState) {
-          summary.skippedProducts += 1;
-          terminalSkippedAsins.add(asin);
-          continue;
-        }
+        const refreshState = claimedByAsin.get(asin)!;
 
         if (!snapshot) {
+          if (product.schedulerVersion === schedulerConfig.policyVersion && schedulerConfig.flags.enabled) {
+            await applySchedulerV2UrgentOutcome({
+              claim: refreshState as SchedulerV2Claim,
+              success: false,
+              priceChanged: false,
+              result: "failure",
+              errorCode: "amazon_item_missing",
+            });
+          }
           // mantém mensagem na fila para retry
           continue;
         }
@@ -552,12 +607,26 @@ export async function processPriorityRefreshQueueV2(params?: { debug?: boolean }
         if (wroteHistory) {
           statsRefreshProductIds.add(product.id);
         }
-        await applyDynamicRefreshOutcome({
-          productId: product.id,
-          previousState: refreshState,
-          success: status === "OK",
-          priceChanged: price > 0 && Math.abs(price - product.totalPrice) > 0.009,
-        });
+        const success = status === "OK";
+        const priceChanged = price > 0 && Math.abs(price - product.totalPrice) > 0.009;
+        if (product.schedulerVersion === schedulerConfig.policyVersion && schedulerConfig.flags.enabled) {
+          await applySchedulerV2UrgentOutcome({
+            claim: refreshState as SchedulerV2Claim,
+            success,
+            priceChanged,
+            observedPrice: price > 0 ? price : null,
+            result: success ? "success" : status === "EXCLUDED" ? "excluded" : "out_of_stock",
+          });
+        } else {
+          await applyDynamicRefreshOutcome({
+            productId: product.id,
+            previousState: refreshState as NonNullable<
+              Awaited<ReturnType<typeof markDynamicRefreshAttempt>>
+            >,
+            success,
+            priceChanged,
+          });
+        }
 
         summary.updatedProducts += 1;
         summary.updatedAsins.push(asin);

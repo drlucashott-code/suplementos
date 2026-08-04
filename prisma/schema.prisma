@@ -177,6 +177,16 @@ model DynamicProduct {
   priceChangeFrequency Float             @default(0)
   dataFreshnessScore Float               @default(0)
   refreshLockUntil DateTime?
+  refreshClaimToken String?
+  schedulerVersion String                 @default("legacy")
+  schedulerRevision Int                   @default(0)
+  schedulerBaseIntervalMinutes Int?
+  schedulerBootstrapObservationCount Int  @default(0)
+  schedulerBootstrapSawChange Boolean     @default(false)
+  schedulerFirstBaseObservationAt DateTime?
+  lastBaseRefreshAt DateTime?
+  lastBaseSuccessfulRefreshAt DateTime?
+  basePriceChangeRate30d Float?
   url              String
   imageUrl         String?
   categoryId       String
@@ -190,6 +200,8 @@ model DynamicProduct {
   clickEvents      DynamicProductClickEvent[]
   issueReports     DynamicProductIssueReport[]
   reactions        DynamicProductReaction[]
+  refreshObservations PriceRefreshObservation[]
+  refreshScheduleDecisions PriceRefreshScheduleDecision[]
   favorites        SiteUserFavorite[]
   comments         SiteProductComment[]
   listItems        SiteUserListItem[]
@@ -201,6 +213,8 @@ model DynamicProduct {
   @@index([categoryId, visibilityStatus, createdAt(sort: Desc)])
   @@index([nextPriceRefreshAt])
   @@index([refreshTier, priorityScore])
+  @@index([schedulerVersion, nextPriceRefreshAt])
+  @@index([refreshLockUntil])
 }
 
 model DynamicCategoryAsinDecision {
@@ -432,6 +446,57 @@ model DynamicPriceHistory {
   @@unique([productId, date])
 }
 
+// Registro técnico de cada tentativa real de refresh. Diferente do histórico
+// exibido ao usuário, preserva a resolução intradiária necessária para
+// auditoria e futuras análises do scheduler.
+model PriceRefreshObservation {
+  id                  String         @id @default(cuid())
+  attemptId           String         @unique
+  productId           String
+  product             DynamicProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  reason              String
+  schedulerVersion    String
+  scheduledAt         DateTime?
+  startedAt           DateTime
+  finishedAt          DateTime?
+  durationMs          Int?
+  baseIntervalMinutes Int?
+  decisionReason      String?
+  decisionEvidence    Json?
+  observedPrice       Float?
+  priceChanged        Boolean?
+  result              String
+  errorCode           String?
+  workerId            String?
+  createdAt           DateTime       @default(now())
+
+  @@index([productId, startedAt(sort: Desc)])
+  @@index([reason, startedAt(sort: Desc)])
+  @@index([schedulerVersion, startedAt(sort: Desc)])
+  @@index([result, startedAt(sort: Desc)])
+}
+
+// Mantém a última decisão em shadow mode por produto e versão, sem gravar uma
+// linha a cada passagem do cron.
+model PriceRefreshScheduleDecision {
+  id                  String         @id @default(cuid())
+  productId           String
+  product             DynamicProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  schedulerVersion    String
+  calculatedAt        DateTime       @default(now())
+  currentScheduledAt  DateTime?
+  proposedScheduledAt DateTime
+  intervalMinutes     Int
+  reason              String
+  evidence            Json
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@unique([productId, schedulerVersion])
+  @@index([schedulerVersion, calculatedAt(sort: Desc)])
+  @@index([proposedScheduledAt])
+}
+
 model DynamicProductClickStats {
   id            String         @id @default(cuid())
   productId     String         @unique
@@ -552,6 +617,7 @@ model SiteUser {
   notificationPreference SiteUserNotificationPreference?
   pushSubscriptions SiteUserPushSubscription[]
   notificationDeliveries SiteNotificationDelivery[]
+  notificationDispatchGuards SiteNotificationDispatchGuard[]
   productSuggestions SiteProductSuggestion[]
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
@@ -948,6 +1014,25 @@ model PriceRefreshBudgetWindow {
 
   @@unique([scope, windowType, windowStart])
   @@index([scope, windowType, windowStart(sort: Desc)])
+}
+
+// Tabela já existente no Neon. Ela ainda não é acessada pelo código atual,
+// mas precisa constar no schema para que o baseline de migrations represente
+// fielmente o banco em produção.
+model SiteNotificationDispatchGuard {
+  id         String   @id
+  userId     String
+  user       SiteUser @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  type       String
+  groupedKey String?
+  dedupeKey  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime
+
+  @@index([expiresAt])
+  @@index([type, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 model AdminSchedulerActionLog {

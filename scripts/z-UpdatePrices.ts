@@ -31,6 +31,12 @@ import {
   markTrackedRefreshAttemptById,
 } from "../src/lib/priceRefreshSignals";
 import { reservePriceRefreshBudget } from "../src/lib/priceRefreshBudget";
+import {
+  applySchedulerV2BaseOutcome,
+  claimSchedulerV2BaseRefresh,
+  type SchedulerV2Claim,
+} from "../src/lib/scheduler/schedulerV2";
+import { schedulerConfig } from "../src/lib/scheduler/scheduler.config";
 
 const prisma = new PrismaClient();
 
@@ -169,6 +175,7 @@ type DynamicProductLite = {
   priceChangeFrequency: number | null;
   dataFreshnessScore: number | null;
   refreshLockUntil: Date | null;
+  schedulerVersion: string;
   category:
     | {
         group: string;
@@ -757,18 +764,33 @@ async function updateAmazonPrices() {
         },
         {
           OR: [
-            { nextPriceRefreshAt: null },
-            { nextPriceRefreshAt: { lte: now } },
             {
-              AND: [
-                { refreshFailCount: 0 },
+              schedulerVersion: schedulerConfig.flags.enabled
+                ? "legacy"
+                : { in: ["legacy", schedulerConfig.policyVersion] },
+              OR: [
+                { nextPriceRefreshAt: null },
+                { nextPriceRefreshAt: { lte: now } },
                 {
-                  lastSuccessfulRefreshAt: {
-                    lte: new Date(now.getTime() - 24 * 60 * 60 * 1000),
-                  },
+                  AND: [
+                    { refreshFailCount: 0 },
+                    {
+                      lastSuccessfulRefreshAt: {
+                        lte: new Date(now.getTime() - 24 * 60 * 60 * 1000),
+                      },
+                    },
+                  ],
                 },
               ],
             },
+            ...(schedulerConfig.flags.enabled
+              ? [
+                  {
+                    schedulerVersion: schedulerConfig.policyVersion,
+                    nextPriceRefreshAt: { lte: now },
+                  },
+                ]
+              : []),
           ],
         },
       ],
@@ -795,6 +817,7 @@ async function updateAmazonPrices() {
       priceChangeFrequency: true,
       dataFreshnessScore: true,
       refreshLockUntil: true,
+      schedulerVersion: true,
       category: {
         select: {
           group: true,
@@ -875,13 +898,14 @@ async function updateAmazonPrices() {
       remainingGlobalBudget -= budgetedChunk.length;
       const claimedProducts: Array<{
         product: DynamicProductLite;
-        claimedState: ClaimedDynamicState;
+        claimedState: ClaimedDynamicState | SchedulerV2Claim;
       }> = [];
 
       for (const product of budgetedChunk) {
-        const claimedState = await withDatabaseRetry(
-          `dynamicProduct.claim:${product.id}`,
-          async () => markDynamicRefreshAttemptById(product.id)
+        const claimedState = await withDatabaseRetry(`dynamicProduct.claim:${product.id}`, async () =>
+          product.schedulerVersion === schedulerConfig.policyVersion && schedulerConfig.flags.enabled
+            ? claimSchedulerV2BaseRefresh(product.id, `global:${runId}`)
+            : markDynamicRefreshAttemptById(product.id)
         );
         if (claimedState) {
           claimedProducts.push({ product, claimedState });
@@ -905,6 +929,22 @@ async function updateAmazonPrices() {
         }
       } catch (error) {
         console.error("Erro ao buscar lote na API:", error);
+        await Promise.all(
+          claimedProducts
+            .filter(
+              (entry): entry is { product: DynamicProductLite; claimedState: SchedulerV2Claim } =>
+                entry.product.schedulerVersion === schedulerConfig.policyVersion && schedulerConfig.flags.enabled
+            )
+            .map(({ claimedState }) =>
+              applySchedulerV2BaseOutcome({
+                claim: claimedState,
+                success: false,
+                priceChanged: false,
+                result: "failure",
+                errorCode: "amazon_batch_error",
+              })
+            )
+        );
         counters.failedOffers += claimedProducts.length;
         currentFailedStreak += claimedProducts.length;
         counters.maxConsecutiveFailedOffers = Math.max(
@@ -920,16 +960,36 @@ async function updateAmazonPrices() {
 
         const { logStatus, outcome, priceHistoryChanged, shouldRefreshPriceStats } =
           await persistDynamicUpdate(product, result);
-        await withDatabaseRetry(`dynamicProduct.scheduler:${product.id}`, async () =>
-          applyDynamicRefreshOutcome({
+        await withDatabaseRetry(`dynamicProduct.scheduler:${product.id}`, async () => {
+          const success = Boolean(result && result.status === "OK");
+          const priceChanged =
+            success && Math.abs((result?.price ?? 0) - product.totalPrice) > 0.009;
+
+          if (product.schedulerVersion === schedulerConfig.policyVersion && schedulerConfig.flags.enabled) {
+            return applySchedulerV2BaseOutcome({
+              claim: claimedState as SchedulerV2Claim,
+              success,
+              priceChanged,
+              observedPrice: result?.price ?? null,
+              result:
+                result?.status === "OUT_OF_STOCK"
+                  ? "out_of_stock"
+                  : result?.status === "EXCLUDED"
+                    ? "excluded"
+                    : success
+                      ? "success"
+                      : "failure",
+              errorCode: result ? null : "amazon_item_missing",
+            });
+          }
+
+          return applyDynamicRefreshOutcome({
             productId: product.id,
-            previousState: claimedState,
-            success: Boolean(result && result.status === "OK"),
-            priceChanged:
-              Boolean(result && result.status === "OK") &&
-              Math.abs((result?.price ?? 0) - product.totalPrice) > 0.009,
-          })
-        );
+            previousState: claimedState as ClaimedDynamicState,
+            success,
+            priceChanged,
+          });
+        });
         incrementCounters(counters, outcome);
         if (priceHistoryChanged) {
           counters.priceHistoryChanged += 1;
