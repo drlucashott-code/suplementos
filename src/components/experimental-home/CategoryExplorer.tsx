@@ -93,21 +93,21 @@ export function CategoryExplorer({ categories }: { categories: Record<HomeHub, E
           ref={railRef}
           role="tabpanel"
           aria-labelledby={`home-hub-${activeHub}`}
-          className="-mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-2 lg:px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="-mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-8 lg:gap-4 lg:overflow-visible lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {categoryColumns.map((column, columnIndex) => (
             <div
               key={`${activeHub}-column-${columnIndex}`}
-              className="w-[calc((100%-0.75rem)/2)] shrink-0 snap-start space-y-3 sm:w-[calc((100%-1.5rem)/3)] lg:w-[calc((100%-2.25rem)/4)]"
+              className="w-[calc((100%-0.75rem)/2)] shrink-0 snap-start space-y-3 sm:w-[calc((100%-1.5rem)/3)] lg:contents"
             >
               {column.map((category) => (
                 <Link
                   key={category.path}
                   href={category.path}
                   onClick={() => trackCategory(category)}
-                  className="group block text-left focus-visible:rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007185]"
+                  className="group block text-left focus-visible:rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007185] lg:min-w-0"
                 >
-                  <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-[#F7F8F8]">
+                  <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-[#F7F8F8] lg:aspect-square">
                     <Image
                       loader={amazonImageLoader}
                       src={category.imageSrc}
@@ -117,7 +117,7 @@ export function CategoryExplorer({ categories }: { categories: Record<HomeHub, E
                       className="object-contain p-2 transition duration-300 group-hover:scale-[1.04]"
                     />
                   </div>
-                  <span className="mt-2 line-clamp-2 min-h-8 text-[13px] font-semibold leading-4 text-[#0F1111] group-hover:text-[#007185]">
+                  <span className="mt-2 block line-clamp-2 min-h-8 text-center text-[13px] font-semibold leading-4 text-[#0F1111] group-hover:text-[#007185]">
                     {category.title}
                   </span>
                 </Link>
