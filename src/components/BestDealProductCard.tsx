@@ -134,6 +134,7 @@ export default function BestDealProductCard({
   }[decisionTone];
 
   useEffect(() => {
+    if (!showActions) return;
     let active = true;
     void isAccountFavorite(item.id).then((value) => {
       if (active) setSaved(value);
@@ -141,9 +142,10 @@ export default function BestDealProductCard({
     return () => {
       active = false;
     };
-  }, [item.id]);
+  }, [item.id, showActions]);
 
   useEffect(() => {
+    if (!showActions) return;
     let active = true;
     void getAccountListsCount().then((count) => {
       if (active) setAccountListCount(count);
@@ -151,9 +153,10 @@ export default function BestDealProductCard({
     return () => {
       active = false;
     };
-  }, []);
+  }, [showActions]);
 
   useEffect(() => {
+    if (!showActions) return;
     const syncSaved = () => {
       void isAccountFavorite(item.id).then(setSaved);
     };
@@ -165,7 +168,7 @@ export default function BestDealProductCard({
       window.removeEventListener("storage", syncSaved);
       window.removeEventListener(ACCOUNT_FAVORITES_EVENT, syncSaved);
     };
-  }, [item.id]);
+  }, [item.id, showActions]);
 
   async function submitReport() {
     if (reportState === "submitting") return;

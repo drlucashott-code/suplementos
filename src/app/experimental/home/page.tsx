@@ -162,7 +162,7 @@ export default async function ExperimentalHomePage() {
   return (
     <>
       <div className="lg:hidden">
-        <HeaderClient extraCategories={headerCategories} />
+        <HeaderClient extraCategories={headerCategories} searchPlaceholder="Buscar produtos" />
       </div>
       <div className="hidden lg:block">
         <Suspense fallback={<div className="h-14 bg-[#131921]" />}>

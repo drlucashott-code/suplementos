@@ -46,13 +46,18 @@ async function shareList(list: ExperimentalPublicList) {
   }
 }
 
-function ListCard({ list }: { list: ExperimentalPublicList }) {
+function ListCard({ list, featured = false }: { list: ExperimentalPublicList; featured?: boolean }) {
   const images = list.previewImages.filter(Boolean).slice(0, 3);
 
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-[#D5D9D9] bg-white shadow-[0_2px_8px_rgba(15,17,17,0.06)] transition hover:border-[#AAB7B8] hover:shadow-[0_8px_22px_rgba(15,17,17,0.10)]">
       <Link href={listPath(list)} onClick={() => track("click_experimental_home_list", list)} className="group block focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#007185]">
-        <div className="grid h-[128px] grid-cols-3 gap-px bg-[#E3E6E6]">
+        <div className="relative grid h-[128px] grid-cols-3 gap-px bg-[#E3E6E6]">
+          {featured ? (
+            <span className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-full bg-[#FFF3CD] px-2 py-1 text-[10px] font-bold text-[#7A5200] shadow-sm">
+              <Bookmark className="h-3 w-3 fill-current" /> Mais salva
+            </span>
+          ) : null}
           {images.length > 0 ? (
             images.map((src, index) => (
               <div key={`${list.slug}-${index}`} className="relative bg-[#F7F8F8]">
@@ -120,9 +125,9 @@ export function CommunityLists({ publicLists }: { publicLists: ExperimentalPubli
 
         {publicLists.length > 0 ? (
           <div className="-mx-4 mt-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-3 lg:px-0 xl:grid-cols-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {publicLists.map((list) => (
+            {publicLists.map((list, index) => (
               <div key={list.slug} className="w-[82vw] max-w-[330px] shrink-0 snap-start lg:w-auto lg:max-w-none">
-                <ListCard list={list} />
+                <ListCard list={list} featured={index === 0 && list.savedCount > 0} />
               </div>
             ))}
           </div>

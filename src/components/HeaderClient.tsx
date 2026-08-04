@@ -16,11 +16,13 @@ import {
 export type HeaderClientProps = {
   extraCategories?: ExtraCategory[];
   initialUser?: SessionUser | null;
+  searchPlaceholder?: string;
 };
 
 export default function HeaderClient({
   extraCategories = [],
   initialUser,
+  searchPlaceholder = "O que você está procurando?",
 }: HeaderClientProps) {
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<CategorySuggestion[]>([]);
@@ -92,7 +94,7 @@ export default function HeaderClient({
                 value={query}
                 onChange={handleInputChange}
                 onFocus={() => query.length > 0 && setShowSuggestions(true)}
-                placeholder="O que você está procurando?"
+                placeholder={searchPlaceholder}
                 className="h-11 w-full rounded-l-md border-none bg-white px-4 text-[16px] text-black outline-none"
               />
               <button
