@@ -89,6 +89,10 @@ type DiscoveryRun = {
       approved: number;
       pendingReview: number;
     };
+    error?: {
+      code: string;
+      message: string;
+    };
   } | null;
 };
 
@@ -265,6 +269,7 @@ export default function DiscoveryWorkbenchClient({
   const debugCounts = latestRun?.previewSummary?.counts ?? null;
   const debugFinalCounts = latestRun?.previewSummary?.finalCounts ?? null;
   const progress = latestRun?.previewSummary?.progress ?? null;
+  const runError = latestRun?.previewSummary?.error ?? null;
   const progressTotalQueries = Math.max(1, progress?.totalQueries ?? latestRun?.queryCount ?? 1);
   const progressCompletedQueries = progress?.completedQueries ?? latestRun?.queryCount ?? 0;
 
@@ -395,6 +400,11 @@ export default function DiscoveryWorkbenchClient({
                 <div className="text-[12px] text-gray-500">
                   Página {progress?.currentPage ?? 0} • {progress?.renderer ?? "browser"} • {progress?.currentCards ?? 0} cards • {progress?.currentAsins ?? 0} ASINs válidos
                 </div>
+                {latestRun.status === "error" && runError ? (
+                  <div className="max-w-2xl rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold leading-5 text-rose-800">
+                    <span className="font-black">{runError.code}:</span> {runError.message}
+                  </div>
+                ) : null}
                 {latestRun.status === "running" ? (
                   <form action={cancelDiscoveryRun} className="pt-2">
                     <input type="hidden" name="categoryId" value={selectedCategoryId} />

@@ -640,56 +640,37 @@ async function fetchSearchPage(url: string) {
 
 async function fetchBrandFacetMap(url: string, wantedBrands: string[]) {
   const wantedSet = new Set(wantedBrands.map((brand) => normalizeText(brand)));
-  const { chromium } = await import("playwright");
-  const browser = await chromium.launch({
-    headless: true,
-  });
-
-  try {
-    const page = await browser.newPage({
-      viewport: { width: 1440, height: 1600 },
-      userAgent: USER_AGENT,
-      locale: "pt-BR",
-    });
-
-    await page.goto(url, {
-      waitUntil: "domcontentloaded",
-      timeout: 60000,
-    });
-    await page.waitForTimeout(5000);
-
+  function extractFacets(html: string) {
+    const $ = cheerio.load(html);
     const facets = new Map<string, string>();
     const observedSets = new Map<string, Set<string>>();
-    const brandLinks = page.locator("#s-refinements a[href*='p_123']");
-    const count = await brandLinks.count();
-
-    for (let index = 0; index < count; index += 1) {
-      const link = brandLinks.nth(index);
+    $("#s-refinements a[href*='p_123']").each((_, element) => {
+      const link = $(element);
       const text = firstNonEmpty([
-        await link.innerText().catch(() => ""),
-        await link.getAttribute("aria-label"),
-        await link.getAttribute("title"),
+        link.text(),
+        link.attr("aria-label"),
+        link.attr("title"),
       ]);
-      if (!text) continue;
+      if (!text) return;
 
       const brandName = text.replace(/\s+\(\d+\)\s*$/u, "").trim();
-      if (!brandName || !wantedSet.has(normalizeText(brandName))) continue;
+      if (!brandName || !wantedSet.has(normalizeText(brandName))) return;
 
-      const href = await link.getAttribute("href");
-      if (!href) continue;
+      const href = link.attr("href");
+      if (!href) return;
 
       const decodedHref = decodeURIComponent(href);
-        const match = decodedHref.match(/p_123[:=]([^,&]+)/i);
-        if (!match) continue;
+      const match = decodedHref.match(/p_123[:=]([^,&]+)/i);
+      if (!match) return;
 
-        const filterValues = decodeFacetValue(match[1] ?? "")
-          .split("|")
-          .map((value) => value.trim())
-          .filter(Boolean);
+      const filterValues = decodeFacetValue(match[1] ?? "")
+        .split("|")
+        .map((value) => value.trim())
+        .filter(Boolean);
 
-      if (filterValues.length === 0) continue;
+      if (filterValues.length === 0) return;
       observedSets.set(normalizeText(brandName), new Set(filterValues));
-    }
+    });
 
     const unionValues = new Set<string>();
     for (const values of observedSets.values()) {
@@ -712,8 +693,45 @@ async function fetchBrandFacetMap(url: string, wantedBrands: string[]) {
     }
 
     return facets;
-  } finally {
-    await browser.close();
+  }
+
+  async function fetchWithAxios() {
+    const response = await axios.get<string>(url, {
+      headers: {
+        "User-Agent": USER_AGENT,
+        "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.7,en;q=0.6",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      },
+      timeout: 20000,
+    });
+    const html = typeof response.data === "string" ? response.data : "";
+    if (!html.trim()) throw new Error("amazon_discovery_empty_response");
+    if (isBlockedHtml(html)) throw new Error("amazon_discovery_blocked");
+    return extractFacets(html);
+  }
+
+  try {
+    const { chromium } = await import("playwright");
+    const browser = await chromium.launch({ headless: true });
+    try {
+      const page = await browser.newPage({
+        viewport: { width: 1440, height: 1600 },
+        userAgent: USER_AGENT,
+        locale: "pt-BR",
+      });
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+      await page.waitForTimeout(5000);
+      const html = await page.content();
+      if (!html.trim()) throw new Error("amazon_discovery_empty_response");
+      if (isBlockedHtml(html)) throw new Error("amazon_discovery_blocked");
+      return extractFacets(html);
+    } finally {
+      await browser.close();
+    }
+  } catch {
+    // Em runtimes serverless sem binário Chromium, a descoberta continua
+    // pelo HTML HTTP em vez de abortar antes da primeira consulta.
+    return fetchWithAxios();
   }
 }
 

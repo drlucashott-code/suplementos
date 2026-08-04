@@ -64,6 +64,25 @@ function parseInteger(formData: FormData, name: string, fallback: number, min: n
   return Math.max(min, Math.min(max, parsed));
 }
 
+function getDiscoveryErrorDetails(error: unknown) {
+  if (error instanceof Error) {
+    return { code: error.name || "Error", message: error.message || "Erro sem mensagem." };
+  }
+
+  if (error && typeof error === "object") {
+    const candidate = error as { code?: unknown; message?: unknown; body?: { message?: unknown } };
+    return {
+      code: typeof candidate.code === "string" ? candidate.code : "UnknownError",
+      message:
+        (typeof candidate.body?.message === "string" && candidate.body.message) ||
+        (typeof candidate.message === "string" && candidate.message) ||
+        "Erro sem mensagem.",
+    };
+  }
+
+  return { code: "UnknownError", message: String(error) };
+}
+
 function normalizeList(values: string[]) {
   return Array.from(
     new Set(values.map((value) => value.trim()).filter(Boolean))
@@ -536,6 +555,17 @@ export async function runDiscoveryForCategory(formData: FormData) {
   });
 
   const totalQueriesEstimate = searchTerms.reduce((sum, _term) => sum + sortModes.length * (autoMaxPages ? 10 : maxPages), 0);
+  let lastProgress: AmazonDiscoveryProgress = {
+    phase: "searching",
+    completedQueries: 0,
+    totalQueries: totalQueriesEstimate,
+    currentQuery: "Preparando descoberta",
+    currentPage: 0,
+    currentUrl: "",
+    currentCards: 0,
+    currentAsins: 0,
+    renderer: "browser",
+  };
   const run = await prisma.dynamicDiscoveryRun.create({
     data: {
       categoryId,
@@ -581,6 +611,7 @@ export async function runDiscoveryForCategory(formData: FormData) {
   });
 
   const updateProgress = async (progress: AmazonDiscoveryProgress) => {
+    lastProgress = progress;
     await prisma.dynamicDiscoveryRun.update({
       where: { id: run.id },
       data: {
@@ -922,21 +953,25 @@ export async function runDiscoveryForCategory(formData: FormData) {
       throw error;
     }
 
+    const failure = getDiscoveryErrorDetails(error);
     await prisma.dynamicDiscoveryRun.update({
       where: { id: run.id },
       data: {
         status: "error",
+        queryCount: lastProgress.completedQueries,
+        asinCount: lastProgress.currentAsins,
         previewSummary: {
+          error: failure,
           progress: {
             phase: "finalizing",
-            completedQueries: 0,
+            completedQueries: lastProgress.completedQueries,
             totalQueries: totalQueriesEstimate,
-            currentQuery: "Erro na execução",
-            currentPage: 0,
-            currentUrl: "",
-            currentCards: 0,
-            currentAsins: 0,
-            renderer: "browser",
+            currentQuery: `Erro: ${failure.code}`,
+            currentPage: lastProgress.currentPage,
+            currentUrl: lastProgress.currentUrl,
+            currentCards: lastProgress.currentCards,
+            currentAsins: lastProgress.currentAsins,
+            renderer: lastProgress.renderer,
           },
         },
       },

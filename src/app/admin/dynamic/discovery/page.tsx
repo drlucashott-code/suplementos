@@ -54,6 +54,10 @@ function toPreviewSummary(raw: unknown) {
           approved: number;
           pendingReview: number;
         };
+        error?: {
+          code: string;
+          message: string;
+        };
       }
     | null;
 }
