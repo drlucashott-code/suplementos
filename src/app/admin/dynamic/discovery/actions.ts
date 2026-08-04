@@ -13,6 +13,16 @@ import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 
 const DISCOVERY_PATH = "/admin/dynamic/discovery";
+const configuredDiscoveryDbWriteConcurrency = Number.parseInt(
+  process.env.DISCOVERY_DB_WRITE_CONCURRENCY ?? "2",
+  10
+);
+// Deixar uma margem abaixo das cinco conexões do pool do Neon para as leituras
+// e atualizações do próprio run. Um valor inválido no ambiente volta ao padrão
+// seguro, em vez de impedir a persistência inteira.
+const DISCOVERY_DB_WRITE_CONCURRENCY = Number.isFinite(configuredDiscoveryDbWriteConcurrency)
+  ? Math.max(1, Math.min(2, configuredDiscoveryDbWriteConcurrency))
+  : 2;
 
 type DiscoveryProductStatus = "approved" | "rejected" | "existing" | "pending_review";
 type DiscoveryBrandStatus = "approved" | "pending" | "rejected";
@@ -160,6 +170,25 @@ function scorePersistedProduct(input: {
 
 function mergeUniqueStrings(...groups: Array<string[] | null | undefined>) {
   return normalizeList(groups.flatMap((group) => group ?? []));
+}
+
+async function processWithConcurrency<T>(
+  items: readonly T[],
+  concurrency: number,
+  worker: (item: T) => Promise<unknown>
+) {
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const item = items[nextIndex];
+      nextIndex += 1;
+      if (item !== undefined) {
+        await worker(item);
+      }
+    }
+  });
+
+  await Promise.all(workers);
 }
 
 function normalizeBrandName(value: unknown) {
@@ -795,7 +824,7 @@ export async function runDiscoveryForCategory(formData: FormData) {
       },
     };
 
-    const upserts = aggregatedHits.map(async (hit) => {
+    const persistDiscoveryHit = async (hit: (typeof aggregatedHits)[number]) => {
     const currentRow = existingProductMap.get(hit.asin);
     const storedStatus = currentRow?.status ?? null;
     const resolvedStatus = resolveProductStatus(storedStatus, siteCatalogAsins.has(hit.asin));
@@ -880,9 +909,15 @@ export async function runDiscoveryForCategory(formData: FormData) {
         lastSeenAt: new Date(),
       },
     });
-  });
+    };
 
-    await Promise.all(upserts);
+    // O pool do Neon desta aplicação tem cinco conexões. Limitar este
+    // trecho evita centenas de upserts simultâneos depois do scraping.
+    await processWithConcurrency(
+      aggregatedHits,
+      DISCOVERY_DB_WRITE_CONCURRENCY,
+      persistDiscoveryHit
+    );
     runPreview.counts.discovered = aggregatedHits.length;
 
     const approvedRows = await prisma.dynamicDiscoveryProductStatus.findMany({
