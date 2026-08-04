@@ -1,17 +1,18 @@
-# Baseline de migrations — Scheduler V2
+# Histórico de migrations — Scheduler V2
 
-O repositório ainda não possui `prisma/migrations`. Por isso, nenhuma migration
-V2 pode ser aplicada antes de registrar um baseline que corresponda exatamente
-ao schema já existente no Neon.
+O Neon já possuía migrations registradas. Os arquivos correspondentes haviam
+sido removidos do repositório no commit `0d9251d`, mas foram restaurados
+exatamente do commit anterior para que o histórico local corresponda à tabela
+`_prisma_migrations` existente.
 
-## Procedimento obrigatório antes da primeira migration
+## Procedimento obrigatório antes da primeira migration V2
 
 1. Fazer backup lógico do banco e confirmar que a URL usada é o ambiente alvo.
-2. Gerar um baseline a partir de `prisma/schema.prisma` em um ambiente isolado.
-3. Comparar o baseline com o banco alvo usando `prisma migrate diff`.
+2. Executar `prisma migrate status` e exigir que o histórico local corresponda
+   ao histórico registrado no Neon.
+3. Comparar o schema com o banco usando `prisma migrate diff`.
 4. Prosseguir apenas se a comparação não apontar drift inesperado.
-5. Marcar somente o baseline como aplicado no banco existente.
-6. Criar a migration incremental V2, somente aditiva, e testá-la primeiro em
+5. Criar a migration incremental V2, somente aditiva, e testá-la primeiro em
    banco de desenvolvimento.
 
 ## Garantias da primeira migration V2
