@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { CategoryExplorer } from "./CategoryExplorer";
 import { CommunityLists } from "./CommunityLists";
+import { ExperimentalMobileFooter } from "./ExperimentalMobileFooter";
 import { OfferRail } from "./OfferRail";
 import type { ExperimentalHomeProps } from "./types";
 
@@ -21,6 +22,7 @@ export function ExperimentalHome({ categories, bestDeals, publicLists }: Experim
       <OfferRail bestDeals={bestDeals} />
       <CategoryExplorer categories={categories} />
       <CommunityLists publicLists={publicLists} />
+      <ExperimentalMobileFooter />
     </div>
   );
 }

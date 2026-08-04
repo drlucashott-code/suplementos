@@ -44,7 +44,7 @@ export function CategoryExplorer({ categories }: { categories: Record<HomeHub, E
   const detail = hubDetails[activeHub];
 
   return (
-    <section id="categorias" aria-labelledby="categorias-title" className="border-y border-[#E3E6E6] bg-[#F3F3F3]">
+    <section id="categorias" aria-labelledby="categorias-title" className="scroll-mt-24 border-y border-[#E3E6E6] bg-[#F3F3F3]">
       <div className="mx-auto max-w-[1480px] px-4 py-7 sm:px-6 lg:px-10 lg:py-11">
         <div className="max-w-3xl">
           <div className="flex items-center gap-2 text-[#007185]">
