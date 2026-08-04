@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState, type UIEvent } from "react";
-import { ChevronLeft, ChevronRight, TrendingDown } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { ArrowRight, ChevronLeft, ChevronRight, TrendingDown } from "lucide-react";
 import BestDealProductCard from "@/components/BestDealProductCard";
 import type { BestDeal } from "@/lib/bestDeals";
 
@@ -23,7 +23,6 @@ function track(event: string, payload: Record<string, unknown>) {
 
 export function OfferRail({ bestDeals }: { bestDeals: BestDeal[] }) {
   const [activeFilter, setActiveFilter] = useState<DealFilter>("all");
-  const [firstVisibleIndex, setFirstVisibleIndex] = useState(0);
   const railRef = useRef<HTMLDivElement>(null);
   const availableFilters = filters.filter(
     (filter) => filter.value === "all" || bestDeals.some((deal) => deal.categoryGroup === filter.value)
@@ -35,21 +34,13 @@ export function OfferRail({ bestDeals }: { bestDeals: BestDeal[] }) {
         : bestDeals.filter((deal) => deal.categoryGroup === activeFilter).slice(0, 8),
     [activeFilter, bestDeals]
   );
+  const moreOffersHref =
+    activeFilter === "all" ? "/ofertas" : `/ofertas?grupo=${encodeURIComponent(activeFilter)}`;
 
   function selectFilter(filter: DealFilter) {
     setActiveFilter(filter);
-    setFirstVisibleIndex(0);
     railRef.current?.scrollTo({ left: 0, behavior: "smooth" });
     track("filter_experimental_home_offers", { filter });
-  }
-
-  function handleRailScroll(event: UIEvent<HTMLDivElement>) {
-    const firstCard = event.currentTarget.firstElementChild as HTMLElement | null;
-    if (!firstCard) return;
-    const styles = window.getComputedStyle(event.currentTarget);
-    const gap = Number.parseFloat(styles.columnGap || styles.gap) || 0;
-    const nextIndex = Math.round(event.currentTarget.scrollLeft / (firstCard.offsetWidth + gap));
-    setFirstVisibleIndex(Math.max(0, Math.min(nextIndex, Math.max(0, visibleDeals.length - 2))));
   }
 
   function scrollRail(direction: -1 | 1) {
@@ -62,7 +53,7 @@ export function OfferRail({ bestDeals }: { bestDeals: BestDeal[] }) {
   return (
     <section id="top-ofertas" aria-labelledby="top-ofertas-title" className="bg-white">
       <div className="mx-auto max-w-[1480px] px-4 pb-7 pt-5 sm:px-6 lg:px-10 lg:pb-10 lg:pt-8">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-end justify-between gap-3">
           <div className="max-w-3xl">
             <div className="flex items-center gap-2 text-[#CC0C39]">
               <TrendingDown className="h-4 w-4" />
@@ -72,7 +63,7 @@ export function OfferRail({ bestDeals }: { bestDeals: BestDeal[] }) {
               Top ofertas de hoje
             </h1>
           </div>
-          <Link href="/ofertas" className="hidden shrink-0 items-center gap-1 text-[14px] font-bold text-[#007185] hover:text-[#C7511F] sm:flex">
+          <Link href="/ofertas" className="mb-0.5 flex shrink-0 items-center gap-1 text-[13px] font-bold text-[#007185] hover:text-[#C7511F] sm:text-[14px]">
             Ver todas <ChevronRight className="h-4 w-4" />
           </Link>
         </div>
@@ -109,7 +100,7 @@ export function OfferRail({ bestDeals }: { bestDeals: BestDeal[] }) {
         </div>
 
         {visibleDeals.length > 0 ? (
-          <div ref={railRef} onScroll={handleRailScroll} className="-mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-2 lg:px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div ref={railRef} className="-mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-2 lg:px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {visibleDeals.map((deal) => (
               <div
                 key={deal.id}
@@ -123,6 +114,18 @@ export function OfferRail({ bestDeals }: { bestDeals: BestDeal[] }) {
                 />
               </div>
             ))}
+            <div className="w-[calc((100%-0.75rem)/2)] shrink-0 snap-start sm:w-[220px] lg:w-[232px]">
+              <Link
+                href={moreOffersHref}
+                onClick={() => track("click_experimental_home_offers_more", { filter: activeFilter })}
+                className="flex h-full min-h-[320px] flex-col items-center justify-center rounded-[6px] border border-dashed border-[#AAB7B8] bg-[#F7F8F8] px-4 text-center text-[#007185] transition hover:border-[#007185] hover:bg-[#EEF6F7]"
+              >
+                <span className="grid h-11 w-11 place-items-center rounded-full bg-white shadow-sm">
+                  <ArrowRight className="h-5 w-5" />
+                </span>
+                <span className="mt-3 text-[15px] font-bold">Ver mais</span>
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="mt-5 rounded-xl border border-dashed border-[#D5D9D9] bg-[#F7F8F8] px-5 py-10 text-center text-sm text-[#565959]">
@@ -130,15 +133,6 @@ export function OfferRail({ bestDeals }: { bestDeals: BestDeal[] }) {
           </div>
         )}
 
-        {visibleDeals.length > 0 ? (
-          <p className="mt-0 text-center text-[11px] font-medium tabular-nums text-[#667085] sm:hidden" aria-live="polite">
-            {firstVisibleIndex + 1}–{Math.min(firstVisibleIndex + 2, visibleDeals.length)} de {visibleDeals.length}
-          </p>
-        ) : null}
-
-        <Link href="/ofertas" className="mt-2 flex items-center justify-center gap-1 rounded-full border border-[#D5D9D9] py-2.5 text-[14px] font-bold text-[#007185] sm:hidden">
-          Ver todas as ofertas <ChevronRight className="h-4 w-4" />
-        </Link>
       </div>
     </section>
   );

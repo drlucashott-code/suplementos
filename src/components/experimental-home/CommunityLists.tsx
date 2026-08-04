@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Bookmark, ChevronRight, ListPlus, MessageCircle, Share2, Users } from "lucide-react";
+import { Bookmark, ChevronRight, ListPlus, MessageCircle, Share2, Users } from "lucide-react";
 import amazonImageLoader from "@/lib/amazonImageLoader";
 import { buildPublicListPath } from "@/lib/siteSocial";
 import type { ExperimentalPublicList } from "./types";
@@ -46,18 +46,13 @@ async function shareList(list: ExperimentalPublicList) {
   }
 }
 
-function ListCard({ list, featured = false }: { list: ExperimentalPublicList; featured?: boolean }) {
+function ListCard({ list }: { list: ExperimentalPublicList }) {
   const images = list.previewImages.filter(Boolean).slice(0, 3);
 
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-[#D5D9D9] bg-white shadow-[0_2px_8px_rgba(15,17,17,0.06)] transition hover:border-[#AAB7B8] hover:shadow-[0_8px_22px_rgba(15,17,17,0.10)]">
       <Link href={listPath(list)} onClick={() => track("click_experimental_home_list", list)} className="group block focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#007185]">
-        <div className="relative grid h-[128px] grid-cols-3 gap-px bg-[#E3E6E6]">
-          {featured ? (
-            <span className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-full bg-[#FFF3CD] px-2 py-1 text-[10px] font-bold text-[#7A5200] shadow-sm">
-              <Bookmark className="h-3 w-3 fill-current" /> Mais salva
-            </span>
-          ) : null}
+        <div className="grid h-[128px] grid-cols-3 gap-px bg-[#E3E6E6]">
           {images.length > 0 ? (
             images.map((src, index) => (
               <div key={`${list.slug}-${index}`} className="relative bg-[#F7F8F8]">
@@ -106,9 +101,9 @@ function ListCard({ list, featured = false }: { list: ExperimentalPublicList; fe
 
 export function CommunityLists({ publicLists }: { publicLists: ExperimentalPublicList[] }) {
   return (
-    <section id="listas" aria-labelledby="listas-title" className="bg-white">
+    <section id="listas" aria-labelledby="listas-title" className="border-t border-[#E3E6E6] bg-white">
       <div className="mx-auto max-w-[1480px] px-4 py-7 sm:px-6 lg:px-10 lg:py-11">
-        <div className="flex items-end justify-between gap-4">
+        <div className="flex items-end justify-between gap-3">
           <div className="max-w-3xl">
             <div className="flex items-center gap-2 text-[#8B5D00]">
               <Users className="h-4 w-4" />
@@ -118,16 +113,16 @@ export function CommunityLists({ publicLists }: { publicLists: ExperimentalPubli
               Listas da comunidade
             </h2>
           </div>
-          <Link href="/listas" className="hidden shrink-0 items-center gap-1 text-[14px] font-bold text-[#007185] hover:text-[#C7511F] sm:flex">
-            Explorar listas <ChevronRight className="h-4 w-4" />
+          <Link href="/listas" className="mb-0.5 flex shrink-0 items-center gap-1 text-[13px] font-bold text-[#007185] hover:text-[#C7511F] sm:text-[14px]">
+            Ver todas <ChevronRight className="h-4 w-4" />
           </Link>
         </div>
 
         {publicLists.length > 0 ? (
           <div className="-mx-4 mt-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-3 lg:px-0 xl:grid-cols-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {publicLists.map((list, index) => (
+            {publicLists.map((list) => (
               <div key={list.slug} className="w-[82vw] max-w-[330px] shrink-0 snap-start lg:w-auto lg:max-w-none">
-                <ListCard list={list} featured={index === 0 && list.savedCount > 0} />
+                <ListCard list={list} />
               </div>
             ))}
           </div>
@@ -139,11 +134,8 @@ export function CommunityLists({ publicLists }: { publicLists: ExperimentalPubli
           </div>
         )}
 
-        <div className="mt-4 flex flex-col gap-2.5 sm:flex-row">
-          <Link href="/listas" className="flex items-center justify-center gap-2 rounded-full border border-[#D5D9D9] px-5 py-2.5 text-[13px] font-bold text-[#0F1111] hover:bg-[#F7F8F8]">
-            Explorar todas <ArrowRight className="h-4 w-4 text-[#007185]" />
-          </Link>
-          <Link href="/minha-conta/listas" className="flex items-center justify-center gap-2 rounded-full bg-[#FFD814] px-5 py-2.5 text-[13px] font-bold text-[#0F1111] shadow-sm hover:bg-[#F7CA00]">
+        <div className="mt-4">
+          <Link href="/minha-conta/listas" className="inline-flex items-center justify-center gap-2 rounded-full border border-[#D5D9D9] bg-white px-4 py-2 text-[12px] font-semibold text-[#565959] hover:border-[#AAB7B8] hover:text-[#0F1111]">
             <ListPlus className="h-4 w-4" /> Criar minha lista
           </Link>
         </div>

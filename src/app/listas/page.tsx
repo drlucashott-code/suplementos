@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { buildPublicListPath } from "@/lib/siteSocial";
 import { buildAbsoluteUrl } from "@/lib/siteUrl";
 import Image from "next/image";
-import amazonImageLoader from "@/lib/amazonImageLoader";
+import { getOptimizedAmazonUrl } from "@/lib/utils";
 import { ChevronRight, LayoutList } from "lucide-react";
 
 export const revalidate = 300;
@@ -171,11 +171,11 @@ export default async function PublicListsPage({
                           className="relative h-16 w-16 overflow-hidden rounded-[16px] border border-[#EDF2F7] bg-white"
                         >
                           <Image
-                            loader={amazonImageLoader}
-                            src={imageSrc}
+                            src={getOptimizedAmazonUrl(imageSrc, 128)}
                             alt={`${list.title} preview ${index + 1}`}
                             fill
                             sizes="64px"
+                            unoptimized
                             className="object-contain p-1.5"
                           />
                         </div>
