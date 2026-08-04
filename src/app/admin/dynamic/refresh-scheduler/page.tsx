@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { schedulerConfig } from "@/lib/scheduler/scheduler.config";
 import {
-  boostDynamicSchedulerProduct,
-  boostTrackedSchedulerProduct,
   forceDynamicSchedulerRefresh,
   forceTrackedSchedulerRefresh,
 } from "./actions";
@@ -10,27 +9,10 @@ import {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-type SchedulerRow = {
-  id: string;
-  source: "dynamic" | "tracked";
-  asin: string;
-  name: string;
-  refreshTier: string | null;
-  priorityScore: number | null;
-  dataFreshnessScore: number | null;
-  nextPriceRefreshAt: Date | null;
-  lastSuccessfulRefreshAt: Date | null;
-  lastPriceRefreshAt: Date | null;
-  lastRefreshAttemptAt: Date | null;
-  refreshFailCount: number | null;
-  refreshLockUntil: Date | null;
-  monitorCount: number;
-  updatesLast24h: number;
-};
+type SchedulerSort = "next" | "recent" | "failures";
 
 type ActionLogRow = {
   id: string;
-  actor: string;
   actionType: string;
   productSource: string;
   asin: string;
@@ -38,131 +20,74 @@ type ActionLogRow = {
   createdAt: Date;
 };
 
-type SchedulerSort = "priority" | "updated";
-
-function formatDate(value: Date | null) {
+function formatDate(value: Date | null | undefined) {
   if (!value) return "-";
   return new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
-    timeStyle: "medium",
+    timeStyle: "short",
     timeZone: "America/Sao_Paulo",
-  }).format(new Date(value));
+  }).format(value);
 }
 
-function formatScore(value: number | null) {
-  if (typeof value !== "number" || Number.isNaN(value)) return "0.0";
-  return value.toFixed(1);
+function formatHours(minutes: number | null) {
+  if (!minutes) return "Sem intervalo";
+  return `${Math.round(minutes / 60)}h`;
 }
 
-function getRefreshTimingLabel(value: Date | null, now: Date) {
-  if (!value) {
-    return {
-      label: "Sem agenda",
-      value: "-",
-    };
-  }
+function formatRate(rate: number | null) {
+  return `${((rate ?? 0) * 100).toFixed(1)}%`;
+}
 
-  if (value.getTime() <= now.getTime()) {
-    return {
-      label: "Elegivel desde",
-      value: formatDate(value),
-    };
-  }
+function resolveSort(value: string): SchedulerSort {
+  return value === "recent" || value === "failures" ? value : "next";
+}
 
-  return {
-    label: "Proximo refresh",
-    value: formatDate(value),
+function getStatus(params: {
+  nextPriceRefreshAt: Date | null;
+  refreshLockUntil: Date | null;
+  refreshFailCount: number;
+  now: Date;
+}) {
+  if (params.refreshLockUntil && params.refreshLockUntil > params.now) {
+    return { label: "Em execução", classes: "bg-amber-100 text-amber-800" };
+  }
+  if (params.refreshFailCount > 0) {
+    return { label: "Em retentativa", classes: "bg-rose-100 text-rose-800" };
+  }
+  if (!params.nextPriceRefreshAt || params.nextPriceRefreshAt <= params.now) {
+    return { label: "Vencido", classes: "bg-orange-100 text-orange-800" };
+  }
+  return { label: "Agendado", classes: "bg-emerald-100 text-emerald-800" };
+}
+
+function decisionLabel(params: {
+  intervalMinutes: number | null;
+  validObservations: number;
+  firstObservationAt: Date | null;
+  changeRate30d: number | null;
+  lastDecisionReason: string | null;
+}) {
+  const decisions: Record<string, string> = {
+    bootstrap_collecting_observations: "Bootstrap: coleta de observações",
+    bootstrap_stable_after_first_threshold: "Bootstrap estável: 48h",
+    bootstrap_stable_after_second_threshold: "Bootstrap estável: 72h",
+    bootstrap_price_changed: "Bootstrap: manteve 24h após mudança",
+    change_rate_high: "Taxa de mudança alta",
+    change_rate_medium: "Taxa de mudança intermediária",
+    change_rate_low: "Taxa de mudança baixa",
   };
-}
-
-function getLastRefreshLabel(
-  row: Pick<
-    SchedulerRow,
-    "lastSuccessfulRefreshAt" | "lastPriceRefreshAt" | "lastRefreshAttemptAt"
-  >
-) {
-  if (row.lastSuccessfulRefreshAt) {
-    return {
-      label: "Ultimo sucesso",
-      value: formatDate(row.lastSuccessfulRefreshAt),
-    };
+  if (params.lastDecisionReason && decisions[params.lastDecisionReason]) {
+    return decisions[params.lastDecisionReason];
   }
-
-  if (row.lastPriceRefreshAt) {
-    return {
-      label: "Ultimo refresh",
-      value: formatDate(row.lastPriceRefreshAt),
-    };
+  if (!params.firstObservationAt) return "Bootstrap pendente";
+  if (params.validObservations < schedulerConfig.base.bootstrap.requiredValidObservations) {
+    return `Bootstrap: ${params.validObservations}/${schedulerConfig.base.bootstrap.requiredValidObservations} observações`;
   }
-
-  if (row.lastRefreshAttemptAt) {
-    return {
-      label: "Ultima tentativa",
-      value: formatDate(row.lastRefreshAttemptAt),
-    };
-  }
-
-  return {
-    label: "Sem historico",
-    value: "-",
-  };
+  return `Taxa de mudança em 30d: ${formatRate(params.changeRate30d)}`;
 }
 
-function isMandatoryDue(
-  row: Pick<SchedulerRow, "lastSuccessfulRefreshAt">,
-  mandatoryCutoff: Date
-) {
-  return (
-    !row.lastSuccessfulRefreshAt ||
-    row.lastSuccessfulRefreshAt.getTime() <= mandatoryCutoff.getTime()
-  );
-}
-
-function isPriorityDue(
-  row: Pick<SchedulerRow, "nextPriceRefreshAt" | "lastSuccessfulRefreshAt">,
-  now: Date,
-  mandatoryCutoff: Date
-) {
-  if (isMandatoryDue(row, mandatoryCutoff)) return false;
-  return !row.nextPriceRefreshAt || row.nextPriceRefreshAt.getTime() <= now.getTime();
-}
-
-function getTierClasses(tier: string | null) {
-  if (tier === "hot") return "bg-red-100 text-red-700";
-  if (tier === "warm") return "bg-amber-100 text-amber-700";
-  return "bg-sky-100 text-sky-700";
-}
-
-function getTierRank(tier: string | null) {
-  if (tier === "hot") return 3;
-  if (tier === "warm") return 2;
-  return 1;
-}
-
-function sourceLabel(source: SchedulerRow["source"]) {
-  return source === "dynamic" ? "Comparador" : "Amazon interno";
-}
-
-function getUpdatedAtTimestamp(row: Pick<
-  SchedulerRow,
-  "lastPriceRefreshAt" | "lastSuccessfulRefreshAt"
->) {
-  return (
-    row.lastPriceRefreshAt?.getTime() ??
-    row.lastSuccessfulRefreshAt?.getTime() ??
-    0
-  );
-}
-
-function parseSearchParam(
-  value: string | string[] | undefined,
-  fallback = ""
-) {
-  return typeof value === "string" ? value : fallback;
-}
-
-function resolveSchedulerSort(value: string): SchedulerSort {
-  return value === "updated" ? "updated" : "priority";
+function parseSearchParam(value: string | string[] | undefined) {
+  return typeof value === "string" ? value : "";
 }
 
 export default async function AdminRefreshSchedulerPage({
@@ -170,739 +95,246 @@ export default async function AdminRefreshSchedulerPage({
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const resolvedSearchParams = await searchParams;
+  const params = await searchParams;
   const now = new Date();
-  const mandatoryCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  const historyCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  const asinQuery = parseSearchParam(resolvedSearchParams?.q).trim().toUpperCase();
-  const sort = resolveSchedulerSort(
-    parseSearchParam(resolvedSearchParams?.sort, "priority")
-  );
-
-  const dynamicWhere =
-    asinQuery.length > 0
-      ? {
-          asin: {
-            contains: asinQuery,
-            mode: "insensitive" as const,
-          },
-        }
-      : undefined;
-
-  const trackedWhere =
-    asinQuery.length > 0
-      ? {
-          asin: {
-            contains: asinQuery,
-            mode: "insensitive" as const,
-          },
-        }
-      : undefined;
+  const observationCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const asinQuery = parseSearchParam(params?.q).trim().toUpperCase();
+  const sort = resolveSort(parseSearchParam(params?.sort));
+  const productWhere = {
+    schedulerVersion: schedulerConfig.policyVersion,
+    ...(asinQuery
+      ? { asin: { contains: asinQuery, mode: "insensitive" as const } }
+      : {}),
+  };
 
   const dynamicOrderBy =
-    sort === "updated"
-      ? [
-          { lastPriceRefreshAt: "desc" as const },
-          { lastSuccessfulRefreshAt: "desc" as const },
-          { priorityScore: "desc" as const },
-        ]
-      : [
-          { priorityScore: "desc" as const },
-          { dataFreshnessScore: "desc" as const },
-          { nextPriceRefreshAt: "asc" as const },
-        ];
-
-  const trackedOrderBy =
-    sort === "updated"
-      ? [
-          { lastPriceRefreshAt: "desc" as const },
-          { lastSuccessfulRefreshAt: "desc" as const },
-          { priorityScore: "desc" as const },
-        ]
-      : [
-          { priorityScore: "desc" as const },
-          { dataFreshnessScore: "desc" as const },
-          { nextPriceRefreshAt: "asc" as const },
-        ];
+    sort === "recent"
+      ? [{ lastBaseRefreshAt: "desc" as const }, { nextPriceRefreshAt: "asc" as const }]
+      : sort === "failures"
+        ? [{ refreshFailCount: "desc" as const }, { nextPriceRefreshAt: "asc" as const }]
+        : [{ nextPriceRefreshAt: "asc" as const }, { refreshFailCount: "desc" as const }];
 
   const [
-    dynamicProducts,
+    products,
+    totalProducts,
+    dueProducts,
+    lockedProducts,
+    retryingProducts,
+    intervalGroups,
+    observationGroups,
     trackedProducts,
-    dynamicDueCount,
-    trackedDueCount,
-    dynamicPriorityDueCount,
-    trackedPriorityDueCount,
-    dynamicMandatoryDueCount,
-    trackedMandatoryDueCount,
-    hotCount,
-    warmCount,
-    coldCount,
+    legacyDynamicProducts,
     recentActions,
   ] = await Promise.all([
     prisma.dynamicProduct.findMany({
-      where: dynamicWhere,
+      where: productWhere,
       select: {
         id: true,
         asin: true,
         name: true,
-        refreshTier: true,
-        priorityScore: true,
-        dataFreshnessScore: true,
         nextPriceRefreshAt: true,
-        lastSuccessfulRefreshAt: true,
-        lastPriceRefreshAt: true,
-        lastRefreshAttemptAt: true,
-        refreshFailCount: true,
         refreshLockUntil: true,
+        refreshFailCount: true,
+        schedulerBaseIntervalMinutes: true,
+        schedulerBootstrapObservationCount: true,
+        schedulerFirstBaseObservationAt: true,
+        basePriceChangeRate30d: true,
+        lastBaseRefreshAt: true,
+        lastBaseSuccessfulRefreshAt: true,
+        refreshObservations: {
+          where: { reason: "base" },
+          orderBy: { startedAt: "desc" },
+          take: 1,
+          select: { decisionReason: true, result: true, errorCode: true, finishedAt: true },
+        },
       },
       orderBy: dynamicOrderBy,
       take: 80,
     }),
+    prisma.dynamicProduct.count({ where: { schedulerVersion: schedulerConfig.policyVersion } }),
+    prisma.dynamicProduct.count({
+      where: {
+        schedulerVersion: schedulerConfig.policyVersion,
+        nextPriceRefreshAt: { lte: now },
+        OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
+      },
+    }),
+    prisma.dynamicProduct.count({
+      where: { schedulerVersion: schedulerConfig.policyVersion, refreshLockUntil: { gt: now } },
+    }),
+    prisma.dynamicProduct.count({
+      where: { schedulerVersion: schedulerConfig.policyVersion, refreshFailCount: { gt: 0 } },
+    }),
+    prisma.dynamicProduct.groupBy({
+      by: ["schedulerBaseIntervalMinutes"],
+      where: { schedulerVersion: schedulerConfig.policyVersion },
+      _count: { _all: true },
+    }),
+    prisma.priceRefreshObservation.groupBy({
+      by: ["reason", "result"],
+      where: {
+        schedulerVersion: schedulerConfig.policyVersion,
+        startedAt: { gte: observationCutoff },
+      },
+      _count: { _all: true },
+    }),
     prisma.siteTrackedAmazonProduct.findMany({
-      where: trackedWhere,
+      where: asinQuery ? { asin: { contains: asinQuery, mode: "insensitive" } } : undefined,
       select: {
         id: true,
         asin: true,
         name: true,
-        refreshTier: true,
-        priorityScore: true,
-        dataFreshnessScore: true,
         nextPriceRefreshAt: true,
         lastSuccessfulRefreshAt: true,
-        lastPriceRefreshAt: true,
-        lastRefreshAttemptAt: true,
         refreshFailCount: true,
         refreshLockUntil: true,
-        monitorCount: true,
       },
-      orderBy: trackedOrderBy,
-      take: 80,
+      orderBy: { nextPriceRefreshAt: "asc" },
+      take: 20,
     }),
-    prisma.dynamicProduct.count({
-      where: {
-        AND: [
-          {
-            OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
-          },
-          {
-            OR: [{ nextPriceRefreshAt: null }, { nextPriceRefreshAt: { lte: now } }],
-          },
-        ],
-      },
-    }),
-    prisma.siteTrackedAmazonProduct.count({
-      where: {
-        AND: [
-          {
-            OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
-          },
-          {
-            OR: [{ nextPriceRefreshAt: null }, { nextPriceRefreshAt: { lte: now } }],
-          },
-        ],
-      },
-    }),
-    prisma.dynamicProduct.count({
-      where: {
-        AND: [
-          {
-            OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
-          },
-          {
-            OR: [{ nextPriceRefreshAt: null }, { nextPriceRefreshAt: { lte: now } }],
-          },
-          {
-            lastSuccessfulRefreshAt: { gt: mandatoryCutoff },
-          },
-        ],
-      },
-    }),
-    prisma.siteTrackedAmazonProduct.count({
-      where: {
-        AND: [
-          {
-            OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
-          },
-          {
-            OR: [{ nextPriceRefreshAt: null }, { nextPriceRefreshAt: { lte: now } }],
-          },
-          {
-            lastSuccessfulRefreshAt: { gt: mandatoryCutoff },
-          },
-        ],
-      },
-    }),
-    prisma.dynamicProduct.count({
-      where: {
-        AND: [
-          {
-            OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
-          },
-          {
-            OR: [
-              { lastSuccessfulRefreshAt: null },
-              { lastSuccessfulRefreshAt: { lte: mandatoryCutoff } },
-            ],
-          },
-        ],
-      },
-    }),
-    prisma.siteTrackedAmazonProduct.count({
-      where: {
-        AND: [
-          {
-            OR: [{ refreshLockUntil: null }, { refreshLockUntil: { lte: now } }],
-          },
-          {
-            OR: [
-              { lastSuccessfulRefreshAt: null },
-              { lastSuccessfulRefreshAt: { lte: mandatoryCutoff } },
-            ],
-          },
-        ],
-      },
-    }),
-    prisma
-      .$transaction([
-        prisma.dynamicProduct.count({ where: { refreshTier: "hot" } }),
-        prisma.siteTrackedAmazonProduct.count({ where: { refreshTier: "hot" } }),
-      ])
-      .then(([dynamic, tracked]) => dynamic + tracked),
-    prisma
-      .$transaction([
-        prisma.dynamicProduct.count({ where: { refreshTier: "warm" } }),
-        prisma.siteTrackedAmazonProduct.count({ where: { refreshTier: "warm" } }),
-      ])
-      .then(([dynamic, tracked]) => dynamic + tracked),
-    prisma
-      .$transaction([
-        prisma.dynamicProduct.count({ where: { refreshTier: "cold" } }),
-        prisma.siteTrackedAmazonProduct.count({ where: { refreshTier: "cold" } }),
-      ])
-      .then(([dynamic, tracked]) => dynamic + tracked),
+    prisma.dynamicProduct.count({ where: { schedulerVersion: { not: schedulerConfig.policyVersion } } }),
     prisma.$queryRaw<ActionLogRow[]>`
-      SELECT
-        "id",
-        "actor",
-        "actionType",
-        "productSource",
-        "asin",
-        "notes",
-        "createdAt"
+      SELECT "id", "actionType", "productSource", "asin", "notes", "createdAt"
       FROM "AdminSchedulerActionLog"
       ORDER BY "createdAt" DESC
       LIMIT 12
     `,
   ]);
 
-  const dynamicHistoryRows =
-    dynamicProducts.length === 0
-      ? []
-      : await prisma.dynamicPriceHistory.findMany({
-          where: {
-            productId: { in: dynamicProducts.map((product) => product.id) },
-            date: { gte: historyCutoff },
-          },
-          select: {
-            productId: true,
-            updateCount: true,
-          },
-        });
-
-  const trackedHistoryRows =
-    trackedProducts.length === 0
-      ? []
-      : await prisma.siteTrackedAmazonProductPriceHistory.findMany({
-          where: {
-            trackedProductId: { in: trackedProducts.map((product) => product.id) },
-            date: { gte: historyCutoff },
-          },
-          select: {
-            trackedProductId: true,
-            updateCount: true,
-          },
-        });
-
-  const dynamicUpdateCountMap = new Map<string, number>();
-  for (const row of dynamicHistoryRows) {
-    dynamicUpdateCountMap.set(
-      row.productId,
-      (dynamicUpdateCountMap.get(row.productId) ?? 0) + row.updateCount
-    );
-  }
-
-  const trackedUpdateCountMap = new Map<string, number>();
-  for (const row of trackedHistoryRows) {
-    trackedUpdateCountMap.set(
-      row.trackedProductId,
-      (trackedUpdateCountMap.get(row.trackedProductId) ?? 0) + row.updateCount
-    );
-  }
-
-  const rows: SchedulerRow[] = [
-    ...dynamicProducts.map(
-      (product): SchedulerRow => ({
-        ...product,
-        source: "dynamic",
-        monitorCount: 0,
-        updatesLast24h: Math.max(
-          dynamicUpdateCountMap.get(product.id) ?? 0,
-          product.lastPriceRefreshAt &&
-            product.lastPriceRefreshAt.getTime() >= historyCutoff.getTime()
-            ? 1
-            : 0
-        ),
-      })
-    ),
-    ...trackedProducts.map(
-      (product): SchedulerRow => ({
-        ...product,
-        source: "tracked",
-        updatesLast24h: Math.max(
-          trackedUpdateCountMap.get(product.id) ?? 0,
-          product.lastPriceRefreshAt &&
-            product.lastPriceRefreshAt.getTime() >= historyCutoff.getTime()
-            ? 1
-            : 0
-        ),
-      })
-    ),
-  ]
-    .sort((a, b) => {
-      if (sort === "updated") {
-        const updatedDiff = getUpdatedAtTimestamp(b) - getUpdatedAtTimestamp(a);
-        if (updatedDiff !== 0) return updatedDiff;
-
-        const updatesDiff = b.updatesLast24h - a.updatesLast24h;
-        if (updatesDiff !== 0) return updatesDiff;
-
-        const priorityDiff = (b.priorityScore ?? 0) - (a.priorityScore ?? 0);
-        if (Math.abs(priorityDiff) > 0.001) return priorityDiff;
-
-        return a.asin.localeCompare(b.asin);
-      }
-
-      const aMandatoryDue = isMandatoryDue(a, mandatoryCutoff);
-      const bMandatoryDue = isMandatoryDue(b, mandatoryCutoff);
-      if (aMandatoryDue !== bMandatoryDue) return aMandatoryDue ? -1 : 1;
-
-      const aPriorityDue = isPriorityDue(a, now, mandatoryCutoff);
-      const bPriorityDue = isPriorityDue(b, now, mandatoryCutoff);
-      if (aPriorityDue !== bPriorityDue) return aPriorityDue ? -1 : 1;
-
-      const priorityDiff = (b.priorityScore ?? 0) - (a.priorityScore ?? 0);
-      if (Math.abs(priorityDiff) > 0.001) return priorityDiff;
-
-      const tierDiff = getTierRank(b.refreshTier) - getTierRank(a.refreshTier);
-      if (tierDiff !== 0) return tierDiff;
-
-      const freshnessDiff =
-        (b.dataFreshnessScore ?? 0) - (a.dataFreshnessScore ?? 0);
-      if (Math.abs(freshnessDiff) > 0.001) return freshnessDiff;
-
-      const nextRefresh =
-        (a.nextPriceRefreshAt?.getTime() ?? 0) -
-        (b.nextPriceRefreshAt?.getTime() ?? 0);
-      if (nextRefresh !== 0) return nextRefresh;
-
-      return a.asin.localeCompare(b.asin);
-    })
-    .slice(0, 60);
+  const intervalCounts = new Map(
+    intervalGroups.map((group) => [group.schedulerBaseIntervalMinutes ?? 0, group._count._all])
+  );
+  const baseObservations24h = observationGroups
+    .filter((group) => group.reason === "base")
+    .reduce((sum, group) => sum + group._count._all, 0);
+  const urgentObservations24h = observationGroups
+    .filter((group) => group.reason === "urgent")
+    .reduce((sum, group) => sum + group._count._all, 0);
+  const failedObservations24h = observationGroups
+    .filter((group) => group.result === "failure")
+    .reduce((sum, group) => sum + group._count._all, 0);
 
   return (
-    <div className="min-h-screen bg-gray-50/30 p-8 text-black">
+    <div className="min-h-screen bg-[#f6f7f2] p-5 text-slate-950 md:p-8">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="mb-2 flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">
-                Observabilidade
-              </span>
+        <header className="mb-7 border-b-4 border-slate-950 pb-6">
+          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-700">
+                Operação · Scheduler V2 ativo
+              </p>
+              <h1 className="mt-2 font-serif text-4xl font-black tracking-tight text-slate-950 md:text-5xl">
+                Agenda de preços
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-600">
+                A página mostra a decisão real do comparador: intervalo, próximo vencimento,
+                bootstrap, falhas e execução. Não há score ou tier artificial na V2.
+              </p>
             </div>
-            <h1 className="text-4xl font-black tracking-tight text-gray-900">
-              REFRESH SCHEDULER
-            </h1>
-            <p className="mt-1 text-sm font-medium text-gray-500">
-              Leitura operacional da fila inteligente: urgencia, score, tier,
-              travas e atividade recente.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-3 md:items-end">
-            <form
-              action="/admin/dynamic/refresh-scheduler"
-              className="flex flex-col gap-2 md:flex-row"
-            >
-              <input
-                type="text"
-                name="q"
-                defaultValue={asinQuery}
-                placeholder="Buscar por ASIN"
-                className="h-11 min-w-[220px] rounded-2xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-800 shadow-sm outline-none transition-all focus:border-blue-300"
-              />
-              <select
-                name="sort"
-                defaultValue={sort}
-                className="h-11 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-800 shadow-sm outline-none transition-all focus:border-blue-300"
-              >
-                <option value="priority">Ranking de prioridade</option>
-                <option value="updated">Ultimos atualizados</option>
-              </select>
-              <button
-                type="submit"
-                className="h-11 rounded-2xl bg-gray-900 px-5 text-[11px] font-black uppercase tracking-widest text-white shadow-sm transition-all hover:bg-black"
-              >
-                Aplicar
-              </button>
-              {(asinQuery || sort !== "priority") && (
-                <Link
-                  href="/admin/dynamic/refresh-scheduler"
-                  className="inline-flex h-11 items-center justify-center rounded-2xl border border-gray-200 bg-white px-5 text-[11px] font-black uppercase tracking-widest text-gray-600 shadow-sm transition-all hover:text-black"
-                >
-                  Limpar
-                </Link>
-              )}
-            </form>
-
             <Link
               href="/admin/dynamic"
-              className="rounded-2xl border border-gray-200 bg-white px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500 shadow-sm transition-all hover:text-black"
+              className="inline-flex items-center justify-center border-2 border-slate-950 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest transition hover:bg-slate-950 hover:text-white"
             >
-              ← Painel dinamico
+              Voltar ao painel
             </Link>
           </div>
-        </div>
+        </header>
 
-        <div className="mb-6 grid gap-3 md:grid-cols-6">
-          <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
-            <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Vencidos agora
-            </div>
-            <div className="mt-1 text-3xl font-black text-gray-900">
-              {dynamicDueCount + trackedDueCount}
-            </div>
-            <div className="mt-2 text-xs font-semibold text-gray-500">
-              Comparador {dynamicDueCount} • Amazon interno {trackedDueCount}
-            </div>
+        <section className="mb-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <Metric label="Produtos V2" value={totalProducts} detail={`${legacyDynamicProducts} fora da V2`} tone="slate" />
+          <Metric label="Vencidos" value={dueProducts} detail="base, sem lock ativo" tone="orange" />
+          <Metric label="Em execução" value={lockedProducts} detail="locks válidos agora" tone="amber" />
+          <Metric label="Em retentativa" value={retryingProducts} detail="falha individual / sem estoque" tone="rose" />
+          <Metric label="Observações 24h" value={baseObservations24h + urgentObservations24h} detail={`${baseObservations24h} base · ${urgentObservations24h} urgentes`} tone="emerald" />
+        </section>
+
+        <section className="mb-7 grid gap-3 md:grid-cols-4">
+          <IntervalCard label="Agenda 24h" count={intervalCounts.get(schedulerConfig.base.intervals.dailyMinutes) ?? 0} accent="border-emerald-500" />
+          <IntervalCard label="Agenda 48h" count={intervalCounts.get(schedulerConfig.base.intervals.everyTwoDaysMinutes) ?? 0} accent="border-sky-500" />
+          <IntervalCard label="Agenda 72h" count={intervalCounts.get(schedulerConfig.base.intervals.everyThreeDaysMinutes) ?? 0} accent="border-slate-500" />
+          <IntervalCard label="Falhas 24h" count={failedObservations24h} accent="border-rose-500" />
+        </section>
+
+        <section className="mb-5 flex flex-col gap-3 border border-slate-200 bg-white p-4 shadow-[4px_4px_0_#0f172a] md:flex-row md:items-center md:justify-between">
+          <form action="/admin/dynamic/refresh-scheduler" className="flex flex-col gap-2 sm:flex-row">
+            <input
+              name="q"
+              defaultValue={asinQuery}
+              placeholder="Buscar ASIN"
+              className="h-10 min-w-56 border border-slate-300 bg-slate-50 px-3 text-sm font-semibold outline-none focus:border-slate-950"
+            />
+            <select name="sort" defaultValue={sort} className="h-10 border border-slate-300 bg-white px-3 text-sm font-bold">
+              <option value="next">Próximos vencimentos</option>
+              <option value="recent">Últimas execuções</option>
+              <option value="failures">Falhas primeiro</option>
+            </select>
+            <button className="h-10 bg-slate-950 px-4 text-[10px] font-black uppercase tracking-widest text-white hover:bg-slate-700">
+              Aplicar
+            </button>
+          </form>
+          <p className="text-xs font-semibold text-slate-500">
+            “Solicitar agora” usa a fila urgente e preserva a próxima agenda-base.
+          </p>
+        </section>
+
+        <section className="overflow-hidden border border-slate-200 bg-white shadow-[6px_6px_0_#0f172a]">
+          <div className="border-b border-slate-200 bg-slate-950 px-5 py-4 text-white">
+            <h2 className="font-serif text-xl font-black">Comparador · scheduler V2</h2>
+            <p className="mt-1 text-xs font-medium text-slate-300">{products.length} produtos exibidos</p>
           </div>
-
-          <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
-            <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Cobertura diaria
-            </div>
-            <div className="mt-1 text-3xl font-black text-amber-600">
-              {dynamicMandatoryDueCount + trackedMandatoryDueCount}
-            </div>
-            <div className="mt-2 text-xs font-semibold text-gray-500">
-              Comparador {dynamicMandatoryDueCount} • Amazon interno{" "}
-              {trackedMandatoryDueCount}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
-            <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Urgencia prioritaria
-            </div>
-            <div className="mt-1 text-3xl font-black text-blue-600">
-              {dynamicPriorityDueCount + trackedPriorityDueCount}
-            </div>
-            <div className="mt-2 text-xs font-semibold text-gray-500">
-              Comparador {dynamicPriorityDueCount} • Amazon interno{" "}
-              {trackedPriorityDueCount}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
-            <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Tier hot
-            </div>
-            <div className="mt-1 text-3xl font-black text-red-600">{hotCount}</div>
-          </div>
-
-          <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
-            <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Tier warm
-            </div>
-            <div className="mt-1 text-3xl font-black text-amber-600">{warmCount}</div>
-          </div>
-
-          <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
-            <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Tier cold
-            </div>
-            <div className="mt-1 text-3xl font-black text-sky-600">{coldCount}</div>
-          </div>
-
-          <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
-            <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Linhas exibidas
-            </div>
-            <div className="mt-1 text-3xl font-black text-gray-900">{rows.length}</div>
-          </div>
-        </div>
-
-        <div className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-xl shadow-gray-200/50">
           <div className="overflow-x-auto">
-            <table className="min-w-[1380px] w-full border-collapse text-left">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                  <th className="p-4 text-black">Produto</th>
-                  <th className="p-4 text-center text-black">Origem</th>
-                  <th className="p-4 text-center text-black">Tier</th>
-                  <th className="p-4 text-center text-black">Priority</th>
-                  <th className="p-4 text-center text-black">Urgencia</th>
-                  <th className="p-4 text-center text-black">Janela de refresh</th>
-                  <th className="p-4 text-center text-black">Ultimo refresh</th>
-                  <th className="p-4 text-center text-black">Atualizacoes 24h</th>
-                  <th className="p-4 text-center text-black">Falhas</th>
-                  <th className="p-4 text-center text-black">Lock</th>
-                  <th className="p-4 text-center text-black">Monitores</th>
-                  <th className="p-4 text-center text-black">Acoes</th>
+            <table className="min-w-[1180px] w-full text-left text-sm">
+              <thead className="bg-[#e6eadc] text-[10px] font-black uppercase tracking-widest text-slate-600">
+                <tr>
+                  <th className="p-4">Produto</th><th className="p-4">Estado</th><th className="p-4">Regra</th><th className="p-4">Próximo refresh</th><th className="p-4">Última base</th><th className="p-4">Mudanças 30d</th><th className="p-4">Falhas</th><th className="p-4 text-right">Ação</th>
                 </tr>
               </thead>
-
-              <tbody className="divide-y divide-gray-50">
-                {rows.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={12}
-                      className="p-10 text-center text-sm font-semibold text-gray-400"
-                    >
-                      Nenhum item encontrado no scheduler.
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map((row) => {
-                    const lockActive =
-                      row.refreshLockUntil &&
-                      row.refreshLockUntil.getTime() > now.getTime();
-                    const mandatoryDue = isMandatoryDue(row, mandatoryCutoff);
-                    const priorityDue = isPriorityDue(row, now, mandatoryCutoff);
-                    const refreshTiming = getRefreshTimingLabel(
-                      row.nextPriceRefreshAt,
-                      now
-                    );
-                    const lastRefresh = getLastRefreshLabel(row);
-
-                    return (
-                      <tr
-                        key={`${row.source}:${row.id}`}
-                        className="transition-colors hover:bg-gray-50/50"
-                      >
-                        <td className="p-4">
-                          <div className="max-w-[360px] text-[13px] font-bold text-gray-900">
-                            {row.name}
-                          </div>
-                          <div className="mt-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">
-                            {row.asin}
-                          </div>
-                        </td>
-                        <td className="p-4 text-center text-[12px] font-black text-gray-700">
-                          {sourceLabel(row.source)}
-                        </td>
-                        <td className="p-4 text-center">
-                          <span
-                            className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${getTierClasses(
-                              row.refreshTier
-                            )}`}
-                          >
-                            {row.refreshTier ?? "cold"}
-                          </span>
-                        </td>
-                        <td className="p-4 text-center text-lg font-black text-gray-900">
-                          {formatScore(row.priorityScore)}
-                        </td>
-                        <td className="p-4 text-center text-lg font-black text-gray-900">
-                          {formatScore(row.dataFreshnessScore)}
-                        </td>
-                        <td className="p-4 text-center">
-                          <div className="flex flex-col items-center gap-2">
-                            <span
-                              className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${
-                                mandatoryDue
-                                  ? "bg-amber-100 text-amber-700"
-                                  : priorityDue
-                                    ? "bg-blue-100 text-blue-700"
-                                    : "bg-gray-100 text-gray-600"
-                              }`}
-                            >
-                              {mandatoryDue
-                                ? "Cobertura diaria"
-                                : priorityDue
-                                  ? "Urgencia prioritaria"
-                                  : refreshTiming.label}
-                            </span>
-                            <div className="text-[12px] font-black text-gray-700">
-                              {mandatoryDue ? lastRefresh.value : refreshTiming.value}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-4 text-center">
-                          <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                            {lastRefresh.label}
-                          </div>
-                          <div className="mt-1 text-[12px] font-black text-gray-700">
-                            {lastRefresh.value}
-                          </div>
-                        </td>
-                        <td className="p-4 text-center text-lg font-black text-gray-900">
-                          {row.updatesLast24h}
-                        </td>
-                        <td className="p-4 text-center text-lg font-black text-red-600">
-                          {row.refreshFailCount ?? 0}
-                        </td>
-                        <td className="p-4 text-center">
-                          <span
-                            className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${
-                              lockActive
-                                ? "bg-orange-100 text-orange-700"
-                                : "bg-gray-100 text-gray-600"
-                            }`}
-                          >
-                            {lockActive ? "Ativo" : "Livre"}
-                          </span>
-                        </td>
-                        <td className="p-4 text-center text-lg font-black text-gray-900">
-                          {row.monitorCount}
-                        </td>
-                        <td className="p-4 text-center">
-                          <div className="flex flex-col items-center gap-2">
-                            <form
-                              action={
-                                row.source === "dynamic"
-                                  ? forceDynamicSchedulerRefresh
-                                  : forceTrackedSchedulerRefresh
-                              }
-                            >
-                              {row.source === "dynamic" ? (
-                                <input
-                                  type="hidden"
-                                  name="productId"
-                                  value={row.id}
-                                />
-                              ) : (
-                                <input
-                                  type="hidden"
-                                  name="trackedProductId"
-                                  value={row.id}
-                                />
-                              )}
-                              <button
-                                type="submit"
-                                className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700 transition-all hover:bg-blue-100"
-                              >
-                                Forcar agora
-                              </button>
-                            </form>
-                            <form
-                              action={
-                                row.source === "dynamic"
-                                  ? boostDynamicSchedulerProduct
-                                  : boostTrackedSchedulerProduct
-                              }
-                            >
-                              {row.source === "dynamic" ? (
-                                <input
-                                  type="hidden"
-                                  name="productId"
-                                  value={row.id}
-                                />
-                              ) : (
-                                <input
-                                  type="hidden"
-                                  name="trackedProductId"
-                                  value={row.id}
-                                />
-                              )}
-                              <button
-                                type="submit"
-                                className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition-all hover:bg-emerald-100"
-                              >
-                                Boost manual
-                              </button>
-                            </form>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="mt-8 overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-xl shadow-gray-200/50">
-          <div className="border-b border-gray-100 bg-gray-50 px-6 py-4">
-            <h2 className="text-lg font-black text-gray-900">
-              Ultimas acoes manuais
-            </h2>
-            <p className="mt-1 text-sm font-medium text-gray-500">
-              Auditoria rapida de boost e forcar refresh disparados no admin.
-            </p>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="min-w-[840px] w-full border-collapse text-left">
-              <thead>
-                <tr className="border-b border-gray-100 bg-white text-[10px] font-black uppercase tracking-widest text-gray-400">
-                  <th className="p-4 text-black">Quando</th>
-                  <th className="p-4 text-black">Acao</th>
-                  <th className="p-4 text-black">Origem</th>
-                  <th className="p-4 text-black">ASIN</th>
-                  <th className="p-4 text-black">Actor</th>
-                  <th className="p-4 text-black">Notas</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {recentActions.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="p-8 text-center text-sm font-semibold text-gray-400"
-                    >
-                      Nenhuma acao manual registrada ainda.
-                    </td>
-                  </tr>
-                ) : (
-                  recentActions.map((action: ActionLogRow) => (
-                    <tr
-                      key={action.id}
-                      className="transition-colors hover:bg-gray-50/50"
-                    >
-                      <td className="p-4 text-[12px] font-black text-gray-700">
-                        {formatDate(action.createdAt)}
-                      </td>
-                      <td className="p-4">
-                        <span className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-700">
-                          {action.actionType === "force_refresh_now"
-                            ? "Forcar agora"
-                            : "Boost manual"}
-                        </span>
-                      </td>
-                      <td className="p-4 text-[12px] font-black text-gray-700">
-                        {action.productSource === "dynamic"
-                          ? "Comparador"
-                          : "Amazon interno"}
-                      </td>
-                      <td className="p-4 text-[12px] font-black text-gray-900">
-                        {action.asin}
-                      </td>
-                      <td className="p-4 text-[12px] font-black text-gray-700">
-                        {action.actor}
-                      </td>
-                      <td className="p-4 text-sm font-medium text-gray-500">
-                        {action.notes ?? "-"}
-                      </td>
+              <tbody className="divide-y divide-slate-100">
+                {products.length === 0 ? (
+                  <tr><td colSpan={8} className="p-10 text-center font-semibold text-slate-400">Nenhum produto V2 encontrado.</td></tr>
+                ) : products.map((product) => {
+                  const observation = product.refreshObservations[0];
+                  const status = getStatus({ ...product, refreshFailCount: product.refreshFailCount ?? 0, now });
+                  return (
+                    <tr key={product.id} className="hover:bg-[#fbfcf8]">
+                      <td className="p-4"><div className="max-w-72 font-bold text-slate-950">{product.name}</div><div className="mt-1 font-mono text-[11px] text-slate-500">{product.asin}</div></td>
+                      <td className="p-4"><span className={`inline-flex px-2 py-1 text-[10px] font-black uppercase tracking-wider ${status.classes}`}>{status.label}</span>{observation?.errorCode && <div className="mt-2 max-w-36 text-[10px] font-bold text-rose-700">{observation.errorCode}</div>}</td>
+                      <td className="p-4"><div className="font-black text-slate-900">{formatHours(product.schedulerBaseIntervalMinutes)}</div><div className="mt-1 max-w-60 text-xs font-medium leading-4 text-slate-500">{decisionLabel({ intervalMinutes: product.schedulerBaseIntervalMinutes, validObservations: product.schedulerBootstrapObservationCount, firstObservationAt: product.schedulerFirstBaseObservationAt, changeRate30d: product.basePriceChangeRate30d, lastDecisionReason: observation?.decisionReason ?? null })}</div></td>
+                      <td className="p-4 font-bold text-slate-800">{formatDate(product.nextPriceRefreshAt)}</td>
+                      <td className="p-4 text-xs font-semibold text-slate-600">{formatDate(product.lastBaseSuccessfulRefreshAt ?? product.lastBaseRefreshAt)}</td>
+                      <td className="p-4 font-black text-slate-800">{formatRate(product.basePriceChangeRate30d)}</td>
+                      <td className="p-4 font-black text-rose-700">{product.refreshFailCount ?? 0}</td>
+                      <td className="p-4 text-right"><form action={forceDynamicSchedulerRefresh}><input type="hidden" name="productId" value={product.id} /><button className="border border-emerald-700 bg-emerald-50 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-emerald-800 hover:bg-emerald-100">Solicitar agora</button></form></td>
                     </tr>
-                  ))
-                )}
+                  );
+                })}
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
+
+        <section className="mt-8 grid gap-6 lg:grid-cols-2">
+          <LegacyTrackedTable products={trackedProducts} now={now} />
+          <RecentActions actions={recentActions} />
+        </section>
       </div>
     </div>
   );
+}
+
+function Metric({ label, value, detail, tone }: { label: string; value: number; detail: string; tone: "slate" | "orange" | "amber" | "rose" | "emerald" }) {
+  const colors = { slate: "text-slate-950", orange: "text-orange-700", amber: "text-amber-700", rose: "text-rose-700", emerald: "text-emerald-700" };
+  return <div className="border border-slate-200 bg-white p-4"><div className="text-[10px] font-black uppercase tracking-widest text-slate-500">{label}</div><div className={`mt-1 text-3xl font-black ${colors[tone]}`}>{value.toLocaleString("pt-BR")}</div><div className="mt-2 text-xs font-semibold text-slate-500">{detail}</div></div>;
+}
+
+function IntervalCard({ label, count, accent }: { label: string; count: number; accent: string }) {
+  return <div className={`border-l-4 ${accent} bg-white p-4 shadow-sm`}><div className="text-[10px] font-black uppercase tracking-widest text-slate-500">{label}</div><div className="mt-1 text-2xl font-black text-slate-950">{count.toLocaleString("pt-BR")}</div></div>;
+}
+
+function LegacyTrackedTable({ products, now }: { products: Array<{ id: string; asin: string; name: string; nextPriceRefreshAt: Date | null; lastSuccessfulRefreshAt: Date | null; refreshFailCount: number | null; refreshLockUntil: Date | null }>; now: Date }) {
+  return <div className="overflow-hidden border border-slate-200 bg-white"><div className="border-b border-slate-200 bg-slate-100 px-5 py-4"><h2 className="font-serif text-xl font-black">Amazon interno · legado</h2><p className="mt-1 text-xs font-medium text-slate-500">Mantido separado; ainda não usa a política V2.</p></div><div className="max-h-[430px] overflow-auto"><table className="min-w-[620px] w-full text-left text-xs"><thead className="sticky top-0 bg-white text-[10px] font-black uppercase tracking-widest text-slate-500"><tr><th className="p-3">Produto</th><th className="p-3">Próximo</th><th className="p-3">Falhas</th><th className="p-3" /></tr></thead><tbody className="divide-y divide-slate-100">{products.map((product) => <tr key={product.id}><td className="p-3"><div className="max-w-52 font-bold">{product.name}</div><div className="font-mono text-[10px] text-slate-400">{product.asin}</div></td><td className="p-3 font-semibold">{formatDate(product.nextPriceRefreshAt)}</td><td className="p-3 font-black text-rose-700">{product.refreshFailCount ?? 0}</td><td className="p-3 text-right"><form action={forceTrackedSchedulerRefresh}><input type="hidden" name="trackedProductId" value={product.id} /><button className="border border-slate-400 px-2 py-1 text-[9px] font-black uppercase tracking-wider hover:bg-slate-100">Forçar ciclo</button></form></td></tr>)}</tbody></table></div></div>;
+}
+
+function RecentActions({ actions }: { actions: ActionLogRow[] }) {
+  return <div className="overflow-hidden border border-slate-200 bg-white"><div className="border-b border-slate-200 bg-slate-100 px-5 py-4"><h2 className="font-serif text-xl font-black">Auditoria manual</h2><p className="mt-1 text-xs font-medium text-slate-500">Últimas solicitações feitas no painel.</p></div><div className="max-h-[430px] overflow-auto divide-y divide-slate-100">{actions.length === 0 ? <p className="p-8 text-center text-sm font-semibold text-slate-400">Nenhuma ação registrada.</p> : actions.map((action) => <div key={action.id} className="p-4"><div className="flex items-center justify-between gap-3"><span className="text-[10px] font-black uppercase tracking-wider text-slate-700">{action.actionType === "request_refresh_now" ? "Solicitação urgente" : action.actionType === "force_refresh_now" ? "Forçar refresh" : "Ação manual"}</span><span className="text-[10px] font-semibold text-slate-400">{formatDate(action.createdAt)}</span></div><div className="mt-1 font-mono text-xs font-bold text-slate-900">{action.asin}</div><div className="mt-1 text-xs text-slate-500">{action.notes ?? "-"}</div></div>)}</div></div>;
 }

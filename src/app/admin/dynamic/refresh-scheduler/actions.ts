@@ -82,6 +82,28 @@ export async function forceDynamicSchedulerRefresh(formData: FormData) {
 
   if (!productId) return;
 
+  const product = await prisma.dynamicProduct.findUnique({
+    where: { id: productId },
+    select: { asin: true, schedulerVersion: true },
+  });
+  if (!product) return;
+
+  if (product.schedulerVersion === "v2") {
+    const enqueue = await enqueuePriorityRefresh({ asin: product.asin, reason: "admin" });
+    await logSchedulerAction({
+      actionType: "request_refresh_now",
+      productSource: "dynamic",
+      asin: product.asin,
+      productId,
+      notes: enqueue.enqueued
+        ? "solicitado via fila urgente; agenda-base V2 preservada"
+        : `fila urgente indisponivel: ${enqueue.reason}`,
+    });
+    revalidatePath("/admin/dynamic/refresh-scheduler");
+    revalidatePath("/admin/dynamic");
+    return;
+  }
+
   const rows = await prisma.$queryRaw<Array<{ asin: string }>>(Prisma.sql`
     UPDATE "DynamicProduct"
     SET

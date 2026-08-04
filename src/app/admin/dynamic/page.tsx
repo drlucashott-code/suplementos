@@ -550,7 +550,7 @@ export default async function AdminDynamicDashboard() {
 
           <AdminCard
             title="Refresh Scheduler"
-            description="Veja urgencia, tiers, locks e os produtos que mais pressionam a fila."
+            description="Acompanhe a agenda V2, intervalos, vencimentos, falhas e locks reais."
             href="/admin/dynamic/refresh-scheduler"
             icon="T"
             color="emerald"
