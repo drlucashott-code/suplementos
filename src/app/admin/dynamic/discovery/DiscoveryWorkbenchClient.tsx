@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ChevronDown, Plus, Search, WandSparkles } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { ChevronDown, LoaderCircle, Plus, Search, WandSparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import {
@@ -212,6 +212,34 @@ function PendingSubmitButton({
   );
 }
 
+function DiscoverySubmitButton({ onPendingChange }: { onPendingChange: (pending: boolean) => void }) {
+  const { pending } = useFormStatus();
+
+  useEffect(() => {
+    onPendingChange(pending);
+  }, [onPendingChange, pending]);
+
+  return (
+    <>
+      <button
+        type="submit"
+        formAction={runDiscoveryForCategory}
+        disabled={pending}
+        className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-4 text-[11px] font-black uppercase tracking-[0.24em] text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-wait disabled:bg-indigo-500"
+      >
+        {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
+        {pending ? "Descoberta em execução..." : "Executar descoberta"}
+      </button>
+      {pending ? (
+        <div role="status" className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-indigo-600" />
+          Preparando e acompanhando o progresso automaticamente.
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 export default function DiscoveryWorkbenchClient({
   categories,
   selectedCategoryId,
@@ -226,6 +254,10 @@ export default function DiscoveryWorkbenchClient({
   const selectedCategory = categories.find((category) => category.id === selectedCategoryId) ?? null;
   const [autoMaxPages, setAutoMaxPages] = useState(config?.autoMaxPages ?? true);
   const [autoMaxItemsPerQuery, setAutoMaxItemsPerQuery] = useState(config?.autoMaxItemsPerQuery ?? true);
+  const [isDiscoverySubmitting, setIsDiscoverySubmitting] = useState(false);
+  const handleDiscoveryPendingChange = useCallback((pending: boolean) => {
+    setIsDiscoverySubmitting(pending);
+  }, []);
   const approvedBrands = useMemo(
     () =>
       brands
@@ -278,15 +310,17 @@ export default function DiscoveryWorkbenchClient({
     setAutoMaxItemsPerQuery(config?.autoMaxItemsPerQuery ?? true);
   }, [selectedCategoryId, config?.autoMaxPages, config?.autoMaxItemsPerQuery]);
 
+  const isDiscoveryRunning = isDiscoverySubmitting || latestRun?.status === "running";
+
   useEffect(() => {
-    if (latestRun?.status !== "running") return;
+    if (!isDiscoveryRunning) return;
 
     const interval = window.setInterval(() => {
       router.refresh();
     }, 2500);
 
     return () => window.clearInterval(interval);
-  }, [latestRun?.status, router]);
+  }, [isDiscoveryRunning, router]);
 
   function goToCategory(categoryId: string) {
     const params = new URLSearchParams();
@@ -665,13 +699,9 @@ export default function DiscoveryWorkbenchClient({
                   >
                     Salvar configuração
                   </button>
-                  <button
-                    formAction={runDiscoveryForCategory}
-                    className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-4 text-[11px] font-black uppercase tracking-[0.24em] text-white shadow-sm transition hover:bg-indigo-700"
-                  >
-                    <WandSparkles className="h-4 w-4" />
-                    Executar descoberta
-                  </button>
+                  <div className="flex flex-col gap-2">
+                    <DiscoverySubmitButton onPendingChange={handleDiscoveryPendingChange} />
+                  </div>
                 </div>
               </form>
             </section>
