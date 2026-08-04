@@ -35,7 +35,7 @@ type SimulationMetrics = {
 
 type IntervalRule = {
   name: string;
-  intervalDays: (risk: number) => number;
+  intervalDays: (input: { risk: number; rate: number; recency: number }) => number;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -335,7 +335,11 @@ function simulateIntervalRule(params: {
     const { rate, recency } = rateAndRecency(state, (state.lastCheckedDay ?? 0) + 1);
     nextDue.set(
       productId,
-      (state.lastCheckedDay ?? 0) + params.rule.intervalDays(params.risk.score(rate, recency))
+      (state.lastCheckedDay ?? 0) + params.rule.intervalDays({
+        risk: params.risk.score(rate, recency),
+        rate,
+        recency,
+      })
     );
   }
   let queries = 0;
@@ -372,7 +376,15 @@ function simulateIntervalRule(params: {
       state.lastPrice = row.price;
       state.lastCheckedDay = day;
       const { rate, recency } = rateAndRecency(state, day);
-      nextDue.set(row.productId, day + params.rule.intervalDays(params.risk.score(rate, recency)));
+      nextDue.set(
+        row.productId,
+        day +
+          params.rule.intervalDays({
+            risk: params.risk.score(rate, recency),
+            rate,
+            recency,
+          })
+      );
       states.set(row.productId, state);
     }
   }
@@ -685,19 +697,19 @@ async function main() {
     return { budgetShare, ...result, changesPerQuery: result.detections / Math.max(1, result.queries) };
   });
   const intervalRules: IntervalRule[] = [
-    { name: "Linear", intervalDays: (risk) => clampInterval(3 - 2 * risk) },
-    { name: "Exponencial", intervalDays: (risk) => clampInterval(3 ** (1 - risk)) },
+    { name: "Linear", intervalDays: ({ risk }) => clampInterval(3 - 2 * risk) },
+    { name: "Exponencial", intervalDays: ({ risk }) => clampInterval(3 ** (1 - risk)) },
     {
       name: "Logaritmica (k=8)",
-      intervalDays: (risk) => clampInterval(1 + 2 * (1 - Math.log1p(8 * risk) / Math.log(9))),
+      intervalDays: ({ risk }) => clampInterval(1 + 2 * (1 - Math.log1p(8 * risk) / Math.log(9))),
     },
     ...[0.1, 0.2, 0.3, 0.4, 0.5].map((target) => ({
       name: `Hazard q=${target.toFixed(1)}`,
-      intervalDays: (risk: number) => hazardInterval(risk, target),
+      intervalDays: ({ risk }: { risk: number }) => hazardInterval(risk, target),
     })),
     ...(["floor", "round", "ceil"] as const).map((rounding) => ({
       name: `Hazard q=0.2 (${rounding})`,
-      intervalDays: (risk: number) => hazardIntervalWithRounding(risk, 0.2, rounding),
+      intervalDays: ({ risk }: { risk: number }) => hazardIntervalWithRounding(risk, 0.2, rounding),
     })),
     ...[
       [0.1, 0.25],
@@ -707,7 +719,17 @@ async function main() {
       [0.3, 0.65],
     ].map(([low, high]) => ({
       name: `Piecewise ${low.toFixed(2)}/${high.toFixed(2)}`,
-      intervalDays: (risk: number) => (risk >= high ? 1 : risk >= low ? 2 : 3),
+      intervalDays: ({ risk }: { risk: number }) => (risk >= high ? 1 : risk >= low ? 2 : 3),
+    })),
+    ...[
+      [0.2, 0.1],
+      [0.15, 0.05],
+      [0.1, 0.03],
+      [0.1, 0],
+    ].map(([dailyAt, everyTwoDaysAt]) => ({
+      name: `Frequencia simples ${dailyAt.toFixed(2)}/${everyTwoDaysAt.toFixed(2)}`,
+      intervalDays: ({ rate }: { rate: number }) =>
+        rate >= dailyAt ? 1 : rate >= everyTwoDaysAt ? 2 : 3,
     })),
   ];
   const intervalResults = intervalRules.map((rule) => {
