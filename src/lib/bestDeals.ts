@@ -28,7 +28,8 @@ type BestDealsGroup = string | undefined;
 
 const buildBestDealsWhereClause = (
   blockedMerchantNames: readonly string[],
-  group?: BestDealsGroup
+  group?: BestDealsGroup,
+  search?: string
 ) => Prisma.sql`
   WHERE p."visibilityStatus" = 'visible'
     AND p."totalPrice" > 0
@@ -38,14 +39,23 @@ const buildBestDealsWhereClause = (
     AND p."averagePrice30d" > p."totalPrice"
     AND (((p."averagePrice30d" - p."totalPrice") / p."averagePrice30d") * 100) >= 5
     ${group ? Prisma.sql`AND c."group" = ${group}` : Prisma.empty}
+    ${search
+      ? Prisma.sql`AND (
+          p."name" ILIKE ${`%${search}%`}
+          OR p."asin" ILIKE ${`%${search}%`}
+          OR c."name" ILIKE ${`%${search}%`}
+        )`
+      : Prisma.empty}
 `;
 
 export async function getBestDeals(
   limit: number,
   group?: string,
-  offset = 0
+  offset = 0,
+  search?: string
 ): Promise<BestDeal[]> {
   const blockedConfig = await getBlockedMerchantsConfig();
+  const normalizedSearch = search?.trim().slice(0, 120) || undefined;
   const rows = await prisma.$queryRaw<
     Array<{
       id: string;
@@ -97,7 +107,7 @@ export async function getBestDeals(
       c."slug" AS "categorySlug"
     FROM "DynamicProduct" p
     INNER JOIN "DynamicCategory" c ON c."id" = p."categoryId"
-    ${buildBestDealsWhereClause(blockedConfig.allBlockedMerchants, group)}
+    ${buildBestDealsWhereClause(blockedConfig.allBlockedMerchants, group, normalizedSearch)}
     ORDER BY
       (((p."averagePrice30d" - p."totalPrice") / p."averagePrice30d") * 100) DESC,
       p."averagePrice30d" DESC,

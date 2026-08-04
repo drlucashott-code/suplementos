@@ -35,7 +35,7 @@ const filters = [
 ] as const;
 
 interface OfertasPageProps {
-  searchParams: Promise<{ grupo?: string; pagina?: string }>;
+  searchParams: Promise<{ grupo?: string; pagina?: string; busca?: string }>;
 }
 
 export default async function OfertasPage({ searchParams }: OfertasPageProps) {
@@ -46,9 +46,10 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
       : "todos";
   const normalizedGroup = selectedGroup === "todos" ? undefined : selectedGroup;
   const requestedPage = Math.max(1, Number.parseInt(params.pagina ?? "1", 10) || 1);
+  const searchQuery = params.busca?.trim().slice(0, 120) || undefined;
 
   const pool =
-    selectedGroup === "todos"
+    selectedGroup === "todos" && !searchQuery
       ? (
           await Promise.all([
             getBestDeals(DEALS_PER_GROUP_WHEN_ALL, "suplementos", 0),
@@ -67,7 +68,7 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
             return (b.ratingCount ?? 0) - (a.ratingCount ?? 0);
           })
           .slice(0, POOL_SIZE)
-      : await getBestDeals(POOL_SIZE, normalizedGroup, 0);
+      : await getBestDeals(POOL_SIZE, normalizedGroup, 0, searchQuery);
 
   const totalDeals = pool.length;
   const totalPages = Math.max(1, Math.ceil(totalDeals / PAGE_SIZE));
@@ -79,6 +80,10 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
 
     if (selectedGroup !== "todos") {
       query.set("grupo", selectedGroup);
+    }
+
+    if (searchQuery) {
+      query.set("busca", searchQuery);
     }
 
     if (page > 1) {
@@ -124,6 +129,7 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
                 Melhores ofertas do momento
               </h1>
               <p className="mt-1 text-[13px] text-[#565959]">
+                {searchQuery ? `Resultados para “${searchQuery}”: ` : ""}
                 {totalDeals} produtos com desconto relevante e preço atual válido.
               </p>
             </div>
@@ -131,8 +137,15 @@ export default async function OfertasPage({ searchParams }: OfertasPageProps) {
             <div className="flex flex-wrap gap-2">
               {filters.map((filter) => {
                 const isActive = selectedGroup === filter.value;
-                const href =
-                  filter.value === "todos" ? "/ofertas" : `/ofertas?grupo=${filter.value}`;
+                const filterQuery = new URLSearchParams();
+                if (filter.value !== "todos") {
+                  filterQuery.set("grupo", filter.value);
+                }
+                if (searchQuery) {
+                  filterQuery.set("busca", searchQuery);
+                }
+                const filterSearch = filterQuery.toString();
+                const href = filterSearch ? `/ofertas?${filterSearch}` : "/ofertas";
 
                 return (
                   <Link
