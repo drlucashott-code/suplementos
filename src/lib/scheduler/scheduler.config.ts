@@ -86,6 +86,15 @@ export const schedulerConfig = Object.freeze({
     firstRetryMinutes: numberFromEnv("SCHEDULER_V2_FAILURE_FIRST_RETRY_MINUTES", 60),
     maximumRetryMinutes: numberFromEnv("SCHEDULER_V2_FAILURE_MAX_RETRY_MINUTES", 10080),
   },
+  // Janelas de leitura do ledger. Elas não alteram a agenda dos produtos;
+  // apenas mantêm o painel operacional consistente com a telemetria exibida.
+  observability: {
+    dashboardWindowHours: numberFromEnv("SCHEDULER_V2_DASHBOARD_WINDOW_HOURS", 24),
+    learningCoverageWindowDays: numberFromEnv(
+      "SCHEDULER_V2_LEARNING_COVERAGE_WINDOW_DAYS",
+      7
+    ),
+  },
 });
 
 export type SchedulerConfig = typeof schedulerConfig;
@@ -154,6 +163,17 @@ export function validateSchedulerConfig(config: SchedulerConfig = schedulerConfi
     config.failures.maximumRetryMinutes < config.failures.firstRetryMinutes
   ) {
     throw new Error("scheduler_config_invalid_urgent_or_failure_limits");
+  }
+
+  if (
+    !Number.isInteger(config.observability.dashboardWindowHours) ||
+    config.observability.dashboardWindowHours <= 0 ||
+    config.observability.dashboardWindowHours > 168 ||
+    !Number.isInteger(config.observability.learningCoverageWindowDays) ||
+    config.observability.learningCoverageWindowDays <= 0 ||
+    config.observability.learningCoverageWindowDays > 365
+  ) {
+    throw new Error("scheduler_config_invalid_observability");
   }
 
   if (config.flags.enabled && !config.flags.observationLedgerEnabled) {

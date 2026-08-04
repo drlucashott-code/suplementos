@@ -20,6 +20,19 @@ type ActionLogRow = {
   createdAt: Date;
 };
 
+type SchedulerTelemetryRow = {
+  baseAttempts: number;
+  baseSuccessful: number;
+  baseChanged: number;
+  baseFailed: number;
+  baseBatchErrors: number;
+  urgentAttempts: number;
+  urgentSuccessful: number;
+  urgentChanged: number;
+  urgentFailed: number;
+  uniqueBaseProducts: number;
+};
+
 function formatDate(value: Date | null | undefined) {
   if (!value) return "-";
   return new Intl.DateTimeFormat("pt-BR", {
@@ -36,6 +49,11 @@ function formatHours(minutes: number | null) {
 
 function formatRate(rate: number | null) {
   return `${((rate ?? 0) * 100).toFixed(1)}%`;
+}
+
+function formatPercent(numerator: number, denominator: number) {
+  if (denominator === 0) return "-";
+  return `${((numerator / denominator) * 100).toFixed(1)}%`;
 }
 
 function resolveSort(value: string): SchedulerSort {
@@ -97,7 +115,15 @@ export default async function AdminRefreshSchedulerPage({
 }) {
   const params = await searchParams;
   const now = new Date();
-  const observationCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const observationCutoff = new Date(
+    now.getTime() - schedulerConfig.observability.dashboardWindowHours * 60 * 60 * 1000
+  );
+  const learningCoverageCutoff = new Date(
+    now.getTime() - schedulerConfig.observability.learningCoverageWindowDays * 24 * 60 * 60 * 1000
+  );
+  const fullV2HistoryCutoff = new Date(
+    now.getTime() - schedulerConfig.base.historyWindowDays * 24 * 60 * 60 * 1000
+  );
   const asinQuery = parseSearchParam(params?.q).trim().toUpperCase();
   const sort = resolveSort(parseSearchParam(params?.sort));
   const productWhere = {
@@ -121,7 +147,9 @@ export default async function AdminRefreshSchedulerPage({
     lockedProducts,
     retryingProducts,
     intervalGroups,
-    observationGroups,
+    schedulerTelemetryRows,
+    learningCoverageProducts,
+    productsWithFullV2History,
     trackedProducts,
     legacyDynamicProducts,
     recentActions,
@@ -170,13 +198,35 @@ export default async function AdminRefreshSchedulerPage({
       where: { schedulerVersion: schedulerConfig.policyVersion },
       _count: { _all: true },
     }),
-    prisma.priceRefreshObservation.groupBy({
-      by: ["reason", "result"],
+    prisma.$queryRaw<SchedulerTelemetryRow[]>`
+      SELECT
+        COUNT(*) FILTER (WHERE "reason" = 'base')::int AS "baseAttempts",
+        COUNT(*) FILTER (WHERE "reason" = 'base' AND "result" = 'success')::int AS "baseSuccessful",
+        COUNT(*) FILTER (WHERE "reason" = 'base' AND "result" = 'success' AND "priceChanged" = true)::int AS "baseChanged",
+        COUNT(*) FILTER (WHERE "reason" = 'base' AND "result" = 'failure')::int AS "baseFailed",
+        COUNT(*) FILTER (WHERE "reason" = 'base' AND "result" = 'batch_error')::int AS "baseBatchErrors",
+        COUNT(*) FILTER (WHERE "reason" = 'urgent')::int AS "urgentAttempts",
+        COUNT(*) FILTER (WHERE "reason" = 'urgent' AND "result" = 'success')::int AS "urgentSuccessful",
+        COUNT(*) FILTER (WHERE "reason" = 'urgent' AND "result" = 'success' AND "priceChanged" = true)::int AS "urgentChanged",
+        COUNT(*) FILTER (WHERE "reason" = 'urgent' AND "result" = 'failure')::int AS "urgentFailed",
+        COUNT(DISTINCT "productId") FILTER (WHERE "reason" = 'base' AND "result" = 'success')::int AS "uniqueBaseProducts"
+      FROM "PriceRefreshObservation"
+      WHERE "schedulerVersion" = ${schedulerConfig.policyVersion}
+        AND "startedAt" >= ${observationCutoff}
+    `,
+    prisma.$queryRaw<Array<{ count: number }>>`
+      SELECT COUNT(DISTINCT "productId")::int AS "count"
+      FROM "PriceRefreshObservation"
+      WHERE "schedulerVersion" = ${schedulerConfig.policyVersion}
+        AND "reason" = 'base'
+        AND "result" = 'success'
+        AND "startedAt" >= ${learningCoverageCutoff}
+    `.then((rows) => rows[0]?.count ?? 0),
+    prisma.dynamicProduct.count({
       where: {
         schedulerVersion: schedulerConfig.policyVersion,
-        startedAt: { gte: observationCutoff },
+        schedulerFirstBaseObservationAt: { lte: fullV2HistoryCutoff },
       },
-      _count: { _all: true },
     }),
     prisma.siteTrackedAmazonProduct.findMany({
       where: asinQuery ? { asin: { contains: asinQuery, mode: "insensitive" } } : undefined,
@@ -204,15 +254,19 @@ export default async function AdminRefreshSchedulerPage({
   const intervalCounts = new Map(
     intervalGroups.map((group) => [group.schedulerBaseIntervalMinutes ?? 0, group._count._all])
   );
-  const baseObservations24h = observationGroups
-    .filter((group) => group.reason === "base")
-    .reduce((sum, group) => sum + group._count._all, 0);
-  const urgentObservations24h = observationGroups
-    .filter((group) => group.reason === "urgent")
-    .reduce((sum, group) => sum + group._count._all, 0);
-  const failedObservations24h = observationGroups
-    .filter((group) => group.result === "failure")
-    .reduce((sum, group) => sum + group._count._all, 0);
+  const telemetry: SchedulerTelemetryRow = schedulerTelemetryRows[0] ?? {
+    baseAttempts: 0,
+    baseSuccessful: 0,
+    baseChanged: 0,
+    baseFailed: 0,
+    baseBatchErrors: 0,
+    urgentAttempts: 0,
+    urgentSuccessful: 0,
+    urgentChanged: 0,
+    urgentFailed: 0,
+    uniqueBaseProducts: 0,
+  };
+  const failedObservations = telemetry.baseFailed + telemetry.baseBatchErrors + telemetry.urgentFailed;
 
   return (
     <div className="min-h-screen bg-[#f6f7f2] p-5 text-slate-950 md:p-8">
@@ -245,14 +299,36 @@ export default async function AdminRefreshSchedulerPage({
           <Metric label="Vencidos" value={dueProducts} detail="base, sem lock ativo" tone="orange" />
           <Metric label="Em execução" value={lockedProducts} detail="locks válidos agora" tone="amber" />
           <Metric label="Em retentativa" value={retryingProducts} detail="falha individual / sem estoque" tone="rose" />
-          <Metric label="Observações 24h" value={baseObservations24h + urgentObservations24h} detail={`${baseObservations24h} base · ${urgentObservations24h} urgentes`} tone="emerald" />
+          <Metric label={`Observações ${schedulerConfig.observability.dashboardWindowHours}h`} value={telemetry.baseAttempts + telemetry.urgentAttempts} detail={`${telemetry.baseAttempts} base · ${telemetry.urgentAttempts} urgentes`} tone="emerald" />
         </section>
 
         <section className="mb-7 grid gap-3 md:grid-cols-4">
           <IntervalCard label="Agenda 24h" count={intervalCounts.get(schedulerConfig.base.intervals.dailyMinutes) ?? 0} accent="border-emerald-500" />
           <IntervalCard label="Agenda 48h" count={intervalCounts.get(schedulerConfig.base.intervals.everyTwoDaysMinutes) ?? 0} accent="border-sky-500" />
           <IntervalCard label="Agenda 72h" count={intervalCounts.get(schedulerConfig.base.intervals.everyThreeDaysMinutes) ?? 0} accent="border-slate-500" />
-          <IntervalCard label="Falhas 24h" count={failedObservations24h} accent="border-rose-500" />
+          <IntervalCard label={`Falhas ${schedulerConfig.observability.dashboardWindowHours}h`} count={failedObservations} accent="border-rose-500" />
+        </section>
+
+        <section className="mb-7 overflow-hidden border border-slate-200 bg-white shadow-[6px_6px_0_#0f172a]">
+          <div className="border-b border-slate-200 bg-[#e6eadc] px-5 py-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">Ledger de observações</p>
+            <h2 className="mt-1 font-serif text-2xl font-black">O que o scheduler está aprendendo</h2>
+            <p className="mt-1 text-xs font-medium text-slate-600">
+              Indicadores calculados somente a partir das tentativas reais. A agenda continua inalterada.
+            </p>
+          </div>
+          <div className="grid divide-y divide-slate-200 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-5">
+            <LedgerMetric label="Sucesso base" value={formatPercent(telemetry.baseSuccessful, telemetry.baseAttempts)} detail={`${telemetry.baseSuccessful}/${telemetry.baseAttempts} tentativas concluídas`} tone="emerald" />
+            <LedgerMetric label="Mudou de preço" value={formatPercent(telemetry.baseChanged, telemetry.baseSuccessful)} detail={`${telemetry.baseChanged} alterações entre refreshes-base`} tone="sky" />
+            <LedgerMetric label="Cobertura recente" value={formatPercent(learningCoverageProducts, totalProducts)} detail={`${learningCoverageProducts}/${totalProducts} produtos com base em ${schedulerConfig.observability.learningCoverageWindowDays}d`} tone="slate" />
+            <LedgerMetric label="Janela V2 completa" value={formatPercent(productsWithFullV2History, totalProducts)} detail={`${productsWithFullV2History}/${totalProducts} com ${schedulerConfig.base.historyWindowDays}d de dados V2`} tone="amber" />
+            <LedgerMetric label="Fila urgente" value={String(telemetry.urgentAttempts)} detail={`${telemetry.urgentChanged} mudanças · ${telemetry.urgentFailed} falhas`} tone="rose" />
+          </div>
+          {(telemetry.baseBatchErrors > 0 || telemetry.baseFailed > 0) && (
+            <div className="border-t border-rose-200 bg-rose-50 px-5 py-3 text-xs font-semibold text-rose-800">
+              Falhas-base na janela: {telemetry.baseFailed} individuais · {telemetry.baseBatchErrors} de lote. Falha de lote não aumenta o backoff dos produtos.
+            </div>
+          )}
         </section>
 
         <section className="mb-5 flex flex-col gap-3 border border-slate-200 bg-white p-4 shadow-[4px_4px_0_#0f172a] md:flex-row md:items-center md:justify-between">
@@ -329,6 +405,11 @@ function Metric({ label, value, detail, tone }: { label: string; value: number; 
 
 function IntervalCard({ label, count, accent }: { label: string; count: number; accent: string }) {
   return <div className={`border-l-4 ${accent} bg-white p-4 shadow-sm`}><div className="text-[10px] font-black uppercase tracking-widest text-slate-500">{label}</div><div className="mt-1 text-2xl font-black text-slate-950">{count.toLocaleString("pt-BR")}</div></div>;
+}
+
+function LedgerMetric({ label, value, detail, tone }: { label: string; value: string; detail: string; tone: "emerald" | "sky" | "slate" | "amber" | "rose" }) {
+  const colors = { emerald: "text-emerald-700", sky: "text-sky-700", slate: "text-slate-950", amber: "text-amber-700", rose: "text-rose-700" };
+  return <div className="min-h-32 p-5"><div className="text-[10px] font-black uppercase tracking-widest text-slate-500">{label}</div><div className={`mt-2 text-3xl font-black ${colors[tone]}`}>{value}</div><div className="mt-2 text-xs font-semibold leading-5 text-slate-500">{detail}</div></div>;
 }
 
 function LegacyTrackedTable({ products, now }: { products: Array<{ id: string; asin: string; name: string; nextPriceRefreshAt: Date | null; lastSuccessfulRefreshAt: Date | null; refreshFailCount: number | null; refreshLockUntil: Date | null }>; now: Date }) {

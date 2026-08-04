@@ -15,6 +15,7 @@ type NeonReport = {
   priority24h: QueryRow;
   history24h: QueryRow;
   scheduler: QueryRow;
+  schedulerV2: QueryRow;
   notifications: QueryRow;
   extensions: QueryRow[];
   statementStats: QueryRow[];
@@ -25,6 +26,7 @@ type NeonSnapshot = {
   refresh24h?: QueryRow;
   history24h?: QueryRow;
   scheduler?: QueryRow;
+  schedulerV2?: QueryRow;
 };
 
 const { Client } = pg;
@@ -151,6 +153,24 @@ async function collectReport(): Promise<NeonReport> {
        FROM "DynamicProduct"`
     );
 
+    const schedulerV2 = await queryOne(
+      client,
+      `SELECT
+         COUNT(*) FILTER (WHERE "reason" = 'base')::int AS "baseAttempts",
+         COUNT(*) FILTER (WHERE "reason" = 'base' AND "result" = 'success')::int AS "baseSuccessful",
+         COUNT(*) FILTER (WHERE "reason" = 'base' AND "result" = 'success' AND "priceChanged" = true)::int AS "baseChanged",
+         COUNT(*) FILTER (WHERE "reason" = 'base' AND "result" = 'failure')::int AS "baseFailures",
+         COUNT(*) FILTER (WHERE "reason" = 'base' AND "result" = 'batch_error')::int AS "baseBatchErrors",
+         COUNT(*) FILTER (WHERE "reason" = 'urgent')::int AS "urgentAttempts",
+         COUNT(*) FILTER (WHERE "reason" = 'urgent' AND "result" = 'success')::int AS "urgentSuccessful",
+         COUNT(*) FILTER (WHERE "reason" = 'urgent' AND "result" = 'success' AND "priceChanged" = true)::int AS "urgentChanged",
+         COUNT(*) FILTER (WHERE "reason" = 'urgent' AND "result" = 'failure')::int AS "urgentFailures",
+         COUNT(DISTINCT "productId") FILTER (WHERE "reason" = 'base' AND "result" = 'success')::int AS "baseProducts"
+       FROM "PriceRefreshObservation"
+       WHERE "schedulerVersion" = 'v2'
+         AND "startedAt" >= NOW() - INTERVAL '24 hours'`
+    );
+
     const notifications = await queryOne(
       client,
       `SELECT COUNT(*)::bigint AS total
@@ -195,6 +215,7 @@ async function collectReport(): Promise<NeonReport> {
       priority24h,
       history24h,
       scheduler,
+      schedulerV2,
       notifications,
       extensions,
       statementStats,
@@ -215,6 +236,7 @@ function printHuman(report: NeonReport) {
   const refresh = report.refresh24h;
   const scheduler = report.scheduler;
   const history = report.history24h;
+  const schedulerV2 = report.schedulerV2;
 
   console.log(`Neon Usage Report — ${report.generatedAt}`);
   console.log(`Banco: ${report.database.database} | Servidor: ${report.database.serverTime}`);
@@ -230,6 +252,16 @@ function printHuman(report: NeonReport) {
   );
   console.log(
     `Scheduler: ${scheduler.total} produtos, ${scheduler.due} vencidos, ${scheduler.repeatedFailures} com falhas repetidas, ${scheduler.staleOver7d} >7d sem sucesso`
+  );
+  const baseSuccessful = numberValue(schedulerV2.baseSuccessful);
+  const baseAttempts = numberValue(schedulerV2.baseAttempts);
+  const baseChanged = numberValue(schedulerV2.baseChanged);
+  const baseSuccessRate =
+    baseAttempts === 0 ? "n/a" : `${((baseSuccessful / baseAttempts) * 100).toFixed(1)}%`;
+  const baseChangeRate =
+    baseSuccessful === 0 ? "n/a" : `${((baseChanged / baseSuccessful) * 100).toFixed(1)}%`;
+  console.log(
+    `Scheduler V2 24h: ${baseAttempts} bases (${baseSuccessRate} sucesso, ${baseChangeRate} mudaram), ${schedulerV2.urgentAttempts ?? 0} urgentes, ${schedulerV2.baseFailures ?? 0} falhas individuais, ${schedulerV2.baseBatchErrors ?? 0} falhas de lote`
   );
   console.log(`Notificações 30d: ${notificationsValue(report.notifications)}`);
   console.log("Maiores tabelas:");
@@ -259,6 +291,10 @@ function buildComparison(current: NeonReport, previous: NeonSnapshot) {
     ["scheduler.due", field(current.scheduler, "due"), field(previous.scheduler, "due")],
     ["scheduler.repeatedFailures", field(current.scheduler, "repeatedFailures"), field(previous.scheduler, "repeatedFailures")],
     ["scheduler.staleOver7d", field(current.scheduler, "staleOver7d"), field(previous.scheduler, "staleOver7d")],
+    ["schedulerV2.baseAttempts", field(current.schedulerV2, "baseAttempts"), field(previous.schedulerV2, "baseAttempts")],
+    ["schedulerV2.baseChanged", field(current.schedulerV2, "baseChanged"), field(previous.schedulerV2, "baseChanged")],
+    ["schedulerV2.baseFailures", field(current.schedulerV2, "baseFailures"), field(previous.schedulerV2, "baseFailures")],
+    ["schedulerV2.urgentAttempts", field(current.schedulerV2, "urgentAttempts"), field(previous.schedulerV2, "urgentAttempts")],
   ];
 
   return metrics.map(([metric, currentValue, previousValue]) => {
