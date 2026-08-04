@@ -1,11 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
-import { ArrowRight, ChevronLeft, ChevronRight, TrendingDown } from "lucide-react";
-import TrackedDealLink from "@/components/TrackedDealLink";
-import amazonImageLoader from "@/lib/amazonImageLoader";
+import { ChevronLeft, ChevronRight, TrendingDown } from "lucide-react";
+import BestDealProductCard from "@/components/BestDealProductCard";
 import type { BestDeal } from "@/lib/bestDeals";
 
 type DealFilter = "all" | "suplementos" | "casa" | "pets";
@@ -17,65 +15,10 @@ const filters: Array<{ value: DealFilter; label: string }> = [
   { value: "pets", label: "Pets" },
 ];
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
-}
-
 function track(event: string, payload: Record<string, unknown>) {
   const win = window as typeof window & { dataLayer?: object[] };
   win.dataLayer = win.dataLayer || [];
   win.dataLayer.push({ event, home_version: "experimental_amazon_mobile", ...payload });
-}
-
-function OfferCard({ deal, position }: { deal: BestDeal; position: number }) {
-  return (
-    <TrackedDealLink
-      asin={deal.asin}
-      href={deal.url}
-      productId={deal.id}
-      productName={deal.name}
-      value={deal.totalPrice}
-      category="experimental_home_top_offers"
-      className="group flex h-full flex-col rounded-2xl border border-[#D5D9D9] bg-white p-3 shadow-[0_2px_8px_rgba(15,17,17,0.06)] transition hover:border-[#AAB7B8] hover:shadow-[0_8px_22px_rgba(15,17,17,0.10)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007185]"
-    >
-      <div className="relative aspect-square overflow-hidden rounded-xl bg-[#F7F8F8]">
-        <Image
-          loader={amazonImageLoader}
-          src={deal.imageUrl || "/file.svg"}
-          alt={deal.name}
-          fill
-          sizes="(max-width: 640px) 64vw, 230px"
-          className="object-contain p-3 transition duration-300 group-hover:scale-[1.03]"
-          priority={position < 2}
-        />
-        <span className="absolute left-2 top-2 rounded-md bg-[#CC0C39] px-2 py-1 text-[13px] font-bold text-white">
-          -{deal.discountPercent}%
-        </span>
-      </div>
-
-      <div className="flex flex-1 flex-col pt-3">
-        <p className="text-[11px] font-semibold text-[#007185]">{deal.categoryName}</p>
-        <h3 className="mt-1 line-clamp-2 min-h-10 text-[14px] font-medium leading-5 text-[#0F1111] group-hover:text-[#C7511F]">
-          {deal.name}
-        </h3>
-        <div className="mt-3">
-          <p className="text-[21px] font-bold tracking-[-0.02em] text-[#0F1111]">
-            {formatCurrency(deal.totalPrice)}
-          </p>
-          <p className="mt-0.5 text-[11px] text-[#565959]">
-            Média de 30 dias: <span className="line-through">{formatCurrency(deal.averagePrice30d)}</span>
-          </p>
-        </div>
-        <span className="mt-3 flex items-center justify-between border-t border-[#EAEEEE] pt-3 text-[13px] font-bold text-[#007185]">
-          Ver oferta
-          <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
-        </span>
-      </div>
-    </TrackedDealLink>
-  );
 }
 
 export function OfferRail({ bestDeals }: { bestDeals: BestDeal[] }) {
@@ -87,8 +30,8 @@ export function OfferRail({ bestDeals }: { bestDeals: BestDeal[] }) {
   const visibleDeals = useMemo(
     () =>
       activeFilter === "all"
-        ? bestDeals
-        : bestDeals.filter((deal) => deal.categoryGroup === activeFilter),
+        ? bestDeals.slice(0, 8)
+        : bestDeals.filter((deal) => deal.categoryGroup === activeFilter).slice(0, 8),
     [activeFilter, bestDeals]
   );
 
@@ -156,9 +99,17 @@ export function OfferRail({ bestDeals }: { bestDeals: BestDeal[] }) {
 
         {visibleDeals.length > 0 ? (
           <div ref={railRef} className="-mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-2 lg:px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {visibleDeals.map((deal, index) => (
-              <div key={deal.id} className="w-[72vw] max-w-[238px] shrink-0 snap-start sm:w-[220px] lg:w-[232px]">
-                <OfferCard deal={deal} position={index} />
+            {visibleDeals.map((deal) => (
+              <div
+                key={deal.id}
+                className="w-[calc((100%-0.75rem)/2)] shrink-0 snap-start sm:w-[220px] lg:w-[232px]"
+              >
+                <BestDealProductCard
+                  item={deal}
+                  category="experimental_home_top_offers"
+                  showActions={false}
+                  uniformHeight
+                />
               </div>
             ))}
           </div>

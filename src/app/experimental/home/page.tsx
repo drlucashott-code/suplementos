@@ -75,11 +75,25 @@ async function loadCategories(): Promise<Record<HomeHub, ExperimentalCategory[]>
 }
 
 async function loadDeals(): Promise<BestDeal[]> {
-  try {
-    return await getBestDeals(18);
-  } catch {
-    return [];
-  }
+  const groups: HomeHub[] = ["suplementos", "casa", "pets"];
+  const groupedDeals = await Promise.all(
+    groups.map(async (group) => {
+      try {
+        return await getBestDeals(8, group);
+      } catch {
+        return [];
+      }
+    })
+  );
+
+  return groupedDeals
+    .flat()
+    .sort(
+      (a, b) =>
+        b.discountPercent - a.discountPercent ||
+        b.averagePrice30d - a.averagePrice30d ||
+        (b.ratingCount || 0) - (a.ratingCount || 0)
+    );
 }
 
 async function loadPublicLists(): Promise<ExperimentalPublicList[]> {
