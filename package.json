@@ -11,6 +11,7 @@
     "update:amazon": "tsx scripts/z-UpdatePrices.ts",
     "report:neon": "tsx scripts/reportNeonUsage.ts",
     "report:price-predictors": "tsx scripts/analyzePriceChangePredictors.ts",
+    "report:last-change-magnitude": "tsx scripts/analyzeLastPriceChangeMagnitude.ts",
     "report:price-scheduler": "tsx scripts/simulatePriceRefreshScheduler.ts",
     "test:scheduler": "tsx --test tests/scheduler/*.test.ts",
     "scheduler:v2:rollout": "tsx scripts/rolloutSchedulerV2.ts",
