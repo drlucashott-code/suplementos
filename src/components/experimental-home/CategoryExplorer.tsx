@@ -38,6 +38,7 @@ export function CategoryExplorer({ categories }: { categories: Record<HomeHub, E
     (hub) => categories[hub].length > 0
   );
   const [activeHub, setActiveHub] = useState<HomeHub>(availableHubs[0] || "suplementos");
+  const [activePage, setActivePage] = useState(0);
   const railRef = useRef<HTMLDivElement>(null);
   const categoryColumns = Array.from(
     { length: Math.ceil(categories[activeHub].length / 2) },
@@ -46,7 +47,26 @@ export function CategoryExplorer({ categories }: { categories: Record<HomeHub, E
 
   function selectHub(hub: HomeHub) {
     setActiveHub(hub);
+    setActivePage(0);
     railRef.current?.scrollTo({ left: 0, behavior: "smooth" });
+  }
+
+  function updateActivePage() {
+    const rail = railRef.current;
+    if (!rail) return;
+
+    const maxScroll = rail.scrollWidth - rail.clientWidth;
+    const nextPage = maxScroll > 0 ? Math.round((rail.scrollLeft / maxScroll) * 2) : 0;
+    setActivePage(Math.min(2, Math.max(0, nextPage)));
+  }
+
+  function scrollToPage(page: number) {
+    const rail = railRef.current;
+    if (!rail) return;
+
+    const maxScroll = rail.scrollWidth - rail.clientWidth;
+    setActivePage(page);
+    rail.scrollTo({ left: (maxScroll * page) / 2, behavior: "smooth" });
   }
 
   return (
@@ -93,6 +113,7 @@ export function CategoryExplorer({ categories }: { categories: Record<HomeHub, E
           ref={railRef}
           role="tabpanel"
           aria-labelledby={`home-hub-${activeHub}`}
+          onScroll={updateActivePage}
           className="-mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-8 lg:gap-4 lg:overflow-visible lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {categoryColumns.map((column, columnIndex) => (
@@ -124,6 +145,28 @@ export function CategoryExplorer({ categories }: { categories: Record<HomeHub, E
               ))}
             </div>
           ))}
+        </div>
+
+        <div
+          className="mt-3 flex items-center justify-center gap-2 lg:hidden"
+          role="group"
+          aria-label="Paginação das categorias"
+        >
+          {[0, 1, 2].map((page) => {
+            const active = activePage === page;
+            return (
+              <button
+                key={page}
+                type="button"
+                onClick={() => scrollToPage(page)}
+                className={`h-2 rounded-full transition-all duration-200 ${
+                  active ? "w-6 bg-[#007185]" : "w-2 bg-[#C7CCCC] hover:bg-[#879596]"
+                }`}
+                aria-label={`Ir para a página ${page + 1} de categorias`}
+                aria-current={active ? "page" : undefined}
+              />
+            );
+          })}
         </div>
       </div>
     </section>
