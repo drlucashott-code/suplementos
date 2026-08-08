@@ -4,6 +4,10 @@ import Link from "next/link";
 import { Bell, CheckCheck, CircleDot, List, MessageCircle, Package, TrendingDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+// Temporary diagnostic switch for Neon compute usage. Keep the component and
+// notification APIs intact so the feature can be restored by setting this to true.
+const SITE_NOTIFICATIONS_ENABLED = false;
+
 type NotificationItem = {
   id: string;
   type: string;
@@ -52,6 +56,8 @@ export default function SiteNotificationsBell() {
   const [notificationsLoaded, setNotificationsLoaded] = useState(false);
 
   useEffect(() => {
+    if (!SITE_NOTIFICATIONS_ENABLED) return;
+
     function closeOnOutsideClick(event: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
         setOpen(false);
@@ -63,6 +69,8 @@ export default function SiteNotificationsBell() {
   }, []);
 
   useEffect(() => {
+    if (!SITE_NOTIFICATIONS_ENABLED) return;
+
     let active = true;
 
     // Pré-carrega a lista completa (não só a contagem) ao montar, para o
@@ -103,6 +111,8 @@ export default function SiteNotificationsBell() {
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
+
+  if (!SITE_NOTIFICATIONS_ENABLED) return null;
 
   async function loadNotifications() {
     if (notificationsLoaded) return;
