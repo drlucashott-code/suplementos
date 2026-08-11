@@ -16,9 +16,4 @@ export function revalidateDynamicCatalogCategoryRefs(
     revalidatePath(getDynamicCatalogPath(ref.group, ref.slug), "page");
   }
 
-  // A home (estática/ISR) também lista "melhores ofertas" do catálogo; revalida
-  // junto para refletir mudanças de preço/estoque sem esperar o timer de 10 min.
-  if (deduped.length > 0) {
-    revalidatePath("/", "page");
-  }
 }

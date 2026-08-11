@@ -3,12 +3,18 @@ import { getCurrentSiteUser } from "@/lib/siteAuthSession";
 
 export type HeaderProps = HeaderClientProps;
 
-export default async function Header({ extraCategories = [] }: HeaderProps) {
+export default async function Header({
+  extraCategories = [],
+  searchPlaceholder,
+  searchTargetPath,
+}: HeaderProps) {
   const user = await getCurrentSiteUser();
 
   return (
     <HeaderClient
       extraCategories={extraCategories}
+      searchPlaceholder={searchPlaceholder}
+      searchTargetPath={searchTargetPath}
       initialUser={
         user
           ? {

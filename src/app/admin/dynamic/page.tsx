@@ -273,7 +273,6 @@ async function saveBlockedMerchantsAction(formData: FormData) {
   revalidatePath("/admin/dynamic");
   revalidatePath("/admin/dynamic/produtos");
   revalidatePath("/");
-  revalidatePath("/ofertas");
 }
 
 export default async function AdminDynamicDashboard() {

@@ -8,8 +8,8 @@ import type {
   ExperimentalPublicList,
   HomeHub,
 } from "@/components/experimental-home/types";
-import { getBestDeals, type BestDeal } from "@/lib/bestDeals";
 import { normalizeDynamicDisplayConfig } from "@/lib/dynamicCategoryMetrics";
+import { tryFetchNextOffersFeed } from "@/lib/next-offers/server";
 import { prisma } from "@/lib/prisma";
 
 export const revalidate = 600;
@@ -74,28 +74,6 @@ async function loadCategories(): Promise<Record<HomeHub, ExperimentalCategory[]>
   }
 }
 
-async function loadDeals(): Promise<BestDeal[]> {
-  const groups: HomeHub[] = ["suplementos", "casa", "pets"];
-  const groupedDeals = await Promise.all(
-    groups.map(async (group) => {
-      try {
-        return await getBestDeals(8, group);
-      } catch {
-        return [];
-      }
-    })
-  );
-
-  return groupedDeals
-    .flat()
-    .sort(
-      (a, b) =>
-        b.discountPercent - a.discountPercent ||
-        b.averagePrice30d - a.averagePrice30d ||
-        (b.ratingCount || 0) - (a.ratingCount || 0)
-    );
-}
-
 async function loadPublicLists(): Promise<ExperimentalPublicList[]> {
   try {
     const rows = await prisma.$queryRaw<
@@ -152,9 +130,9 @@ async function loadPublicLists(): Promise<ExperimentalPublicList[]> {
 }
 
 export default async function ExperimentalHomePage() {
-  const [categories, bestDeals, publicLists] = await Promise.all([
+  const [categories, nextOffersFeed, publicLists] = await Promise.all([
     loadCategories(),
-    loadDeals(),
+    tryFetchNextOffersFeed(),
     loadPublicLists(),
   ]);
   const headerCategories = Object.values(categories).flat();
@@ -169,7 +147,11 @@ export default async function ExperimentalHomePage() {
           <AmazonHeader extraCategories={headerCategories} />
         </Suspense>
       </div>
-      <ExperimentalHome categories={categories} bestDeals={bestDeals} publicLists={publicLists} />
+      <ExperimentalHome
+        categories={categories}
+        nextOffersFeed={nextOffersFeed}
+        publicLists={publicLists}
+      />
     </>
   );
 }

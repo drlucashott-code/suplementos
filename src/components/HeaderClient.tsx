@@ -17,12 +17,15 @@ export type HeaderClientProps = {
   extraCategories?: ExtraCategory[];
   initialUser?: SessionUser | null;
   searchPlaceholder?: string;
+  desktopSearchPlaceholder?: string;
+  searchTargetPath?: string;
 };
 
 export default function HeaderClient({
   extraCategories = [],
   initialUser,
   searchPlaceholder = "O que você está procurando?",
+  searchTargetPath,
 }: HeaderClientProps) {
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<CategorySuggestion[]>([]);
@@ -50,6 +53,12 @@ export default function HeaderClient({
     const value = e.target.value;
     setQuery(value);
 
+    if (searchTargetPath) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
     if (value.length > 0) {
       setSuggestions(filterCategorySuggestions(value, categories));
       setShowSuggestions(true);
@@ -62,7 +71,14 @@ export default function HeaderClient({
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!query.trim()) return;
+    const trimmed = query.trim();
+    if (!trimmed) return;
+
+    if (searchTargetPath) {
+      router.push(`${searchTargetPath}?q=${encodeURIComponent(trimmed)}`);
+      setShowSuggestions(false);
+      return;
+    }
 
     const targetPath = resolveCategoryTarget(query, categories);
 
@@ -93,7 +109,9 @@ export default function HeaderClient({
                 type="text"
                 value={query}
                 onChange={handleInputChange}
-                onFocus={() => query.length > 0 && setShowSuggestions(true)}
+                onFocus={() =>
+                  !searchTargetPath && query.length > 0 && setShowSuggestions(true)
+                }
                 placeholder={searchPlaceholder}
                 className="h-11 w-full rounded-l-md border-none bg-white px-4 text-[16px] text-black outline-none"
               />

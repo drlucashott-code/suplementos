@@ -16,9 +16,15 @@ import {
 
 type AmazonHeaderProps = {
   extraCategories?: ExtraCategory[];
+  searchPlaceholder?: string;
+  searchTargetPath?: string;
 };
 
-export function AmazonHeader({ extraCategories = [] }: AmazonHeaderProps = {}) {
+export function AmazonHeader({
+  extraCategories = [],
+  searchPlaceholder = "O que você está procurando?",
+  searchTargetPath,
+}: AmazonHeaderProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -53,6 +59,12 @@ export function AmazonHeader({ extraCategories = [] }: AmazonHeaderProps = {}) {
     const value = e.target.value;
     setQuery(value);
 
+    if (searchTargetPath) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
     if (value.length > 0) {
       setSuggestions(filterCategorySuggestions(value, categories));
       setShowSuggestions(true);
@@ -67,6 +79,12 @@ export function AmazonHeader({ extraCategories = [] }: AmazonHeaderProps = {}) {
 
     const trimmed = query.trim();
     if (!trimmed) return;
+
+    if (searchTargetPath) {
+      router.push(`${searchTargetPath}?q=${encodeURIComponent(trimmed)}`);
+      setShowSuggestions(false);
+      return;
+    }
 
     const targetPath = resolveCategoryTarget(query, categories);
 
@@ -189,8 +207,10 @@ export function AmazonHeader({ extraCategories = [] }: AmazonHeaderProps = {}) {
                   type="text"
                   value={query}
                   onChange={handleInputChange}
-                  onFocus={() => query.length > 0 && setShowSuggestions(true)}
-                  placeholder="O que você está procurando?"
+                  onFocus={() =>
+                    !searchTargetPath && query.length > 0 && setShowSuggestions(true)
+                  }
+                  placeholder={searchPlaceholder}
                   className="w-full bg-transparent py-1.5 text-[16px] font-normal text-[#0F1111] outline-none placeholder-zinc-500"
                   enterKeyHint="search"
                 />

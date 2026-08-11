@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { Dumbbell, Home, PawPrint, Scale } from "lucide-react";
+import { Dumbbell, Home, PawPrint } from "lucide-react";
 import amazonImageLoader from "@/lib/amazonImageLoader";
 import type { ExperimentalCategory, HomeHub } from "./types";
 
@@ -73,12 +73,8 @@ export function CategoryExplorer({ categories }: { categories: Record<HomeHub, E
     <section id="categorias" aria-labelledby="categorias-title" className="scroll-mt-24 border-t border-[#E3E6E6] bg-white">
       <div className="mx-auto max-w-[1480px] px-4 py-7 sm:px-6 lg:px-10 lg:py-11">
         <div className="max-w-3xl">
-          <div className="flex items-center gap-2 text-[#007185]">
-            <Scale className="h-4 w-4" />
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em]">Comparador inteligente</p>
-          </div>
-          <h2 id="categorias-title" className="mt-2 text-[25px] font-bold leading-tight tracking-[-0.02em] text-[#0F1111] sm:text-[32px]">
-            Comprar por categoria
+          <h2 id="categorias-title" className="text-[25px] font-bold leading-tight tracking-[-0.02em] text-[#0F1111] sm:text-[32px]">
+            Calculadora de custo-benefício
           </h2>
         </div>
 

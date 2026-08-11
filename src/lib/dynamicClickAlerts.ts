@@ -118,6 +118,8 @@ export async function sendDynamicClickAlertEmail(params: {
   pagePath?: string | null;
   source?: string | null;
   productUrl?: string | null;
+  displayedPrice?: number | null;
+  displayedDiscount?: number | null;
 }) {
   const config = await getDynamicClickAlertConfig();
   const apiKey = process.env.RESEND_API_KEY;
@@ -132,12 +134,19 @@ export async function sendDynamicClickAlertEmail(params: {
     process.env.FALLBACK_ALERT_EMAIL_FROM ??
     "onboarding@resend.dev";
 
-  const subject = `[amazonpicks] Clique em produto: ${params.productName}`;
+  const isTopOffers = params.source?.trim().toLowerCase() === "top ofertas";
+  const subject = `[amazonpicks] Clique${isTopOffers ? " em Top Ofertas" : " em produto"}: ${params.productName}`;
   const lines = [
+    `Area: ${isTopOffers ? "Top Ofertas" : params.source ?? "comparador"}`,
     `Produto: ${params.productName}`,
     `ASIN: ${params.asin}`,
     `Categoria: ${params.categoryName ?? "nao informada"}`,
-    `Origem: ${params.source ?? "direto"}`,
+    ...(params.displayedPrice !== null && params.displayedPrice !== undefined
+      ? [`Preco exibido: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(params.displayedPrice)}`]
+      : []),
+    ...(params.displayedDiscount !== null && params.displayedDiscount !== undefined
+      ? [`Desconto exibido: ${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(params.displayedDiscount)}%`]
+      : []),
     `Pagina: ${params.pagePath ?? "-"}`,
     `Horario: ${formatClickAlertTimestamp(new Date())} (${CLICK_ALERT_TIME_ZONE})`,
     `Link: ${params.productUrl ?? "-"}`,

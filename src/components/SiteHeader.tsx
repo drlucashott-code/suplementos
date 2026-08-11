@@ -7,15 +7,26 @@ import type { HeaderProps } from "@/app/Header";
 // HeaderClient, com busca + menu de categorias); no desktop mantém o AmazonHeader.
 // O AmazonHeader fica dentro de `hidden lg:block`, então sua variante mobile
 // nunca aparece — quem manda no mobile é o Header.
-export function SiteHeader({ extraCategories }: HeaderProps = {}) {
+export function SiteHeader(props: HeaderProps = {}) {
+  const {
+    desktopSearchPlaceholder,
+    extraCategories,
+    searchPlaceholder,
+    searchTargetPath,
+  } = props;
+
   return (
     <>
       <div className="lg:hidden">
-        <Header extraCategories={extraCategories} />
+        <Header {...props} />
       </div>
       <div className="hidden lg:block">
         <Suspense fallback={<div className="h-14 w-full bg-[#131921]" />}>
-          <AmazonHeader extraCategories={extraCategories} />
+          <AmazonHeader
+            extraCategories={extraCategories}
+            searchPlaceholder={desktopSearchPlaceholder}
+            searchTargetPath={searchTargetPath}
+          />
         </Suspense>
       </div>
     </>

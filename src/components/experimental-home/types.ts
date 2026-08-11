@@ -1,4 +1,4 @@
-import type { BestDeal } from "@/lib/bestDeals";
+import type { NextOffersFeedResponse } from "@/lib/next-offers/types";
 
 export type HomeHub = "suplementos" | "casa" | "pets";
 
@@ -24,6 +24,6 @@ export type ExperimentalPublicList = {
 
 export type ExperimentalHomeProps = {
   categories: Record<HomeHub, ExperimentalCategory[]>;
-  bestDeals: BestDeal[];
+  nextOffersFeed: NextOffersFeedResponse | null;
   publicLists: ExperimentalPublicList[];
 };

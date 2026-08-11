@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Bookmark, ChevronRight, ListPlus, MessageCircle, Share2, Users } from "lucide-react";
+import { Bookmark, ChevronRight, ListPlus, MessageCircle, Share2 } from "lucide-react";
 import amazonImageLoader from "@/lib/amazonImageLoader";
 import { buildPublicListPath } from "@/lib/siteSocial";
 import type { ExperimentalPublicList } from "./types";
@@ -105,11 +105,7 @@ export function CommunityLists({ publicLists }: { publicLists: ExperimentalPubli
       <div className="mx-auto max-w-[1480px] px-4 py-7 sm:px-6 lg:px-10 lg:py-11">
         <div className="flex items-end justify-between gap-3">
           <div className="max-w-3xl">
-            <div className="flex items-center gap-2 text-[#8B5D00]">
-              <Users className="h-4 w-4" />
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em]">Escolhas de pessoas reais</p>
-            </div>
-            <h2 id="listas-title" className="mt-2 text-[25px] font-bold leading-tight tracking-[-0.02em] text-[#0F1111] sm:text-[32px]">
+            <h2 id="listas-title" className="text-[25px] font-bold leading-tight tracking-[-0.02em] text-[#0F1111] sm:text-[32px]">
               Listas da comunidade
             </h2>
           </div>
