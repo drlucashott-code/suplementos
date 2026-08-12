@@ -8,6 +8,7 @@ import {
   setCustomBlockedMerchants,
 } from "@/lib/blockedMerchantsConfig";
 import { revalidatePath } from "next/cache";
+import { getNextOffersAdminUrl } from "@/lib/next-offers/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -95,9 +96,16 @@ function AdminCard({
   color: CardColor;
 }) {
   const style = cardStyles[color];
+  const external = /^https?:\/\//.test(href);
 
   return (
-    <Link href={href} className="group">
+    <Link
+      href={href}
+      className="group"
+      prefetch={external ? false : undefined}
+      rel={external ? "noreferrer" : undefined}
+      target={external ? "_blank" : undefined}
+    >
       <div
         className={`h-full rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${style.hoverBorder}`}
       >
@@ -277,6 +285,7 @@ async function saveBlockedMerchantsAction(formData: FormData) {
 
 export default async function AdminDynamicDashboard() {
   const now = new Date();
+  const nextOffersAdminUrl = getNextOffersAdminUrl();
   const mandatoryCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const startOfHour = getBrazilBusinessBoundary(now, "hour");
   const startOfDay = getBrazilBusinessBoundary(now, "day");
@@ -602,6 +611,16 @@ export default async function AdminDynamicDashboard() {
             icon="E"
             color="blue"
           />
+
+          {nextOffersAdminUrl ? (
+            <AdminCard
+              title="Top Ofertas Next"
+              description="Configure a vitrine, os intervalos e as atualizacoes pela Creators no sistema novo."
+              href={nextOffersAdminUrl}
+              icon="N"
+              color="emerald"
+            />
+          ) : null}
 
           <AdminCard
             title="Ver no Site"

@@ -21,6 +21,11 @@ export function getNextOffersBaseUrl() {
   return process.env.NODE_ENV === "development" ? "http://localhost:3001" : null;
 }
 
+export function getNextOffersAdminUrl() {
+  const baseUrl = getNextOffersBaseUrl();
+  return baseUrl ? new URL("/admin/vitrine", baseUrl).toString() : null;
+}
+
 export async function fetchNextOffersFeed(
   params?: URLSearchParams,
   timeoutMs = 10_000,
