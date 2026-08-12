@@ -203,7 +203,7 @@ function NextOfferCard({
         href={`/api/next-offers/go/${product.asin}?${context}`}
         target="_blank"
         rel="nofollow sponsored noopener"
-        onClick={() => notifyNextOfferClick(product, "home")}
+        onClick={() => notifyNextOfferClick(product)}
         className="block h-full px-3 pb-5 pt-3 sm:px-4 sm:pt-4"
         aria-label={`Ver ${product.title} na Amazon`}
       >

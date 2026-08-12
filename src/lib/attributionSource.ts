@@ -149,6 +149,8 @@ export function formatAttributionSourceLabel(value: string | null | undefined) {
       return "Pinterest";
     case "x":
       return "X/Twitter";
+    case "top_ofertas":
+      return "Top Ofertas";
     case "direto":
       return "Direto";
     default:

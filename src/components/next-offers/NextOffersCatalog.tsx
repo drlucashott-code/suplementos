@@ -387,7 +387,7 @@ function CatalogProductCard({
         href={`/api/next-offers/go/${product.asin}?${context}`}
         target="_blank"
         rel="nofollow sponsored noopener"
-        onClick={() => notifyNextOfferClick(product, "offers")}
+        onClick={() => notifyNextOfferClick(product)}
         className="block h-full outline-offset-2"
         aria-label={`Ver ${product.title} na Amazon`}
       >

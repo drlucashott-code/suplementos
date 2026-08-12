@@ -65,6 +65,15 @@ async function sendSessionSummaryEmailAndMark(sessionId: string) {
       INNER JOIN "DynamicProduct" p ON p."id" = e."productId"
       WHERE e."sessionId" = ${sessionId}
       GROUP BY p."asin", p."name", 3
+      UNION ALL
+      SELECT
+        t."asin" AS "asin",
+        t."productName" AS "productName",
+        'top_ofertas' AS "source",
+        COUNT(*)::int AS "clickCount"
+      FROM "DynamicTopOfferClickEvent" t
+      WHERE t."sessionId" = ${sessionId}
+      GROUP BY t."asin", t."productName"
     )
     SELECT
       b."asin",
@@ -107,17 +116,20 @@ async function sendSessionSummaryEmailAndMark(sessionId: string) {
     });
   }
 
+  const products = Array.from(groupedProducts.values()).sort(
+    (a, b) => b.clickCount - a.clickCount
+  );
+  const totalClicks = products.reduce((total, product) => total + product.clickCount, 0);
+
   await sendDynamicClickSessionAlertEmail({
     visitorId: summary.visitorId,
     sessionId: summary.sessionId,
     startedAt: summary.startedAt,
     endedAt: summary.endedAt,
     source: formatAttributionSourceLabel(summary.source),
-    totalClicks: summary.totalClicks,
-    uniqueProducts: summary.uniqueProducts,
-    products: Array.from(groupedProducts.values()).sort(
-      (a, b) => b.clickCount - a.clickCount
-    ),
+    totalClicks,
+    uniqueProducts: products.length,
+    products,
   });
 
   // summaryEmailSentAt ja foi preenchido de forma atomica para evitar duplicidade.

@@ -71,6 +71,15 @@ async function sendSessionSummaryEmailAndMark(sessionId: string, endedAt: Date) 
       INNER JOIN "DynamicProduct" p ON p."id" = e."productId"
       WHERE e."sessionId" = ${sessionId}
       GROUP BY p."asin", p."name", 3
+      UNION ALL
+      SELECT
+        t."asin" AS "asin",
+        t."productName" AS "productName",
+        'top_ofertas' AS "source",
+        COUNT(*)::int AS "clickCount"
+      FROM "DynamicTopOfferClickEvent" t
+      WHERE t."sessionId" = ${sessionId}
+      GROUP BY t."asin", t."productName"
     )
     SELECT
       b."asin",
@@ -112,17 +121,20 @@ async function sendSessionSummaryEmailAndMark(sessionId: string, endedAt: Date) 
     });
   }
 
+  const products = Array.from(groupedProducts.values()).sort(
+    (a, b) => b.clickCount - a.clickCount
+  );
+  const totalClicks = products.reduce((total, product) => total + product.clickCount, 0);
+
   await sendDynamicClickSessionAlertEmail({
     visitorId: summary.visitorId,
     sessionId: summary.sessionId,
     startedAt: summary.startedAt,
     endedAt: summary.endedAt ?? endedAt,
     source: summary.source,
-    totalClicks: summary.totalClicks,
-    uniqueProducts: summary.uniqueProducts,
-    products: Array.from(groupedProducts.values()).sort(
-      (a, b) => b.clickCount - a.clickCount
-    ),
+    totalClicks,
+    uniqueProducts: products.length,
+    products,
   });
 
   // summaryEmailSentAt ja foi preenchido de forma atomica para evitar duplicidade.
@@ -323,15 +335,20 @@ export async function POST(request: NextRequest) {
             "updatedAt" = NOW()
           FROM (
             SELECT
-              e."sessionId",
               COUNT(*)::int AS "totalClicks",
-              COUNT(DISTINCT e."productId")::int AS "uniqueProducts"
-            FROM "DynamicProductClickEvent" e
-            WHERE e."sessionId" = ${sessionId}
-            GROUP BY e."sessionId"
+              COUNT(DISTINCT clicks."asin")::int AS "uniqueProducts"
+            FROM (
+              SELECT p."asin"
+              FROM "DynamicProductClickEvent" e
+              JOIN "DynamicProduct" p ON p."id" = e."productId"
+              WHERE e."sessionId" = ${sessionId}
+              UNION ALL
+              SELECT t."asin"
+              FROM "DynamicTopOfferClickEvent" t
+              WHERE t."sessionId" = ${sessionId}
+            ) clicks
           ) x
-          WHERE s."sessionId" = x."sessionId"
-            AND s."sessionId" = ${sessionId}
+          WHERE s."sessionId" = ${sessionId}
         `;
       }
     }

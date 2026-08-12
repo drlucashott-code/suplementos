@@ -25,6 +25,14 @@ type TrackProductClickInput = {
   category?: string;
 };
 
+export type TrackTopOfferClickInput = {
+  asin: string;
+  productName: string;
+  categoryName?: string | null;
+  displayedPrice?: number | null;
+  displayedDiscount?: number | null;
+};
+
 const ATTRIBUTION_STORAGE_KEY = "amazonpicks-attribution";
 const VISITOR_ID_STORAGE_KEY = "amazonpicks-visitor-id";
 const SESSION_STORAGE_KEY = "amazonpicks-click-session";
@@ -370,5 +378,45 @@ export function trackProductClick({
     keepalive: true,
   }).catch(() => {
       // Mantem o clique fluindo mesmo se a fila falhar temporariamente.
+  });
+}
+
+export function trackTopOfferClick({
+  asin,
+  productName,
+  categoryName,
+  displayedPrice,
+  displayedDiscount,
+}: TrackTopOfferClickInput) {
+  const normalizedAsin = asin.trim().toUpperCase();
+  if (!/^[A-Z0-9]{10}$/.test(normalizedAsin)) return;
+
+  sendGAEvent("event", "click_na_oferta", {
+    produto_nome: `${productName} - ${normalizedAsin}`,
+    valor: displayedPrice || 0,
+    loja: "Amazon",
+    asin: normalizedAsin,
+    categoria: categoryName || "top_ofertas",
+    area: "top_ofertas",
+  });
+
+  const trackingContext = getClickTrackingContext();
+  const sessionContext = getOrCreateSessionContext();
+
+  void fetch("/api/next-offers/session-click", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      asin: normalizedAsin,
+      productName,
+      categoryName,
+      displayedPrice,
+      displayedDiscount,
+      ...trackingContext,
+      ...sessionContext,
+    }),
+    keepalive: true,
+  }).catch(() => {
+    // O rastreamento nunca deve impedir a abertura da oferta.
   });
 }
