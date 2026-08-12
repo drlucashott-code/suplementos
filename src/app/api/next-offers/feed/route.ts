@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    const feed = await fetchNextOffersFeed(request.nextUrl.searchParams, 8_000);
+    const feed = await fetchNextOffersFeed(request.nextUrl.searchParams, 12_000);
     const response = NextResponse.json(feed);
     response.headers.set("Cache-Control", "no-store");
     return response;

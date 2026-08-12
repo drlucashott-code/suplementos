@@ -23,7 +23,7 @@ export function getNextOffersBaseUrl() {
 
 export async function fetchNextOffersFeed(
   params?: URLSearchParams,
-  timeoutMs = 5_000,
+  timeoutMs = 10_000,
 ): Promise<NextOffersFeedResponse> {
   const baseUrl = getNextOffersBaseUrl();
   if (!baseUrl) throw new Error("NEXT_OFFERS_API_URL não foi configurada.");
