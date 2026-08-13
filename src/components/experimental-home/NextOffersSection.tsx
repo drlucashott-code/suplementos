@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { queueNextOfferImpression } from "@/lib/next-offers/analytics";
@@ -66,6 +66,16 @@ export function NextOffersSection({
     }
   }
 
+  function scrollRail(direction: -1 | 1) {
+    const rail = railRef.current;
+    if (!rail) return;
+
+    rail.scrollBy({
+      left: direction * Math.min(rail.clientWidth * 0.82, 960),
+      behavior: "smooth",
+    });
+  }
+
   return (
     <section
       id="top-ofertas"
@@ -116,17 +126,18 @@ export function NextOffersSection({
           <p className="mt-2 text-sm text-[#7A4B00]">{error}</p>
         ) : null}
 
-        <div
-          ref={railRef}
-          className={`-mx-4 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 transition-opacity sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-6 lg:gap-0 lg:overflow-visible lg:border-l lg:border-t lg:border-[#D5D9D9] lg:px-0 ${
-            loading ? "opacity-50" : "opacity-100"
-          } [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
-          aria-busy={loading}
-        >
+        <div className="relative">
+          <div
+            ref={railRef}
+            className={`-mx-4 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 transition-opacity sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 ${
+              loading ? "opacity-50" : "opacity-100"
+            } [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
+            aria-busy={loading}
+          >
           {catalog.products.slice(0, visibleProductCount).map((product, index) => (
             <div
               key={product.id}
-              className="w-[calc((100%-0.75rem)/2)] shrink-0 snap-start border border-[#D5D9D9] bg-white sm:w-[220px] lg:w-auto lg:border-0"
+              className="w-[calc((100%-0.75rem)/2)] shrink-0 snap-start border border-[#D5D9D9] bg-white sm:w-[220px] lg:w-[232px]"
             >
               <NextOfferCard
                 product={product}
@@ -137,11 +148,28 @@ export function NextOffersSection({
           ))}
           <a
             href={buildFullCatalogHref(feed)}
-            className="flex w-[calc((100%-0.75rem)/2)] shrink-0 snap-start flex-col items-center justify-center border border-dashed border-[#AAB7B8] bg-white px-4 py-6 text-center text-[#007185] transition hover:border-[#007185] hover:bg-[#EEF6F7] sm:w-[220px] lg:w-auto lg:border-solid"
+            className="flex w-[calc((100%-0.75rem)/2)] shrink-0 snap-start flex-col items-center justify-center rounded-lg border border-dashed border-[#AAB7B8] bg-white px-4 text-center text-[#007185] transition hover:border-[#007185] hover:bg-[#EEF6F7] sm:w-[220px] lg:w-[232px]"
           >
             <ChevronRight className="h-6 w-6" />
             <span className="mt-2 text-sm font-bold">Ver todas as ofertas</span>
           </a>
+          </div>
+          <button
+            type="button"
+            onClick={() => scrollRail(-1)}
+            aria-label="Ofertas anteriores"
+            className="absolute left-2 top-1/2 hidden h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-[#D5D9D9] bg-white/95 text-[#0F1111] shadow-md transition hover:bg-white lg:grid"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollRail(1)}
+            aria-label="Próximas ofertas"
+            className="absolute right-2 top-1/2 hidden h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-[#D5D9D9] bg-white/95 text-[#0F1111] shadow-md transition hover:bg-white lg:grid"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
         </div>
       </div>
     </section>
