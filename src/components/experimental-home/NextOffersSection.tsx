@@ -13,7 +13,6 @@ import {
   type NextOffersFilters,
 } from "@/lib/next-offers/types";
 
-const visibleProductCount = 24;
 const visibleFilterCount = 10;
 
 export function NextOffersSection({
@@ -26,6 +25,7 @@ export function NextOffersSection({
   const [error, setError] = useState<string | null>(null);
   const latestRequest = useRef(0);
   const { catalog } = feed;
+  const visibleProductCount = catalog.filters.category === "all" ? 24 : 6;
   const rootCategories = catalog.categories
     .filter((category) => category.parentSlug === null)
     .sort((left, right) => left.name.localeCompare(right.name, "pt-BR"));
