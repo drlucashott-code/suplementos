@@ -9,7 +9,7 @@ import type {
   HomeHub,
 } from "@/components/experimental-home/types";
 import { normalizeDynamicDisplayConfig } from "@/lib/dynamicCategoryMetrics";
-import { tryFetchNextOffersFeed } from "@/lib/next-offers/server";
+import { fetchNextOffersFeed } from "@/lib/next-offers/server";
 import { prisma } from "@/lib/prisma";
 
 export const revalidate = 600;
@@ -132,7 +132,7 @@ async function loadPublicLists(): Promise<ExperimentalPublicList[]> {
 export default async function ExperimentalHomePage() {
   const [categories, nextOffersFeed, publicLists] = await Promise.all([
     loadCategories(),
-    tryFetchNextOffersFeed(),
+    fetchHomeOffersFeed(),
     loadPublicLists(),
   ]);
   const headerCategories = Object.values(categories).flat();
@@ -154,4 +154,14 @@ export default async function ExperimentalHomePage() {
       />
     </>
   );
+}
+
+async function fetchHomeOffersFeed() {
+  const params = new URLSearchParams({ view: "home" });
+  try {
+    return await fetchNextOffersFeed(params);
+  } catch (error) {
+    console.error("N\u00e3o foi poss\u00edvel carregar o feed diversificado da home.", error);
+    return null;
+  }
 }

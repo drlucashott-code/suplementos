@@ -13,6 +13,7 @@ const allowedFeedParams = new Set([
   "brand",
   "sort",
   "page",
+  "view",
 ]);
 
 export function getNextOffersBaseUrl() {
