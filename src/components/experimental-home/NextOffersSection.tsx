@@ -24,6 +24,7 @@ export function NextOffersSection({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const latestRequest = useRef(0);
+  const railRef = useRef<HTMLDivElement>(null);
   const { catalog } = feed;
   const visibleProductCount = catalog.filters.category === "all" ? 24 : 6;
   const rootCategories = catalog.categories
@@ -34,11 +35,16 @@ export function NextOffersSection({
     ...rootCategories.slice(0, visibleFilterCount - 1),
   ];
 
+  useEffect(() => {
+    railRef.current?.scrollTo({ left: 0, behavior: "auto" });
+  }, [catalog.filters.category]);
+
   async function selectCategory(category: string) {
     const requestId = latestRequest.current + 1;
     latestRequest.current = requestId;
     setLoading(true);
     setError(null);
+    railRef.current?.scrollTo({ left: 0, behavior: "auto" });
 
     try {
       const params = new URLSearchParams();
@@ -111,6 +117,7 @@ export function NextOffersSection({
         ) : null}
 
         <div
+          ref={railRef}
           className={`-mx-4 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 transition-opacity sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-6 lg:gap-0 lg:overflow-visible lg:border-l lg:border-t lg:border-[#D5D9D9] lg:px-0 ${
             loading ? "opacity-50" : "opacity-100"
           } [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
@@ -128,6 +135,13 @@ export function NextOffersSection({
               />
             </div>
           ))}
+          <a
+            href={buildFullCatalogHref(feed)}
+            className="flex w-[calc((100%-0.75rem)/2)] shrink-0 snap-start flex-col items-center justify-center border border-dashed border-[#AAB7B8] bg-white px-4 py-6 text-center text-[#007185] transition hover:border-[#007185] hover:bg-[#EEF6F7] sm:w-[220px] lg:w-auto lg:border-solid"
+          >
+            <ChevronRight className="h-6 w-6" />
+            <span className="mt-2 text-sm font-bold">Ver todas as ofertas</span>
+          </a>
         </div>
       </div>
     </section>
