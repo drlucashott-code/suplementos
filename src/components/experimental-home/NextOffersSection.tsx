@@ -13,7 +13,7 @@ import {
   type NextOffersFilters,
 } from "@/lib/next-offers/types";
 
-const visibleProductCount = 6;
+const visibleProductCount = 24;
 const visibleFilterCount = 10;
 
 export function NextOffersSection({
