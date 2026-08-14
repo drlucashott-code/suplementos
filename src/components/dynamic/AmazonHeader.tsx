@@ -18,12 +18,16 @@ type AmazonHeaderProps = {
   extraCategories?: ExtraCategory[];
   searchPlaceholder?: string;
   searchTargetPath?: string;
+  showSearchScope?: boolean;
 };
+
+type SearchScope = "offers" | "comparator";
 
 export function AmazonHeader({
   extraCategories = [],
   searchPlaceholder = "O que você está procurando?",
   searchTargetPath,
+  showSearchScope = false,
 }: AmazonHeaderProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -31,6 +35,7 @@ export function AmazonHeader({
 
   const urlQuery = searchParams.get("q") || "";
   const [query, setQuery] = useState(urlQuery);
+  const [searchScope, setSearchScope] = useState<SearchScope>("offers");
   const [suggestions, setSuggestions] = useState<CategorySuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -59,7 +64,7 @@ export function AmazonHeader({
     const value = e.target.value;
     setQuery(value);
 
-    if (searchTargetPath) {
+    if (searchTargetPath || (showSearchScope && searchScope === "offers")) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
@@ -79,6 +84,12 @@ export function AmazonHeader({
 
     const trimmed = query.trim();
     if (!trimmed) return;
+
+    if (showSearchScope && searchScope === "offers") {
+      router.push(`/ofertas?q=${encodeURIComponent(trimmed)}`);
+      setShowSuggestions(false);
+      return;
+    }
 
     if (searchTargetPath) {
       router.push(`${searchTargetPath}?q=${encodeURIComponent(trimmed)}`);
@@ -202,13 +213,37 @@ export function AmazonHeader({
               className="flex w-full items-stretch overflow-hidden rounded-md shadow-sm"
               role="search"
             >
+              {showSearchScope ? (
+                <div className="flex shrink-0 items-center gap-0.5 bg-[#EAeded] p-1 text-[12px] font-semibold text-[#0F1111]">
+                  <button
+                    type="button"
+                    onClick={() => setSearchScope("offers")}
+                    aria-pressed={searchScope === "offers"}
+                    className={`rounded px-2 py-1 transition ${
+                      searchScope === "offers" ? "bg-white shadow-sm" : "text-[#565959] hover:text-[#0F1111]"
+                    }`}
+                  >
+                    Top Ofertas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSearchScope("comparator")}
+                    aria-pressed={searchScope === "comparator"}
+                    className={`rounded px-2 py-1 transition ${
+                      searchScope === "comparator" ? "bg-white shadow-sm" : "text-[#565959] hover:text-[#0F1111]"
+                    }`}
+                  >
+                    Comparador
+                  </button>
+                </div>
+              ) : null}
               <div className="flex flex-1 items-center bg-white px-3">
                 <input
                   type="text"
                   value={query}
                   onChange={handleInputChange}
                   onFocus={() =>
-                    !searchTargetPath && query.length > 0 && setShowSuggestions(true)
+                    !searchTargetPath && searchScope === "comparator" && query.length > 0 && setShowSuggestions(true)
                   }
                   placeholder={searchPlaceholder}
                   className="w-full bg-transparent py-1.5 text-[16px] font-normal text-[#0F1111] outline-none placeholder-zinc-500"

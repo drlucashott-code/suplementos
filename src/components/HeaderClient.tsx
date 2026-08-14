@@ -19,15 +19,20 @@ export type HeaderClientProps = {
   searchPlaceholder?: string;
   desktopSearchPlaceholder?: string;
   searchTargetPath?: string;
+  showSearchScope?: boolean;
 };
+
+type SearchScope = "offers" | "comparator";
 
 export default function HeaderClient({
   extraCategories = [],
   initialUser,
   searchPlaceholder = "O que você está procurando?",
   searchTargetPath,
+  showSearchScope = false,
 }: HeaderClientProps) {
   const [query, setQuery] = useState("");
+  const [searchScope, setSearchScope] = useState<SearchScope>("offers");
   const [suggestions, setSuggestions] = useState<CategorySuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const router = useRouter();
@@ -53,7 +58,7 @@ export default function HeaderClient({
     const value = e.target.value;
     setQuery(value);
 
-    if (searchTargetPath) {
+    if (searchTargetPath || (showSearchScope && searchScope === "offers")) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
@@ -73,6 +78,12 @@ export default function HeaderClient({
 
     const trimmed = query.trim();
     if (!trimmed) return;
+
+    if (showSearchScope && searchScope === "offers") {
+      router.push(`/ofertas?q=${encodeURIComponent(trimmed)}`);
+      setShowSuggestions(false);
+      return;
+    }
 
     if (searchTargetPath) {
       router.push(`${searchTargetPath}?q=${encodeURIComponent(trimmed)}`);
@@ -104,13 +115,37 @@ export default function HeaderClient({
 
         <div className="mt-3 flex items-center gap-2">
           <div className="relative min-w-0 flex-1" ref={wrapperRef}>
+            {showSearchScope ? (
+              <div className="mb-2 inline-flex rounded-md bg-[#232F3E] p-0.5 text-[12px] font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setSearchScope("offers")}
+                  aria-pressed={searchScope === "offers"}
+                  className={`rounded px-2.5 py-1 transition ${
+                    searchScope === "offers" ? "bg-white text-[#0F1111]" : "text-white/80 hover:text-white"
+                  }`}
+                >
+                  Top Ofertas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSearchScope("comparator")}
+                  aria-pressed={searchScope === "comparator"}
+                  className={`rounded px-2.5 py-1 transition ${
+                    searchScope === "comparator" ? "bg-white text-[#0F1111]" : "text-white/80 hover:text-white"
+                  }`}
+                >
+                  Comparador
+                </button>
+              </div>
+            ) : null}
             <form onSubmit={handleSearch} className="flex w-full items-center">
               <input
                 type="text"
                 value={query}
                 onChange={handleInputChange}
                 onFocus={() =>
-                  !searchTargetPath && query.length > 0 && setShowSuggestions(true)
+                  !searchTargetPath && searchScope === "comparator" && query.length > 0 && setShowSuggestions(true)
                 }
                 placeholder={searchPlaceholder}
                 className="h-11 w-full rounded-l-md border-none bg-white px-4 text-[16px] text-black outline-none"

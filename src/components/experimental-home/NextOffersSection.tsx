@@ -281,13 +281,13 @@ function NextOfferCard({
             {product.title}
           </h2>
           {product.ratingAverage !== null && product.ratingAverage > 0 ? (
-            <p className="mt-2 flex flex-wrap items-center gap-1 text-[11px] text-[#565959] sm:text-xs">
+            <div className="mt-2 flex flex-wrap items-center gap-1 text-[11px] text-[#565959] sm:text-xs">
               <span>{product.ratingAverage.toFixed(1)}</span>
               <StarRating rating={product.ratingAverage} size={12} />
               {product.reviewCount !== null ? (
                 <span>({formatCompactNumber(product.reviewCount)})</span>
               ) : null}
-            </p>
+            </div>
           ) : null}
         </div>
       </a>

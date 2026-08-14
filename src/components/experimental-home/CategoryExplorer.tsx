@@ -74,7 +74,7 @@ export function CategoryExplorer({ categories }: { categories: Record<HomeHub, E
       <div className="mx-auto max-w-[1480px] px-4 py-7 sm:px-6 lg:px-10 lg:py-11">
         <div className="max-w-3xl">
           <h2 id="categorias-title" className="text-[25px] font-bold leading-tight tracking-[-0.02em] text-[#0F1111] sm:text-[32px]">
-            Calculadora de custo-benefício
+            Comparador de preços
           </h2>
         </div>
 
