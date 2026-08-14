@@ -98,14 +98,15 @@ async function claimProduct(params: {
   return prisma.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<SchedulerV2ProductState[]>(Prisma.sql`
     WITH candidate AS (
-      SELECT p."id"
+      SELECT p."id", category."group" AS "categoryGroup"
       FROM "DynamicProduct" p
+      INNER JOIN "DynamicCategory" category ON category."id" = p."categoryId"
       WHERE p."id" = ${params.productId}
         AND p."schedulerVersion" = ${SCHEDULER_VERSION}
         AND (p."refreshLockUntil" IS NULL OR p."refreshLockUntil" <= ${now})
         ${dueCondition}
         ${urgentCooldownCondition}
-      FOR UPDATE SKIP LOCKED
+      FOR UPDATE OF p SKIP LOCKED
     )
     UPDATE "DynamicProduct" p
     SET
@@ -114,7 +115,6 @@ async function claimProduct(params: {
       "lastRefreshAttemptAt" = ${now},
       "updatedAt" = NOW()
     FROM candidate
-    INNER JOIN "DynamicCategory" category ON category."id" = p."categoryId"
     WHERE p."id" = candidate."id"
     RETURNING
       p."id", p."asin", p."nextPriceRefreshAt", p."refreshLockUntil",
@@ -123,7 +123,7 @@ async function claimProduct(params: {
       p."schedulerBootstrapObservationCount", p."schedulerBootstrapSawChange",
       p."schedulerFirstBaseObservationAt", p."basePriceChangeRate30d",
       p."refreshFailCount",
-      category."group" AS "categoryGroup"
+      candidate."categoryGroup"
     `);
     const row = rows[0];
     if (!row) return null;
