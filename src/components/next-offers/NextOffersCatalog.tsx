@@ -10,6 +10,7 @@ import {
 } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import { StarRating } from "@/components/product/StarRating";
 import { queueNextOfferImpression } from "@/lib/next-offers/analytics";
 import { notifyNextOfferClick } from "@/lib/next-offers/click-alert";
 import type {
@@ -421,12 +422,12 @@ function CatalogProductCard({
           <h2 className="mt-1.5 line-clamp-3 min-h-[54px] text-[12.5px] font-normal leading-[1.45] group-hover:text-[#C45500] sm:text-[13px]">
             {product.title}
           </h2>
-          {product.ratingAverage !== null ? (
-            <p className="mt-1 flex min-h-4 items-center gap-1 text-[11px] text-[#007185]">
+          {product.ratingAverage !== null && product.ratingAverage > 0 ? (
+            <div className="mt-1 flex min-h-4 items-center gap-1 text-[11px] text-[#007185]">
               <span className="text-[#0F1111]">{product.ratingAverage.toFixed(1)}</span>
-              <span className="tracking-[-0.12em] text-[#DE7921]" aria-hidden="true">★★★★★</span>
+              <StarRating rating={product.ratingAverage} size={12} />
               {product.reviewCount !== null ? <span>({formatCompactNumber(product.reviewCount)})</span> : null}
-            </p>
+            </div>
           ) : null}
         </div>
       </a>
