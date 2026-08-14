@@ -15,6 +15,7 @@ import {
 } from "@/lib/next-offers/types";
 
 const visibleFilterCount = 10;
+const hiddenFromAllOffersCarousel = new Set(["cd-e-vinil", "dvd-e-blu-ray"]);
 
 export function NextOffersSection({
   initialFeed,
@@ -28,6 +29,15 @@ export function NextOffersSection({
   const railRef = useRef<HTMLDivElement>(null);
   const { catalog } = feed;
   const visibleProductCount = catalog.filters.category === "all" ? 24 : 6;
+  const carouselProducts =
+    catalog.filters.category === "all"
+      ? catalog.products.filter(
+          (product) =>
+            !product.navigationCategories.some((category) =>
+              hiddenFromAllOffersCarousel.has(category.slug),
+            ),
+        )
+      : catalog.products;
   const rootCategories = catalog.categories
     .filter((category) => category.parentSlug === null)
     .sort((left, right) => left.name.localeCompare(right.name, "pt-BR"));
@@ -135,7 +145,7 @@ export function NextOffersSection({
             } [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
             aria-busy={loading}
           >
-          {catalog.products.slice(0, visibleProductCount).map((product, index) => (
+          {carouselProducts.slice(0, visibleProductCount).map((product, index) => (
             <div
               key={product.id}
               className="w-[calc((100%-0.75rem)/2)] shrink-0 snap-start border border-[#D5D9D9] bg-white sm:w-[220px] lg:w-[232px]"
