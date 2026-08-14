@@ -93,6 +93,7 @@ function decisionLabel(params: {
     change_rate_high: "Taxa de mudança alta",
     change_rate_medium: "Taxa de mudança intermediária",
     change_rate_low: "Taxa de mudança baixa",
+    business_priority_supplements: "Prioridade comercial: suplementos (24h)",
   };
   if (params.lastDecisionReason && decisions[params.lastDecisionReason]) {
     return decisions[params.lastDecisionReason];

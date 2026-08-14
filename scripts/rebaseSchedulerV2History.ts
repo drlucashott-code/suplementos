@@ -22,6 +22,7 @@ async function main() {
         schedulerBootstrapObservationCount: true,
         schedulerBootstrapSawChange: true,
         schedulerFirstBaseObservationAt: true,
+        category: { select: { group: true } },
       },
     }),
     prisma.$queryRaw<
@@ -56,6 +57,7 @@ async function main() {
           validBaseObservationCount: bootstrapObservationCount,
           sawPriceChangeDuringBootstrap: changes > 0,
           changeRate30d,
+          categoryGroup: product.category.group,
         },
         now
       );

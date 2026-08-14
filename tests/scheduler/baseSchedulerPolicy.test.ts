@@ -98,6 +98,26 @@ test("usa 72h para taxa de mudanca baixa apos bootstrap completo", () => {
   assert.equal(result.reason, "change_rate_low");
 });
 
+test("limita suplementos a 24h mesmo com taxa de mudanca baixa", () => {
+  const result = resolveBaseRefreshSchedule(
+    state({ categoryGroup: "suplementos", changeRate30d: 0.01 }),
+    now
+  );
+
+  assert.equal(result.intervalMinutes, schedulerConfig.base.intervals.dailyMinutes);
+  assert.equal(result.reason, "business_priority_supplements");
+});
+
+test("nao altera a agenda de outros grupos com taxa de mudanca baixa", () => {
+  const result = resolveBaseRefreshSchedule(
+    state({ categoryGroup: "casa", changeRate30d: 0.01 }),
+    now
+  );
+
+  assert.equal(result.intervalMinutes, schedulerConfig.base.intervals.everyThreeDaysMinutes);
+  assert.equal(result.reason, "change_rate_low");
+});
+
 test("a decisao expõe justificativa auditavel", () => {
   const result = resolveBaseRefreshSchedule(state({ changeRate30d: 0.06 }), now);
 

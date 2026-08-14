@@ -24,6 +24,7 @@ type SchedulerV2ProductState = {
   schedulerFirstBaseObservationAt: Date | null;
   basePriceChangeRate30d: number | null;
   refreshFailCount: number;
+  categoryGroup: string | null;
 };
 
 export type SchedulerV2Claim = SchedulerV2ProductState & {
@@ -52,6 +53,7 @@ function makeDecision(state: SchedulerV2ProductState, now: Date, changeRate30d: 
       validBaseObservationCount: state.schedulerBootstrapObservationCount,
       sawPriceChangeDuringBootstrap: state.schedulerBootstrapSawChange,
       changeRate30d,
+      categoryGroup: state.categoryGroup,
     },
     now
   );
@@ -112,6 +114,7 @@ async function claimProduct(params: {
       "lastRefreshAttemptAt" = ${now},
       "updatedAt" = NOW()
     FROM candidate
+    INNER JOIN "DynamicCategory" category ON category."id" = p."categoryId"
     WHERE p."id" = candidate."id"
     RETURNING
       p."id", p."asin", p."nextPriceRefreshAt", p."refreshLockUntil",
@@ -119,7 +122,8 @@ async function claimProduct(params: {
       p."lastUrgentRefreshAt",
       p."schedulerBootstrapObservationCount", p."schedulerBootstrapSawChange",
       p."schedulerFirstBaseObservationAt", p."basePriceChangeRate30d",
-      p."refreshFailCount"
+      p."refreshFailCount",
+      category."group" AS "categoryGroup"
     `);
     const row = rows[0];
     if (!row) return null;
@@ -435,6 +439,7 @@ export async function recordSchedulerV2ShadowDecisions(limit = schedulerConfig.e
       schedulerBootstrapSawChange: true,
       schedulerFirstBaseObservationAt: true,
       basePriceChangeRate30d: true,
+      category: { select: { group: true } },
     },
     orderBy: [{ refreshScheduleDecisions: { _count: "asc" } }, { updatedAt: "asc" }],
     take: limit,
@@ -500,6 +505,7 @@ export async function recordSchedulerV2ShadowDecisions(limit = schedulerConfig.e
             : historical?.firstObservationAt ?? null,
           basePriceChangeRate30d: rate,
           refreshFailCount: 0,
+          categoryGroup: product.category.group,
         },
         now,
         rate
@@ -561,6 +567,7 @@ export async function activateSchedulerV2Cohort(params?: { rolloutPercentage?: n
       id: string;
       nextPriceRefreshAt: Date | null;
       refreshFailCount: number;
+      categoryGroup: string;
       historicalObservations: bigint;
       changes: bigint;
       firstObservationAt: Date | null;
@@ -570,15 +577,17 @@ export async function activateSchedulerV2Cohort(params?: { rolloutPercentage?: n
       p."id",
       p."nextPriceRefreshAt",
       p."refreshFailCount",
+      category."group" AS "categoryGroup",
       COUNT(h."id")::bigint AS "historicalObservations",
       COALESCE(SUM(GREATEST(h."updateCount" - 1, 0)), 0)::bigint AS "changes",
       MIN(h."date") AS "firstObservationAt"
     FROM "DynamicProduct" p
+    INNER JOIN "DynamicCategory" category ON category."id" = p."categoryId"
     LEFT JOIN "DynamicPriceHistory" h
       ON h."productId" = p."id"
       AND h."date" >= ${windowStart}
     WHERE p."schedulerVersion" = 'legacy'
-    GROUP BY p."id", p."nextPriceRefreshAt", p."refreshFailCount"
+    GROUP BY p."id", p."nextPriceRefreshAt", p."refreshFailCount", category."group"
   `);
   const eligibleRows = rows.filter((row) =>
     isSchedulerV2RolloutEligible(row.id, rolloutPercentage)
@@ -607,6 +616,7 @@ export async function activateSchedulerV2Cohort(params?: { rolloutPercentage?: n
       schedulerFirstBaseObservationAt: row.firstObservationAt,
       basePriceChangeRate30d: changeRate30d,
       refreshFailCount: row.refreshFailCount,
+      categoryGroup: row.categoryGroup,
     };
     const { policy, nextPriceRefreshAt: baseNextPriceRefreshAt } = makeDecision(
       state,

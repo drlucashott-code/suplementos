@@ -10,13 +10,15 @@ export type BaseSchedulerDecisionReason =
   | "bootstrap_price_changed"
   | "change_rate_high"
   | "change_rate_medium"
-  | "change_rate_low";
+  | "change_rate_low"
+  | "business_priority_supplements";
 
 export type BaseSchedulerState = {
   firstBaseObservationAt: Date | null;
   validBaseObservationCount: number;
   sawPriceChangeDuringBootstrap: boolean;
   changeRate30d: number | null;
+  categoryGroup?: string | null;
 };
 
 export type BaseRefreshScheduleDecision = {
@@ -76,65 +78,72 @@ export function resolveBaseRefreshSchedule(
   const bootstrapComplete = isBootstrapComplete(state, now, config);
   const { bootstrap, changeRate, intervals } = config.base;
 
+  let decision: BaseRefreshScheduleDecision;
   if (!bootstrapComplete) {
     if (state.sawPriceChangeDuringBootstrap) {
-      return createDecision({
+      decision = createDecision({
         intervalMinutes: intervals.dailyMinutes,
         reason: "bootstrap_price_changed",
         state,
         bootstrapComplete,
       });
-    }
-
-    if (state.validBaseObservationCount >= bootstrap.requiredValidObservations) {
-      return createDecision({
+    } else if (state.validBaseObservationCount >= bootstrap.requiredValidObservations) {
+      decision = createDecision({
         intervalMinutes: intervals.everyThreeDaysMinutes,
         reason: "bootstrap_stable_after_second_threshold",
         state,
         bootstrapComplete,
       });
-    }
-
-    if (state.validBaseObservationCount >= bootstrap.stableAfterValidObservations) {
-      return createDecision({
+    } else if (state.validBaseObservationCount >= bootstrap.stableAfterValidObservations) {
+      decision = createDecision({
         intervalMinutes: intervals.everyTwoDaysMinutes,
         reason: "bootstrap_stable_after_first_threshold",
         state,
         bootstrapComplete,
       });
+    } else {
+      decision = createDecision({
+        intervalMinutes: intervals.dailyMinutes,
+        reason: "bootstrap_collecting_observations",
+        state,
+        bootstrapComplete,
+      });
     }
+  } else {
+    const rate = Math.max(0, Math.min(1, state.changeRate30d ?? 0));
+    if (rate >= changeRate.dailyThreshold) {
+      decision = createDecision({
+        intervalMinutes: intervals.dailyMinutes,
+        reason: "change_rate_high",
+        state,
+        bootstrapComplete,
+      });
+    } else if (rate >= changeRate.everyTwoDaysThreshold) {
+      decision = createDecision({
+        intervalMinutes: intervals.everyTwoDaysMinutes,
+        reason: "change_rate_medium",
+        state,
+        bootstrapComplete,
+      });
+    } else {
+      decision = createDecision({
+        intervalMinutes: intervals.everyThreeDaysMinutes,
+        reason: "change_rate_low",
+        state,
+        bootstrapComplete,
+      });
+    }
+  }
 
-    return createDecision({
+  if (
+    state.categoryGroup?.trim().toLowerCase() === "suplementos" &&
+    decision.intervalMinutes > intervals.dailyMinutes
+  ) {
+    return {
+      ...decision,
       intervalMinutes: intervals.dailyMinutes,
-      reason: "bootstrap_collecting_observations",
-      state,
-      bootstrapComplete,
-    });
+      reason: "business_priority_supplements",
+    };
   }
-
-  const rate = Math.max(0, Math.min(1, state.changeRate30d ?? 0));
-  if (rate >= changeRate.dailyThreshold) {
-    return createDecision({
-      intervalMinutes: intervals.dailyMinutes,
-      reason: "change_rate_high",
-      state,
-      bootstrapComplete,
-    });
-  }
-
-  if (rate >= changeRate.everyTwoDaysThreshold) {
-    return createDecision({
-      intervalMinutes: intervals.everyTwoDaysMinutes,
-      reason: "change_rate_medium",
-      state,
-      bootstrapComplete,
-    });
-  }
-
-  return createDecision({
-    intervalMinutes: intervals.everyThreeDaysMinutes,
-    reason: "change_rate_low",
-    state,
-    bootstrapComplete,
-  });
+  return decision;
 }
