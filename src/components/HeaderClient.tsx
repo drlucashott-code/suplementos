@@ -107,38 +107,26 @@ export default function HeaderClient({
   return (
     <header className="sticky top-0 z-50 w-full bg-[#131921] px-3 py-3 shadow-md md:px-4">
       <div className="mx-auto max-w-[1500px]">
-        <div className="flex shrink-0 cursor-pointer items-center" onClick={() => router.push("/")}>
-          <h1 className="text-[24px] font-bold tracking-tight text-white">
-            amazon<span className="text-[#febd69]">picks</span>
-          </h1>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex shrink-0 cursor-pointer items-center" onClick={() => router.push("/")}>
+            <h1 className="text-[24px] font-bold tracking-tight text-white">
+              amazon<span className="text-[#febd69]">picks</span>
+            </h1>
+          </div>
+          {showSearchScope ? (
+            <div className="inline-flex shrink-0 rounded-md bg-[#232F3E] p-0.5 text-[12px] font-semibold">
+              <button type="button" onClick={() => setSearchScope("offers")} aria-pressed={searchScope === "offers"} className={`rounded px-2.5 py-1 transition ${searchScope === "offers" ? "bg-white text-[#0F1111]" : "text-white/80 hover:text-white"}`}>
+                Top Ofertas
+              </button>
+              <button type="button" onClick={() => setSearchScope("comparator")} aria-pressed={searchScope === "comparator"} className={`rounded px-2.5 py-1 transition ${searchScope === "comparator" ? "bg-white text-[#0F1111]" : "text-white/80 hover:text-white"}`}>
+                Comparador
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-3 flex items-center gap-2">
           <div className="relative min-w-0 flex-1" ref={wrapperRef}>
-            {showSearchScope ? (
-              <div className="mb-2 inline-flex rounded-md bg-[#232F3E] p-0.5 text-[12px] font-semibold">
-                <button
-                  type="button"
-                  onClick={() => setSearchScope("offers")}
-                  aria-pressed={searchScope === "offers"}
-                  className={`rounded px-2.5 py-1 transition ${
-                    searchScope === "offers" ? "bg-white text-[#0F1111]" : "text-white/80 hover:text-white"
-                  }`}
-                >
-                  Top Ofertas
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSearchScope("comparator")}
-                  aria-pressed={searchScope === "comparator"}
-                  className={`rounded px-2.5 py-1 transition ${
-                    searchScope === "comparator" ? "bg-white text-[#0F1111]" : "text-white/80 hover:text-white"
-                  }`}
-                >
-                  Comparador
-                </button>
-              </div>
-            ) : null}
             <form onSubmit={handleSearch} className="flex w-full items-center">
               <input
                 type="text"
