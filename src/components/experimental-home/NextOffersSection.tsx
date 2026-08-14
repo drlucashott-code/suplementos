@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { queueNextOfferImpression } from "@/lib/next-offers/analytics";
 import { notifyNextOfferClick } from "@/lib/next-offers/click-alert";
+import { StarRating } from "@/components/product/StarRating";
 import {
   isNextOffersFeedResponse,
   type NextOfferProduct,
@@ -279,12 +280,10 @@ function NextOfferCard({
           <h2 className="mt-2 line-clamp-3 text-[13px] font-medium leading-[1.35] text-[#0F1111] group-hover:text-[#C7511F] sm:text-[14px]">
             {product.title}
           </h2>
-          {product.ratingAverage !== null ? (
+          {product.ratingAverage !== null && product.ratingAverage > 0 ? (
             <p className="mt-2 flex flex-wrap items-center gap-1 text-[11px] text-[#565959] sm:text-xs">
               <span>{product.ratingAverage.toFixed(1)}</span>
-              <span className="tracking-[-0.08em] text-[#DE7921]" aria-hidden="true">
-                ★★★★★
-              </span>
+              <StarRating rating={product.ratingAverage} size={12} />
               {product.reviewCount !== null ? (
                 <span>({formatCompactNumber(product.reviewCount)})</span>
               ) : null}
