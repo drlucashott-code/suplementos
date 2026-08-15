@@ -38,6 +38,12 @@ export function NextOffersSection({
             ),
         )
       : catalog.products;
+  const orderedCarouselProducts = [...carouselProducts].sort(
+    (left, right) =>
+      right.discountPercent - left.discountPercent ||
+      right.savingsAmount - left.savingsAmount ||
+      left.asin.localeCompare(right.asin),
+  );
   const rootCategories = catalog.categories
     .filter((category) => category.parentSlug === null)
     .sort((left, right) => left.name.localeCompare(right.name, "pt-BR"));
@@ -145,7 +151,7 @@ export function NextOffersSection({
             } [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
             aria-busy={loading}
           >
-          {carouselProducts.slice(0, visibleProductCount).map((product, index) => (
+          {orderedCarouselProducts.slice(0, visibleProductCount).map((product, index) => (
             <div
               key={product.id}
               className="w-[calc((100%-0.75rem)/2)] shrink-0 snap-start border border-[#D5D9D9] bg-white sm:w-[220px] lg:w-[232px]"
