@@ -35,7 +35,7 @@ export function AmazonHeader({
 
   const urlQuery = searchParams.get("q") || "";
   const [query, setQuery] = useState(urlQuery);
-  const [searchScope, setSearchScope] = useState<SearchScope>("offers");
+  const [searchScope, setSearchScope] = useState<SearchScope>("comparator");
   const [suggestions, setSuggestions] = useState<CategorySuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -188,16 +188,7 @@ export function AmazonHeader({
             onClick={(event) => {
               if (pathname === "/") {
                 event.preventDefault();
-                window.scrollTo({ top: 0 });
-                router.refresh();
-                const header = event.currentTarget.closest("header");
-                const content = (header?.nextElementSibling ??
-                  header?.parentElement?.nextElementSibling) as HTMLElement | null;
-                if (content) {
-                  content.style.animation = "none";
-                  void content.offsetWidth;
-                  content.style.animation = "refresh-flash 0.5s ease";
-                }
+                window.location.assign("/");
               }
             }}
             className="flex flex-shrink-0 select-none items-baseline rounded px-1 text-[24px] font-bold leading-none tracking-tight"
@@ -217,6 +208,16 @@ export function AmazonHeader({
                 <div className="flex shrink-0 items-center gap-0.5 bg-[#EAeded] p-1 text-[12px] font-semibold text-[#0F1111]">
                   <button
                     type="button"
+                    onClick={() => setSearchScope("comparator")}
+                    aria-pressed={searchScope === "comparator"}
+                    className={`rounded px-2 py-1 transition ${
+                      searchScope === "comparator" ? "bg-white shadow-sm" : "text-[#565959] hover:text-[#0F1111]"
+                    }`}
+                  >
+                    Comparar
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setSearchScope("offers")}
                     aria-pressed={searchScope === "offers"}
                     className={`rounded px-2 py-1 transition ${
@@ -224,16 +225,6 @@ export function AmazonHeader({
                     }`}
                   >
                     Top Ofertas
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSearchScope("comparator")}
-                    aria-pressed={searchScope === "comparator"}
-                    className={`rounded px-2 py-1 transition ${
-                      searchScope === "comparator" ? "bg-white shadow-sm" : "text-[#565959] hover:text-[#0F1111]"
-                    }`}
-                  >
-                    Comparador
                   </button>
                 </div>
               ) : null}

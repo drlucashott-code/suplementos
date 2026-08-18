@@ -32,7 +32,7 @@ export default function HeaderClient({
   showSearchScope = false,
 }: HeaderClientProps) {
   const [query, setQuery] = useState("");
-  const [searchScope, setSearchScope] = useState<SearchScope>("offers");
+  const [searchScope, setSearchScope] = useState<SearchScope>("comparator");
   const [suggestions, setSuggestions] = useState<CategorySuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const router = useRouter();
@@ -108,18 +108,35 @@ export default function HeaderClient({
     <header className="sticky top-0 z-50 w-full bg-[#131921] px-3 py-3 shadow-md md:px-4">
       <div className="mx-auto max-w-[1500px]">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex shrink-0 cursor-pointer items-center" onClick={() => router.push("/")}>
+          <div
+            className="flex shrink-0 cursor-pointer items-center"
+            onClick={() => window.location.assign("/")}
+          >
             <h1 className="text-[24px] font-bold tracking-tight text-white">
               amazon<span className="text-[#febd69]">picks</span>
             </h1>
           </div>
           {showSearchScope ? (
             <div className="inline-flex shrink-0 rounded-md bg-[#232F3E] p-0.5 text-[12px] font-semibold">
-              <button type="button" onClick={() => setSearchScope("offers")} aria-pressed={searchScope === "offers"} className={`rounded px-2.5 py-1 transition ${searchScope === "offers" ? "bg-white text-[#0F1111]" : "text-white/80 hover:text-white"}`}>
-                Top Ofertas
-              </button>
-              <button type="button" onClick={() => setSearchScope("comparator")} aria-pressed={searchScope === "comparator"} className={`rounded px-2.5 py-1 transition ${searchScope === "comparator" ? "bg-white text-[#0F1111]" : "text-white/80 hover:text-white"}`}>
+              <button
+                type="button"
+                onClick={() => setSearchScope("comparator")}
+                aria-pressed={searchScope === "comparator"}
+                className={`rounded px-2.5 py-1 transition ${
+                  searchScope === "comparator" ? "bg-white text-[#0F1111]" : "text-white/80 hover:text-white"
+                }`}
+              >
                 Comparador
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchScope("offers")}
+                aria-pressed={searchScope === "offers"}
+                className={`rounded px-2.5 py-1 transition ${
+                  searchScope === "offers" ? "bg-white text-[#0F1111]" : "text-white/80 hover:text-white"
+                }`}
+              >
+                Top Ofertas
               </button>
             </div>
           ) : null}
