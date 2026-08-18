@@ -60,6 +60,7 @@ export function ExperimentalHome({
 
   return (
     <div className="min-h-screen bg-white font-sans text-[#0F1111]">
+      <CategoryExplorer categories={categories} />
       {offersFeed ? (
         <NextOffersSection initialFeed={offersFeed} />
       ) : (
@@ -81,7 +82,6 @@ export function ExperimentalHome({
           ) : null}
         </section>
       )}
-      <CategoryExplorer categories={categories} />
       <CommunityLists publicLists={publicLists} />
       <ExperimentalMobileFooter />
     </div>
